@@ -1,0 +1,138 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>True</UseWindowsForms>
+    <PlatformTarget>x64</PlatformTarget>
+    <BaseOutputPath>bin\</BaseOutputPath>
+    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
+    <Version>$(VersionPrefix)</Version>
+    <AssemblyVersion>1.6.4</AssemblyVersion>
+    <ApplicationIcon>Iconsmall.ico</ApplicationIcon>
+    <SourceRevisionId>build$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</SourceRevisionId>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>1701;1702;NU1701</NoWarn>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <NoWarn>1701;1702;NU1701</NoWarn>
+    <Optimize>False</Optimize>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="GlobalSuppressions.cs" />
+    <Compile Remove="ImgUtils.cs" />
+    <Compile Remove="MainWindowPythonModules.cs" />
+    <Compile Remove="Modules\Module2DSim.cs" />
+    <Compile Remove="Modules\Module2DSimDlg.xaml.cs" />
+    <Compile Remove="Modules\Module2DVision.cs" />
+    <Compile Remove="Modules\ModuleAttentionManager.cs" />
+    <Compile Remove="Modules\ModuleFrequencyConfidence2.cs" />
+    <Compile Remove="Modules\ModuleMove.cs" />
+    <Compile Remove="Modules\ModuleObject.cs" />
+    <Compile Remove="Modules\ModulePodArmExtension.cs" />
+    <Compile Remove="Modules\ModulePremise.cs" />
+    <Compile Remove="Modules\ModulePremiseDlg.xaml.cs" />
+    <Compile Remove="Modules\ModuleQueryResolution.cs" />
+    <Compile Remove="Modules\ModuleTurn.cs" />
+    <Compile Remove="Modules\ModuleUKSSearch.cs" />
+    <Compile Remove="Modules\PhysicalObject.cs" />
+    <Compile Remove="Modules\UnknownArea.cs" />
+    <Compile Remove="Modules\WaveMemoryStream.cs" />
+    <Compile Remove="Sallie.cs" />
+    <Compile Remove="Tools\Module.cs" />
+    <Compile Remove="Tools\ModuleDlg.xaml.cs" />
+    <Compile Remove="XmlFile.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="refresh-3104.png" />
+    <None Remove="Resources\BrainSimBackground.jpg" />
+    <None Remove="Resources\Icons\NewFile_16x.png" />
+    <None Remove="Resources\Icons\OpenFile_16x.png" />
+    <None Remove="Resources\Icons\Refresh_16x.png" />
+    <None Remove="Resources\Icons\SaveAs_16x.png" />
+    <None Remove="Resources\Icons\Save_16x.png" />
+    <None Remove="Resources\Recording %285%29.m4a" />
+    <None Remove="Resources\refresh-3104.png" />
+    <None Remove="Resources\ryanHexOutput_4.bin" />
+    <None Remove="Resources\ryanHexOutput_5.bin" />
+    <None Remove="Resources\ryanHexOutput_6.bin" />
+    <None Remove="Resources\ryanHexOutput_7.bin" />
+    <None Remove="Resources\ryanHexOutput_8.bin" />
+    <None Remove="SplashScreen3.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Remove="Modules\Module2DSimDlg.xaml" />
+    <Page Remove="Modules\ModuleObjectDlg.xaml" />
+    <Page Remove="Modules\ModulePremiseDlg.xaml" />
+    <Page Remove="Tools\ModuleDlg.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Iconsmall.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\BrainSimBackground.jpg" />
+    <Resource Include="Resources\Icons\NewFile_16x.png" />
+    <Resource Include="Resources\Icons\OpenFile_16x.png" />
+    <Resource Include="Resources\Icons\Refresh_16x.png" />
+    <Resource Include="Resources\Icons\SaveAs_16x.png" />
+    <Resource Include="Resources\Icons\Save_16x.png" />
+    <Resource Include="Resources\Icons\refresh-3104.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AutomaticGraphLayout.GraphViewerGDI" Version="1.1.12" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Pluralize.NET" Version="1.0.2" />
+    <PackageReference Include="pythonnet" Version="3.0.5" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\UKS\UKS.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="ModuleDescriptions.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\PythonProj\utils.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\PythonProj\module*.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Modules\Vision\**" />
+    <EmbeddedResource Remove="Modules\Vision\**" />
+    <None Remove="Modules\Vision\**" />
+    <Page Remove="Modules\Vision\**" />
+  </ItemGroup>
+
+</Project>

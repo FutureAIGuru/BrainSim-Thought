@@ -1,0 +1,1278 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfSThought xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <sThought>
+    <label>is-a</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>0</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>0</source>
+        <target>53</target>
+        <linkType>43</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>0</source>
+        <target>57</target>
+        <linkType>43</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>hasAttribute</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>1</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>BrainSim</label>
+    <links />
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>AvailableModule</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>3</source>
+        <target>2</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ActiveModule</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>4</source>
+        <target>2</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleUKS</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>5</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleUKS0</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>6</source>
+        <target>5</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>6</source>
+        <target>4</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>6</source>
+        <target>27</target>
+        <linkType>1</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>6</source>
+        <target>28</target>
+        <linkType>1</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>6</source>
+        <target>29</target>
+        <linkType>1</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleUKSStatement</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>7</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleUKSStatement0</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>8</source>
+        <target>7</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>8</source>
+        <target>4</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>8</source>
+        <target>30</target>
+        <linkType>1</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>8</source>
+        <target>31</target>
+        <linkType>1</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleAddCounts</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>9</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleAttributeBubble</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>10</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleBalanceTree</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>11</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleClassCreate</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>12</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleEmpty</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>13</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleGPTInfo</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>14</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleMine</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>15</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleOnlineInfo</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>16</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleRemoveRedundancy</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>17</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleShowGraph</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>18</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleSound</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>19</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleStressTest</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>20</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleText</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>21</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleTextFile</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>22</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleUKSClause</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>23</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleUKSQuery</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>24</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ModuleWord</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>25</source>
+        <target>3</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>DlgAttrib</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>26</source>
+        <target>2</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>Open</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>27</source>
+        <target>26</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+    <V xsi:type="xsd:string">True</V>
+  </sThought>
+  <sThought>
+    <label>DlgWindow</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>28</source>
+        <target>26</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+    <V xsi:type="xsd:string">800x450+250+250</V>
+  </sThought>
+  <sThought>
+    <label>Root</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>29</source>
+        <target>26</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+    <V xsi:type="xsd:string">Unknown</V>
+  </sThought>
+  <sThought>
+    <label>Open0</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>30</source>
+        <target>26</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+    <V xsi:type="xsd:string">True</V>
+  </sThought>
+  <sThought>
+    <label>DlgWindow0</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>31</source>
+        <target>26</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+    <V xsi:type="xsd:string">530x300+1176+245</V>
+  </sThought>
+  <sThought>
+    <label>Open1</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>32</source>
+        <target>26</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+    <V xsi:type="xsd:string"></V>
+  </sThought>
+  <sThought>
+    <label>DlgWindow1</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>33</source>
+        <target>26</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+    <V xsi:type="xsd:string">800x450+1111+561</V>
+  </sThought>
+  <sThought>
+    <label>Root0</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>34</source>
+        <target>26</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+    <V xsi:type="xsd:string">BrainSim</V>
+  </sThought>
+  <sThought>
+    <label>Thought</label>
+    <links />
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>has-child</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>36</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>36</source>
+        <target>0</target>
+        <linkType>42</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>LinkType</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>37</source>
+        <target>35</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>Object</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>38</source>
+        <target>35</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>Action</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>39</source>
+        <target>35</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>Link</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>40</source>
+        <target>35</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>Unknown</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>41</source>
+        <target>35</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>inverseOf</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>42</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>hasProperty</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>43</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>is</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>44</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>can</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>45</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>mostRecent</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>46</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>contains</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>47</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>47</source>
+        <target>48</target>
+        <linkType>42</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>is-part-of</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>48</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>has</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>49</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>49</source>
+        <target>53</target>
+        <linkType>43</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>49</source>
+        <target>57</target>
+        <linkType>43</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>not</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>50</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+      <sThought>
+        <label />
+        <links />
+        <source>50</source>
+        <target>60</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>Property</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>51</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>isExclusive</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>52</source>
+        <target>51</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>isTransitive</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>53</source>
+        <target>51</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>isInstance</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>54</source>
+        <target>51</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>isCommutative</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>55</source>
+        <target>51</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>allowMultiple</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>56</source>
+        <target>51</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>inheritable</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>57</source>
+        <target>51</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>isCondition</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>58</source>
+        <target>51</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>isResult</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>59</source>
+        <target>51</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>ClauseType</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>60</source>
+        <target>37</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>IF</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>61</source>
+        <target>60</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>BECAUSE</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>62</source>
+        <target>60</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>AFTER</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>63</source>
+        <target>60</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>NXT</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>64</source>
+        <target>60</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>VLU</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>65</source>
+        <target>60</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>AND</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>66</source>
+        <target>60</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>OR</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>67</source>
+        <target>60</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+  <sThought>
+    <label>FRST</label>
+    <links>
+      <sThought>
+        <label />
+        <links />
+        <source>68</source>
+        <target>60</target>
+        <linkType>0</linkType>
+        <weight>1</weight>
+      </sThought>
+    </links>
+    <source>-1</source>
+    <target>-1</target>
+    <linkType>-1</linkType>
+    <weight>0</weight>
+  </sThought>
+</ArrayOfSThought>
