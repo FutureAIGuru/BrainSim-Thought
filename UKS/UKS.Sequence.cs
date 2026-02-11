@@ -133,7 +133,9 @@ public partial class UKS
             Thought newNode = new Thought() { Label = prevElementIn.Label + "*" };  //the label will auto-increment.
             newNode.AddLink(first, "FRST");
             newNode.AddLink(first.LinksTo.FindFirst(x => x.LinkType.Label == "VLU").To, "VLU");
-            newNode.AddLink(first.LinksTo.FindFirst(x => x.LinkType.Label == "NXT")?.To, "NXT");
+            Thought? existingNXT = first.LinksTo.FindFirst(x => x.LinkType.Label == "NXT")?.To;
+            if (existingNXT is not null)
+                newNode.AddLink(existingNXT, "NXT");
             first.RemoveLinks("VLU");
             first.RemoveLinks("NXT");
             first.AddLink(value, "VLU");
