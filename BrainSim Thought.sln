@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31912.275
+# Visual Studio Version 18
+VisualStudioVersion = 18.2.11415.280 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BrainSimulator", "BrainSimulator\BrainSimulator.csproj", "{C08F318A-B8E6-4187-9ED4-0A126B3B63A9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BrainSim Thought", "BrainSimulator\BrainSim Thought.csproj", "{C08F318A-B8E6-4187-9ED4-0A126B3B63A9}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{1C458A63-D394-4406-9465-01FA35263D9E}"
 EndProject

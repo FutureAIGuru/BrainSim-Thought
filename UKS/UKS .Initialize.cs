@@ -156,8 +156,8 @@ public partial class UKS
 
 	void AddBrainSimConfigSectionIfNeeded()
 	{
-		if (Labeled("BrainSim") is not null) return;
-		AddThought("BrainSim", null);
+		if (Labeled("BrainSim") is null) 
+			AddThought("BrainSim", null);
 		GetOrAddThought("AvailableModule", "BrainSim");
 		GetOrAddThought("ActiveModule", "BrainSim");
 	}

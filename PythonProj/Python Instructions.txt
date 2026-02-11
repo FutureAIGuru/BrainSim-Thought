@@ -1,5 +1,6 @@
 ﻿This document explains how to run Python modules within the BrainSimulator project. The explanation is for Windows. Hopefuly 
-it will be easy to adapt to other platforms. The UKS.dll is platform independent. The UI of the brain simulator is Windows ONLY because the UI library (WPF) is windows only. The BrainSimMAC uses only python modules and should run on Windows, LINUX and MAC.
+it will be easy to adapt to other platforms. The UKS.dll is platform independent. The UI of the Brain Simulator Thought is Windows ONLY 
+because the UI library (WPF) is windows only. The BrainSimMAC uses only python modules and should run on Windows, LINUX and MAC.
 
 
 Steps to Install Python modules under windows

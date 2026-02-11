@@ -48,8 +48,10 @@ if (args.Length > 0)
 }
 else
 {
+    moduleHandler.theUKS.CreateInitialStructure();
     var pythonFiles = moduleHandler.GetListOfExistingPythonModuleTypes();
     Thought availableModuleRoot = moduleHandler.theUKS.Labeled("AvailableModule");
+
     foreach (var moduleName in pythonFiles)
         moduleHandler.theUKS.AddThought(moduleName, availableModuleRoot);
 }

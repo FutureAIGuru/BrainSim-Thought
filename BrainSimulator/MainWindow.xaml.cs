@@ -301,7 +301,7 @@ namespace BrainSimulator
 
         private void SetTitleBar()
         {
-            Title = "Brain Simulator III " + System.IO.Path.GetFileNameWithoutExtension(currentFileName);
+            Title = "Brain Simulator Thought " + System.IO.Path.GetFileNameWithoutExtension(currentFileName);
         }
 
         public static void SuspendEngine()

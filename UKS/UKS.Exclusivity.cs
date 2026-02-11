@@ -12,12 +12,11 @@
  */
 namespace UKS;
 
-using Pluralize.NET;
-using System.Runtime.CompilerServices;
-
 
 /// <summary>
 /// Contains a collection of Thoughts linked by Links to implement Common Sense and general knowledge.
+/// This file has methods related to determining if two links are mutually exclusive, and other related methods.
+/// TODO: the entire process can be simplified an made more accurate.
 /// </summary>
 public partial class UKS
 {
