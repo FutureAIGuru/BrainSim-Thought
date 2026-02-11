@@ -20,6 +20,15 @@ The project is supported by the non‑profit **Future AI Society**, which hosts 
 
 ---
 
+## Project Status
+
+The initial upload of this project is in progress. Documentation for installation, execution, and development may be functional
+Open Items: Testing, Documentation.
+
+The project is open‑source and distributed under the **MIT License**.
+
+---
+
 ## What Makes Brain Simulator Thought Different
 
 Brain Simulator Thought leapfrogs conventional AI approaches by addressing a core limitation: **the inability to represent and manipulate meaning at the level required for common sense**.
@@ -142,14 +151,6 @@ This process ensures that ThoughtFields grow in capability without uncontrolled 
 The **Universal Knowledge Store** is the underlying data structure that supports ThoughtFields. In Brain Simulator Thought, the UKS has evolved from a simple node‑and‑edge store into a substrate optimized for atomic Thoughts, expressive Links, inheritance with exceptions, and dynamic cognitive construction.
 
 Rather than storing facts, the UKS enables **meaning to emerge** from interaction. The UKS is a .dll which easily incorporates into projects on manny languages and platforms.
-
----
-
-## Project Status
-
-Documentation for installation, execution, and development is in progress.
-
-The project is open‑source and distributed under the **MIT License**.
 
 ---
 
