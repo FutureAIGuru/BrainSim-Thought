@@ -184,7 +184,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
 
                 float conf = .9f;
                 if (relParams.Length > 2) float.TryParse(relParams[2], out conf);
-                Thought r1 = queryThought.AddLink(relTarget, linkType);
+                Thought r1 = queryThought.AddLink(linkType, relTarget);
                 r1.Weight = conf;
             }
         }
@@ -289,7 +289,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         bool bubbleNeeded = false;
         foreach (var r in missingAttributes)
         {
-            var r1 = topResult.AddLink(r.To, r.LinkType);
+            var r1 = topResult.AddLink(r.LinkType, r.To);
             r1.Weight = r.Weight;
             bubbleNeeded = true;
         }
@@ -342,7 +342,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         foreach (var key in attributes)
         {
             if (key.links.Count < 2 || key.links.Count < parent.Children.Count) continue;
-            parent.AddLink(key.target, key.linkType).Weight = .9f;
+            parent.AddLink(key.linkType, key.target).Weight = .9f;
         }
         foreach (var child in parent.Children)
         {
@@ -369,7 +369,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             }
             if (linkIsCommonToAllParents)
             {
-                queryThought.RemoveLink(r.To, r.LinkType);
+                queryThought.RemoveLink1(r.LinkType, r.To);
                 i--;
                 //Thread.Sleep(1000);
             }
@@ -397,7 +397,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         Thought mostRecent = UKSQuery.theUKS.GetOrAddThought("mostRecent", "LinkType");
         //delete any previous mostRecent links
         mostRecent.RemoveLinks("is");
-        mostRecent.AddLink(t, "is");
+        mostRecent.AddLink("is", t);
     }
 
     private void BtnNo_Click(object sender, RoutedEventArgs e)
@@ -494,7 +494,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             {
                 if (newParent is null)
                     newParent = UKSQuery.theUKS.GetOrAddThought("newParent", tExisting.Parents[0]);
-                newParent.AddLink(key.target, key.linkType);
+                newParent.AddLink(key.linkType, key.target);
                 foreach (Link r in key.links)
                 {
                     Thought tChild = (Thought)r.From;

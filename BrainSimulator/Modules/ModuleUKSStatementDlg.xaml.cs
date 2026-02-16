@@ -160,7 +160,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             {
                 Thought t1 = UKSStatement.theUKS.CreateFirstElement(subject, r1);
                 subject.RemoveLinks("events");
-                subject.AddLink(t1, "events");
+                subject.AddLink("events", t1);
             }
             else
             {

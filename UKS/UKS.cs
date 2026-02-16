@@ -242,7 +242,7 @@ public partial class UKS
                 Thought attrib = Labeled(attribs[i]);
                 if (attrib is null)
                     attrib = AddThought(attribs[i], "Unknown");
-                instanceThought.AddLink(attrib, "is");
+                instanceThought.AddLink("is", attrib);
             }
             return instanceThought;
         }

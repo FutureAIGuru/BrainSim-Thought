@@ -111,8 +111,8 @@ public class ModuleUKSStatement : ModuleBase
 
         if (tLinkType.Label == "IF")  //this is a HACK which must be fixed later
         {
-            tSource.AddLink("isResult", "hasProperty");
-            tTarget.AddLink("isCondition", "hasProperty");
+            tSource.AddLink("hasProperty","isResult");
+            tTarget.AddLink("hasProperty", "isCondition");
         }
         return r;
     }

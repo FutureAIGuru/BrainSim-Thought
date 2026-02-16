@@ -46,7 +46,7 @@ public class ModuleSound : ModuleBase
                 var tunesFound = theUKS.HasSequence(tuneToSearch, null);
                 if (tunesFound.Count > 0)
                 {
-                    var phrase = tunesFound[0].r.LinksFrom[0];
+                    var phrase = tunesFound[0].seqNode.LinksFrom[0];
                     phrase.From.Fire();
                 }
             }

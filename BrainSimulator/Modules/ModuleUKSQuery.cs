@@ -123,13 +123,16 @@ Follow has ONLY if called out in type
             foreach (Thought t in sourceList)
                 targets.Add(t);
             var results1 = theUKS.HasSequence(targets, null);
+            var retVal = new List<(Thought t, float c)>();
+            foreach (var match in results1)
+                retVal.Add(new (theUKS.GetElementValue(match.seqNode),match.confidence));
             Thought tDict = theUKS.Labeled("location");
             if (tDict is not null)
             {
                 SeqElement seq = (SeqElement)tDict.LinksTo.Where(x => x.LinkType.Label == "spelled").ToList()[0].To;
                 var testing = theUKS.FlattenSequence(seq);
             }
-            return results1;
+            return retVal;
         }
 
         links = theUKS.GetAllLinks(sourceList);

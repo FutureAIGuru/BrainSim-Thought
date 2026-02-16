@@ -229,22 +229,22 @@ public partial class UKS
         Thought hasChild = Labeled("has-child");
         if (hasChild is not null)
         {
-            hasChild.AddLink("is-a", "inverseOf");
-            hasChild.RemoveLink("isTransitive", "hasProperty");
-            hasChild.RemoveLink("inheritable", "hasProperty");
+            hasChild.AddLink("inverseOf", "is-a");
+            hasChild.RemoveLink1("hasProperty", "isTransitive");
+            hasChild.RemoveLink1("hasProperty", "inheritable");
         }
         Thought isA = Labeled("is-a");
         if (isA is not null)
         {
-            isA.AddLink("inheritable", "hasProperty");
-            isA.AddLink("isTransitive", "hasProperty");
-            isA.RemoveLink("has-child", "inverseOf");
-            isA.RemoveLink(null, "hasProperty");
+            isA.AddLink("hasProperty", "inheritable");
+            isA.AddLink("hasProperty", "isTransitive");
+            isA.RemoveLink1("inverseOf","has-child");
+            isA.RemoveLink1("hasProperty",null);
         }
         Thought has = Labeled("has");
         if (has is not null)
         {
-            has.AddLink("inheritable", "hasProperty");
+            has.AddLink("hasProperty","inheritable");
         }
         return true;
     }

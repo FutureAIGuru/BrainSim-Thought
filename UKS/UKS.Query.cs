@@ -179,7 +179,7 @@ public partial class UKS
                         Weight = r.Weight * thoughtsToExamine[i].weight
                     };
                     foreach (Link r3 in r.LinksTo.Where(x => x.LinkType?.Label != "is-a"))
-                        r1.AddLink(r3.To, r3.LinkType);
+                        r1.AddLink(r3.LinkType, r3.To);
                     result.Add(r1);
                 }
             }

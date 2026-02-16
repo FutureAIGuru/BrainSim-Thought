@@ -66,8 +66,7 @@ public class SeqElement : Thought
     {
         string retVal = "";
         var valuList = theUKS.FlattenSequence(this);
-        retVal = "^" + string.Join("", valuList);
-        return retVal;
+        retVal = "^" + string.Join(" ", valuList);
         return retVal;
     }
 }
@@ -333,14 +332,14 @@ public class Thought
     /// <summary>
     /// Adds a link to this thought if it does not already exist.
     /// </summary>
-    /// <param name="target">Target thought.</param>
     /// <param name="linkType">Relationship type thought.</param>
+    /// <param name="to">Target thought.</param>
     /// <returns>The new or existing link.</returns>
-    public Link AddLink(Thought target, Thought linkType)
+    public Link AddLink(Thought linkType,Thought to)
     {
         if (linkType is null) return null;
 
-        Link existing = HasLink(target, linkType);
+        Link existing = HasLink(linkType,to);
         if (existing is not null)
             return existing;
 
@@ -348,15 +347,15 @@ public class Thought
         {
             LinkType = linkType,
             From = this,
-            To = target,
+            To = to,
         };
-        if (target is not null && linkType is not null)
+        if (to is not null && linkType is not null)
         {
             lock (_linksTo)
-                lock (target._linksFrom)
+                lock (to._linksFrom)
                 {
                     LinksToWriteable.Add(r);
-                    target.LinksFromWriteable.Add(r);
+                    to.LinksFromWriteable.Add(r);
                 }
         }
         else
@@ -366,6 +365,18 @@ public class Thought
                 LinksToWriteable.Add(r);
             }
         }
+        return r;
+    }
+
+    /// <summary>
+    /// Removes a link of the given type to the given target.
+    /// </summary>
+    /// <param name="linkType">Link type.</param>
+    /// <param name="to">Target thought.</param>
+    public Link RemoveLink1(Thought linkType, Thought to)
+    {
+        Link r = new() { From = this, LinkType = linkType, To = to };
+        RemoveLink(r);
         return r;
     }
 
@@ -385,17 +396,6 @@ public class Thought
             }
         }
     }
-
-    private Link HasLink(Thought target, Thought linkType)
-    {
-        foreach (Link r in _linksTo)
-        {
-            if (r.From == this && r.To == target && r.LinkType == linkType)
-                return r;
-        }
-        return null;
-    }
-
     /// <summary>
     /// Removes a specific link instance.
     /// </summary>
@@ -443,29 +443,26 @@ public class Thought
         }
     }
 
+    private Link HasLink(Thought linkType,Thought to)
+    {
+        foreach (Link r in _linksTo)
+        {
+            if (r.From == this && r.To == to && r.LinkType == linkType)
+                return r;
+        }
+        return null;
+    }
     /// <summary>
     /// Finds a link matching the optional source/type/target criteria.
     /// </summary>
-    public Link HasLink(Thought source, Thought linkType, Thought targett)
+    public Link HasLink(Thought from, Thought linkType, Thought to)
     {
-        if (source is null && linkType is null && targett is null) return null;
+        if (from is null && linkType is null && to is null) return null;
         foreach (Link r in LinksTo)
-            if ((source is null || r.From == source) &&
+            if ((from is null || r.From == from) &&
                 (linkType is null || r.LinkType == linkType) &&
-                (targett is null || r.To == targett)) return r;
+                (to is null || r.To == to)) return r;
         return null;
-    }
-
-    /// <summary>
-    /// Removes a link of the given type to the given target.
-    /// </summary>
-    /// <param name="t2">Target thought.</param>
-    /// <param name="linkType">Link type.</param>
-    public Link RemoveLink(Thought t2, Thought linkType)
-    {
-        Link r = new() { From = this, LinkType = linkType, To = t2 };
-        RemoveLink(r);
-        return r;
     }
 
     /// <summary>
@@ -476,7 +473,7 @@ public class Thought
     {
         if (newParent is null) return null;
         if (!Parents.Contains(newParent))
-            return AddLink(newParent, "is-a");
+            return AddLink("is-a", newParent);
         return LinksTo.FindFirst(x => x.To == newParent && x.LinkType == IsA);
     }
 

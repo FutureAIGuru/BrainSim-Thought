@@ -226,7 +226,7 @@ abstract public class ModuleBase
         Thought dlgAttribParent = theUKS.GetOrAddThought("DlgAttrib", "BrainSim");
         Thought dlgInfo = theUKS.AddThought(attribName, dlgAttribParent);
         Thought hasAttribute = theUKS.GetOrAddThought("hasAttribute", "LinkType");
-        thisDlg.AddLink(dlgInfo,hasAttribute);
+        thisDlg.AddLink(hasAttribute, dlgInfo);
         dlgInfo.V = attribValue;
         dlgInfo.Fire();
     }

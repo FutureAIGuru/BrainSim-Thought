@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using UKS;
+using System.Linq;
 
 namespace BrainSimulator.Modules;
 
@@ -35,19 +36,9 @@ public class ModuleWord : ModuleBase
 
     public override void SetUpAfterLoad()
     {
-        base.SetUpAfterLoad();
     }
 
-    public override void ShowDialog()
-    {
-        if (dlg == null)
-        {
-            dlg = new ModuleWordDlg();
-            dlg.Owner = MainWindow.theWindow;
-        }
-        base.ShowDialog();
-    }
-
+    
     public string GetWordSuggestion(string word)
     {
         List<Thought> letters = new List<Thought>();
@@ -60,7 +51,11 @@ public class ModuleWord : ModuleBase
         string retVal = word;
         var suggestions = theUKS.HasSequence(letters,"spelled",true,true);
         if (suggestions.Count > 0)
-            retVal = ((Link)suggestions[0].r).From?.Label;
+        {
+            var suggestionList = theUKS.FlattenSequence(suggestions[0].seqNode);
+            string suggestionString = string.Join("", suggestionList.Select(x => x.Label));
+            retVal = suggestionString;
+        }
         return retVal;
     }
 

@@ -183,14 +183,14 @@ public class ModuleAttributeBubble : ModuleBase
                     else
                     {
                         //bubble the property
-                        r = t.AddLink(rr.target, rr.linkType);
+                        r = t.AddLink(rr.linkType, rr.target);
                         r.Weight = newWeight;
                         r.Fire();
                         debugString += $"Added  {r.ToString()}   {r.Weight.ToString(".0")} \n";
 
                         foreach (Thought t1 in t.Children)
                         {
-                            Thought rrr = t1.RemoveLink(rr.target, rr.linkType);
+                            Thought rrr = t1.RemoveLink1(rr.linkType,rr.target);
                             debugString += $"Removed {rrr.ToString()} \n";
                         }
                         //if there is a conflicting link, delete it

@@ -101,7 +101,7 @@ public class ModuleClassCreate : ModuleBase
             if (key.links.Count >= minCommonAttributes)
             {
                 Thought newParent = theUKS.GetOrAddThought(t.Label + "." + key.linkType + "." + key.target, t);
-                newParent.AddLink(key.target, key.linkType);
+                newParent.AddLink(key.linkType, key.target);
                 debugString += "Created new subclass " + newParent;
                 foreach (Link r in key.links)
                 {

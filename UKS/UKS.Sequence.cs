@@ -123,9 +123,9 @@ public partial class UKS
                 NXT = first.NXT,
             };
             Thought origValue = GetElementValue(first);
-            newNode.AddLink(origValue, "VLU");
-            first.RemoveLink(origValue, "VLU");
-            first.AddLink(value, "VLU");
+            newNode.AddLink("VLU", origValue);
+            first.RemoveLink1("VLU", origValue);
+            first.AddLink("VLU", value);
             first.NXT = newNode;
         }
         else
@@ -144,7 +144,7 @@ public partial class UKS
             FRST = prevElement.FRST,
             NXT = prevElement.NXT,
         };  //the label will auto-increment.
-        newNode.AddLink(value, "VLU");
+        newNode.AddLink("VLU", value);
         prevElement.NXT = newNode;
         return newNode;
     }
@@ -157,7 +157,7 @@ public partial class UKS
         {
             Label = source.Label.ToLower() + "-seq0",
         };
-        firstNode.AddLink(value, "VLU");
+        firstNode.AddLink("VLU", value);
         firstNode.FRST = firstNode; //points to itself as the first element
         return firstNode;
     }
@@ -222,12 +222,12 @@ public partial class UKS
         }
 
         // does sequence one already exist?
-        var existingSequences = RawSearch(resolvedTargets);
+        var existingSequences = RawSearchExact(resolvedTargets);
         foreach (var t in existingSequences)
         {
             if (IsSequenceFirstElement(t.seqNode) && IsSequenceLastElement(t.curPos.Current))
             {
-                source.AddLink(t.seqNode, linkType);
+                source.AddLink(linkType, t.seqNode);
                 return t.seqNode;
             }
         }
@@ -243,7 +243,7 @@ public partial class UKS
                 var matches = HasSequence(slice, linkType);
                 foreach (var match in matches)
                 {
-                    SeqElement seqStartNode = GetFirstElement((SeqElement)match.r);
+                    SeqElement seqStartNode = GetFirstElement((SeqElement)match.seqNode);
                     if (seqStartNode is null || !IsSequenceElement(seqStartNode)) continue;
                     if (match.confidence < 1.0f) continue;
                     if (GetSequenceLength(seqStartNode) != len) continue; // exact-length match
@@ -269,7 +269,7 @@ public partial class UKS
 
         //Finally, create the sequence and link to it
         SeqElement rawSequence = CreateRawSequence(resolvedTargets, source.Label);
-        source.AddLink(rawSequence, linkType);
+        source.AddLink(linkType, rawSequence);
         return rawSequence;
     }
 
@@ -284,8 +284,8 @@ public partial class UKS
     /// <param name="circularSearch">Reserved for circular search (not implemented).</param>
     /// <param name="allowOutOfOrder">Reserved for out-of-order search (not implemented).</param>
     /// <returns>List of candidate links with confidence values.</returns>
-    public List<(Thought r, float confidence)> HasSequence(List<Thought> targets, Thought linkType,
-        bool mustMatchFirst = false, bool mustMatchLast = false, bool circularSearch = false, bool allowOutOfOrder = false)
+    public List<(SeqElement seqNode, float confidence)> HasSequence(List<Thought> targets, Thought linkType,
+        bool skipPlusEntries = false, bool mustMatchFirst = false, bool mustMatchLast = false, bool circularSearch = false, bool allowOutOfOrder = false)
     {
         //this function searches the UKS for sequences matching the specified pattern in targets. 
 
@@ -312,7 +312,7 @@ public partial class UKS
         // a perfect match will have a Final Next link back to the source Thought and the source thought will have a link of linkType to the first element in the sequence
         // return the list of source thoughts and their confidence values
 
-        List<(Thought r, float confidence)> retVal = new();
+        List<(SeqElement seqNode, float confidence)> retVal = new();
 
         // Handle edge cases
         if (targets is null || targets.Count == 0) return retVal;
@@ -322,7 +322,7 @@ public partial class UKS
         // These are potential starting points for matching sequences
 
         // When this returns, seqNode is the first matching node.  curPos.Current is the last
-        List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = RawSearch(targets);
+        List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = RawSearchExact(targets,skipPlusEntries);
         if (searchCandidates.Count == 0) return retVal;
 
         if (mustMatchFirst)
@@ -403,7 +403,7 @@ public partial class UKS
 
         // Sort by confidence descending and remove duplicates
         retVal = retVal
-            .GroupBy(x => x.r)
+            .GroupBy(x => x.seqNode)
             .Select(g => g.OrderByDescending(x => x.confidence).First())
             .OrderByDescending(x => x.confidence)
             .ToList();
@@ -411,12 +411,11 @@ public partial class UKS
         return retVal;
     }
 
-    // searches for a sequence given a list of targets
-    private List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> RawSearch(List<Thought> targets)
+    //searches for a sequence given a list of targets
+    private List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> RawSearchExact(List<Thought> targets, bool skipPlusEntries = false)
     {
         List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = new();
         if (targets is null || targets.Count < 2) return searchCandidates;
-
         //Step 1: initialize enuerators for each candidate sequence
         var candidateNodes = targets[0].LinksFrom
             .Where(r => r.LinkType?.Label == "VLU")
@@ -424,7 +423,7 @@ public partial class UKS
             .ToList();
         foreach (var candidate in candidateNodes)
         {
-            var enumerator = EnumerateSequenceElements((SeqElement)candidate.seqNode).GetEnumerator();
+            var enumerator = EnumerateSequenceElements((SeqElement)candidate.seqNode, skipPlusEntries).GetEnumerator();
             searchCandidates.Add(new((SeqElement)candidate.seqNode, enumerator, 1));
             searchCandidates.Last().curPos.MoveNext();
         }
@@ -439,22 +438,21 @@ public partial class UKS
             {
                 SeqElement? nextThought = null;
                 Thought theValue = null;
-                do //skip over "+" placeholders
+                //have we reached the end of the current subsequence?
+                if (!searchCandidates[j].curPos.MoveNext())
                 {
-                    //have we reached the end of the current subsequence?
-                    if (!searchCandidates[j].curPos.MoveNext())
+                    var referrers = GetAllFollowingNodes(searchCandidates[j].seqNode);
+                    foreach (var referrer in referrers)
                     {
-                        var referrers = GetAllFollowingNodes(searchCandidates[j].seqNode);
-                        foreach (var referrer in referrers)
-                        {
-                            var x = searchCandidates.FindFirst(x => x.seqNode == referrer);
-                            if (x.seqNode is null)
-                                searchCandidates.Add(new(referrer, EnumerateSequenceElements(referrer).GetEnumerator(), searchCandidates[j].matchCount));
-                        }
-                        break;
+                        var x = searchCandidates.FindFirst(x => x.seqNode == referrer);
+                        if (x.seqNode is null)
+                            searchCandidates.Add(new(referrer, EnumerateSequenceElements(referrer,skipPlusEntries).GetEnumerator(), searchCandidates[j].matchCount));
                     }
-                    nextThought = searchCandidates[j].curPos.Current;
-                } while (GetElementValue(nextThought).Label == "+");
+                    searchCandidates.RemoveAt(j);
+                    j--;
+                    break;
+                }
+                nextThought = searchCandidates[j].curPos.Current;
                 // Check if the next thought matches the current target
                 if (GetElementValue(nextThought) != currentTarget)
                 {
@@ -469,8 +467,39 @@ public partial class UKS
                 }
             }
         }
-
         return searchCandidates;
+
+        //DIFFERENT APPROACH:
+
+        /*        var candidates = targets[0].LinksFrom
+                    .Where(r => r.LinkType?.Label == "VLU")
+                    .Select(x => x.From)
+                    .ToList();
+                for (int i = 0; i < candidates.Count; i++)
+                {
+                    SeqElement candidate = (SeqElement) candidates[i];
+                    var enumerator = EnumerateSequenceElements((SeqElement)candidate).GetEnumerator();
+                    for (int j = 0; j < targets.Count; j++)
+                    {
+                        if (enumerator.MoveNext())
+                        {
+                            if (GetElementValue(enumerator.Current) != targets[j])
+                            {
+                                candidates.RemoveAt(i);
+                                i--;
+                                goto MisMatch;
+                            }
+                        }
+                        else //we hit the end of the stored sequence before we ran out of targets
+                        {
+                            var referrers = GetAllFollowingNodes(enumerator.Current);
+                            goto MisMatch;
+                        }
+                    }
+                    searchCandidates.Add((candidate,enumerator.Current,targets.Count));
+                MisMatch: continue;
+                }
+        */
     }
 
     private List<SeqElement> GetAllFollowingNodes(SeqElement node)
@@ -485,8 +514,7 @@ public partial class UKS
             if (nextLocation is not null)
                 retVal.Add(nextLocation);
             else
-                retVal.AddRange(GetAllFollowingNodes((SeqElement
-                    )referrer.From));
+                retVal.AddRange(GetAllFollowingNodes((SeqElement)referrer.From));
         }
         return retVal;
     }
@@ -494,13 +522,13 @@ public partial class UKS
     /// <summary>
     /// Flatten a sequence into a list of leaf Thoughts (letters). Handles nested sequences via VLU.
     /// </summary>
-    public List<Thought> FlattenSequence(SeqElement sequenceStart)
+    public List<Thought> FlattenSequence(SeqElement sequenceStart, bool skipPlusValues = false)
     {
         if (sequenceStart.Label.StartsWith("abstr"))
         { }
         //experimentating with an enumartor for sequences
         List<Thought> result = new();
-        var e = EnumerateSequenceElements(sequenceStart).GetEnumerator();
+        var e = EnumerateSequenceElements(sequenceStart, skipPlusValues).GetEnumerator();
         while (e.MoveNext())
             result.Add(GetElementValue(e.Current));
         //foreach (Thought t in EnumerateSequenceElements(sequenceStart))
@@ -514,8 +542,9 @@ public partial class UKS
     /// </summary>
     /// <param name="sequenceStart">The first node of the sequence.</param>
     /// <param name="visitedSequences">Optional stack to track visited sequences across recursion.</param>
+    /// <param name="skipPlusValues">When true, elements whose VLU label is "+" are skipped.</param>
     /// <returns>Leaf sequence elements in order.</returns>
-    public IEnumerable<SeqElement> EnumerateSequenceElements(SeqElement sequenceStart, Stack<SeqElement> visitedSequences = null)
+    public IEnumerable<SeqElement> EnumerateSequenceElements(SeqElement sequenceStart, bool skipPlusValues = false, Stack<SeqElement> visitedSequences = null)
     {
         if (sequenceStart is null) yield break;
 
@@ -528,18 +557,18 @@ public partial class UKS
         while (current is not null)
         {
             // Get the VLU Linkto find what this sequence node points to
-            var valueRel = GetElementValue(current);
+            Thought valueRel = GetElementValue(current);
 
             if (valueRel is SeqElement s)
             {
                 // Recursively enumerate the subsequence, passing the shared visitedSequences set
-                foreach (var subElement in EnumerateSequenceElements(s, visitedSequences))
+                foreach (var subElement in EnumerateSequenceElements(s, skipPlusValues, visitedSequences))
                     yield return subElement;
             }
             else
             {
-                // It's a leaf element, return it
-                yield return current;
+                // It's a leaf element, return it unless we're skipping over it
+                if (!skipPlusValues || valueRel?.Label != "+") yield return current;
             }
 
             // Move to next node via NXT Link

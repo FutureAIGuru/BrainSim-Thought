@@ -132,7 +132,8 @@ public partial class UKS
         {
             Thought t = AllThoughts[i];
             if (IsSequenceElement(t))
-                t.RemoveLink("Unknown", "is-a");
+                t.RemoveLink1("is-a","Unknown");
+
         }
     }
 
