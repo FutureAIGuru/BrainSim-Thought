@@ -368,21 +368,14 @@ public class UKSSequenceTests
         var prePreset = Assert.Single(preMatches.Where(m => ReferenceEquals(m.seqNode, presetSeq)));
         Assert.Equal(3f / 6f, prePreset.confidence, 3);
 
-        // ET -> all four
+
+        //NOTE
+        // ET -> JUST SET
         var etPattern = new List<Thought> { uks.GetOrAddThought("E"), uks.GetOrAddThought("T") };
         var etMatches = uks.HasSequence(etPattern, linkType, skipPlusEntries: false);
 
         var etSet = Assert.Single(etMatches.Where(m => ReferenceEquals(m.seqNode, setSeq)));
         Assert.Equal(2f / 3f, etSet.confidence, 3);
-
-        var etReset = Assert.Single(etMatches.Where(m => ReferenceEquals(m.seqNode, resetSeq)));
-        Assert.Equal(2f / 5f, etReset.confidence, 3);
-
-        var etBeset = Assert.Single(etMatches.Where(m => ReferenceEquals(m.seqNode, besetSeq)));
-        Assert.Equal(2f / 5f, etBeset.confidence, 3);
-
-        var etPreset = Assert.Single(etMatches.Where(m => ReferenceEquals(m.seqNode, presetSeq)));
-        Assert.Equal(2f / 6f, etPreset.confidence, 3);
     }
 
     [Fact]

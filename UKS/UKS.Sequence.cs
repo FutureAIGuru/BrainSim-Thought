@@ -166,6 +166,10 @@ public partial class UKS
         //make sure there's only one reference to this sequence
         if (!IsSequenceFirstElement(s)) return;
         if (s.LinksFrom.Count(x => x.LinkType.Label != "FRST") > 1) return;
+        //delete it from the cache
+        var sequenceContent = FlattenSequence(s);
+        SequenceCache.Remove(sequenceContent);
+
         //follow the chain and delete the elements.
         SeqElement current = s;
         SeqElement next = GetNextElement(current);
@@ -193,6 +197,30 @@ public partial class UKS
             prevElement = newElement;
         }
         return firstElement;
+    }
+
+    //the sequence cache
+    //private readonly Dictionary<string,Thought> SequenceCache = new();
+    Dictionary<IReadOnlyList<Thought>, Thought> SequenceCache = new (new ThoughtListComparer());
+    // Reference-only comparer for a list of Thought
+    sealed class ThoughtListComparer : IEqualityComparer<IReadOnlyList<Thought>>
+    {
+        public bool Equals(IReadOnlyList<Thought> sequenceContent, IReadOnlyList<Thought> y)
+        {
+            if (ReferenceEquals(sequenceContent, y)) return true;
+            if (sequenceContent is null || y is null || sequenceContent.Count != y.Count) return false;
+            for (int i = 0; i < sequenceContent.Count; i++)
+                if (!ReferenceEquals(sequenceContent[i], y[i])) return false;
+            return true;
+        }
+
+        public int GetHashCode(IReadOnlyList<Thought> list)
+        {
+            if (list is null) return 0;
+            var hc = new HashCode();
+            foreach (var t in list) hc.Add(t); // reference-based hash
+            return hc.ToHashCode();
+        }
     }
 
     /// <summary>
@@ -239,16 +267,9 @@ public partial class UKS
             int remaining = targets.Count - startIndex;
             for (int len = remaining; len >= 2; len--)
             {
-                List<Thought> slice = targets.GetRange(startIndex, len);
-                var matches = HasSequence(slice, linkType);
-                foreach (var match in matches)
-                {
-                    SeqElement seqStartNode = GetFirstElement((SeqElement)match.seqNode);
-                    if (seqStartNode is null || !IsSequenceElement(seqStartNode)) continue;
-                    if (match.confidence < 1.0f) continue;
-                    if (GetSequenceLength(seqStartNode) != len) continue; // exact-length match
-                    return (seqStartNode, len);
-                }
+                var testSequence = targets.GetRange(startIndex,len);
+                if (SequenceCache.TryGetValue(testSequence, out Thought existing) && existing is not null)
+                    return (existing, len);
             }
             return (null, 0);
         }
@@ -270,6 +291,8 @@ public partial class UKS
         //Finally, create the sequence and link to it
         SeqElement rawSequence = CreateRawSequence(resolvedTargets, source.Label);
         source.AddLink(linkType, rawSequence);
+        var newSequence = FlattenSequence(rawSequence);
+        SequenceCache[newSequence] = rawSequence;
         return rawSequence;
     }
 
@@ -322,7 +345,7 @@ public partial class UKS
         // These are potential starting points for matching sequences
 
         // When this returns, seqNode is the first matching node.  curPos.Current is the last
-        List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = RawSearchExact(targets,skipPlusEntries);
+        List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = RawSearchExact(targets, skipPlusEntries);
         if (searchCandidates.Count == 0) return retVal;
 
         if (mustMatchFirst)
@@ -446,7 +469,7 @@ public partial class UKS
                     {
                         var x = searchCandidates.FindFirst(x => x.seqNode == referrer);
                         if (x.seqNode is null)
-                            searchCandidates.Add(new(referrer, EnumerateSequenceElements(referrer,skipPlusEntries).GetEnumerator(), searchCandidates[j].matchCount));
+                            searchCandidates.Add(new(referrer, EnumerateSequenceElements(referrer, skipPlusEntries).GetEnumerator(), searchCandidates[j].matchCount));
                     }
                     searchCandidates.RemoveAt(j);
                     j--;
@@ -468,38 +491,6 @@ public partial class UKS
             }
         }
         return searchCandidates;
-
-        //DIFFERENT APPROACH:
-
-        /*        var candidates = targets[0].LinksFrom
-                    .Where(r => r.LinkType?.Label == "VLU")
-                    .Select(x => x.From)
-                    .ToList();
-                for (int i = 0; i < candidates.Count; i++)
-                {
-                    SeqElement candidate = (SeqElement) candidates[i];
-                    var enumerator = EnumerateSequenceElements((SeqElement)candidate).GetEnumerator();
-                    for (int j = 0; j < targets.Count; j++)
-                    {
-                        if (enumerator.MoveNext())
-                        {
-                            if (GetElementValue(enumerator.Current) != targets[j])
-                            {
-                                candidates.RemoveAt(i);
-                                i--;
-                                goto MisMatch;
-                            }
-                        }
-                        else //we hit the end of the stored sequence before we ran out of targets
-                        {
-                            var referrers = GetAllFollowingNodes(enumerator.Current);
-                            goto MisMatch;
-                        }
-                    }
-                    searchCandidates.Add((candidate,enumerator.Current,targets.Count));
-                MisMatch: continue;
-                }
-        */
     }
 
     private List<SeqElement> GetAllFollowingNodes(SeqElement node)
