@@ -14,4 +14,8 @@
     <PackageReference Include="Pluralize.NET" Version="1.0.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tests" />
+  </ItemGroup>
+
 </Project>

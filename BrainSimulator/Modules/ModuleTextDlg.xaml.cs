@@ -71,7 +71,7 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         }
     }
 
-    private void btnLoad_Click(object sender, RoutedEventArgs e)
+    private async void btnLoad_Click(object sender, RoutedEventArgs e)
     {
         string filePath = txtFilePath.Text?.Trim();
 
@@ -90,11 +90,16 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         var module = ParentModule as ModuleText;
         if (module != null)
         {
-            SetStatus("Loading words...");
-
-            int count = module.LoadTextFromFile(filePath);
-
-            SetStatus($"Successfully loaded {count} word(s) from file.");
+            SetStatus("Loading phrases...");
+            try
+            {
+                int count = await Task.Run(() => module.LoadTextFromFile(filePath));
+                SetStatus($"Successfully loaded {count} phases(s) from file.");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Error loading file: {ex.Message}");
+            }
         }
         else
         {

@@ -18,6 +18,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using UKS;
 
 namespace BrainSimulator.Modules;
@@ -49,8 +50,8 @@ public class ModuleText : ModuleBase
 
     public static string AddPhrase(string phrase)
     {
-
         var theUKS = MainWindow.theUKS;
+        theUKS.GetOrAddThought("Word","Thought");
         char[] trimChars = { '.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}' };
 
         int attempted = 0;
@@ -64,8 +65,10 @@ public class ModuleText : ModuleBase
                 if (string.IsNullOrEmpty(clean)) continue;
 
                 attempted++;
-                var wordThought = ModuleWord.AddWordSpelling(clean);
-                wordsInPhrase.Add(wordThought);
+                //var wordThought = ModuleWord.AddWordSpelling(clean);
+                //wordsInPhrase.Add(wordThought);
+                theUKS.GetOrAddThought(clean, "word");
+                wordsInPhrase.Add(clean);
                 ingested++;
             }
 
@@ -127,6 +130,8 @@ public class ModuleText : ModuleBase
 
     public static string AddText(string text)
     {
+        var theUKS = MainWindow.theUKS;
+        theUKS.GetOrAddThought("Word","Thought");
         if (string.IsNullOrWhiteSpace(text)) return "Null input";
 
         string[] sentences = Regex.Split(text, @"(?<=[\.!\?])\s+");
@@ -177,7 +182,7 @@ public class ModuleText : ModuleBase
     // Incremental file-load state
     private StreamReader _phraseReader;
     private string _phraseReaderPath;
-    public int LoadTextFromFile(string filePath, int phrasesPerCall = 200)
+    public async  Task<int> LoadTextFromFile(string filePath, int phrasesPerCall = 500)
     {
         if (phrasesPerCall <= 0) phrasesPerCall = 1;
         if (!File.Exists(filePath))
@@ -276,9 +281,9 @@ public class ModuleText : ModuleBase
             if (a == null || b == null) continue;
 
             // Find B --followedBy--> C (second bigram)
-            foreach (Thought l in b.LinksTo.Where(x => x.LinkType.Label == "followedBy"))
+            foreach (Link l in b.LinksTo.Where(x => x.LinkType.Label == "followedBy"))
             {
-                Thought c = lnk.To;
+                Thought c = l.To;
                 if (c == null) continue;
 
                 // Optional: ensure A,B,C occurs somewhere in actual ingested sequences

@@ -14,8 +14,7 @@ namespace UKS;
 
 
 /// <summary>
-/// Contains a collection of Thoughts linked by Links to implement Common Sense and general knowledge.
-/// This file has methods related to determining if two links are mutually exclusive, and other related methods.
+/// This file contains the methods needed to determine if links are in conflict with one another
 /// TODO: the entire process can be simplified an made more accurate.
 /// </summary>
 public partial class UKS
@@ -30,6 +29,11 @@ public partial class UKS
         if (t2.AncestorsWithSelf.Contains(t1)) return true;
         return false;
     }
+
+#if DEBUG
+    // Test hook: exposes the private exclusivity check to the test assembly (IVT is set in UKS.csproj).
+    internal bool LinksAreExclusive_ForTests(Link r1, Link r2) => LinksAreExclusive(r1, r2);
+#endif
 
 
     //TODO: This method has gotten out of hand and needs a rewrite
