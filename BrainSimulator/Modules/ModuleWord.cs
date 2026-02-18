@@ -45,7 +45,7 @@ public class ModuleWord : ModuleBase
         foreach (char c in word.ToUpper())
         {
             string letterLabel = c.ToString();
-            Thought letter = theUKS.GetOrAddThought(letterLabel, "letter");
+            Thought letter = theUKS.GetOrAddThought("c:"+letterLabel, "symbol");
             letters.Add(letter);
         }
         string retVal = word;
@@ -65,18 +65,20 @@ public class ModuleWord : ModuleBase
         if (string.IsNullOrWhiteSpace(word)) return null;
 
         word = word.Trim();
-        theUKS.GetOrAddThought("Word", "Thought");
-        theUKS.GetOrAddThought("letter", "Object");
+        theUKS.GetOrAddThought("EnglishWord", "Thought");
+        theUKS.GetOrAddThought("symbol", "Object");
 
         // Get or create the word thought
-        Thought wordThought = theUKS.GetOrAddThought(word, "Word");
+        Thought wordThought = theUKS.GetOrAddThought("w:" + word, "EnglishWord");
+        if (wordThought.LinksTo.FindFirst(x=>x.LinkType.Label == "spelled") is not null)
+            return wordThought; // Spelling already exists, no need to add again
 
-        // Create list of letter cognemes
+        // Create list of letter thoughts
         List<Thought> letters = new List<Thought>();
         foreach (char c in word.ToUpper())
         {
             string letterLabel = c.ToString();
-            Thought letter = theUKS.GetOrAddThought(letterLabel, "letter");
+            Thought letter = theUKS.GetOrAddThought("c:"+letterLabel, "symbol");
             letters.Add(letter);
         }
 
@@ -84,7 +86,7 @@ public class ModuleWord : ModuleBase
         Thought spelledLinkType = theUKS.GetOrAddThought("spelled", "LinkType");
 
         // Add the sequence
-        theUKS.AddSequence(wordThought, spelledLinkType, letters);
+        var t = theUKS.AddSequence(wordThought, spelledLinkType, letters);
 
         return wordThought;
     }

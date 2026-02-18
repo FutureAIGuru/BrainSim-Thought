@@ -135,9 +135,10 @@ public class ModuleUKSStatement : ModuleBase
         source = source.Trim();
         string[] tempStringArray = source.Split(' ');
         //first, build a list of all the Thoughts in the list
-        for (int i = 0; i < tempStringArray.Length; i++)
+        for ( int i = 0; i < tempStringArray.Length; i++)
         {
             if (tempStringArray[i] == "") continue;
+            if (tempStringArray[i].Length == 1) tempStringArray[i] = "c:"+tempStringArray[i];
             if (!char.IsUpper(tempStringArray[i][0]) && tempStringArray[i].Length > 2)
                 tempStringArray[i] = pluralizer.Singularize(tempStringArray[i]);
             Thought t = ThoughtLabels.GetThought(tempStringArray[i]);

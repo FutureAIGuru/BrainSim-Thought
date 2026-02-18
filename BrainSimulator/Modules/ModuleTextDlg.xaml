@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BrainSimulator.Modules"
         mc:Ignorable="d"
-        Title="Text Import" Height="260" Width="560" Background="Gray" ShowInTaskbar="False" >
+        Title="Text Import" Height="300" Width="550" Background="Gray" ShowInTaskbar="False" >
 
     <Grid>
         <TextBox x:Name="tbPhrase" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" PreviewKeyDown="tbPhrase_PreviewKeyDown"

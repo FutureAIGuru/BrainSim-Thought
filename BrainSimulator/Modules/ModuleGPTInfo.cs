@@ -359,7 +359,7 @@ is-part-of-speech, ";
             string[] parents = GPTOutput.Split('|');
             // First we make the label a word.
             String englishWord = "." + textIn;
-            theUKS.AddStatement(englishWord, "is-a", "Word");
+            theUKS.AddStatement(englishWord, "is-a", "EnglishWord");
             // Count to capture the amount of values being calculated.
             int count = 0;
             // Then we run through each individual parent.
@@ -647,7 +647,7 @@ is-part-of-speech, ";
             UKS.UKS theUKS = MainWindow.theUKS;
             List<Thought> thoughtsToRemove = new List<Thought>();
             // Get all the children of Word and remove duplicates.
-            foreach (Thought word in theUKS.GetOrAddThought("Word").Children)
+            foreach (Thought word in theUKS.GetOrAddThought("EnglishWord").Children)
             {
                 // Find unique parents to remove duplicates
                 List<Thought> uniqueParents = new List<Thought>();

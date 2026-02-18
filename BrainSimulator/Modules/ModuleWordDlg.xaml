@@ -5,7 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="clr-namespace:BrainSimulator.Modules"
              mc:Ignorable="d"
-             Title="Add word spelling" Height="300" Width="530" Background="Gray" ShowInTaskbar="False"  >
+             Title="Add word spelling" Height="300" Width="550" Background="Gray" ShowInTaskbar="False"  >
 
 
     <Grid >
@@ -15,7 +15,7 @@
 
         <!-- Single Word Input -->
         <Label Content="Word:" VerticalAlignment="Top" Width="60" Margin="22,71,448,0"/>
-        <TextBox x:Name="txtWord" Width="250" Margin="81,71,0,0" VerticalAlignment="Top" Height="24"
+        <TextBox x:Name="txtWord" Width="250" Margin="81,71,0,0" VerticalAlignment="Top" Height="24" FontSize="18"
                      PreviewKeyDown="txtWord_PreviewKeyDown" TextChanged="txtWord_TextChanged" HorizontalAlignment="Left"/>
         <Button x:Name="btnAdd" Content="Add" Click="btnAdd_Click"  Width="75" Height="25"
                     Margin="346,71,0,0" VerticalAlignment="Top" HorizontalAlignment="Left"/>
@@ -24,7 +24,7 @@
         <Label Content="Load from File" FontWeight="Bold" Margin="0,124,425,129"/>
 
         <Label Content="File:" VerticalAlignment="Top" Width="60" Margin="16,167,454,0"/>
-        <TextBox x:Name="txtFilePath" Height="24    " Margin="81,169,0,0" IsReadOnly="True" 
+        <TextBox x:Name="txtFilePath" Height="24    " Margin="81,169,0,0" IsReadOnly="True" FontSize="18"
                      VerticalAlignment="Top" Background="#F0F0F0" HorizontalAlignment="Left" Width="250"/>
         <Button x:Name="btnBrowse" Content="Browse..." Click="btnBrowse_Click" Width="75" Height="25"
                     Margin="346,169,0,0" VerticalAlignment="Top" HorizontalAlignment="Left"/>

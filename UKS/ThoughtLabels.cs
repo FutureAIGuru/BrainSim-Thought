@@ -14,6 +14,8 @@
 
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Data;
+using System.Numerics;
 
 namespace UKS;
 
@@ -31,12 +33,22 @@ public class ThoughtLabels
         { }  //breakpoint?
         return retVal;
     }
+    public static int GetLabelCount()
+    {
+        return labelList.Count;
+    }
+    public static int GetLinksCount()
+    {
+        int total = 0;
+        foreach (Thought t in labelList.Values)
+            total += t.LinksTo.Count;
+        return total;
+    }
     public static string RemoveTrailingDigits(string s)
     {
         int i = s.Length;
         while (i > 0 && char.IsDigit(s[i - 1]))
             i--;
-
         return s[..i];
     }
 

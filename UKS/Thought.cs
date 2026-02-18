@@ -335,11 +335,11 @@ public class Thought
     /// <param name="linkType">Relationship type thought.</param>
     /// <param name="to">Target thought.</param>
     /// <returns>The new or existing link.</returns>
-    public Link AddLink(Thought linkType,Thought to)
+    public Link AddLink(Thought linkType, Thought to)
     {
         if (linkType is null) return null;
 
-        Link existing = HasLink(linkType,to);
+        Link existing = HasLink(linkType, to);
         if (existing is not null)
             return existing;
 
@@ -443,7 +443,7 @@ public class Thought
         }
     }
 
-    private Link HasLink(Thought linkType,Thought to)
+    private Link HasLink(Thought linkType, Thought to)
     {
         foreach (Link r in _linksTo)
         {
@@ -560,18 +560,18 @@ public class Thought
                 yield return lnk;
                 EnqueueIfNew(lnk.LinkType);
                 EnqueueIfNew(lnk.To);
-                foreach (var isaLink in lnk.LinksFrom.Where(x => x.LinkType?.Label == "is-a"))
-                {
-                    EnqueueIfNew(isaLink);
-                    EnqueueIfNew(isaLink.From);
-                }
-                foreach (var link in lnk.LinksTo.Where(x => x.LinkType?.Label != "is-a"))
-                {
-                    EnqueueIfNew(link);
-                    EnqueueIfNew(link.To);
-                }
-                EnqueueIfNew(lnk.LinkType);
-                EnqueueIfNew(lnk.To);
+            }
+
+            //TODO add follow sequences
+            foreach (var isaLink in t.LinksFrom.Where(x => x.LinkType?.Label == "is-a"))
+            {
+                EnqueueIfNew(isaLink);
+                EnqueueIfNew(isaLink.From);
+            }
+            foreach (var link in t.LinksTo.Where(x => x.LinkType?.Label != "is-a"))
+            {
+                EnqueueIfNew(link);
+                EnqueueIfNew(link.To);
             }
         }
     }

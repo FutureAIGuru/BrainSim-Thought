@@ -12,9 +12,12 @@
  */
 
 
+using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using UKS;
+using static UKS.UKS;
 
 namespace BrainSimulator.Modules;
 
@@ -69,6 +72,7 @@ Follow has ONLY if called out in type
 
      */
 
+    //this is called from the GetAttribs tab
     public List<(Thought r, float confidence)> QueryUKS(string sourceIn, string linkTypeIn, string targetIn,
             string filter, out List<Thought> thoughtResult, out List<Link> links)
     {
@@ -122,10 +126,23 @@ Follow has ONLY if called out in type
             List<Thought> targets = new();
             foreach (Thought t in sourceList)
                 targets.Add(t);
-            var results1 = theUKS.HasSequence(targets, null);
+            List<(SeqElement seqNode, float confidence)> results1;
             var retVal = new List<(Thought t, float c)>();
-            foreach (var match in results1)
-                retVal.Add(new (theUKS.GetElementValue(match.seqNode),match.confidence));
+            if (targets.All(t => t?.Label.StartsWith("c:") == true))
+            {
+                results1 = theUKS.RawAnchoredFuzzyMatch(targets);
+                foreach (var match in results1)
+                {
+                    string seqString = string.Join("", theUKS.FlattenSequence(match.seqNode).Select(x => x.Label));
+                    retVal.Add(new(match.seqNode, match.confidence));
+                }
+            }
+            else
+            {
+                results1 = theUKS.HasSequence(targets, null);
+                foreach (var match in results1)
+                    retVal.Add(new(theUKS.GetElementValue(match.seqNode), match.confidence));
+            }
             Thought tDict = theUKS.Labeled("location");
             if (tDict is not null)
             {

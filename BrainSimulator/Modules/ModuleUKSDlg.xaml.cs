@@ -200,7 +200,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         Thought child = t;
         string header = "";
-        if (t is Link r)
+        if (t is SeqElement s1)
+        { }
+        else if (t is Link r)
         {
             //format a link-like line in the treeview
             header = r.ToString();
@@ -293,6 +295,10 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 expandedItems.Add(parentLabel);
 
             tvi.Items.Clear(); // delete empty child
+            if (t is Link l && l.From is SeqElement s)
+            {
+                t = theUKS.GetElementValue(s.NXT);
+            }
             if (t.Children.Count > 0)
                 AddChildren(t, tvi, depth, parentLabel);
             if (t.LinksTo.Count > 0)
@@ -565,7 +571,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             //you might get this exception if there is a collision
             return;
         }
-        statusLabel.Content = theUKS.AllThoughts.Count + " Thoughts  " + (childCount + refCount) + " Links.";
+        statusLabel.Content = ThoughtLabels.GetLabelCount() + " Thoughts  " + ThoughtLabels.GetLinksCount() + " Links.";
         Title = "The Universal Knowledgs Store (UKS)  --  File: " + Path.GetFileNameWithoutExtension(theUKS.FileName);
     }
 

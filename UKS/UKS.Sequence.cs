@@ -201,7 +201,7 @@ public partial class UKS
 
     //the sequence cache
     //private readonly Dictionary<string,Thought> SequenceCache = new();
-    Dictionary<IReadOnlyList<Thought>, Thought> SequenceCache = new (new ThoughtListComparer());
+    Dictionary<IReadOnlyList<Thought>, Thought> SequenceCache = new(new ThoughtListComparer());
     // Reference-only comparer for a list of Thought
     sealed class ThoughtListComparer : IEqualityComparer<IReadOnlyList<Thought>>
     {
@@ -238,22 +238,13 @@ public partial class UKS
         //clear out any existing sequence links of this type
         source.RemoveLinks(linkType);  //TODO delete the sequence
 
-        List<Thought> resolvedTargets = new();
-        //do any of the targets point to thoughts which have sequences of the same LinkType
-        foreach (Thought target in targets)
-        {
-            Thought t1 = target.LinksTo.FindFirst(x => x.LinkType == linkType)?.To;
-            if (!IsSequenceElement(target) && IsSequenceElement(t1))
-                resolvedTargets.Add(t1);
-            else
-                resolvedTargets.Add(target);
-        }
+        List<Thought> resolvedTargets = new(targets);
 
         // does sequence one already exist?
         var existingSequences = RawSearchExact(resolvedTargets);
         foreach (var t in existingSequences)
         {
-            if (IsSequenceFirstElement(t.seqNode) && IsSequenceLastElement(t.curPos.Current))
+            if (IsSequenceFirstElement(t.seqNode) && GetSequenceLength(t.seqNode) == targets.Count)
             {
                 source.AddLink(linkType, t.seqNode);
                 return t.seqNode;
@@ -265,9 +256,9 @@ public partial class UKS
         (Thought seqStart, int length) FindExistingSubsequence(int startIndex)
         {
             int remaining = targets.Count - startIndex;
-            for (int len = remaining; len >= 2; len--)
+            for (int len = remaining; len > 1; len--)
             {
-                var testSequence = targets.GetRange(startIndex,len);
+                var testSequence = targets.GetRange(startIndex, len);
                 if (SequenceCache.TryGetValue(testSequence, out Thought existing) && existing is not null)
                     return (existing, len);
             }
@@ -286,8 +277,6 @@ public partial class UKS
                 continue;
             }
         }
-
-
         //Finally, create the sequence and link to it
         SeqElement rawSequence = CreateRawSequence(resolvedTargets, source.Label);
         source.AddLink(linkType, rawSequence);
@@ -434,7 +423,81 @@ public partial class UKS
         return retVal;
     }
 
-    //searches for a sequence given a list of targets
+    public List<(SeqElement seqNode, float confidence)> RawAnchoredFuzzyMatch(List<Thought> targets)
+    {
+        List<(SeqElement seqNode, float confidence)> matches = new();
+        if (targets is null || targets.Count < 2) return matches;
+
+        //get direct sequences
+        var candidateNodes = targets[0].LinksFrom
+            .Where(r => r.LinkType?.Label == "VLU" && IsSequenceFirstElement(r.From))
+            .Select(r=>r.From)
+            .ToList();
+        //add in sequences which refer to this at the beginning
+        for (int i = 0; i < candidateNodes.Count; i++)
+        {
+            Thought candidate = candidateNodes[i];
+            var referrers = candidate.LinksFrom.Where(x => x.LinkType.Label == "VLU" && IsSequenceFirstElement(x.From));
+            foreach (Link referrer in referrers)
+                candidateNodes.Add(referrer.From);
+        };
+
+        //see which of the candidates qualifies and get the scores
+        foreach (var candidate in candidateNodes)
+        {
+            if (candidate is not SeqElement seqNode) continue;
+
+            var flat = FlattenSequence(seqNode);
+            if (flat.Count < targets.Count - 1 || flat.Count > targets.Count + 1) continue;
+            if (!ReferenceEquals(flat.LastOrDefault(), targets.Last())) continue; // anchor last
+
+            var seqInner = flat.Skip(1).Take(Math.Max(0, flat.Count - 2)).ToList();
+            var targetInner = targets.Skip(1).Take(Math.Max(0, targets.Count - 2)).ToList();
+
+            int missingTargets = targetInner.Count(t => !seqInner.Any(s => ReferenceEquals(s, t)));
+            int extraSeq = seqInner.Count(s => !targetInner.Any(t => ReferenceEquals(t, s)));
+            if (missingTargets > 2 || extraSeq > 2) continue;
+
+            int matchedInternal = targetInner.Count - missingTargets;
+            int targetCountInner = Math.Max(1, targetInner.Count); // avoid div/0
+
+            // Coverage with extra penalty
+            float matchedRatio = (float)matchedInternal / targetCountInner;
+            float extraPenalty = (float)extraSeq / (extraSeq + targetCountInner); // 0..1
+            float coverageScore = matchedRatio * (1f - extraPenalty); // 0..1
+
+            // Order bonus: fraction of in-order pairs among matched elements
+            float orderScore = ComputeOrderPairFraction(flat, targets);
+
+            // Blend: favor coverage slightly, order strongly influences perfect ranking
+            float confidence = 0.6f * coverageScore + 0.4f * orderScore;
+            if (confidence > 0)
+                matches.Add((seqNode, confidence));
+        }
+
+        return matches
+            .OrderByDescending(m => m.confidence)
+            .ToList();
+    }
+
+    private static float ComputeOrderPairFraction(List<Thought> seq, List<Thought> targets)
+    {
+        float count = 0;
+        for (int j = 0; j < seq.Count - 1; j++)
+        {
+            for (int i = 0; i < targets.Count - 1; i++)
+            {
+                if (ReferenceEquals(targets[i], seq[j]) && ReferenceEquals(targets[i + 1], seq[j + 1]))
+                {
+                    count++;
+                    break;
+                }
+            }
+        }
+        //ignoring the possibility that a pair might occur multiple times.
+        float score = count / (Math.Max(seq.Count,targets.Count) - 1);
+        return score;
+    }
     private List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> RawSearchExact(List<Thought> targets, bool skipPlusEntries = false)
     {
         List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = new();
@@ -473,7 +536,7 @@ public partial class UKS
                     }
                     searchCandidates.RemoveAt(j);
                     j--;
-                    break;
+                    continue;
                 }
                 nextThought = searchCandidates[j].curPos.Current;
                 // Check if the next thought matches the current target

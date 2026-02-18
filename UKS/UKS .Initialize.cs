@@ -10,6 +10,8 @@
  *
  * See the LICENSE file in the project root for full license information.
  */
+using System.Xml;
+
 namespace UKS;
 
 public partial class UKS
@@ -129,21 +131,23 @@ public partial class UKS
         AddStatement("hasDigit", "is-a", "has");
 
 
-        //put in digits
-        GetOrAddThought("some", "number");
-        GetOrAddThought("many", "number");
-        GetOrAddThought("none", "number");
-        GetOrAddThought("-", "digit");
-        GetOrAddThought(".", "digit");
-        for (int i = 0; i < 10; i++)
-            GetOrAddThought(i.ToString(), "digit");
-        for (int i = 9; i > 0; i--)
-            AddStatement(i.ToString(), "greaterThan", (i - 1).ToString());
-        AddSequence("digit", "order", new List<Thought> { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" });
+        //put in letters
 
-        //demo to add PI to the structure
-        AddStatement("pi", "is-a", "number");
-        AddSequence("pi", "hasDigit", new List<Thought> { "3", ".", "1", "4", "1", "5", "9" });
+        ////put in digits
+        //GetOrAddThought("some", "number");
+        //GetOrAddThought("many", "number");
+        //GetOrAddThought("none", "number");
+        //GetOrAddThought("-", "digit");
+        //GetOrAddThought(".", "digit");
+        //for (int i = 0; i < 10; i++)
+        //    GetOrAddThought(i.ToString(), "digit");
+        //for (int i = 9; i > 0; i--)
+        //    AddStatement(i.ToString(), "greaterThan", (i - 1).ToString());
+        //AddSequence("digit", "order", new List<Thought> { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" });
+
+        ////demo to add PI to the structure
+        //AddStatement("pi", "is-a", "number");
+        //AddSequence("pi", "hasDigit", new List<Thought> { "3", ".", "1", "4", "1", "5", "9" });
 
 
         AddBrainSimConfigSectionIfNeeded();

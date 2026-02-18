@@ -209,7 +209,7 @@ public partial class UKS
                     result.RemoveAt(j);
                     j--;
                 }
-                if (r1.LinkType?.Label.Contains(".") == true && r2.LinkType?.Label.Contains(".") == true)
+                //if (r1.LinkType?.Label.Contains(".") == true && r2.LinkType?.Label.Contains(".") == true)
                     if (LinksAreExclusive(r1, r2))
                     {
                         //if two links are in conflict, delete the 2nd one (First takes priority)
