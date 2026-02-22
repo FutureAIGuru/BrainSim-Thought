@@ -21,9 +21,9 @@ public class ModuleWordTests
     public void GetWordSuggestion_ReturnsExactMatchWhenSequenceExists()
     {
         var uks = CreateUKS();
-        ModuleWord.AddWordSpelling("CAT");
-
         var module = new ModuleWord { theUKS = uks };
+        module.AddWordSpelling("CAT");
+
 
         string suggestion = module.GetWordSuggestion("cat");
 
@@ -46,7 +46,8 @@ public class ModuleWordTests
     {
         var uks = CreateUKS();
 
-        Thought word = ModuleWord.AddWordSpelling("dog");
+        var module = new ModuleWord { theUKS = uks };
+        Thought word = module.AddWordSpelling("dog");
 
         Assert.NotNull(word);
         var spelledLink = word.LinksTo.FirstOrDefault(l => l.LinkType?.Label == "spelled");
@@ -54,6 +55,6 @@ public class ModuleWordTests
         Assert.IsType<SeqElement>(spelledLink.To);
 
         var flat = uks.FlattenSequence((SeqElement)spelledLink.To);
-        Assert.Equal(new[] { "D", "O", "G" }, flat.Select(t => t.Label));
+        Assert.Equal(new[] { "c:D", "c:O", "c:G" }, flat.Select(t => t.Label));
     }
 }

@@ -30,13 +30,15 @@ public class ModuleMentelModelTests
         // ensure the loop in RotateMentalModel will see this cell
         startCell.AddLink("is-a", module.Root);
 
-        Link contains = startCell.LinksTo.First(l => l.LinkType?.Label == "_mm:contains");
-
         // act: rotate slightly to the right on the horizontal axis
         module.RotateMentalModel(Angle.FromDegrees(20), Angle.FromDegrees(20));
 
-        // assert
+        // assert: the object should now be bound to the rotated cell
         Thought expectedCell = module.GetCell(Angle.FromDegrees(20), Angle.FromDegrees(20));
-        Assert.Same(expectedCell, contains.From);
+        Link? containsAfter = expectedCell.LinksTo
+            .FirstOrDefault(l => l.LinkType?.Label == "_mm:contains" && l.To == obj);
+
+        Assert.NotNull(containsAfter);
+        Assert.Same(expectedCell, containsAfter!.From);
     }
 }

@@ -70,7 +70,7 @@ public class ModuleWord : ModuleBase
         if (suggestions.Count > 0)
         {
             var suggestionList = theUKS.FlattenSequence(suggestions[0].seqNode);
-            string suggestionString = string.Join("", suggestionList.Select(x => x.Label));
+            string suggestionString = string.Join("", suggestionList.Select(x => x.Label[2..]));
             retVal = suggestionString;
         }
         return retVal;
