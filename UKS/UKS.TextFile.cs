@@ -57,11 +57,15 @@ public partial class UKS
     private void RemoveTempLabels(Thought Root)
     {
         if (Root is null) return;
+        var v = AllThoughts;
+
         //remove unnecessary "unl_..."  labels
         foreach (var t in Root.EnumerateSubThoughts())
         {
             if (t.Label.ToLower() == "fido")
             { }
+            int i = AllThoughts.IndexOf(t);
+
             if (t.Label.StartsWith("unl_"))
                 t.Label = "";
         }

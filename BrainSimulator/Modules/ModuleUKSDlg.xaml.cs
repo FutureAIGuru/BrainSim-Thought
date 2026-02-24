@@ -96,7 +96,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         }
         else if (string.IsNullOrEmpty(root)) //search for unattached Thoughts
         {
-            for (int i = 0; i < theUKS.AllThoughts.Count; i++)
+            for (
+                int i = 0; i < theUKS.AllThoughts.Count; i++)
             {
                 Thought t1 = theUKS.AllThoughts[i];
                 if (t1.Parents.Count == 0)
@@ -228,7 +229,14 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 }
                 else
                 {
-                    string sequence = "^" + string.Join(joinCharacter, theUKS.FlattenSequence(s));
+                    var seqElementLabels = theUKS.FlattenSequence(s).Select(x => x.Label);
+                    seqElementLabels = seqElementLabels
+                        .Select(s =>
+                        {
+                            int i = s.IndexOf(':');
+                            return i >= 0 ? s[(i + 1)..] : s;
+                        }).ToList();
+                    string sequence = "^" + string.Join(joinCharacter, seqElementLabels);
                     header = $"[{r.From.Label}→{r.LinkType.Label}→{sequence}]";
                 }
             }
@@ -691,12 +699,12 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         RefreshButton.Visibility = Visibility.Visible;
     }
 
-    private void CheckBoxDetails_Checked(object sender, RoutedEventArgs e)
+    private void CheckBox_Checked(object sender, RoutedEventArgs e)
     {
         Draw(false);
     }
 
-    private void CheckBoxDetails_Unchecked(object sender, RoutedEventArgs e)
+    private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
     {
         Draw(false);
     }

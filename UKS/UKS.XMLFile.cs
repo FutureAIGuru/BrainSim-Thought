@@ -279,7 +279,7 @@ public partial class UKS
         //get all the thoughts
         foreach (sThought st in UKSTemp)
         {
-            if (st.source == -1 && st.linkType == -1 && st.target == -1)
+            if (st.source == -1 || st.linkType == -1)
             {
                 Thought t = new()
                 {
@@ -289,43 +289,24 @@ public partial class UKS
                 };
                 AllThoughts.Add(t);
             }
-            else
+            else //this must be a link
             {
-                Link t = new()
-                {
-                    Label = st.label,
-                    Weight = st.weight,
-                    V = st.V,
-                };
-                if (st.source != -1)
-                    t.From = Labeled(UKSTemp[st.source].label);
-                if (st.linkType != -1)
-                    t.LinkType = Labeled(UKSTemp[st.linkType].label);
-                if (st.target != -1)
-                    t.To = Labeled(UKSTemp[st.target].label);
-                AllThoughts.Add(t);
-                //t.From?.LinksToWriteable.Add(t);  //this is quick bot doesn't build the reverse links required by Promote
-                t.From?.AddLink(t.LinkType, t.To);
-                if (t.LinkType.Label == "VLU")
+                Thought from = null;
+                Thought linkType = null;
+                Thought to = null;
+                from = Labeled(UKSTemp[st.source].label);
+                linkType = Labeled(UKSTemp[st.linkType].label);
+                if (st.target != -1) to = Labeled(UKSTemp[st.target].label);
+
+                Link newLink = from?.AddLink(linkType, to);
+                newLink.Weight = st.weight;
+                if (!st.label.StartsWith("unl")) newLink.Label = st.label;
+                newLink.V = st.V;
+                if (newLink.LinkType.Label == "VLU")
                 {//this must a a sequence element, promote it to one.
-                    SeqElement newfrom = PromoteToSeqElement(t.From);
+                    SeqElement newfrom = PromoteToSeqElement(newLink.From);
                 }
             }
         }
-
-        //re-create reverse links
-        foreach (Thought t in AllThoughts)
-        {
-            foreach (Link r in t.LinksTo)
-            {
-                Thought t1 = r.To;
-                if (t1 is not null)
-                    if (!t1.LinksFromWriteable.Contains(r))
-                        t1.LinksFromWriteable.Add(r);
-            }
-        }
-
-        RemoveTempLabels("Thought");
-        RemoveTempLabels("BrainSim");
     }
 }

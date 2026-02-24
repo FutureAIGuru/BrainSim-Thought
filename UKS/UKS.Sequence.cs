@@ -246,7 +246,7 @@ public partial class UKS
         {
             //This replicates DeleteThought but eliminates problems of re-entrance
             SeqElement next = GetNextElement(current);
-            //recursively delete subsequences which are not used anywhere else
+            //recursively delete subsequences which are no longer used anywhere else
             var subsequences = current.VLU?.LinksFrom.Where(x => x.LinkType.Label != "FRST");
             if (subsequences?.Count() == 1 && subsequences.First().To is SeqElement s1)
                 DeleteSequence(s1);
@@ -258,7 +258,7 @@ public partial class UKS
             current = next;
         }
     }
-    //This unconditionally creates a (no-subsequcne) sequence of Thoughts
+    //This unconditionally creates a (no-subsequenccs) sequence of Thoughts
     private SeqElement CreateRawSequence(List<Thought> targets, string baseLabel = "seq*")
     {
         if (targets.Count < 1) return null;

@@ -10,7 +10,6 @@
  *
  * See the LICENSE file in the project root for full license information.
  */
-using static UKS.UKS;
 
 namespace UKS;
 

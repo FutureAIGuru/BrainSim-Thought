@@ -15,10 +15,10 @@
                   PreviewMouseWheel="theTreeView_MouseWheel"
                   >
         </TreeView>
-        <CheckBox x:Name="detailsCB" Content="Show Details" HorizontalAlignment="Left" Margin="131,10,0,0" Width="120" Checked="CheckBoxDetails_Checked" Unchecked="CheckBoxDetails_Unchecked" FontSize="16" Height="19" VerticalAlignment="Top"/>
+        <CheckBox x:Name="detailsCB" Content="Show Details" HorizontalAlignment="Left" Margin="131,10,0,0" Width="120" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" FontSize="16" Height="19" VerticalAlignment="Top"/>
         <CheckBox x:Name="checkBoxAuto" IsChecked="True" Content="Auto-Refresh" HorizontalAlignment="Left" Margin="131,39,0,0" Width="120" Checked="CheckBoxAuto_Checked" Unchecked="CheckBoxAuto_Unchecked" FontSize="16" Height="19" VerticalAlignment="Top"/>
-        <CheckBox x:Name="reverseCB" IsChecked="False" Content="Reverse Links." HorizontalAlignment="Left" Margin="256,10,0,0" Width="161" Checked="CheckBoxAuto_Checked" Unchecked="CheckBoxAuto_Unchecked" FontSize="16" RenderTransformOrigin="1.073,-0.658" Height="19" VerticalAlignment="Top"/>
-        <CheckBox x:Name="showConditionals" IsChecked="False" Content="Show Conditionals" HorizontalAlignment="Left" Margin="256,39,0,0" Width="161" Checked="CheckBoxAuto_Checked" Unchecked="CheckBoxAuto_Unchecked" FontSize="16" RenderTransformOrigin="1.073,-0.658" Height="19" VerticalAlignment="Top"/>
+        <CheckBox x:Name="reverseCB" IsChecked="False" Content="Reverse Links." HorizontalAlignment="Left" Margin="256,10,0,0" Width="161" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" FontSize="16" RenderTransformOrigin="1.073,-0.658" Height="19" VerticalAlignment="Top"/>
+        <CheckBox x:Name="showConditionals" IsChecked="False" Content="Show Conditionals" HorizontalAlignment="Left" Margin="256,39,0,0" Width="161" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" FontSize="16" RenderTransformOrigin="1.073,-0.658" Height="19" VerticalAlignment="Top"/>
 
         <Label Content="Root:" HorizontalAlignment="Left" Margin="424,4,0,0" Width="90" FontSize="16" Height="35" VerticalAlignment="Top"/>
         <TextBox x:Name="textBoxRoot" HorizontalAlignment="Left" Margin="467,8,0,0" TextWrapping="Wrap" Text="Thought" Width="150" TextChanged="textBoxRoot_TextChanged" PreviewKeyDown="TextBoxRoot_KeyDown" FontSize="16" Height="25" VerticalAlignment="Top"/>

@@ -33,6 +33,7 @@ public class ModuleWord : ModuleBase
         // Called periodically by the module engine
         if (remainingLetters != "")
         {
+            //add letters to the mental model one at a time
             if (lastLetterTime < DateTime.Now - TimeSpan.FromSeconds(1))
             {
                 if (MainWindow.theWindow.GetModuleByLabel("ModuleMentalModel0") is ModuleMentalModel mm)
@@ -54,15 +55,20 @@ public class ModuleWord : ModuleBase
     public override void SetUpAfterLoad()
     {
     }
+    public override void UKSInitializedNotification()
+    {
+        theUKS.GetOrAddThought("EnglishWord", "Object");
+        theUKS.GetOrAddThought("letter", "Object");
+    }
 
-    
+
     public string GetWordSuggestion(string word)
     {
         List<Thought> letters = new List<Thought>();
         foreach (char c in word.ToUpper())
         {
             string letterLabel = c.ToString();
-            Thought letter = theUKS.GetOrAddThought("c:"+letterLabel, "symbol");
+            Thought letter = theUKS.GetOrAddThought("c:"+letterLabel, "letter");
             letters.Add(letter);
         }
         string retVal = word;
@@ -80,8 +86,6 @@ public class ModuleWord : ModuleBase
     {
         var theUKS = MainWindow.theUKS;
         word = word.Trim();
-        theUKS.GetOrAddThought("EnglishWord", "Thought");
-        theUKS.GetOrAddThought("symbol", "Object");
 
         if (string.IsNullOrWhiteSpace(word)) return null;
 
@@ -98,7 +102,7 @@ public class ModuleWord : ModuleBase
         foreach (char c in word.ToUpper())
         {
             string letterLabel = c.ToString();
-            Thought letter = theUKS.GetOrAddThought("c:"+letterLabel, "symbol");
+            Thought letter = theUKS.GetOrAddThought("c:"+letterLabel, "letter");
             letters.Add(letter);
         }
 
