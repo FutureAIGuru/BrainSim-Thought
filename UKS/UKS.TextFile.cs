@@ -57,14 +57,14 @@ public partial class UKS
     private void RemoveTempLabels(Thought Root)
     {
         if (Root is null) return;
-        var v = AllThoughts;
+        var v = AtomicThoughts;
 
         //remove unnecessary "unl_..."  labels
         foreach (var t in Root.EnumerateSubThoughts())
         {
             if (t.Label.ToLower() == "fido")
             { }
-            int i = AllThoughts.IndexOf(t);
+            int i = AtomicThoughts.IndexOf(t);
 
             if (t.Label.StartsWith("unl_"))
                 t.Label = "";
@@ -153,7 +153,8 @@ public partial class UKS
                 int index = linkParts[0].IndexOf("_V:");
                 value = linkParts[0][(index + 3)..];
                 linkParts[0] = linkParts[0][..index];
-                DeleteThought(linkParts[0]);
+                Thought t1 = Labeled(linkParts[0]);
+                t1?.Delete();
             }
             //if (r1 or r2 are set, use them instead here
             Thought from = Labeled(linkParts[0]);
@@ -174,12 +175,12 @@ public partial class UKS
             if (label != "" && !label.StartsWith("unl_"))
             {
                 r.Label = label.Trim();
-                if (!AllThoughts.Contains(r))
-                    AllThoughts.Add(r);
+                if (!AtomicThoughts.Contains(r))
+                    AtomicThoughts.Add(r);
             }
             if (linkType.Label == "VLU")
             {//this must a a sequence element, promote it to one.
-               var newfrom = PromoteToSeqElement(from);
+                var newfrom = PromoteToSeqElement(from);
             }
         }
         if (sWeight is { } n)

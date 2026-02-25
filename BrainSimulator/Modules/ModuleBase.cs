@@ -215,7 +215,7 @@ abstract public class ModuleBase
             {
                 if (attribValue is null)
                 {
-                    theUKS.DeleteThought(r.To);
+                    r.To.Delete();
                     return;
                 }
                 r.To.V = attribValue;

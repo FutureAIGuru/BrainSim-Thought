@@ -16,24 +16,35 @@ namespace UKS;
 
 public partial class UKS
 {
+    public void CreateMinimumStructureForTests()
+    {
+        AtomicThoughts.Clear();
+        ThoughtLabels.ClearLabelList();
+        AddThought("Thought", null);
+        Thought isA = AddThought("is-a", null);
+        Thought linkType = AddThought("LinkType", "Thought");
+        isA.AddParent(linkType);
+        GetOrAddThought("Unknown", "Thought");
+    }
+
 
     public void CreateInitialStructure()
     {
         //this hack is needed to preserve the info relating to module layout
-        for (int i = 0; i < AllThoughts.Count; i++)
+        for (int i = 0; i < AtomicThoughts.Count; i++)
         {
-            Thought t = AllThoughts[i];
+            Thought t = AtomicThoughts[i];
             if (t.Label == "BrainSim") continue;
             if (t.HasAncestor("BrainSim")) continue;
             if (t.Label == "is-a") continue;
             if (t.Label == "hasAttribute") continue;
 
-            DeleteThought(t);
+            t.Delete();
             i--;
         }
 
         ThoughtLabels.ClearLabelList();
-        foreach (Thought t in AllThoughts)
+        foreach (Thought t in AtomicThoughts)
             ThoughtLabels.AddThoughtLabel(t.Label, t);
 
         //Bootstrapping is needed for is-a, Unknown, and the root: Thought

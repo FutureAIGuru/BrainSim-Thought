@@ -267,12 +267,12 @@ namespace BrainSimulator.Modules
             count = 0;
             ModuleGPTInfo mf = (ModuleGPTInfo)base.ParentModule;
             SetOutputText("Verifying all is-a links");
-            foreach (Thought t in mf.theUKS.AllThoughts)
+            foreach (Thought t in mf.theUKS.AtomicThoughts)
             {
                 if (t.Parents.FindFirst(x => x.Label == "Unknown") is not null) continue;
                 if (!t.Label.StartsWith('.')) continue;
                 if (t.Label == ".") continue;
-                if (t == mf.theUKS.AllThoughts.Last())
+                if (t == mf.theUKS.AtomicThoughts.Last())
                     await VerifyAsync(t.Label);
                 else
                     VerifyAsync(t.Label);

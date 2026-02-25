@@ -139,10 +139,15 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         if (tSource is null)
         {
             tSource = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(fromString, false);
+            if (tSource.UseCount == 0)
+                tSource.TimeToLive = duration;
         }
 
 
-        Thought r1 = UKSStatement.AddLink(tSource, linkTypeString, toString);
+        Link r1 = UKSStatement.AddLink(tSource, linkTypeString, toString);
+
+        if (r1.To.UseCount == 0)
+            r1.To.TimeToLive = duration;
 
         if (r1 is not null && setConfCB.IsChecked == true)
         {

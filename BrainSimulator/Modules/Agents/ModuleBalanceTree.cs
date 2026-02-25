@@ -64,9 +64,9 @@ public class ModuleBalanceTree : ModuleBase
     public void DoTheWork()
     {
         debugString = "Agent Started\n";
-        for (int i = 0; i < theUKS.AllThoughts.Count; i++)
+        for (int i = 0; i < theUKS.AtomicThoughts.Count; i++)
         {
-            Thought t = theUKS.AllThoughts[i];
+            Thought t = theUKS.AtomicThoughts[i];
             if (t.HasAncestor("Object") && !t.Label.Contains("."))
             {
                 HandleExcessiveChildren(t);

@@ -629,7 +629,7 @@ is-part-of-speech, ";
                             ModuleGPTInfoDlg.linkCount += 1;
                         }
                         ///
-                        foreach (Thought t in theUKS.AllThoughts)
+                        foreach (Thought t in theUKS.AtomicThoughts)
                             foreach (Link r in t.LinksTo)
                                 if (r.LinkType is null)
                                 {
@@ -679,7 +679,7 @@ is-part-of-speech, ";
             // Remove the duplicate thoughts at the end.
             foreach (Thought t in thoughtsToRemove)
             {
-                theUKS.DeleteThought(t);
+                t.Delete();
                 ModuleGPTInfoDlg.linkCount++;
             }
 

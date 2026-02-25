@@ -49,7 +49,6 @@ public class Link : Thought
         retVal += "]";
         return retVal;
     }
-
 }
 
 
@@ -68,8 +67,17 @@ public class Thought
     /// <summary>Unsafe writeable list of incoming links.</summary>
     public List<Link> LinksFromWriteable { get => _linksFrom; }
     /// <summary>Safe snapshot of outgoing links.</summary>
-    public IReadOnlyList<Link> LinksTo { get { lock (_linksTo) { return new List<Link>(_linksTo.AsReadOnly()); } } }
+    //public IReadOnlyList<Link> LinksTo { get { lock (_linksTo) { return new List<Link>(_linksTo.AsReadOnly()); } } }
+    public IReadOnlyList<Link> LinksTo
+    {
+        get
+        {
+            if (CheckExpiredAndMaybeDelete()) return Array.Empty<Link>();
+            lock (_linksTo) { return new List<Link>(_linksTo.AsReadOnly()); }
+        }
+    }
     /// <summary>Safe snapshot of incoming links.</summary>
+    /// 
     public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return new List<Link>(_linksFrom.AsReadOnly()); } } }
     /// <summary>Direct parents (targets of outgoing is-a links).</summary>
     public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).ToList(); } }
@@ -88,6 +96,48 @@ public class Thought
         }
     }
 
+
+    public void Delete()
+    {
+        foreach (Link r in _linksTo.Where(x => UKS.theUKS.IsSequenceFirstElement(x.To)))
+            UKS.theUKS.DeleteSequence((SeqElement)r.To);
+
+        for (int i = 0; i < _linksTo.Count; i++)
+        {
+            Link r = _linksTo[i];
+            RemoveLink(r);
+            i--;
+        }
+
+        for (int i = 0; i < _linksFrom.Count; i++)
+        {
+            Link r = _linksFrom[i];
+            r.From.RemoveLink(r);
+            i--;
+        }
+
+        ThoughtLabels.RemoveThoughtLabel(Label);
+        lock (UKS.theUKS.AtomicThoughts)
+            UKS.theUKS.AtomicThoughts.Remove(this);
+    }
+
+    private bool CheckExpiredAndMaybeDelete()
+    {
+        if (_timeToLive == TimeSpan.MaxValue) return false;
+        if (LastFiredTime + _timeToLive > DateTime.Now) return false;
+
+        // Expired: remove self
+        if (this is Link l)
+        {
+            l.From?.RemoveLink(l);
+        }
+        else
+        {
+            Delete();
+        }
+        return true;
+    }
+
     public int UseCount = 0;
     public DateTime LastFiredTime = DateTime.Now;
 
@@ -99,8 +149,6 @@ public class Thought
         set
         {
             _timeToLive = value;
-            if (_timeToLive != TimeSpan.MaxValue)
-                AddToTransientList();
         }
     }
 
@@ -307,6 +355,18 @@ public class Thought
     public void Fire()
     {
         LastFiredTime = DateTime.Now;
+        UseCount++;
+        float baseSeconds = 10;
+        float growthFactor = 2;
+        float maxSeconds = 60 * 60 * 24; //1 day
+        double ttlSeconds = baseSeconds * Math.Pow(growthFactor, UseCount);
+        ttlSeconds = Math.Min(ttlSeconds, maxSeconds);
+        // Prevent overflow of TimeSpan when extending
+        var increment = TimeSpan.FromSeconds(ttlSeconds);
+        var remainingToMax = TimeSpan.MaxValue - TimeToLive;
+        if (increment > remainingToMax) increment = remainingToMax;
+
+        TimeToLive += increment;
     }
 
     // LINK OPERATIONS
@@ -423,6 +483,7 @@ public class Thought
                 }
             }
         }
+        r.Delete();
     }
 
     private Link HasLink(Thought linkType, Thought to)
@@ -507,12 +568,6 @@ public class Thought
         return false;
     }
 
-    private void AddToTransientList()
-    {
-        if (!UKS.transientLinks.Contains(this))
-            UKS.transientLinks.Add(this);
-    }
-
     /// <summary>
     /// Enumerate the closure starting from this Thought (root) using BFS over links and is-a children.
     /// </summary>
@@ -546,7 +601,7 @@ public class Thought
 
             if (t is SeqElement s)
             {
-                do { EnqueueIfNew(s);s = s.NXT as SeqElement; } while (s is not null);
+                do { EnqueueIfNew(s); s = s.NXT as SeqElement; } while (s is not null);
             }
             foreach (var isaLink in t.LinksFrom.Where(x => x.LinkType?.Label == "is-a"))
             {

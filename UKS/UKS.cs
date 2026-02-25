@@ -32,11 +32,7 @@ public partial class UKS
     /// Occasionally a list of all the Thoughts in the UKS is needed. This is READ ONLY.
     /// There is only one (shared) list for the App.
     /// </summary>
-    public List<Thought> AllThoughts { get => uKSList; }
-
-    //TimeToLive processing for links
-    static public List<Thought> transientLinks = new List<Thought>();
-    static Timer stateTimer;
+    public List<Thought> AtomicThoughts { get => uKSList; }
 
     public static UKS theUKS = new UKS();
 
@@ -46,15 +42,12 @@ public partial class UKS
     /// <param name="clear">When true, clears existing thoughts and label cache before initialization.</param>
     public UKS(bool clear = false)
     {
-        if (AllThoughts.Count == 0 || clear)
+        if (AtomicThoughts.Count == 0 || clear)
         {
-            AllThoughts.Clear();
+            AtomicThoughts.Clear();
             ThoughtLabels.ClearLabelList();
         }
         UKSTemp.Clear();
-
-        var autoEvent = new AutoResetEvent(false);
-        stateTimer = new Timer(RemoveExpiredLinks, autoEvent, 0, 100);
     }
 
     /// <summary>
@@ -71,9 +64,9 @@ public partial class UKS
         {
             newThought.AddParent(parent);
         }
-        lock (AllThoughts)
+        lock (AtomicThoughts)
         {
-            AllThoughts.Add(newThought);
+            AtomicThoughts.Add(newThought);
         }
 
         return newThought;
@@ -90,25 +83,6 @@ public partial class UKS
         return retVal;
     }
 
-    /// <summary>
-    /// This is a primitive method to delete a Thought; the Thought must not have any children.
-    /// </summary>
-    /// <param name="t">The thought to delete.</param>
-    public virtual void DeleteThought(Thought t)
-    {
-        if (t is null) return;
-
-        foreach (Link r in t.LinksTo.Where(x => IsSequenceFirstElement(x.To)))
-            DeleteSequence((SeqElement)r.To);
-
-        foreach (Link r in t.LinksTo)
-            t.RemoveLink(r);
-        foreach (Link r in t.LinksFrom)
-            r.From.RemoveLink(r);
-        ThoughtLabels.RemoveThoughtLabel(t.Label);
-        lock (AllThoughts)
-            AllThoughts.Remove(t);
-    }
 
     private bool HasProperty(Thought t, string propertyName)
     {
@@ -201,24 +175,9 @@ public partial class UKS
                 }
                 else
                 {
-                    DeleteThought(t1);
+                    t1.Delete();
                 }
             }
-
-            //while (t.Children.Count > 0)
-            //{
-            //    Thought theChild = t.Children[0];
-            //    if (theChild.Parents.Count == 1)
-            //    {
-            //        DeleteAllChildren(theChild);
-            //        if (t.Label == "Thought" && t.Children.Count == 0) return;
-            //        DeleteThought(theChild);
-            //    }
-            //    else
-            //    {//this thought has multiple parents.
-            //        t.RemoveChild(theChild);
-            //    }
-            //}
         }
     }
 
@@ -342,38 +301,4 @@ public partial class UKS
         Thought t = GetOrAddThought(thoughtLabel);
         return t;
     }
-
-    static bool isRunning = false;
-    private void RemoveExpiredLinks(Object stateInfo)
-    {
-        if (isRunning) return;
-        isRunning = true;
-        try
-        {
-            for (int i = transientLinks.Count - 1; i >= 0; i--)
-            {
-                Thought t = transientLinks[i];
-                //check to see if the link has expired
-                if (t.TimeToLive != TimeSpan.MaxValue && t.LastFiredTime + t.TimeToLive < DateTime.Now)
-                {
-                    //remove the link
-                    if (t is Link r)
-                    {
-                        r.From?.RemoveLink(r);
-                        //if this leaves an orphan thought, make it unknown
-                        if (r.LinkType.Label == "is-a" && r.From?.Parents.Count == 0)
-                        {
-                            r.From.AddParent("Unknown");
-                        }
-                        transientLinks.Remove(r);
-                    }
-                }
-            }
-        }
-        finally
-        {
-            isRunning = false;
-        }
-    }
-
 }

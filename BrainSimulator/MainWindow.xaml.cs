@@ -176,7 +176,7 @@ namespace BrainSimulator
 
         public void CreateEmptyUKS()
         {
-            theUKS.AllThoughts.Clear();
+            theUKS.AtomicThoughts.Clear();
             theUKS = new UKS.UKS();
             theUKS.CreateInitialStructure();  //creates the "thought" substructure
 
@@ -220,7 +220,7 @@ namespace BrainSimulator
                 if (CSharpModules.FindFirst(x=>x.Name == name) is not null) continue;
                 if (PythonModules.FindFirst(x => x == name) is not null) continue;
                 theUKS.DeleteAllChildren(t);
-                theUKS.DeleteThought(t);
+                t.Delete();
             }
 
             //reconnect/delete any active modules
@@ -231,7 +231,7 @@ namespace BrainSimulator
                 if (parent is not null)
                     t.AddParent(parent);
                 else
-                    theUKS.DeleteThought(t);
+                    t.Delete();
             }
         }
 

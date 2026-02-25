@@ -172,7 +172,7 @@ namespace BrainSimulator
             mb.CloseDlg();
             mb.Closing();
             activeModules.Remove(mb);
-            theUKS.DeleteThought(theUKS.Labeled(mb.Label));
+            theUKS.Labeled(mb.Label)?.Delete();
 
             ReloadActiveModulesSP();
         }

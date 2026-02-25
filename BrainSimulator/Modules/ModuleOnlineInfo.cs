@@ -209,7 +209,7 @@ namespace BrainSimulator.Modules
                         {
                             i--;
                             theUKS.DeleteAllChildren(child);
-                            theUKS.DeleteThought(child);
+                            child.Delete();
                         }
                     }
                     int counter = 0;

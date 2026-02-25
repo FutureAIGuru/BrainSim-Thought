@@ -73,9 +73,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         ModuleUKS parent = (ModuleUKS)ParentModule;
         expandAll = parent.GetSavedDlgAttribute("ExpandAll");
         string root = parent.GetSavedDlgAttribute("Root");
-		//root = "BrainSim";
-		Thought Root = theUKS.Labeled(root);
-  
+        //root = "BrainSim";
+        Thought Root = theUKS.Labeled(root);
+
         if (Root is null) Root = (Thought)"Thought";
         string sizeString = parent.GetSavedDlgAttribute("fontSize");
         int.TryParse(sizeString, out int fontSize);
@@ -97,9 +97,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         else if (string.IsNullOrEmpty(root)) //search for unattached Thoughts
         {
             for (
-                int i = 0; i < theUKS.AllThoughts.Count; i++)
+                int i = 0; i < theUKS.AtomicThoughts.Count; i++)
             {
-                Thought t1 = theUKS.AllThoughts[i];
+                Thought t1 = theUKS.AtomicThoughts[i];
                 if (t1.Parents.Count == 0)
                 {
                     TreeViewItem tvi = new() { Header = t1.Label };
@@ -117,7 +117,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
         List<Link> theChildren = t.LinksFrom.Where(x => x.LinkType.Label.StartsWith("is-a") && x.To is not null).ToList();
         theChildren = theChildren.OrderBy(x => x.From.Label).ToList();
-        if (detailsCB.IsChecked == true) 
+        if (detailsCB.IsChecked == true)
             theChildren = theChildren.OrderByDescending(x => x.From.Weight).ToList();
 
         foreach (Link l in theChildren)
@@ -245,7 +245,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         {
             //Format a node-like line in the treeview
             header = child.ToString();
-            if (header == "") 
+            if (header == "")
                 header = "\u25A1"; //put in a small empty box--if the header is unlabeled, so you can right-click 
             //if (showConditionals.IsChecked == true && r.LinkType?.Label == "is-a") //hack to show conditions on is-a links
             //    foreach (Thought r1 in r.LinksTo)
@@ -283,11 +283,11 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
 
         if (detailsCB.IsChecked == false) return header;
+        string timeToLive = (t.TimeToLive == TimeSpan.MaxValue ? "∞" : (t.LastFiredTime + t.TimeToLive - DateTime.Now).ToString(@"mm\:ss"));
+        if (t.Weight != 1f || t.TimeToLive != TimeSpan.MaxValue)
+            header = $"<{t.Weight.ToString("f2")}, {timeToLive}> " + header;
         if (t is Link r)
         {
-            string timeToLive = (r.TimeToLive == TimeSpan.MaxValue ? "∞" : (r.LastFiredTime + r.TimeToLive - DateTime.Now).ToString(@"mm\:ss"));
-            if (r.Weight != 1f || r.TimeToLive != TimeSpan.MaxValue)
-                header = $"<{r.Weight.ToString("f2")}, {timeToLive}> " + header;
             if (r.LinkType?.HasLink(null, null, theUKS.Labeled("not")) is not null) //prepend ! for negative  children
                 header = "!" + header;
         }
@@ -314,7 +314,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             {
                 tvi1 = tvi2;
                 Thought t1 = (Thought)tvi1.GetValue(ThoughtObjectProperty);
-                parentLabel = "|" + (string.IsNullOrEmpty(t1?.Label)?t1?.ToString():t1?.Label) + parentLabel;
+                parentLabel = "|" + (string.IsNullOrEmpty(t1?.Label) ? t1?.ToString() : t1?.Label) + parentLabel;
                 depth++;
             }
             if (!expandedItems.Contains(parentLabel))
@@ -351,7 +351,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         ContextMenu menu = new ContextMenu();
         menu.SetValue(ThoughtObjectProperty, t);
         menu.SetValue(TreeViewItemProperty, tvi);
-        int ID = theUKS.AllThoughts.IndexOf(t);
+        int ID = theUKS.AtomicThoughts.IndexOf(t);
         MenuItem mi = new();
         string thoughtLabel = "___";
         if (t is not null)
@@ -544,7 +544,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     break;
                 case "Delete":
                     theUKS.DeleteAllChildren(t);
-                    theUKS.DeleteThought(t);
+                    t.Delete();
                     break;
                 case "Delete Child":
                     //figure out which item (and its parent) clicked us
@@ -575,24 +575,6 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void UpdateStatusLabel()
     {
-        int childCount = 0;
-        int refCount = 0;
-        Thought t = null;
-        try
-        {
-            foreach (Thought t1 in theUKS.AllThoughts)
-            {
-                t = t1;
-                childCount += t1.Children.Count;
-                refCount += t1.LinksTo.Count - t1.Children.Count;
-            }
-        }
-
-        catch (Exception ex)
-        {
-            //you might get this exception if there is a collision
-            return;
-        }
         statusLabel.Content = ThoughtLabels.GetLabelCount() + " Thoughts  " + ThoughtLabels.GetLinksCount() + " Links.";
         Title = "The Universal Knowledgs Store (UKS)  --  File: " + Path.GetFileNameWithoutExtension(theUKS.FileName);
     }

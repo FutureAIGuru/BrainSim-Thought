@@ -125,7 +125,7 @@ public partial class UKS
     {
         return (t is SeqElement);
     }
-    private bool IsSequenceFirstElement(Thought t)
+    public bool IsSequenceFirstElement(Thought t)
     {
         if (t is not SeqElement s) return false;
         SeqElement t1 = s.FRST;
@@ -230,7 +230,7 @@ public partial class UKS
         firstNode.FRST = firstNode; //points to itself as the first element
         return firstNode;
     }
-    private void DeleteSequence(SeqElement s)
+    public void DeleteSequence(SeqElement s)
     {
         //make sure there's only one reference to this sequence
         if (!IsSequenceFirstElement(s)) return;
@@ -253,8 +253,8 @@ public partial class UKS
             foreach (Link lnk in current.LinksTo)
                 current.RemoveLink(lnk);
             ThoughtLabels.RemoveThoughtLabel(current.Label);
-            lock (AllThoughts)
-                AllThoughts.Remove(current);
+            lock (AtomicThoughts)
+                AtomicThoughts.Remove(current);
             current = next;
         }
     }
@@ -793,13 +793,13 @@ public partial class UKS
         t.LinksFromWriteable.Clear();
 
         // Replace in global list
-        lock (AllThoughts)
+        lock (AtomicThoughts)
         {
-            int idx = AllThoughts.IndexOf(t);
+            int idx = AtomicThoughts.IndexOf(t);
             if (idx >= 0)
-                AllThoughts[idx] = seq;
+                AtomicThoughts[idx] = seq;
         }
-        DeleteThought(t);
+        t.Delete();
 
         ThoughtLabels.AddThoughtLabel(seq.Label, seq);
         return seq;

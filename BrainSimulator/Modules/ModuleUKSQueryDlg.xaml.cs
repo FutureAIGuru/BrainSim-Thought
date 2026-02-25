@@ -138,7 +138,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
                 BtnLearn.IsEnabled = true;
             else
                 BtnLearn.IsEnabled = false;
-            UKSQuery.theUKS.DeleteThought(queryThought);
+            queryThought.Delete();
             return;
         }
         BtnNo.IsEnabled = true;
@@ -156,7 +156,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             UpdateMostRecent(allResults[0].t);
         }
 
-        theUKS.DeleteThought(queryThought);
+        queryThought.Delete();
     }
 
     private Thought CreateTheQueryThought()
@@ -213,7 +213,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         if (queryThought is null)
         {
             SetStatus("Could not create query");
-            theUKS.DeleteThought(queryThought);
+            queryThought.Delete();
             return;
         }
         SetStatus("OK");
@@ -224,9 +224,9 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         if (allResults.Count == 0)
         {
             //case 1: no results, create a new Thought
-            lock (theUKS.AllThoughts)
+            lock (theUKS.AtomicThoughts)
             {
-                theUKS.AllThoughts.Add(queryThought);
+                theUKS.AtomicThoughts.Add(queryThought);
             }
             queryThought.Label = "Unl*";
             queryThought.AddParent("Unknown");
@@ -248,9 +248,9 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         if (matchingTopEntries > 1)
         {
             //add the thought to UKS
-            lock (theUKS.AllThoughts)
+            lock (theUKS.AtomicThoughts)
             {
-                theUKS.AllThoughts.Add(queryThought);
+                theUKS.AtomicThoughts.Add(queryThought);
             }
             queryThought.Label = "Unl*";
             for (i = 0; i < matchingTopEntries; i++)
@@ -280,8 +280,8 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             }
             if (newChildNeeded)
             {
-                lock (theUKS.AllThoughts)
-                    theUKS.AllThoughts.Add(queryThought);
+                lock (theUKS.AtomicThoughts)
+                    theUKS.AtomicThoughts.Add(queryThought);
                 queryThought.Label = "Unl*";
                 Thought r1 = queryThought.AddParent(topResult);
                 r1.Weight = .9f;
@@ -333,7 +333,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             }
         }
 
-        theUKS.DeleteThought(queryThought);
+        queryThought.Delete();
     }
 
     private void BubbleCommonAttributes(Thought queryThought)
@@ -422,7 +422,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         {
             SetStatus("Could not create query");
             if (queryThought is not null)
-                theUKS.DeleteThought(queryThought);
+                queryThought.Delete();
             return;
         }
         SetStatus("OK");
@@ -431,7 +431,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         if (allResults.Count == 0)
         {
             if (queryThought is not null)
-                theUKS.DeleteThought(queryThought);
+                queryThought.Delete();
             return;
         }
 
@@ -451,7 +451,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         if (allMatch)
         {
             SetStatus("Query matches existing object");
-            theUKS.DeleteThought(queryThought);
+            queryThought.Delete();
             return;
         }
 
@@ -459,9 +459,9 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         {
             //case 1: no results
             //add the thought to UKS
-            lock (theUKS.AllThoughts)
+            lock (theUKS.AtomicThoughts)
             {
-                theUKS.AllThoughts.Add(queryThought);
+                theUKS.AtomicThoughts.Add(queryThought);
             }
             queryThought.Label = "Unl*";
             queryThought.AddParent("Unknown");
@@ -476,7 +476,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             });
             return;
         }
-        theUKS.DeleteThought(queryThought);
+        queryThought.Delete();
         SetStatus("OK");
     }
 

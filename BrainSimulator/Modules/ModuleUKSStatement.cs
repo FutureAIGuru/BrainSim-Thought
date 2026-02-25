@@ -67,7 +67,7 @@ public class ModuleUKSStatement : ModuleBase
     }
 
 
-    public Thought AddLink(Thought tSource, string linkType, string to)
+    public Link AddLink(Thought tSource, string linkType, string to)
     {
         GetUKS();
         if (theUKS is null) return null;
@@ -98,8 +98,9 @@ public class ModuleUKSStatement : ModuleBase
                     targets.Add(t);
                 }
             }
-            Thought r1 = theUKS.AddSequence(tSource, tLinkType, targets);
-            return r1;
+            SeqElement r1 = theUKS.AddSequence(tSource, tLinkType, targets);
+            
+            return tSource.LinksTo.FindFirst(x=>x.LinkType == tLinkType);
         }
  
         if (targetParts.Length == 3)
@@ -116,7 +117,7 @@ public class ModuleUKSStatement : ModuleBase
         }
 
         //Create the link
-        Thought r = theUKS.AddStatement(tSource, tLinkType, tTarget);
+        Link r = theUKS.AddStatement(tSource, tLinkType, tTarget);
 
         if (tLinkType.Label == "IF")  //this is a HACK which must be fixed later
         {

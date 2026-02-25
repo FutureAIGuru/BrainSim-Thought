@@ -274,7 +274,7 @@ public partial class UKS
 
     private void DeFormatContentAfterLoading()
     {
-        AllThoughts.Clear();
+        AtomicThoughts.Clear();
         ThoughtLabels.ClearLabelList();
         //get all the thoughts
         foreach (sThought st in UKSTemp)
@@ -287,7 +287,8 @@ public partial class UKS
                     Weight = st.weight,
                     V = st.V,
                 };
-                AllThoughts.Add(t);
+                t.TimeToLive = TimeSpan.MaxValue;
+                AtomicThoughts.Add(t);
             }
             else //this must be a link
             {
@@ -302,6 +303,7 @@ public partial class UKS
                 newLink.Weight = st.weight;
                 if (!st.label.StartsWith("unl")) newLink.Label = st.label;
                 newLink.V = st.V;
+                newLink.TimeToLive = TimeSpan.MaxValue;
                 if (newLink.LinkType.Label == "VLU")
                 {//this must a a sequence element, promote it to one.
                     SeqElement newfrom = PromoteToSeqElement(newLink.From);

@@ -47,6 +47,7 @@ public partial class UKS
 		Thought t = Labeled(label);
 		Link existing = t as Link;
 		Link lnk = null;
+		if (existing == null) existing = GetLink(source, linkType, target);
 
 		if (existing is null)
 		{
@@ -59,10 +60,13 @@ public partial class UKS
 			existing.LinkType = linkType;
 			existing.To = target;
 			existing.From = source;
-		}
+            existing.From.Fire();
+            existing.LinkType.Fire();
+            existing.To.Fire();
+        }
 
-		//does this link already exist (without conditions)?
-		if (existing is not null)
+        //does this link already exist (without conditions)?
+        if (existing is not null)
 		{
 			WeakenConflictingLinks(source, existing);
 			existing.Fire();
@@ -102,11 +106,6 @@ public partial class UKS
 
 		Link r = new()
 		{ From = source, LinkType = linkType, To = target };
-
-		r.From?.Fire();
-		r.To?.Fire();
-		r.LinkType?.Fire();
-
 		return r;
 	}
 

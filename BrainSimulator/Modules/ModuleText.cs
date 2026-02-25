@@ -329,7 +329,7 @@ public class ModuleText : ModuleBase
         Thought trigrams = theUKS.Labeled("trigram");
         var topTrigrams = trigrams.Children.OrderByDescending(x => x.Weight).ToList();
         for (int i = 50; i < topTrigrams.Count; i++)
-            theUKS.DeleteThought(topTrigrams[i]);
+            topTrigrams[i].Delete();
         return retVal;
     }
 

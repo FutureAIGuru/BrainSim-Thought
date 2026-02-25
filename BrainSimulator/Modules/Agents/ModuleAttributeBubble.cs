@@ -77,7 +77,7 @@ public class ModuleAttributeBubble : ModuleBase
     public void DoTheWork()
     {
         debugString = "Bubbler Started\n";
-        foreach (Thought t in theUKS.AllThoughts)
+        foreach (Thought t in theUKS.AtomicThoughts)
         {
             if (t.Label == "Animal")
             { }
