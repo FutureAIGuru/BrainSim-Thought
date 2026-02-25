@@ -18,7 +18,7 @@ ModuleHandler moduleHandler = new ModuleHandler();
 moduleHandler.CreateEmptyUKS();
 
 //setup the python path
-string? pythonPath = (string?)Environment.GetEnvironmentVariable("PythonPath", EnvironmentVariableTarget.User);
+string? pythonPath = (string?)Environment.GetEnvironmentVariable("PythonPath", EnvironmentVariableTarget.Process);
 if (string.IsNullOrEmpty(pythonPath))
 {
     Console.Write("Path to Python .dll must be set: ");
@@ -26,7 +26,7 @@ if (string.IsNullOrEmpty(pythonPath))
     moduleHandler.PythonPath = pythonPath;
     if (moduleHandler.InitPythonEngine())
     {
-        Environment.SetEnvironmentVariable("PythonPath", pythonPath, EnvironmentVariableTarget.User);
+        Environment.SetEnvironmentVariable("PythonPath", pythonPath, EnvironmentVariableTarget.Process);
     }
     else
     {
