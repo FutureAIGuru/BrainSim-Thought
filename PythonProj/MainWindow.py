@@ -73,7 +73,7 @@ class MainWindow(ViewBase):
             self.uks.LoadUKSfromXMLFile(fileName)
             self.setupUKS()
             if self.uks.Labeled("MainWindow.py") == None:
-                self.uks.AddThing("MainWindow.py", self.uks.Labeled("AvailableModule"));
+                self.uks.AddThought("MainWindow.py", self.uks.Labeled("AvailableModule"));
             self.activateModule("MainWindow.py")
             self.level.title(titleBase +'  --  ' +os.path.basename(fileName))
             self.setupcontent()
@@ -82,14 +82,14 @@ class MainWindow(ViewBase):
     #Add necessary status info to older UKS if needed
     def setupUKS(self):
         if self.uks.Labeled("BrainSim") == None:
-            self.uks.AddThing("BrainSim",None)
-        self.uks.GetOrAddThing("AvailableModule","BrainSim")
-        self.uks.GetOrAddThing("ActiveeModule","BrainSim")
+            self.uks.AddThought("BrainSim",None)
+        self.uks.GetOrAddThought("AvailableModule","BrainSim")
+        self.uks.GetOrAddThought("ActiveModule","BrainSim")
         if self.uks.Labeled("AvailableModule").Children.Count == 0:
             python_modules = os.listdir(".")
             for module in python_modules:
                 if module.startswith("m") and module.endswith(".py"):
-                    self.uks.GetOrAddThing(module,"AvailableModule")
+                    self.uks.GetOrAddThought(module,"AvailableModule")
 
         
         
@@ -135,7 +135,7 @@ class MainWindow(ViewBase):
         thingToDeactivate= self.uks.Labeled(moduleLabel)
         if thingToDeactivate != None:
             self.uks.DeleteAllChildren(thingToDeactivate)
-            self.uks.DeleteThing(thingToDeactivate)
+            self.uks.DeleteThought(thingToDeactivate)
     def activateModule(self,moduleTypeLabel):
         print ("activating ",moduleTypeLabel)
         thingToActivate= self.uks.Labeled(moduleTypeLabel)

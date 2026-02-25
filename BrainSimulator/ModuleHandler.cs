@@ -87,7 +87,7 @@ public class ModuleHandler
         if (pythonPath == "no") return pythonFiles;
         try
         {
-            var filesInDir = Directory.GetFiles(@".", "m*.py").ToList();
+            var filesInDir = Directory.GetFiles(AppContext.BaseDirectory, "m*.py").ToList();
             foreach (var file in filesInDir)
             {
                 if (file.StartsWith("utils")) continue;
@@ -116,10 +116,8 @@ public class ModuleHandler
             if (!PythonEngine.IsInitialized)
                 PythonEngine.Initialize();
             dynamic sys = Py.Import("sys");
-            dynamic os = Py.Import("os");
-            string desiredPath = os.path.join(os.getcwd(), "./bin/Debug/net8.0/");
-            sys.path.append(desiredPath);  // enables finding scriptName module
-            sys.path.append(os.getcwd() + "\\pythonModules");
+            sys.path.append(AppContext.BaseDirectory);
+            sys.path.append(Path.Combine(Environment.CurrentDirectory, "pythonModules"));
             Console.WriteLine("PythonEngine init succeeded\n");
         }
         catch (Exception ex)
@@ -166,10 +164,8 @@ public class ModuleHandler
                 Runtime.PythonDLL = PythonPath;//  @"python310";  // Charles's Windows
                 PythonEngine.Initialize();
                 dynamic sys = Py.Import("sys");
-                dynamic os = Py.Import("os");
-                string desiredPath = os.path.join(os.getcwd(), "./bin/Debug/net8.0/");
-                sys.path.append(desiredPath);  // enables finding scriptName module
-                sys.path.append(os.getcwd() + "\\pythonModules");
+                sys.path.append(AppContext.BaseDirectory);
+                sys.path.append(Path.Combine(Environment.CurrentDirectory, "pythonModules"));
                 Console.WriteLine("PythonEngine init succeeded\n");
             }
             catch

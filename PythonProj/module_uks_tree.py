@@ -1,5 +1,4 @@
 ﻿## Global imports
-from cgitb import text
 import sys, os
 #from tkinter.tix import MAX
 from typing import List, Union
@@ -47,12 +46,12 @@ class ViewUKSTree(ViewBase):
         if parent_thing is None:  # safety
             return
         children = parent_thing.Children
-        for child in children:
+        for idx, child in enumerate(children):
             try:
-                #todo, randomize the iid in order to allow duplicates
-                iid: str = self.tree_view.insert(parent=parent_id, 
+                iid: str = f"{parent_id}_{idx}"
+                self.tree_view.insert(parent=parent_id, 
                                              index="end", 
-                                             iid=child.ToString(),
+                                             iid=iid,
                                              text=child.ToString())
                 if parent_id in self.open_items:
                     self.tree_view.item(parent_id, open=True)
@@ -117,9 +116,9 @@ class ViewUKSTree(ViewBase):
         self.style.theme_use("clam")
         self.tree_view.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
         ## Inserted at the root:
-        iid: str = self.tree_view.insert("", "end", "Thing", text="Thing")
+        iid: str = self.tree_view.insert("", "end", "Thought", text="Thought")
         self.curr_depth = 1
-        self.add_children(iid, "Thing")
+        self.add_children(iid, "Thought")
 
         ## Add REFRESH button
         self.refresh_button = tk.Button(master=self.level, 
@@ -129,7 +128,7 @@ class ViewUKSTree(ViewBase):
         root_label = tk.Label(master=self.level, text="Root:")
         root_label.pack(side='left',padx=10)
         self.rootBox = tk.Entry(master=self.level,width=20)
-        self.rootBox.insert(tk.END,"Thing")
+        self.rootBox.insert(tk.END,"Thought")
         self.rootBox.pack(side='left')
         
 
