@@ -109,7 +109,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
                 sourceCombo.Visibility = Visibility.Visible;
                 sourceCombo.Items.Clear();
                 ComboBoxItem cbi = new ComboBoxItem { Content = "<New>", ToolTip = "Create a new Link" };
-                cbi.PreviewMouseLeftButtonUp += ComboItem_Clicked;
+                cbi.PreviewMouseLeftButtonUp += SourceComboItem_Clicked;
                 sourceCombo.Items.Add(cbi);
                 sourceCombo.SelectedIndex = 0;
                 //sourceCombo.IsDropDownOpen = true;
@@ -127,7 +127,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
                         Content = t,
                         ToolTip = toolTipText,
                     };
-                    cbi.PreviewMouseLeftButtonUp += ComboItem_Clicked;
+                    cbi.PreviewMouseLeftButtonUp += SourceComboItem_Clicked;
                     sourceCombo.Items.Add(cbi);
                 }
                 return;
@@ -158,7 +158,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
                 targetCombo.Visibility = Visibility.Visible;
                 targetCombo.Items.Clear();
                 ComboBoxItem cbi = new ComboBoxItem { Content = "<New>", ToolTip = "Create a new Link" };
-                cbi.PreviewMouseLeftButtonUp += ComboItem_Clicked;
+                cbi.PreviewMouseLeftButtonUp += TargetComboItem_Clicked;
                 targetCombo.Items.Add(cbi);
                 targetCombo.SelectedIndex = 0;
                 //targetCombo.IsDropDownOpen = true;
@@ -176,7 +176,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
                         Content = t,
                         ToolTip = toolTipText,
                     };
-                    cbi.PreviewMouseLeftButtonUp += ComboItem_Clicked;
+                    cbi.PreviewMouseLeftButtonUp += TargetComboItem_Clicked;
                     targetCombo.Items.Add(cbi);
                 }
                 return;
@@ -227,9 +227,10 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         SetTextbosBackground(linkText);
 
         tSource = null;
+        tTarget = null;
     }
 
-    private void ComboItem_Clicked(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void SourceComboItem_Clicked(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (sender is not ComboBoxItem cbi) return;
         ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
@@ -247,6 +248,26 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         {
             sourceText.Text = cbi.Content.ToString();
             tSource = (Thought)cbi.Content;
+        }
+    }
+    private void TargetComboItem_Clicked(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not ComboBoxItem cbi) return;
+        ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
+        targetCombo.Visibility = Visibility.Hidden;
+        if (cbi.Content.ToString() == "<New>")
+        {
+            var targetParts = UKSStatement.Singular(targetText.Text.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+            if (targetParts.Length == 3)
+            {
+                tTarget = UKSStatement.theUKS.AddStatement(targetParts[0], targetParts[1], targetParts[2]);
+                targetText.Text = tTarget.ToString();
+            }
+        }
+        else
+        {
+            targetText.Text = cbi.Content.ToString();
+            tTarget = (Thought)cbi.Content;
         }
     }
 

@@ -15,6 +15,7 @@ using Pluralize.NET;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Media.Imaging;
 using UKS;
 
 namespace BrainSimulator.Modules;
@@ -120,6 +121,7 @@ public class ModuleTextIn : ModuleBase
     private Link BuildLink(List<Thought> keyWords)
     {
         Link l = new();
+        if (keyWords.Count < 3) return l;
         //special hack to add new meanings
         if (keyWords[1].Label == "w:mean")
         {
@@ -169,6 +171,7 @@ public class ModuleTextIn : ModuleBase
 
     private void FindPhrases(List<Thought> keywords)
     {
+        if (keywords.Count < 3) return;
         // For simplicity, let's assume a phrase is just a combination of keywords
         // In a real implementation, you would have more complex logic to determine phrases
         for (int i = 0; i < keywords.Count - 1; i++)
@@ -214,6 +217,7 @@ public class ModuleTextIn : ModuleBase
     {
         var retVal = new List<Thought>();
         var words = trimmed.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length < 3) return retVal;
 
         var language = "EnglishWord";
         if (words.Contains("es")) language = "SpanishWOrd";

@@ -356,8 +356,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         mi.IsEnabled = false;
         menu.Items.Add(mi);
 
-        TextBox renameBox = new() { Text = thoughtLabel, Width = 200, Name = "RenameBox" };
+        TextBox renameBox = new() { Text = thoughtLabel, Width = 200, Name = "RenameBox",Foreground=Brushes.White,Background=Brushes.DarkBlue };
         renameBox.PreviewKeyDown += RenameBox_PreviewKeyDown;
+      
         mi = new();
         mi.Header = renameBox;
         menu.Items.Add(mi);
@@ -445,7 +446,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 tb.Background = new SolidColorBrush(Colors.Pink);
                 return;
             }
-            tb.Background = new SolidColorBrush(Colors.White);
+            tb.Background = new SolidColorBrush(Colors.DarkBlue);
             if (e.Key == Key.Enter)
             {
                 t.Label = tb.Text;

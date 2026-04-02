@@ -120,6 +120,8 @@ public partial class ModuleTextInDlg : ModuleBaseDlg
     }
 
     Thought responseLanguage = null;
+    private readonly Random _random = new();
+
     public void SetResponseLanguage(Thought language)
     {
         responseLanguage = language;
@@ -151,7 +153,14 @@ public partial class ModuleTextInDlg : ModuleBaseDlg
                 theType = theType.Replace(".", " ");
             }
 
-            string theTo = l.To.LinksFrom.FindFirst(x=>x.LinkType.Label == "means" && x.From.HasAncestor(responseLanguage))?.From.Label;
+            //            string theTo = l.To.LinksFrom.FindFirst(x=>x.LinkType.Label == "means" && x.From.HasAncestor(responseLanguage))?.From.Label;
+
+            var candidates = l.To.LinksFrom
+                .Where(x => x.LinkType.Label == "means" && x.From.HasAncestor(responseLanguage))
+                .ToList();
+            if (candidates.Count == 0) continue;
+
+            string theTo = candidates[_random.Next(candidates.Count)].From.Label;
             if (theTo is null) continue;
             theTo = theTo[2..];
 

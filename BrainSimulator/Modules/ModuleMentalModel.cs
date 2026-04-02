@@ -419,7 +419,7 @@ public sealed class SpatialSheetConfig
     public int Rings { get; init; } = 6;
     public int BaseRays { get; init; } = 16;
     public float Growth { get; init; } = 1.35f;
-    public float FrontBias { get; init; } = 2.0f;
+    public float FrontBias { get; init; } = 1.5f;
     public List<float> ElevationEdges { get; init; } = new() { 0f, 1.5f, 5f, 10f, 17f, 30f, 50f, 90f };
 
     public int RaysPerRing(int ring)
