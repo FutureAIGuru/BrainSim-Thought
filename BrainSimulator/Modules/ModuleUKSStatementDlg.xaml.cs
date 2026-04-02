@@ -42,6 +42,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
 
     //these get the data back from the combobox selection 
     Thought tSource = null;
+    Thought tTarget = null;
 
     // BtnAddLink_Click is called when the AddLink button is clicked or ENTER is pressed in one of the textboxes
     private void BtnAddLink_Click(object sender, RoutedEventArgs e)
@@ -89,7 +90,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             linkTypeString = "is-a";
 
 
-        //hand source though which is itself a link
+        //handle source though which is itself a link
         var sourceParts = UKSStatement.Singular(fromString.Split(" ", StringSplitOptions.RemoveEmptyEntries));
         if (sourceParts.Length == 3)
         {
@@ -136,6 +137,55 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         if (tSource is null)
         {
             tSource = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(fromString, false);
+        }
+
+        //handle target though which is itself a link
+        var targetParts = UKSStatement.Singular(toString.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+        if (targetParts.Length == 3)
+        {
+            Link r2 = new()
+            {
+                From = UKSStatement.theUKS.GetOrAddThought(targetParts[0]),
+                LinkType = UKSStatement.theUKS.GetOrAddThought(targetParts[1]),
+                To = UKSStatement.theUKS.GetOrAddThought(targetParts[2])
+            };
+            var existing = UKSStatement.theUKS.GetLinks(r2);
+            if (existing.Count == 0)
+                tTarget = UKSStatement.theUKS.AddStatement(targetParts[0], targetParts[1], targetParts[2]);
+            else
+            {
+                // multiple matches, create a dropdown in the UI to select which one?
+                targetCombo.Visibility = Visibility.Visible;
+                targetCombo.Items.Clear();
+                ComboBoxItem cbi = new ComboBoxItem { Content = "<New>", ToolTip = "Create a new Link" };
+                cbi.PreviewMouseLeftButtonUp += ComboItem_Clicked;
+                targetCombo.Items.Add(cbi);
+                targetCombo.SelectedIndex = 0;
+                //targetCombo.IsDropDownOpen = true;
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, () => targetCombo.IsDropDownOpen = true);
+                foreach (var t in existing)
+                {
+                    string toolTipText = "";
+                    foreach (var r in t.LinksTo.Where(x => x.LinkType.Label != "is-a"))
+                        toolTipText += r.ToString() + "\n";
+                    if (!string.IsNullOrEmpty(toolTipText))
+                        toolTipText = toolTipText[..^1];
+
+                    cbi = new()
+                    {
+                        Content = t,
+                        ToolTip = toolTipText,
+                    };
+                    cbi.PreviewMouseLeftButtonUp += ComboItem_Clicked;
+                    targetCombo.Items.Add(cbi);
+                }
+                return;
+            }
+        }
+
+        if (tTarget is null)
+        {
+            tTarget = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(toString, false);
         }
 
 

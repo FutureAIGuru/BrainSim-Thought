@@ -121,8 +121,11 @@ public class Thought
         for (int i = 0; i < _linksFrom.Count; i++)
         {
             Link r = _linksFrom[i];
-            r.From.RemoveLink(r);
-            i--;
+            if (r.From.LinksTo.Count > 0)  //HACK: corrects for certain broken links
+            {
+                r.From.RemoveLink(r);
+                i--;
+            }
         }
 
         ThoughtLabels.RemoveThoughtLabel(Label);
