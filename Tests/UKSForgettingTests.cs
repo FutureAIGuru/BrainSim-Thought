@@ -38,11 +38,11 @@ public class UKSForgettingTests
         Thought target = uks.GetOrAddThought("target");
         uks.GetOrAddThought("rel");
         Link link = source.AddLink("rel", target);
-        link.TimeToLive = TimeSpan.FromMilliseconds(10);
-        link.LastFiredTime = DateTime.Now - TimeSpan.FromMilliseconds(20);
-
         // Sanity
         Assert.Contains(link, source.LinksTo);
+
+        link.TimeToLive = TimeSpan.FromMilliseconds(10);
+        link.LastFiredTime = DateTime.Now - TimeSpan.FromMilliseconds(20);
 
         // Trigger expiration check on the link itself
         _ = link.LinksTo;
