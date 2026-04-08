@@ -11,6 +11,7 @@
  * See the LICENSE file in the project root for full license information.
  */
 
+using Microsoft.VisualBasic;
 using static UKS.UKS;
 
 namespace UKS;
@@ -217,11 +218,11 @@ public partial class UKS
     /// <summary>
     /// Creates the first sequence element for a source Thought and links its value.
     /// </summary>
-    public SeqElement CreateFirstElement(Thought source, Thought value)
+    public SeqElement CreateFirstElement(string labelBase, Thought value)
     {
         SeqElement firstNode = new()
         {
-            Label = source?.Label.ToLower() + "-seq0",
+            Label = labelBase + "-seq0",
         };
         firstNode.AddLink("VLU", value);
         firstNode.FRST = firstNode; //points to itself as the first element
@@ -615,7 +616,7 @@ public partial class UKS
             .ToList();
         foreach (var candidate in candidateNodes)
         {
-            var enumerator = EnumerateSequenceElements((SeqElement)candidate.seqNode, skipPlusEntries).GetEnumerator();
+            var enumerator = EnumerateSequenceElements((SeqElement)candidate.seqNode).GetEnumerator();
             searchCandidates.Add(new((SeqElement)candidate.seqNode, enumerator, 1));
             searchCandidates.Last().curPos.MoveNext();
         }
@@ -638,7 +639,7 @@ public partial class UKS
                     {
                         var x = searchCandidates.FindFirst(x => x.seqNode == referrer);
                         if (x.seqNode is null)
-                            searchCandidates.Add(new(referrer, EnumerateSequenceElements(referrer, skipPlusEntries).GetEnumerator(), searchCandidates[j].matchCount));
+                            searchCandidates.Add(new(referrer, EnumerateSequenceElements(referrer).GetEnumerator(), searchCandidates[j].matchCount));
                     }
                     searchCandidates.RemoveAt(j);
                     j--;
@@ -686,7 +687,7 @@ public partial class UKS
     {
         //experimentating with an enumartor for sequences
         List<Thought> result = new();
-        var e = EnumerateSequenceElements(sequenceStart, skipPlusValues).GetEnumerator();
+        var e = EnumerateSequenceElements(sequenceStart).GetEnumerator();
         while (e.MoveNext())
             if (GetElementValue(e.Current) is not null)
                 result.Add(GetElementValue(e.Current));
@@ -695,15 +696,26 @@ public partial class UKS
         return result;
     }
 
+    public float CompareSequences (SeqElement seq1, SeqElement seq2)
+    {
+        //TODO make this non-digital
+        var flat1 = FlattenSequence(seq1);
+        var flat2 = FlattenSequence(seq2);
+        if (flat1.Count != flat2.Count) return 0f;
+        for (int i = 0; i < flat1.Count; i++)
+            if (!ReferenceEquals(flat1[i], flat2[i]))
+                return 0f;  
+        return 1f;
+    }
+
     /// <summary>
     /// Enumerates all leaf elements in a sequence, recursively traversing into subsequences.
     /// Protected against circular subsequence references.
     /// </summary>
     /// <param name="sequenceStart">The first node of the sequence.</param>
     /// <param name="visitedSequences">Optional stack to track visited sequences across recursion.</param>
-    /// <param name="skipPlusValues">When true, elements whose VLU label is "+" are skipped.</param>
     /// <returns>Leaf sequence elements in order.</returns>
-    public IEnumerable<SeqElement> EnumerateSequenceElements(SeqElement sequenceStart, bool skipPlusValues = false, Stack<SeqElement> visitedSequences = null)
+    public IEnumerable<SeqElement> EnumerateSequenceElements(SeqElement sequenceStart, Stack<SeqElement> visitedSequences = null)
     {
         if (sequenceStart is null) yield break;
 
@@ -721,13 +733,12 @@ public partial class UKS
             if (valueRel is SeqElement s)
             {
                 // Recursively enumerate the subsequence, passing the shared visitedSequences set
-                foreach (var subElement in EnumerateSequenceElements(s, skipPlusValues, visitedSequences))
+                foreach (var subElement in EnumerateSequenceElements(s,visitedSequences))
                     yield return subElement;
             }
             else
             {
-                // It's a leaf element, return it unless we're skipping over it
-                if (!skipPlusValues || valueRel?.Label != "+") yield return current;
+                yield return current;
             }
 
             // Move to next node via NXT Link

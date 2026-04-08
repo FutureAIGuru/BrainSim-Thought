@@ -211,7 +211,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             //show sequence content unless details are selected
             if (r.From is SeqElement)
             {
-                if (r.LinkType.Label == "VLU" || r.LinkType.Label == "duration")
+                if (r.LinkType.Label == "VLU" || r.LinkType.Label == "timetonext")
                 {
                     header = $"[{r.From.Label}→{r.LinkType.Label}→{r.To.Label}]";
                     if (r.To.Label == "")
@@ -228,15 +228,21 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 }
                 else
                 {
-                    var seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.Label);
-                    seqElementLabels = seqElementLabels
-                        .Select(s =>
-                        {
-                            int i = s.IndexOf(':');
-                            return i >= 0 ? s[(i + 1)..] : s;
-                        }).ToList();
-                    string sequence = "^" + string.Join(joinCharacter, seqElementLabels);
-                    header = $"[{r.From.Label}→{r.LinkType.Label}→{sequence}]";
+                    var seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.Label).ToList();
+                    if (seqElementLabels.Count() > 0)
+                    {
+                        int i = seqElementLabels[0].IndexOf(':');
+                        string leftSide = seqElementLabels[0][..(i+1)];
+
+                        seqElementLabels = seqElementLabels
+                            .Select(s =>
+                            {
+                                int i = s.IndexOf(':');
+                                return i >= 0 ? s[(i + 1)..] : s;
+                            }).ToList();
+                        string sequence = "^" +leftSide +  string.Join(joinCharacter, seqElementLabels);
+                        header = $"[{r.From.Label}→{r.LinkType.Label}→{sequence}]";
+                    }
                 }
             }
         }

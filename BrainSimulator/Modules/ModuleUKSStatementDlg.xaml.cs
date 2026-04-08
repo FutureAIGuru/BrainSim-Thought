@@ -71,16 +71,16 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
 
         if (!CheckAddLinkFieldsFilled()) return;
 
-        TimeSpan duration = TimeSpan.MaxValue;
-        string durationText = ((ComboBoxItem)durationCombo.SelectedItem).Content.ToString();
-        switch (durationText)
+        TimeSpan timeToLive = TimeSpan.MaxValue;
+        string timeToLiveText = ((ComboBoxItem)timeToLiveCombo.SelectedItem).Content.ToString();
+        switch (timeToLiveText)
         {
-            case "Eternal": duration = TimeSpan.MaxValue; break;
-            case "1 hr": duration = TimeSpan.FromHours(1); break;
-            case "5 min": duration = TimeSpan.FromMinutes(5); break;
-            case "1 min": duration = TimeSpan.FromMinutes(1); break;
-            case "30 sec": duration = TimeSpan.FromSeconds(30); break;
-            case "10 sec": duration = TimeSpan.FromSeconds(10); break;
+            case "Eternal": timeToLive = TimeSpan.MaxValue; break;
+            case "1 hr": timeToLive = TimeSpan.FromHours(1); break;
+            case "5 min": timeToLive = TimeSpan.FromMinutes(5); break;
+            case "1 min": timeToLive = TimeSpan.FromMinutes(1); break;
+            case "30 sec": timeToLive = TimeSpan.FromSeconds(30); break;
+            case "10 sec": timeToLive = TimeSpan.FromSeconds(10); break;
         }
         float confidence = (float)confidenceSlider.Value;
 
@@ -192,17 +192,17 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         Link r1 = UKSStatement.AddLink(tSource, linkTypeString, toString);
 
 
-        //set the duration
+        //set the timeToLive
         if (r1 is not null && setConfCB.IsChecked == true)
         {
             if (r1.UseCount == 1)
             {
                 r1.Weight = confidence;
-                r1.TimeToLive = duration;
+                r1.TimeToLive = timeToLive;
             }
-            if (r1.From.UseCount == 1) r1.From.TimeToLive = duration;
-            if (r1.LinkType.UseCount == 1) r1.LinkType.TimeToLive = duration;
-            if (r1.To.UseCount == 1) r1.To.TimeToLive = duration;
+            if (r1.From.UseCount == 1) r1.From.TimeToLive = timeToLive;
+            if (r1.LinkType.UseCount == 1) r1.LinkType.TimeToLive = timeToLive;
+            if (r1.To.UseCount == 1) r1.To.TimeToLive = timeToLive;
         }
         if (r1 is not null && eventCB.IsChecked == true)
         {
@@ -212,7 +212,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             Thought theSequence = subject.LinksTo.FindFirst(x => x.LinkType.Label == "events")?.To;
             if (theSequence is null)
             {
-                Thought t1 = UKSStatement.theUKS.CreateFirstElement(subject, r1);
+                Thought t1 = UKSStatement.theUKS.CreateFirstElement(subject.Label, r1);
                 subject.RemoveLinks("events");
                 subject.AddLink("events", t1);
             }

@@ -14,6 +14,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UKS;
@@ -91,6 +92,7 @@ public class ModuleMentalModel : ModuleBase
             t.AddLink("is-a", "activeThought");
         else
             t.AddLink("is-a", "imaginedThought");
+//        Debug.WriteLine("Binding: " + t.Label);
         return l;
     }
     public Link ImagineThought(Thought t, Thought mmPosition, float weight = 1f)
@@ -99,6 +101,7 @@ public class ModuleMentalModel : ModuleBase
     }
     public void UnbindThought(Thought t)
     {
+        //Debug.WriteLine("UnBinding: " + t.Label);
         var existingLink = t.LinksFrom.FindFirst(x => x.LinkType == _ltContains);
         if (existingLink is not null)
             existingLink.From.RemoveLink(_ltContains, t);
