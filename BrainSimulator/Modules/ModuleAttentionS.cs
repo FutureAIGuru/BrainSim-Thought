@@ -76,7 +76,7 @@ public class ModuleAttentionS : ModuleBase
             //does this sequence already exist? (note, it always findes the currentSeq PLUS any others)
             Thought existing = null;
             bool completeMatch = false;
-            var existing1 = theUKS.HasSequence(theFlattenedSequence, "soundAs", false, true);
+            var existing1 = theUKS.HasSequence(theFlattenedSequence, "soundAs", true);
             if (existing1.Count > 0)
             {
                 var existing2 = theUKS.GetReferringThoughts(existing1[0].seqNode, "soundAs");

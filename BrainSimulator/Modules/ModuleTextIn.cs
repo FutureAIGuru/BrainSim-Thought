@@ -178,7 +178,7 @@ public class ModuleTextIn : ModuleBase
         {
             var keyword1 = keywords[i];
             var keyword2 = keywords[i + 1];
-            var result = theUKS.HasSequence2(new List<Thought> { keyword1, keyword2 }, "contains", false, true, true);
+            var result = theUKS.HasSequence2(new List<Thought> { keyword1, keyword2 }, "contains", true, true);
             if (result.Count > 0)
             {
                 keywords[i] = result[0].result;

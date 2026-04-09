@@ -231,6 +231,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     var seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.Label).ToList();
                     if (seqElementLabels.Count() > 0)
                     {
+                        if (string.IsNullOrEmpty(seqElementLabels[0]))
+                            seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.ToString()).ToList();
+
                         int i = seqElementLabels[0].IndexOf(':');
                         string leftSide = seqElementLabels[0][..(i+1)];
 

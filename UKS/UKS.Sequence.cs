@@ -256,7 +256,8 @@ public partial class UKS
             current = next;
         }
     }
-    //This unconditionally creates a (no-subsequenccs) sequence of Thoughts
+    //This unconditionally creates a sequence of Thoughts
+    //No checking for existing sequences, no subsequences detection
     private SeqElement CreateRawSequence(List<Thought> targets, string baseLabel = "seq*")
     {
         if (targets.Count < 1) return null;
@@ -301,7 +302,57 @@ public partial class UKS
             return hc.ToHashCode();
         }
     }
+    public SeqElement AddSequence2(string label, List<Thought> targets)
+    {
+        if (targets.Count < 1) return null;  //a sequence must have at least 2 elements
 
+        List<Thought> resolvedTargets = new(targets);
+
+        // does sequence one already exist?
+        // Note: this returns the existing sequence as opposed to creating a new sequence which references the
+        // existing as a sub-sequence
+        var existingSequences = RawSearchExact(resolvedTargets);
+        foreach (var t in existingSequences)
+        {
+            if (IsSequenceFirstElement(t.seqNode) && GetSequenceLength(t.seqNode) == targets.Count)
+            {
+                return t.seqNode;
+            }
+        }
+
+
+        //check for any existing sequences which begins with the targets[startIndes]
+        (Thought seqStart, int length) FindExistingSubsequence(int startIndex)
+        {
+            int remaining = resolvedTargets.Count - startIndex;
+            for (int len = remaining; len > 1; len--)
+            {
+                var testSequence = resolvedTargets.GetRange(startIndex, len);
+                if (SequenceCache.TryGetValue(testSequence, out Thought existing) && existing is not null)
+                    return (existing, len);
+            }
+            return (null, 0);
+        }
+
+        //Are there any existing seqnences in the target list?
+        // edit the resolved target list that reuses any existing subsequences
+        for (int i = 0; i < resolvedTargets.Count; i++)
+        {
+            (Thought seqStart, int length) = FindExistingSubsequence(i);
+            if (seqStart is not null)
+            {
+                resolvedTargets.RemoveRange(i, length);
+                resolvedTargets.Insert(i, seqStart);
+                continue;
+            }
+        }
+        //Finally, create the sequence and link to it
+        SeqElement rawSequence = CreateRawSequence(resolvedTargets, label);
+        var newSequence = FlattenSequence(rawSequence);
+        SequenceCache[newSequence] = rawSequence;
+        return rawSequence;
+
+    }
     /// <summary>
     /// Adds a sequence of Thoughts as ordered links from a source Thought. Handles nested sequences.
     /// </summary>
@@ -317,9 +368,13 @@ public partial class UKS
         //clear out any existing sequence links of this type
         source.RemoveLinks(linkType);  //TODO delete the sequence
 
-        List<Thought> resolvedTargets = new(targets);
+        SeqElement rawSequence = AddSequence2(source.Label, targets);
+
+/*        List<Thought> resolvedTargets = new(targets);
 
         // does sequence one already exist?
+        // Note: this returns the existing sequence as opposed to creating a new sequence which references the
+        // existing as a sub-sequence
         var existingSequences = RawSearchExact(resolvedTargets);
         foreach (var t in existingSequences)
         {
@@ -358,16 +413,15 @@ public partial class UKS
         }
         //Finally, create the sequence and link to it
         SeqElement rawSequence = CreateRawSequence(resolvedTargets, source.Label);
+  */
         source.AddLink(linkType, rawSequence);
-        var newSequence = FlattenSequence(rawSequence);
-        SequenceCache[newSequence] = rawSequence;
         return rawSequence;
     }
 
     public List<(Thought result, float confidence)> HasSequence2(List<Thought> targets, Thought linkType,
-    bool skipPlusEntries = false, bool mustMatchFirst = false, bool mustMatchLast = false, bool circularSearch = false, bool allowOutOfOrder = false)
+     bool mustMatchFirst = false, bool mustMatchLast = false, bool circularSearch = false, bool allowOutOfOrder = false)
     {
-        var result1 = HasSequence(targets, linkType, skipPlusEntries = false, mustMatchFirst = false, mustMatchLast = false, circularSearch = false, allowOutOfOrder = false);
+        var result1 = HasSequence(targets, linkType, mustMatchFirst = false, mustMatchLast = false, circularSearch = false, allowOutOfOrder = false);
         List<(Thought result, float confidence)> retVal = new();
         foreach (var result in result1)
         {
@@ -390,7 +444,7 @@ public partial class UKS
     /// <param name="allowOutOfOrder">Reserved for out-of-order search (not implemented).</param>
     /// <returns>List of candidate links with confidence values.</returns>
     public List<(SeqElement seqNode, float confidence)> HasSequence(List<Thought> targets, Thought linkType,
-        bool skipPlusEntries = false, bool mustMatchFirst = false, bool mustMatchLast = false, bool circularSearch = false, bool allowOutOfOrder = false)
+        bool mustMatchFirst = false, bool mustMatchLast = false, bool circularSearch = false, bool allowOutOfOrder = false)
     {
         //this function searches the UKS for sequences matching the specified pattern in targets. 
 
@@ -427,10 +481,11 @@ public partial class UKS
         // These are potential starting points for matching sequences
 
         // When this returns, seqNode is the first matching node.  curPos.Current is the last
-        List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = RawSearchExact(targets, skipPlusEntries);
+        List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = RawSearchExact(targets);
         if (searchCandidates.Count == 0) return retVal;
 
         //Do we want to follow up the chain of referrers?
+        //this allows finding SETS when it is stored as ^SET S
         if (true)
         {
             for (int j = 0; j < searchCandidates.Count; j++)
@@ -605,7 +660,7 @@ public partial class UKS
         float score = count / (Math.Max(seq.Count, targets.Count) - 1);
         return score;
     }
-    public List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> RawSearchExact(List<Thought> targets, bool skipPlusEntries = false)
+    public List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> RawSearchExact(List<Thought> targets)
     {
         List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = new();
         if (targets is null || targets.Count < 2) return searchCandidates;

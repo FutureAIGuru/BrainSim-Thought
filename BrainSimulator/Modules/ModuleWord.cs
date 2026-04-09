@@ -72,7 +72,7 @@ public class ModuleWord : ModuleBase
             letters.Add(letter);
         }
         string retVal = word;
-        var suggestions = theUKS.HasSequence(letters,"spelled",true,true);
+        var suggestions = theUKS.HasSequence(letters,"spelled",true);
         if (suggestions.Count > 0)
         {
             var suggestionList = theUKS.FlattenSequence(suggestions[0].seqNode);

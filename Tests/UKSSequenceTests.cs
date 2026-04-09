@@ -33,7 +33,7 @@ public class UKSSequenceTests
         var uks = CreateUKS();
         var word = uks.GetOrAddThought("word", "Thought");
         var linkType = uks.GetOrAddThought("spelled", "LinkType");
-        var seq = uks.CreateFirstElement(word, uks.GetOrAddThought("a"));
+        var seq = uks.CreateFirstElement(word.Label, uks.GetOrAddThought("a"));
 
         Assert.True(uks.IsSequenceElement(seq));
         Assert.False(uks.IsSequenceElement(word));
@@ -97,7 +97,7 @@ public class UKSSequenceTests
         };
         SeqElement seq = uks.AddSequence(source, linkType, digits);
 
-        var matches = uks.HasSequence(digits, linkType, skipPlusEntries: false, mustMatchFirst: true, mustMatchLast: true);
+        var matches = uks.HasSequence(digits, linkType, mustMatchFirst: true, mustMatchLast: true);
 
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, seq) && m.confidence >= 1.0f);
     }
@@ -212,7 +212,7 @@ public class UKSSequenceTests
             uks.GetOrAddThought("E"),
         };
 
-        var matches = uks.HasSequence(pattern, linkType, skipPlusEntries: false);
+        var matches = uks.HasSequence(pattern, linkType);
 
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, resetSeq) && m.confidence >= 0.6f); // 3 of 5 letters matched
     }
@@ -259,7 +259,7 @@ public class UKSSequenceTests
             uks.GetOrAddThought("E"),
         };
 
-        var matches = uks.HasSequence(pattern, linkType, skipPlusEntries: false);
+        var matches = uks.HasSequence(pattern, linkType);
 
         var resetMatch = Assert.Single(matches.Where(m => ReferenceEquals(m.seqNode, resetSeq)));
         Assert.Equal(3f / 5f, resetMatch.confidence, 3);
@@ -350,13 +350,13 @@ public class UKSSequenceTests
 
         // BES -> only BESET
         var besPattern = new List<Thought> { uks.GetOrAddThought("B"), uks.GetOrAddThought("E"), uks.GetOrAddThought("S") };
-        var besMatches = uks.HasSequence(besPattern, linkType, skipPlusEntries: false);
+        var besMatches = uks.HasSequence(besPattern, linkType);
         var besetMatch = Assert.Single(besMatches.Where(m => ReferenceEquals(m.seqNode, besetSeq)));
         Assert.Equal(3f / 5f, besetMatch.confidence, 3);
 
         // ESE -> RESET, BESET
         var esePattern = new List<Thought> { uks.GetOrAddThought("E"), uks.GetOrAddThought("S"), uks.GetOrAddThought("E") };
-        var eseMatches = uks.HasSequence(esePattern, linkType, skipPlusEntries: false);
+        var eseMatches = uks.HasSequence(esePattern, linkType);
         var eseReset = Assert.Single(eseMatches.Where(m => ReferenceEquals(m.seqNode, resetSeq)));
         Assert.Equal(3f / 5f, eseReset.confidence, 3);
         var eseBeset = Assert.Single(eseMatches.Where(m => ReferenceEquals(m.seqNode, besetSeq)));
@@ -364,7 +364,7 @@ public class UKSSequenceTests
 
         // PRE -> PRESET
         var prePattern = new List<Thought> { uks.GetOrAddThought("P"), uks.GetOrAddThought("R"), uks.GetOrAddThought("E") };
-        var preMatches = uks.HasSequence(prePattern, linkType, skipPlusEntries: false);
+        var preMatches = uks.HasSequence(prePattern, linkType);
         var prePreset = Assert.Single(preMatches.Where(m => ReferenceEquals(m.seqNode, presetSeq)));
         Assert.Equal(3f / 6f, prePreset.confidence, 3);
 
@@ -372,44 +372,12 @@ public class UKSSequenceTests
         //NOTE
         // ET -> JUST SET
         var etPattern = new List<Thought> { uks.GetOrAddThought("E"), uks.GetOrAddThought("T") };
-        var etMatches = uks.HasSequence(etPattern, linkType, skipPlusEntries: false);
+        var etMatches = uks.HasSequence(etPattern, linkType);
 
         var etSet = Assert.Single(etMatches.Where(m => ReferenceEquals(m.seqNode, setSeq)));
         Assert.Equal(2f / 3f, etSet.confidence, 3);
     }
 
-    [Fact]
-    public void HasSequence_SkipsPlusEntriesWhenRequested()
-    {
-        var uks = CreateUKS();
-        var linkType = uks.GetOrAddThought("spelled", "LinkType");
-
-        var seq = uks.AddSequence(
-            uks.GetOrAddThought("A_PLUS_B", "Thought"),
-            linkType,
-            new List<Thought>
-            {
-                uks.GetOrAddThought("A"),
-                uks.GetOrAddThought("+"),
-                uks.GetOrAddThought("B"),
-            });
-
-        var pattern = new List<Thought>
-        {
-            uks.GetOrAddThought("A"),
-            uks.GetOrAddThought("B"),
-        };
-
-        // Without skipping "+", no full match should be found
-        var noSkip = uks.HasSequence(pattern, linkType, skipPlusEntries: false, mustMatchFirst: true, mustMatchLast: true);
-        Assert.Empty(noSkip);
-
-        // With skipping "+", we should match with confidence 2/3 (two of three nodes)
-        var withSkip = uks.HasSequence(pattern, linkType, skipPlusEntries: true, mustMatchFirst: true, mustMatchLast: true);
-        var match = Assert.Single(withSkip);
-        Assert.Same(seq, match.seqNode);
-        Assert.Equal(2f / 3f, match.confidence, 3);
-    }
 
     [Fact]
     public void CircularSequence_FlattensWithoutLooping()

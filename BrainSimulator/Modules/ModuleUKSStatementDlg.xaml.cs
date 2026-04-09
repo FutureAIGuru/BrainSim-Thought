@@ -141,7 +141,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
 
         //handle target though which is itself a link
         var targetParts = UKSStatement.Singular(toString.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-        if (targetParts.Length == 3)
+        if (targetParts.Length == 3 && !targetParts[0].StartsWith("^"))
         {
             Link r2 = new()
             {
@@ -188,9 +188,10 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             tTarget = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(toString, false);
         }
 
+        Thought tLink = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(linkTypeString, true);
 
-        Link r1 = UKSStatement.AddLink(tSource, linkTypeString, toString);
-
+        var r1 = UKSStatement.theUKS.AddStatement(tSource, tLink, tTarget);
+        //Link r1 = UKSStatement.AddTheLink(tSource, linkTypeString, toString);
 
         //set the timeToLive
         if (r1 is not null && setConfCB.IsChecked == true)
@@ -329,27 +330,4 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         }
         return true;
     }
-
-    //private void sourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    //{
-    //    ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
-    //    sourceCombo.Visibility = Visibility.Hidden;
-    //    if (sourceCombo.SelectedValue.ToString() == "<New>")
-    //    {
-    //        var sourceParts = UKSStatement.Singular(sourceText.Text.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-    //        if (sourceParts.Length == 3)
-    //        {
-    //            Thought r1 = UKSStatement.AddLink(sourceParts[0], sourceParts[1], sourceParts[2]);
-    //            sourceText.Text = r1.ToString();
-    //        }
-    //    }
-    //    else
-    //    {
-    //        if (sourceCombo.SelectedItem is ComboBoxItem cbi)
-    //        {
-    //            sourceText.Text = cbi.Content.ToString();
-    //            tSource = (Thought)cbi.Content;
-    //        }
-    //    }
-    //}
 }
