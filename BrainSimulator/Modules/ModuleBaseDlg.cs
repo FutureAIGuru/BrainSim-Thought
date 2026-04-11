@@ -70,7 +70,7 @@ public class ModuleBaseDlg : Window
         };
         bottomBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // status stretch
         bottomBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(35) });                    // src button
-        bottomBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });                    // help button
+        bottomBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(35) });                    // help button
 
         Button helpButton = new Button
         {
@@ -81,7 +81,7 @@ public class ModuleBaseDlg : Window
             Padding = new Thickness(0, -6, 0, 0),
             Name = "helpButton",
             ToolTip = "Show dialog help",
-            HorizontalAlignment = HorizontalAlignment.Right,
+            HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
         helpButton.Click += HelpButton_Click;
@@ -89,11 +89,13 @@ public class ModuleBaseDlg : Window
 
         Button sourceButton = new Button
         {
-            Content = "src",
+            Content = "SRC",
+            FontSize = 16,
             Width = 33,
             Height = 25,
             Name = "sourceButton",
             ToolTip = "Show dialog source",
+            Padding = new Thickness(0, -4, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center
         };

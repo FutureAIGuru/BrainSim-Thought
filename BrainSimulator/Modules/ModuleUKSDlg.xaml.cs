@@ -274,7 +274,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         currentLabel = currentLabel.Replace("||", "|"); //parentLabel may or may not have a leading '|'
         if (expandedItems.Contains(currentLabel))
             tviChild.IsExpanded = true;
-        if (child.Ancestors.Contains(expandAll) &&
+        if (child.AncestorsWithSelf.Contains(expandAll) &&
             (child.Label == "" || !parentLabel.Contains("|" + child.Label)))
             tviChild.IsExpanded = true;
         tviChild.Expanded += EmptyChild_Expanded;
@@ -717,11 +717,14 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         mouseInWindow = true;
         theTreeView.Background = new SolidColorBrush(Colors.LightSteelBlue);
+        SetStatus("Paused");
+
     }
     private void TheTreeView_MouseLeave(object sender, MouseEventArgs e)
     {
         mouseInWindow = false;
         theTreeView.Background = new SolidColorBrush(Colors.LightGray);
+        SetStatus("OK");
     }
 
     private void RefreshButton_Click(object sender, RoutedEventArgs e)
