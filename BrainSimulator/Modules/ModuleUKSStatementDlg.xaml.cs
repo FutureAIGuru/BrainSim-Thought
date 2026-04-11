@@ -203,7 +203,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             }
             if (r1.From.UseCount == 1) r1.From.TimeToLive = timeToLive;
             if (r1.LinkType.UseCount == 1) r1.LinkType.TimeToLive = timeToLive;
-            if (r1.To.UseCount == 1) r1.To.TimeToLive = timeToLive;
+            if (r1.To?.UseCount == 1) r1.To.TimeToLive = timeToLive;
         }
         if (r1 is not null && eventCB.IsChecked == true)
         {

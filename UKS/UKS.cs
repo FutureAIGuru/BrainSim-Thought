@@ -280,7 +280,7 @@ public partial class UKS
                 }
             }
             string seqLabel = string.Join("", targetParts);
-            Thought r1 = (Thought)theUKS.AddSequence2(seqLabel,targets);
+            Thought r1 = (Thought)theUKS.AddSequence(seqLabel,targets);
             return r1;
 
         }

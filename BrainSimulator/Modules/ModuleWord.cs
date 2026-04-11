@@ -114,7 +114,7 @@ public class ModuleWord : ModuleBase
         Thought spelledLinkType = theUKS.GetOrAddThought("spelled", "LinkType");
 
         // Add the sequence
-        var t = theUKS.AddSequence(wordThought, spelledLinkType, letters);
+        var t = theUKS.AddSequenceAndLink(wordThought, spelledLinkType, letters);
         wordThought.TimeToLive = TimeSpan.FromSeconds(10);
 
         return wordThought;

@@ -66,7 +66,7 @@ public class UKSDeletionTests
         Thought lA = uks.GetOrAddThought("A", "symbol");
         Thought lB = uks.GetOrAddThought("B", "symbol");
 
-        var seqStart = uks.AddSequence(word, spelled, new() { lA, lB });
+        var seqStart = uks.AddSequenceAndLink(word, spelled, new() { lA, lB });
 
         Assert.DoesNotContain(seqStart, uks.AtomicThoughts); //sequences are not in allThoughts
         Assert.Same(seqStart, ThoughtLabels.GetThought($"{word.Label.ToLower()}-seq0"));
@@ -113,11 +113,11 @@ public class UKSDeletionTests
         Thought letterC = uks.GetOrAddThought("C", "symbol");
         Thought letterB = uks.GetOrAddThought("B", "symbol");
 
-        var catSeq = uks.AddSequence(cat, spelled, new() { letterC, letterA, letterT });
+        var catSeq = uks.AddSequenceAndLink(cat, spelled, new() { letterC, letterA, letterT });
         string catSeqLabel = $"{cat.Label.ToLower()}-seq0";
         Assert.Same(catSeq, ThoughtLabels.GetThought(catSeqLabel));
 
-        var batSeq = uks.AddSequence(uks.GetOrAddThought("bat"), spelled, new() { letterB, letterA, letterT });
+        var batSeq = uks.AddSequenceAndLink(uks.GetOrAddThought("bat"), spelled, new() { letterB, letterA, letterT });
 
         // Delete cat: its sequence elements should be gone; shared letters remain
         cat.Delete();

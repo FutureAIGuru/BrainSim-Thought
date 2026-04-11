@@ -46,13 +46,13 @@ public class ModuleTextIn : ModuleBase
         theUKS.GetOrAddThought("w:can", "EnglishWord").AddLink("means", theUKS.Labeled("can"));
 
         Thought t = theUKS.GetOrAddThought("p:is|a", "phrase");
-        theUKS.AddSequence(t, "contains", new List<Thought> { theUKS.GetOrAddThought("w:is", "EnglishWord"), theUKS.GetOrAddThought("w:a", "EnglishWord") });
+        theUKS.AddSequenceAndLink(t, "contains", new List<Thought> { theUKS.GetOrAddThought("w:is", "EnglishWord"), theUKS.GetOrAddThought("w:a", "EnglishWord") });
         t.AddLink("means", "is-a");
         theUKS.GetOrAddThought("w:has", "LinkType").AddLink("means", "has");
 
         //spanish experiment
         Thought t1 = theUKS.GetOrAddThought("p:es|un", "phrase");
-        theUKS.AddSequence(t1, "contains", new List<Thought> { theUKS.GetOrAddThought("w:es", "SpanishWord"), theUKS.GetOrAddThought("w:un", "SpanishWord") });
+        theUKS.AddSequenceAndLink(t1, "contains", new List<Thought> { theUKS.GetOrAddThought("w:es", "SpanishWord"), theUKS.GetOrAddThought("w:un", "SpanishWord") });
         t1.AddLink("means", "is-a");
 
         if (dlg is ModuleTextInDlg ti1)

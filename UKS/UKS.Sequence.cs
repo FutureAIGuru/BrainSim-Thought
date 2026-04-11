@@ -302,7 +302,7 @@ public partial class UKS
             return hc.ToHashCode();
         }
     }
-    public SeqElement AddSequence2(string label, List<Thought> targets)
+    public SeqElement AddSequence(string label, List<Thought> targets)
     {
         if (targets.Count < 1) return null;  //a sequence must have at least 2 elements
 
@@ -319,7 +319,6 @@ public partial class UKS
                 return t.seqNode;
             }
         }
-
 
         //check for any existing sequences which begins with the targets[startIndes]
         (Thought seqStart, int length) FindExistingSubsequence(int startIndex)
@@ -361,59 +360,13 @@ public partial class UKS
     /// <param name="targets">Targets in order; can be sequence start nodes.</param>
     /// <param name="baseWeight">Base weight for the links (currently unused).</param>
     /// <returns>The first node of the created or reused sequence, or null if insufficient targets.</returns>
-    public SeqElement AddSequence(Thought source, Thought linkType, List<Thought> targets, float baseWeight = 1.0f)
+    public SeqElement AddSequenceAndLink(Thought source, Thought linkType, List<Thought> targets, float baseWeight = 1.0f)
     {
         if (targets.Count < 1) return null;  //a sequence must have at least 2 elements
 
         //clear out any existing sequence links of this type
         source.RemoveLinks(linkType);  //TODO delete the sequence
-
-        SeqElement rawSequence = AddSequence2(source.Label, targets);
-
-/*        List<Thought> resolvedTargets = new(targets);
-
-        // does sequence one already exist?
-        // Note: this returns the existing sequence as opposed to creating a new sequence which references the
-        // existing as a sub-sequence
-        var existingSequences = RawSearchExact(resolvedTargets);
-        foreach (var t in existingSequences)
-        {
-            if (IsSequenceFirstElement(t.seqNode) && GetSequenceLength(t.seqNode) == targets.Count)
-            {
-                source.AddLink(linkType, t.seqNode);
-                return t.seqNode;
-            }
-        }
-
-
-        //check for any existing sequences which begins with the targets[startIndes]
-        (Thought seqStart, int length) FindExistingSubsequence(int startIndex)
-        {
-            int remaining = resolvedTargets.Count - startIndex;
-            for (int len = remaining; len > 1; len--)
-            {
-                var testSequence = resolvedTargets.GetRange(startIndex, len);
-                if (SequenceCache.TryGetValue(testSequence, out Thought existing) && existing is not null)
-                    return (existing, len);
-            }
-            return (null, 0);
-        }
-
-        //Are there any existing seqnences in the target list?
-        // edit the resolved target list that reuses any existing subsequences
-        for (int i = 0; i < resolvedTargets.Count; i++)
-        {
-            (Thought seqStart, int length) = FindExistingSubsequence(i);
-            if (seqStart is not null)
-            {
-                resolvedTargets.RemoveRange(i, length);
-                resolvedTargets.Insert(i, seqStart);
-                continue;
-            }
-        }
-        //Finally, create the sequence and link to it
-        SeqElement rawSequence = CreateRawSequence(resolvedTargets, source.Label);
-  */
+        SeqElement rawSequence = AddSequence(source.Label, targets);
         source.AddLink(linkType, rawSequence);
         return rawSequence;
     }

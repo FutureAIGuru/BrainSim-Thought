@@ -563,7 +563,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             else if (r1 is Link r2)
             {
                 if (noSource && fullCB.IsChecked == false)
-                    resultString += $"{r2.LinkType?.ToString()} {r2.To.ToString()}  ({r2.Weight.ToString("0.00")})\n";
+                    resultString += $"{r2.LinkType?.ToString()} {r2.To?.ToString()}  ({r2.Weight.ToString("0.00")})\n";
                 else if (noTarget && fullCB.IsChecked == false)
                     resultString += $"{r2.From.ToString()} {r2.LinkType.ToString()}  ({r2.Weight.ToString("0.00")})\n";
                 else
