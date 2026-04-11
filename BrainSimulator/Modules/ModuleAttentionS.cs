@@ -21,15 +21,12 @@ namespace BrainSimulator.Modules;
 
 public class ModuleAttentionS : ModuleBase
 {
-    //private readonly List<Thought> _sequenceBuffer = new();
     private DateTime _lastEventTime = DateTime.MinValue;
     SeqElement currentSeq = null;
-    //List<Thought> prediction = new();
 
     public override void Fire()
     {
         Init();
-
 
         foreach (Link l in ((Thought)"activeThought").LinksFrom.Where(x=>x.LinkType.Label== "is-a"))
         {
@@ -45,25 +42,27 @@ public class ModuleAttentionS : ModuleBase
                 currentSeq = theUKS.CreateFirstElement("phrase", theNote);
             }
             else
+
             {
-                AddDurationToSeqStep();
+                AddTimeToNextToSeqStep();
                 //This code could be modified so that the sequences stored deltas rather than note values
                 //var deltaNote = GetIntAfterColon(theNote.Label)-GetIntAfterColon(currentSeq.VLU.Label) ;
                 //Thought theInterval = theUKS.GetOrAddThought($"interval:{deltaNote}", "musicalNote");
                 //currentSeq.AddLink("VLU", theInterval);
                 currentSeq = theUKS.AddElement(currentSeq, theNote);
+                Debug.WriteLine("Note Added:" + theNote.Label);
 
             }
             _lastEventTime = DateTime.Now;
         }
 
-        //Following is needed to store note durations
+        //Following might be useful to store note durations
         //foreach (Link l in ((Thought)"inActiveThought").LinksFrom.Where(x => x.LinkType.Label == "is-a"))
         //{
         //    if (l.HasLink(l, "handled", null) is not null) continue; //only handle this event once
         //    l.AddLink("handled", null);
         //    if (currentSeq is null) continue; //never start a sequence with a note-end
-        //    AddDurationToSeqStep();
+        //    AddTimeToNextToSeqStep();
         //    currentSeq = theUKS.AddElement(currentSeq, l.From);
         //    Debug.WriteLine($"added end event {l.From}");
         //    _lastEventTime = DateTime.Now;
@@ -77,7 +76,7 @@ public class ModuleAttentionS : ModuleBase
             //does this sequence already exist? (note, it always findes the currentSeq PLUS any others)
             Thought existing = null;
             bool completeMatch = false;
-            var existing1 = theUKS.HasSequence(theFlattenedSequence, "soundAs", false, true);
+            var existing1 = theUKS.HasSequence(theFlattenedSequence, "soundAs", true);
             if (existing1.Count > 0)
             {
                 var existing2 = theUKS.GetReferringThoughts(existing1[0].seqNode, "soundAs");
@@ -95,7 +94,7 @@ public class ModuleAttentionS : ModuleBase
                 var newThought = theUKS.GetOrAddThought("phrase*", "musicalPhrase").AddLink("soundAs", currentSeq.FRST);
                 int totalTime = 5000;
                 foreach (SeqElement t in theUKS.EnumerateSequenceElements(currentSeq.FRST))
-                    totalTime += ModuleSoundOut.GetDurationMs(t) * 3;
+                    totalTime += ModuleSoundOut.GetTimeToNextMs(t) * 3;
                 Debug.WriteLine($"new phrase heard {newThought.Label}");
                 newThought.From.TimeToLive = TimeSpan.FromMilliseconds(totalTime*3);
                 //newThought.From.TimeToLive = TimeSpan.MaxValue; //permanent for debugging
@@ -118,7 +117,7 @@ public class ModuleAttentionS : ModuleBase
                 else //perhaps complete the phrase
                 {
                     Debug.WriteLine($"phrase init match {existing.Label}");
-                    var e = theUKS.EnumerateSequenceElements(existing1[0].seqNode, true).GetEnumerator();
+                    var e = theUKS.EnumerateSequenceElements(existing1[0].seqNode).GetEnumerator();
                     e.MoveNext();
 
                     for (int i = 0; i < theFlattenedSequence.Count;i++)
@@ -145,12 +144,12 @@ public class ModuleAttentionS : ModuleBase
     }
 
   */
-    private int AddDurationToSeqStep()
+    private int AddTimeToNextToSeqStep()
     {
         TimeSpan delta = _lastEventTime == DateTime.MinValue ? TimeSpan.Zero : DateTime.Now - _lastEventTime;
         if (delta.TotalMilliseconds < 100) delta = TimeSpan.Zero;
-        var dt = theUKS.GetOrAddThought($"dt:{(int)delta.TotalMilliseconds}", "duration"); // Keep duration helper intact
-        currentSeq.AddLink("duration", dt);
+        var dt = theUKS.GetOrAddThought($"dt:{(int)delta.TotalMilliseconds}", "timetonext"); // Keep timetonext helper intact
+        currentSeq.AddLink("timetonext", dt);
         return (int)delta.TotalMilliseconds;
     }
 
@@ -168,7 +167,7 @@ public class ModuleAttentionS : ModuleBase
     private void EnsureSequenceRoots()
     {
         theUKS.GetOrAddThought("handled", "LinkType");
-        theUKS.GetOrAddThought("duration", "LinkType");
+        theUKS.GetOrAddThought("timetonext", "LinkType");
     }
 
     private List<Thought> PredictNextNote()

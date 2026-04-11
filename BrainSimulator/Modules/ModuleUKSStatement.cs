@@ -64,7 +64,7 @@ public class ModuleUKSStatement : ModuleBase
     }
 
 
-    public Link AddLink(Thought tSource, string linkType, string to)
+    public Link AddTheLink(Thought tSource, string linkType, string to)
     {
         GetUKS();
         if (theUKS is null) return null;
@@ -76,31 +76,7 @@ public class ModuleUKSStatement : ModuleBase
         var targetParts = Singular(to.Split(" ", StringSplitOptions.RemoveEmptyEntries));
         Thought tTarget = null;
 
-        //handle sequence creation
-        if (to.StartsWith("^"))
-        {
-            List<Thought> targets = new();
-            targetParts = to[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            foreach (string label in targetParts)
-            {
-                if (label.Length == 1)
-                {
-                    Thought letterParent = theUKS.GetOrAddThought("letter", "Object");
-                    Thought t = theUKS.GetOrAddThought(label.ToUpper(), letterParent);
-                    targets.Add(t);
-                }
-                else
-                {
-                    Thought t = theUKS.GetOrAddThought(label);
-                    targets.Add(t);
-                }
-            }
-            SeqElement r1 = theUKS.AddSequence(tSource, tLinkType, targets);
-            
-            return tSource.LinksTo.FindFirst(x=>x.LinkType == tLinkType);
-        }
- 
-        if (targetParts.Length == 3)
+        if (targetParts.Length == 3 && !targetParts[0].StartsWith("^"))
             tTarget = theUKS.AddStatement(targetParts[0], targetParts[1], targetParts[2]);
         if (tTarget is null)
             tTarget = theUKS.CreateThoughtFromMultipleAttributes(to, false);

@@ -36,17 +36,28 @@ public class ModuleAction : ModuleBase
         {
             Thought actionToTake = doRoot.Children[i];
             bool isMusic = actionToTake.HasAncestor("musicalPhrase");
-            if (!isMusic && actionToTake is SeqElement s)
+            if (!isMusic && actionToTake is SeqElement s) //hack needed to play partial phrases
                 isMusic = s.VLU.HasAncestor("musicalPhrase");
+            var learnMelodyModule = MainWindow.theWindow?.activeModules.OfType<ModuleLearnMelody>().FirstOrDefault();
+            if (learnMelodyModule is not null)
+            {
+                NewAction(actionToTake);
+                if (learnMelodyModule.ResponseHandled(actionToTake))
+                {
+                    actionToTake.RemoveParent(doRoot);
+                    i--;
+                    continue;
+                }
+            }
 
             if (isMusic)
-            { 
+            {
                 var soundOutModule = MainWindow.theWindow?.activeModules.OfType<ModuleSoundOut>().FirstOrDefault();
                 if (soundOutModule is not null)  //we need a case statement to dispatch different action types to different modules,
                                                  //but for now we just have one action type and one module that can handle it
                 {
                     Debug.WriteLine($"play phrase {actionToTake.Label}");
-                    soundOutModule.PlayThePhrase(actionToTake);
+                    soundOutModule.PlayThePhrase(actionToTake, false);
                 }
             }
             NewAction(actionToTake);
@@ -100,7 +111,6 @@ public class ModuleAction : ModuleBase
                 TakeActrion(action);
             }
             context.AddParent("context");
-            context.AddParent("possibleAction");
             _lastContext = context;
         }
     }
@@ -119,15 +129,16 @@ public class ModuleAction : ModuleBase
     {
         if (context == actionTaken) return null; //You can't respond with a replay
         if (actionTaken is SeqElement s) return null;  // you don't save a partial
+        if (context is null) return null;
         //first check if it already exists
-        foreach (Link l in context.LinksTo.Where(x=>x.LinkType.Label == "response" && x.To == actionTaken))
+        foreach (Link l in context.LinksTo.Where(x => x.LinkType.Label == "response" && x.To == actionTaken))
         {
             if (delta == 0f) return l.From;
             float oldDelta = l.Weight;
             float newDelta = oldDelta + delta;
             l.Weight = newDelta;
-            if (newDelta < 0) 
-                l.From.RemoveLink(l);
+//            if (newDelta < 0)
+//                l.From.RemoveLink(l);
             return l.From;
         }
         Thought actionRecord = context;
@@ -166,11 +177,12 @@ public class ModuleAction : ModuleBase
 
         if (bestDelta > 0 && bestAction is not null)
         {
-                TakeActrion(bestAction);
-                return bestAction;
+            TakeActrion(bestAction);
+            Debug.WriteLine("Best action Chosen: " + bestAction.Label);
+            return bestAction;
         }
 
-        var actionToTake = PickRandomKnownAction();
+        var actionToTake = PickRandomKnownAction(newContext);
         return actionToTake;
     }
 
@@ -180,7 +192,7 @@ public class ModuleAction : ModuleBase
         if (theUKS is null) return;
 
         theUKS.GetOrAddThought("do", "Action");
-        theUKS.GetOrAddThought("context","Action");
+        theUKS.GetOrAddThought("context", "Action");
         theUKS.GetOrAddThought("response", "LinkType");
         theUKS.GetOrAddThought("possibleAction", "Action");
         theUKS.GetOrAddThought("noAction", "possibleAction");
@@ -239,39 +251,50 @@ public class ModuleAction : ModuleBase
 
     private List<Thought> GetContextItems(Thought ctxNode)
     {
-/*        return ctxNode?.LinksTo
-            .Where(x => x.LinkType == _ltContextItem && x.To is not null)
-            .Select(x => x.To)
-            .Distinct()
-            .ToList() ?? new List<Thought>();
-  */
+        /*        return ctxNode?.LinksTo
+                    .Where(x => x.LinkType == _ltContextItem && x.To is not null)
+                    .Select(x => x.To)
+                    .Distinct()
+                    .ToList() ?? new List<Thought>();
+          */
         return new List<Thought>();
     }
 
-/*    private double GetDelta(Thought actionRecord)
-    {
-        Thought deltaThought = actionRecord.LinksTo.FindFirst(x => x.LinkType == _ltDeltaOf)?.To;
-        if (deltaThought?.V is double d) return d;
-        if (deltaThought?.V is float f) return f;
-        if (deltaThought?.Label?.StartsWith("delta:") == true &&
-            double.TryParse(deltaThought.Label["delta:".Length..], out double parsed))
-            return parsed;
-        if (actionRecord.V is double da) return da;
-        if (actionRecord.V is float fa) return fa;
-        return 0;
-    }
-*/
-    private Thought PickRandomKnownAction()
+    /*    private double GetDelta(Thought actionRecord)
+        {
+            Thought deltaThought = actionRecord.LinksTo.FindFirst(x => x.LinkType == _ltDeltaOf)?.To;
+            if (deltaThought?.V is double d) return d;
+            if (deltaThought?.V is float f) return f;
+            if (deltaThought?.Label?.StartsWith("delta:") == true &&
+                double.TryParse(deltaThought.Label["delta:".Length..], out double parsed))
+                return parsed;
+            if (actionRecord.V is double da) return da;
+            if (actionRecord.V is float fa) return fa;
+            return 0;
+        }
+    */
+    private Thought PickRandomKnownAction(Thought t)
     {
         var options = ((Thought)"possibleAction").Children
-            .Where(t => t is not null)
+            .Where(t1 => t1 is not null)
             .Distinct()
             .ToList();
 
-        if (options.Count < 2)
-            return null; // fallback default
+        //remove options which have already been tried
+        // Remove options which have already been tried
+        if (t is not null)
+        {
+            options = options.Where(option =>
+                !t.LinksTo.Any(link => link.LinkType?.Label == "response" && link.To == option)
+            ).ToList();
+        }
 
-        return options[_rng.Next(options.Count)];
-  
+
+        if (options.Count ==0)
+            return null; // fallback default
+        int val = (int)_rng.Next(options.Count);
+        Thought retVal = options[val];
+        return retVal;
+
     }
 }

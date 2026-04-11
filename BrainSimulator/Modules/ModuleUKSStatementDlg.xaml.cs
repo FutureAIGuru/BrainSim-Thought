@@ -42,6 +42,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
 
     //these get the data back from the combobox selection 
     Thought tSource = null;
+    Thought tTarget = null;
 
     // BtnAddLink_Click is called when the AddLink button is clicked or ENTER is pressed in one of the textboxes
     private void BtnAddLink_Click(object sender, RoutedEventArgs e)
@@ -70,16 +71,16 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
 
         if (!CheckAddLinkFieldsFilled()) return;
 
-        TimeSpan duration = TimeSpan.MaxValue;
-        string durationText = ((ComboBoxItem)durationCombo.SelectedItem).Content.ToString();
-        switch (durationText)
+        TimeSpan timeToLive = TimeSpan.MaxValue;
+        string timeToLiveText = ((ComboBoxItem)timeToLiveCombo.SelectedItem).Content.ToString();
+        switch (timeToLiveText)
         {
-            case "Eternal": duration = TimeSpan.MaxValue; break;
-            case "1 hr": duration = TimeSpan.FromHours(1); break;
-            case "5 min": duration = TimeSpan.FromMinutes(5); break;
-            case "1 min": duration = TimeSpan.FromMinutes(1); break;
-            case "30 sec": duration = TimeSpan.FromSeconds(30); break;
-            case "10 sec": duration = TimeSpan.FromSeconds(10); break;
+            case "Eternal": timeToLive = TimeSpan.MaxValue; break;
+            case "1 hr": timeToLive = TimeSpan.FromHours(1); break;
+            case "5 min": timeToLive = TimeSpan.FromMinutes(5); break;
+            case "1 min": timeToLive = TimeSpan.FromMinutes(1); break;
+            case "30 sec": timeToLive = TimeSpan.FromSeconds(30); break;
+            case "10 sec": timeToLive = TimeSpan.FromSeconds(10); break;
         }
         float confidence = (float)confidenceSlider.Value;
 
@@ -89,7 +90,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             linkTypeString = "is-a";
 
 
-        //hand source though which is itself a link
+        //handle source though which is itself a link
         var sourceParts = UKSStatement.Singular(fromString.Split(" ", StringSplitOptions.RemoveEmptyEntries));
         if (sourceParts.Length == 3)
         {
@@ -108,7 +109,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
                 sourceCombo.Visibility = Visibility.Visible;
                 sourceCombo.Items.Clear();
                 ComboBoxItem cbi = new ComboBoxItem { Content = "<New>", ToolTip = "Create a new Link" };
-                cbi.PreviewMouseLeftButtonUp += ComboItem_Clicked;
+                cbi.PreviewMouseLeftButtonUp += SourceComboItem_Clicked;
                 sourceCombo.Items.Add(cbi);
                 sourceCombo.SelectedIndex = 0;
                 //sourceCombo.IsDropDownOpen = true;
@@ -126,7 +127,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
                         Content = t,
                         ToolTip = toolTipText,
                     };
-                    cbi.PreviewMouseLeftButtonUp += ComboItem_Clicked;
+                    cbi.PreviewMouseLeftButtonUp += SourceComboItem_Clicked;
                     sourceCombo.Items.Add(cbi);
                 }
                 return;
@@ -138,21 +139,71 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             tSource = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(fromString, false);
         }
 
+        //handle target though which is itself a link
+        var targetParts = UKSStatement.Singular(toString.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+        if (targetParts.Length == 3 && !targetParts[0].StartsWith("^"))
+        {
+            Link r2 = new()
+            {
+                From = UKSStatement.theUKS.GetOrAddThought(targetParts[0]),
+                LinkType = UKSStatement.theUKS.GetOrAddThought(targetParts[1]),
+                To = UKSStatement.theUKS.GetOrAddThought(targetParts[2])
+            };
+            var existing = UKSStatement.theUKS.GetLinks(r2);
+            if (existing.Count == 0)
+                tTarget = UKSStatement.theUKS.AddStatement(targetParts[0], targetParts[1], targetParts[2]);
+            else
+            {
+                // multiple matches, create a dropdown in the UI to select which one?
+                targetCombo.Visibility = Visibility.Visible;
+                targetCombo.Items.Clear();
+                ComboBoxItem cbi = new ComboBoxItem { Content = "<New>", ToolTip = "Create a new Link" };
+                cbi.PreviewMouseLeftButtonUp += TargetComboItem_Clicked;
+                targetCombo.Items.Add(cbi);
+                targetCombo.SelectedIndex = 0;
+                //targetCombo.IsDropDownOpen = true;
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, () => targetCombo.IsDropDownOpen = true);
+                foreach (var t in existing)
+                {
+                    string toolTipText = "";
+                    foreach (var r in t.LinksTo.Where(x => x.LinkType.Label != "is-a"))
+                        toolTipText += r.ToString() + "\n";
+                    if (!string.IsNullOrEmpty(toolTipText))
+                        toolTipText = toolTipText[..^1];
 
-        Link r1 = UKSStatement.AddLink(tSource, linkTypeString, toString);
+                    cbi = new()
+                    {
+                        Content = t,
+                        ToolTip = toolTipText,
+                    };
+                    cbi.PreviewMouseLeftButtonUp += TargetComboItem_Clicked;
+                    targetCombo.Items.Add(cbi);
+                }
+                return;
+            }
+        }
 
+        if (tTarget is null)
+        {
+            tTarget = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(toString, false);
+        }
 
-        //set the duration
+        Thought tLink = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(linkTypeString, true);
+
+        var r1 = UKSStatement.theUKS.AddStatement(tSource, tLink, tTarget);
+        //Link r1 = UKSStatement.AddTheLink(tSource, linkTypeString, toString);
+
+        //set the timeToLive
         if (r1 is not null && setConfCB.IsChecked == true)
         {
             if (r1.UseCount == 1)
             {
                 r1.Weight = confidence;
-                r1.TimeToLive = duration;
+                r1.TimeToLive = timeToLive;
             }
-            if (r1.From.UseCount == 1) r1.From.TimeToLive = duration;
-            if (r1.LinkType.UseCount == 1) r1.LinkType.TimeToLive = duration;
-            if (r1.To.UseCount == 1) r1.To.TimeToLive = duration;
+            if (r1.From.UseCount == 1) r1.From.TimeToLive = timeToLive;
+            if (r1.LinkType.UseCount == 1) r1.LinkType.TimeToLive = timeToLive;
+            if (r1.To?.UseCount == 1) r1.To.TimeToLive = timeToLive;
         }
         if (r1 is not null && eventCB.IsChecked == true)
         {
@@ -162,7 +213,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             Thought theSequence = subject.LinksTo.FindFirst(x => x.LinkType.Label == "events")?.To;
             if (theSequence is null)
             {
-                Thought t1 = UKSStatement.theUKS.CreateFirstElement(subject, r1);
+                Thought t1 = UKSStatement.theUKS.CreateFirstElement(subject.Label, r1);
                 subject.RemoveLinks("events");
                 subject.AddLink("events", t1);
             }
@@ -177,9 +228,10 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         SetTextbosBackground(linkText);
 
         tSource = null;
+        tTarget = null;
     }
 
-    private void ComboItem_Clicked(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void SourceComboItem_Clicked(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (sender is not ComboBoxItem cbi) return;
         ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
@@ -197,6 +249,26 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         {
             sourceText.Text = cbi.Content.ToString();
             tSource = (Thought)cbi.Content;
+        }
+    }
+    private void TargetComboItem_Clicked(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not ComboBoxItem cbi) return;
+        ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
+        targetCombo.Visibility = Visibility.Hidden;
+        if (cbi.Content.ToString() == "<New>")
+        {
+            var targetParts = UKSStatement.Singular(targetText.Text.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+            if (targetParts.Length == 3)
+            {
+                tTarget = UKSStatement.theUKS.AddStatement(targetParts[0], targetParts[1], targetParts[2]);
+                targetText.Text = tTarget.ToString();
+            }
+        }
+        else
+        {
+            targetText.Text = cbi.Content.ToString();
+            tTarget = (Thought)cbi.Content;
         }
     }
 
@@ -258,27 +330,4 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         }
         return true;
     }
-
-    //private void sourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    //{
-    //    ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
-    //    sourceCombo.Visibility = Visibility.Hidden;
-    //    if (sourceCombo.SelectedValue.ToString() == "<New>")
-    //    {
-    //        var sourceParts = UKSStatement.Singular(sourceText.Text.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-    //        if (sourceParts.Length == 3)
-    //        {
-    //            Thought r1 = UKSStatement.AddLink(sourceParts[0], sourceParts[1], sourceParts[2]);
-    //            sourceText.Text = r1.ToString();
-    //        }
-    //    }
-    //    else
-    //    {
-    //        if (sourceCombo.SelectedItem is ComboBoxItem cbi)
-    //        {
-    //            sourceText.Text = cbi.Content.ToString();
-    //            tSource = (Thought)cbi.Content;
-    //        }
-    //    }
-    //}
 }

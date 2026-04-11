@@ -63,7 +63,7 @@ public partial class UKS
         }
         source.Fire();
         linkType.Fire();
-        target.Fire();
+        target?.Fire();
 
         //does this link already exist (without conditions)?
         if (existing is not null)

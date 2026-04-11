@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         Title="Sound In" Height="170" Width="360" Background="Gray" ShowInTaskbar="False"  PreviewKeyDown ="Dlg_PreviewKeyDown" PreviewKeyUp="Dlg_PreviewKeyUp" >
 
-    <Grid >
+    <Grid Focusable="True" MouseDown="Grid_MouseDown" >
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="61*"/>
             <ColumnDefinition Width="499*"/>
@@ -25,6 +25,15 @@
             <LineBreak/>
             c&#160;&#160;d&#160;&#160;e&#160;&#160;f&#160;&#160;g&#160;&#160;a&#160;&#160;b&#160;&#160;c&#160;&#160;d&#160;&#160;e
         </TextBlock>
+        <TextBox x:Name="playPhrase" 
+                 Grid.Column="1" 
+                 HorizontalAlignment="Left" 
+                 Height="22" 
+                 Margin="163,55,0,0" 
+                 VerticalAlignment="Top" 
+                 Width="140"
+                 TextChanged="PlayPhrase_TextChanged"
+                 PreviewKeyDown="PlayPhrase_KeyDown"/>
 
         <!-- Add these after existing controls -->
     </Grid>

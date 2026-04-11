@@ -15,6 +15,7 @@ using Pluralize.NET;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Media.Imaging;
 using UKS;
 
 namespace BrainSimulator.Modules;
@@ -45,13 +46,13 @@ public class ModuleTextIn : ModuleBase
         theUKS.GetOrAddThought("w:can", "EnglishWord").AddLink("means", theUKS.Labeled("can"));
 
         Thought t = theUKS.GetOrAddThought("p:is|a", "phrase");
-        theUKS.AddSequence(t, "contains", new List<Thought> { theUKS.GetOrAddThought("w:is", "EnglishWord"), theUKS.GetOrAddThought("w:a", "EnglishWord") });
+        theUKS.AddSequenceAndLink(t, "contains", new List<Thought> { theUKS.GetOrAddThought("w:is", "EnglishWord"), theUKS.GetOrAddThought("w:a", "EnglishWord") });
         t.AddLink("means", "is-a");
         theUKS.GetOrAddThought("w:has", "LinkType").AddLink("means", "has");
 
         //spanish experiment
         Thought t1 = theUKS.GetOrAddThought("p:es|un", "phrase");
-        theUKS.AddSequence(t1, "contains", new List<Thought> { theUKS.GetOrAddThought("w:es", "SpanishWord"), theUKS.GetOrAddThought("w:un", "SpanishWord") });
+        theUKS.AddSequenceAndLink(t1, "contains", new List<Thought> { theUKS.GetOrAddThought("w:es", "SpanishWord"), theUKS.GetOrAddThought("w:un", "SpanishWord") });
         t1.AddLink("means", "is-a");
 
         if (dlg is ModuleTextInDlg ti1)
@@ -120,6 +121,7 @@ public class ModuleTextIn : ModuleBase
     private Link BuildLink(List<Thought> keyWords)
     {
         Link l = new();
+        if (keyWords.Count < 3) return l;
         //special hack to add new meanings
         if (keyWords[1].Label == "w:mean")
         {
@@ -169,13 +171,14 @@ public class ModuleTextIn : ModuleBase
 
     private void FindPhrases(List<Thought> keywords)
     {
+        if (keywords.Count < 3) return;
         // For simplicity, let's assume a phrase is just a combination of keywords
         // In a real implementation, you would have more complex logic to determine phrases
         for (int i = 0; i < keywords.Count - 1; i++)
         {
             var keyword1 = keywords[i];
             var keyword2 = keywords[i + 1];
-            var result = theUKS.HasSequence2(new List<Thought> { keyword1, keyword2 }, "contains", false, true, true);
+            var result = theUKS.HasSequence2(new List<Thought> { keyword1, keyword2 }, "contains", true, true);
             if (result.Count > 0)
             {
                 keywords[i] = result[0].result;
@@ -214,6 +217,7 @@ public class ModuleTextIn : ModuleBase
     {
         var retVal = new List<Thought>();
         var words = trimmed.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length < 3) return retVal;
 
         var language = "EnglishWord";
         if (words.Contains("es")) language = "SpanishWOrd";

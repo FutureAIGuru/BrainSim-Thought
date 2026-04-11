@@ -162,11 +162,11 @@ public partial class UKS
             GetOrAddThought(i.ToString(), "digit");
         for (int i = 9; i > 0; i--)
             AddStatement(i.ToString(), "greaterThan", (i - 1).ToString());
-        AddSequence("digit", "order", new List<Thought> { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" });
+        AddSequenceAndLink("digit", "order", new List<Thought> { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" });
 
         //demo to add PI to the structure
         AddStatement("pi", "is-a", "number");
-        AddSequence("pi", "hasDigit", new List<Thought> { "3", ".", "1", "4", "1", "5", "9" });
+        AddSequenceAndLink("pi", "hasDigit", new List<Thought> { "3", ".", "1", "4", "1", "5", "9" });
 
 
         AddBrainSimConfigSectionIfNeeded();

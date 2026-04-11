@@ -199,14 +199,14 @@ public partial class ModuleMentalModelDlg : ModuleBaseDlg
     private void RotateLeft_Click(object sender, RoutedEventArgs e)
     {
         if (ParentModule is not ModuleMentalModel module) return;
-        module.RotateMentalModel(Angle.FromDegrees(15), Angle.FromDegrees(0));
+        module.RotateMentalModel(Angle.FromDegrees(20), Angle.FromDegrees(0));
         Draw(false);
     }
 
     private void RotateRight_Click(object sender, RoutedEventArgs e)
     {
         if (ParentModule is not ModuleMentalModel module) return;
-        module.RotateMentalModel(Angle.FromDegrees(-15), Angle.FromDegrees(0));
+        module.RotateMentalModel(Angle.FromDegrees(-20), Angle.FromDegrees(0));
         Draw(false);
     }
 

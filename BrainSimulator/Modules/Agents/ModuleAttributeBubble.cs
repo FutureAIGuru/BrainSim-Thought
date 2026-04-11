@@ -81,7 +81,7 @@ public class ModuleAttributeBubble : ModuleBase
         {
             if (t.Label == "Animal")
             { }
-            if (t.HasAncestor("Object"))
+            if (t.HasAncestor("Object") || t.HasAncestor("Unknown"))
                 BubbleChildAttributes(t);
         }
         debugString += "Bubbler Finished\n";

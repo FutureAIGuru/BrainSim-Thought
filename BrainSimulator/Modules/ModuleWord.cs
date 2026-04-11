@@ -72,7 +72,7 @@ public class ModuleWord : ModuleBase
             letters.Add(letter);
         }
         string retVal = word;
-        var suggestions = theUKS.HasSequence(letters,"spelled",true,true);
+        var suggestions = theUKS.HasSequence(letters,"spelled",true);
         if (suggestions.Count > 0)
         {
             var suggestionList = theUKS.FlattenSequence(suggestions[0].seqNode);
@@ -114,7 +114,7 @@ public class ModuleWord : ModuleBase
         Thought spelledLinkType = theUKS.GetOrAddThought("spelled", "LinkType");
 
         // Add the sequence
-        var t = theUKS.AddSequence(wordThought, spelledLinkType, letters);
+        var t = theUKS.AddSequenceAndLink(wordThought, spelledLinkType, letters);
         wordThought.TimeToLive = TimeSpan.FromSeconds(10);
 
         return wordThought;

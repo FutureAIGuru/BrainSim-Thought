@@ -1,4 +1,4 @@
-/*
+    /*
  * Brain Simulator Thought
  *
  * Copyright (c) 2026 Charles Simon
@@ -10,11 +10,12 @@
  *
  * See the LICENSE file in the project root for full license information.
  */
- 
+
 
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,6 +26,8 @@ namespace BrainSimulator.Modules;
 
 public partial class ModuleSoundInDlg : ModuleBaseDlg
 {
+    private bool _isTextChangingInternally = false;
+
     public ModuleSoundInDlg()
     {
         InitializeComponent();
@@ -44,9 +47,100 @@ public partial class ModuleSoundInDlg : ModuleBaseDlg
         Draw(false);
     }
 
+    private void PlayPhrase_KeyDown(object sender, KeyEventArgs e)
+    {
+        // Handle backspace and delete for manual editing
+        if (e.Key == Key.Back || e.Key == Key.Delete)
+        {
+            _isTextChangingInternally = true;
+            int caretIndex = playPhrase.CaretIndex;
+            if (e.Key == Key.Back) caretIndex--;
+            if (caretIndex < 0) caretIndex = 0;
+            playPhrase.Text = playPhrase.Text.Substring(0, caretIndex);
+            playPhrase.CaretIndex = caretIndex;
+            e.Handled = true;
+            _isTextChangingInternally = false;
+            if (e.Key == Key.Back)
+                PlayPhrase_TextChanged(null, null);
+        }
+        
+        // Handle Enter key to play the phrase
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            playPhrase.SelectionLength = 0;
+            PlaySelectedPhrase();
+        }
+    }
+
+    private void PlayPhrase_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isTextChangingInternally) return;
+
+        string searchText = playPhrase.Text;
+        if (string.IsNullOrEmpty(searchText)) return;
+
+        // Get the musicalPhrase thought
+        var musicalPhraseThought = ThoughtLabels.GetThought("musicalPhrase");
+        if (musicalPhraseThought is null) return;
+
+        // Find children of musicalPhrase that match the search text
+        var suggestion = musicalPhraseThought.Children
+            .Where(child => child.Label.StartsWith(searchText, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(child => child.Label)
+            .FirstOrDefault();
+
+        if (suggestion is not null && !suggestion.Label.Equals(searchText, StringComparison.OrdinalIgnoreCase))
+        {
+            int caretIndex = playPhrase.CaretIndex;
+            _isTextChangingInternally = true;
+            playPhrase.Text = suggestion.Label;
+            playPhrase.CaretIndex = caretIndex;
+            playPhrase.SelectionStart = caretIndex;
+            playPhrase.SelectionLength = suggestion.Label.Length - caretIndex;
+            playPhrase.SelectionOpacity = .4;
+            _isTextChangingInternally = false;
+        }
+    }
+
+    private void PlaySelectedPhrase()
+    {
+        string phraseLabel = playPhrase.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(phraseLabel)) return;
+
+        var phraseThought = ThoughtLabels.GetThought(phraseLabel);
+        if (phraseThought is null)
+        {
+            SetStatus($"Phrase '{phraseLabel}' not found.");
+            return;
+        }
+
+        // Find ModuleSoundOut to play the phrase
+        var soundOutModule = MainWindow.theWindow?.activeModules.OfType<ModuleSoundOut>().FirstOrDefault();
+        if (soundOutModule is null)
+        {
+            SetStatus("SoundOut module not found.");
+            return;
+        }
+ 
+        // Play the phrase directly through SoundOut
+        soundOutModule.PlayThePhrase(phraseThought,true);
+        SetStatus($"Playing: {phraseLabel}");
+    }
+
+    private void SetStatus(string message)
+    {
+        if (statusLabel is not null)
+        {
+            statusLabel.Content = message;
+        }
+    }
 
     private void Dlg_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Don't handle keyboard if focus is on playPhrase textbox
+        if (playPhrase.IsFocused) return;
+
         if (e.IsRepeat) return;
         if (sender is not ModuleSoundInDlg dlg) return;
         if (ParentModule is not ModuleSoundIn module) return;
@@ -74,6 +168,9 @@ public partial class ModuleSoundInDlg : ModuleBaseDlg
 
     private void Dlg_PreviewKeyUp(object sender, KeyEventArgs e)
     {
+        // Don't handle keyboard if focus is on playPhrase textbox
+        if (playPhrase.IsFocused) return;
+
         if (e.IsRepeat) return;
         if (sender is not ModuleSoundInDlg dlg) return;
         if (ParentModule is not ModuleSoundIn module) return;
@@ -99,14 +196,14 @@ public partial class ModuleSoundInDlg : ModuleBaseDlg
         }
     }
 
-    /*                    "C" => 60,
-                    "D" => 62,
-                    "E" => 64,
-                    "F" => 65,
-                    "G" => 67,
-                    "A" => 69,
-                    "B" => 71,
-                    "C+" => 72,
-    */
+    private void Grid_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        // If clicking on the grid (not on a control), move focus away from textbox
+        //if (e.OriginalSource == sender)
+        {
+            Keyboard.ClearFocus();
+            ((Grid)sender).Focus();
+        }
+    }
 }
 

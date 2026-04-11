@@ -15,6 +15,7 @@
 using NAudio.Midi;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,7 +33,7 @@ public class ModuleSoundIn : ModuleBase
     DateTime lastCadenceTime = DateTime.Now;
     List<Thought> tuneToSearch = null;
 
-    private readonly Dictionary<int, Thought> _noteInputs = new();
+    private readonly Dictionary<int, Thought> _pitchs = new();
     private const int MinNote = 60; // C4
     private const int MaxNote = 76; // E5
 
@@ -79,20 +80,20 @@ public class ModuleSoundIn : ModuleBase
         theUKS.GetOrAddThought("MusicalPhrase");
         theUKS.GetOrAddThought("MusicalNoteOut", "MusicalPhrase");
         theUKS.GetOrAddThought("MusicalNoteIn", "MusicalPhrase");
-        EnsureNoteInputs();
+        EnsurePitchs();
 
         var s = theUKS.GetOrAddThought("soundAs", "Action");
 
         lastFiredTime = DateTime.Now;
     }
 
-    private void EnsureNoteInputs()
+    private void EnsurePitchs()
     {
-        _noteInputs.Clear();
+        _pitchs.Clear();
         for (int note = MinNote; note <= MaxNote; note++)
         {
-            var t = theUKS.GetOrAddThought($"noteInput:{note}", "MusicalNoteIn");
-            _noteInputs[note] = t;
+            var t = theUKS.GetOrAddThought($"pitch:{note}", "MusicalNoteIn");
+            _pitchs[note] = t;
         }
     }
 
@@ -115,7 +116,8 @@ public class ModuleSoundIn : ModuleBase
 
     public void HearNote(int midiNote)
     {
-        _noteInputs.TryGetValue(midiNote, out var noteThought);
+//        Debug.WriteLine("hearNote: " + midiNote);
+        _pitchs.TryGetValue(midiNote, out var noteThought);
         var mm = GetMentalModel();
         if (mm is null || noteThought is null) return;
 
@@ -128,7 +130,7 @@ public class ModuleSoundIn : ModuleBase
     {
         var mm = GetMentalModel();
         if (mm is null) return;
-        if (_noteInputs.TryGetValue(midiNote, out var t))
+        if (_pitchs.TryGetValue(midiNote, out var t))
         {
             mm.UnbindThought(t);
         }

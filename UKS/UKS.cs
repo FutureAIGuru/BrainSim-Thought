@@ -104,7 +104,7 @@ public partial class UKS
         if (r1.From is Link rt1 && r2.From is Link rt2)
         {
             if (!LinksAreEqual(rt1, rt2)) return false;
-            if (r1.To is Link  rt3 && r2.To is Link rt4)
+            if (r1.To is Link rt3 && r2.To is Link rt4)
                 if (!LinksAreEqual(rt3, rt4)) return false;
             if (r1.LinkType != r2.LinkType) return false;
             return true;
@@ -135,7 +135,7 @@ public partial class UKS
     /// <returns>The existing link Thought, or null if not found.</returns>
     public Link GetLink(Link r)
     {
-        foreach (Link  r1 in r.From?.LinksTo)
+        foreach (Link r1 in r.From?.LinksTo)
         {
             if (LinksAreEqual(r, r1)) return r1;
         }
@@ -227,7 +227,7 @@ public partial class UKS
             correctParent = ThoughtLabels.GetThought("Unknown");
 
         if (correctParent is null) return null;
-//            throw new ArgumentException("GetOrAddThought: could not find parent");
+        //            throw new ArgumentException("GetOrAddThought: could not find parent");
 
         if (label.EndsWith("*"))
         {
@@ -266,10 +266,21 @@ public partial class UKS
             string[] targetParts = label[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
             foreach (string label1 in targetParts)
             {
-                Thought t1 = theUKS.GetOrAddThought(label1);
-                targets.Add(t1);
+                if (label1.Length == 1)
+                {
+                    Thought letterParent = theUKS.GetOrAddThought("letter", "Object");
+                    Thought t1 = theUKS.GetOrAddThought(label1.ToUpper(), letterParent);
+                    targets.Add(t1);
+                }
+                else
+                {
+
+                    Thought t1 = theUKS.GetOrAddThought(label1);
+                    targets.Add(t1);
+                }
             }
-            Thought r1 = (Thought)theUKS.CreateRawSequence(targets,"thequery");
+            string seqLabel = string.Join("", targetParts);
+            Thought r1 = (Thought)theUKS.AddSequence(seqLabel,targets);
             return r1;
 
         }

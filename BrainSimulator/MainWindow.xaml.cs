@@ -51,7 +51,8 @@ namespace BrainSimulator
 
             //setup the python support
             pythonPath = (string)Environment.GetEnvironmentVariable("PythonPath", EnvironmentVariableTarget.User);
-            if (string.IsNullOrEmpty(pythonPath))
+            if (false)
+            //if (string.IsNullOrEmpty(pythonPath))
             {
                 var result1 = MessageBox.Show("Do you want to use Python Modules?", "Python?", MessageBoxButton.YesNo);
                 if (result1 == MessageBoxResult.Yes)
@@ -217,7 +218,7 @@ namespace BrainSimulator
             foreach (Thought t in availableListInUKS)
             {
                 string name = t.Label;
-                if (CSharpModules.FindFirst(x=>x.Name == name) is not null) continue;
+                if (CSharpModules.FindFirst(x => x.Name == name) is not null) continue;
                 if (PythonModules.FindFirst(x => x == name) is not null) continue;
                 theUKS.DeleteAllChildren(t);
                 t.Delete();
@@ -225,7 +226,7 @@ namespace BrainSimulator
 
             //reconnect/delete any active modules
             var activeListInUKS = theUKS.Labeled("ActiveModule").Children;
-            foreach(Thought t in activeListInUKS)
+            foreach (Thought t in activeListInUKS)
             {
                 Thought parent = availableListInUKS.FindFirst(x => x.Label == t.Label.Substring(0, t.Label.Length - 1));
                 if (parent is not null)
@@ -240,6 +241,14 @@ namespace BrainSimulator
             Debug.WriteLine("InsertMandatoryModules entered");
             ActivateModule("ModuleUKS");
             ActivateModule("ModuleUKSStatement");
+            ActivateModule("ModuleUKSQuery");
+            activeModules.FindFirst(x => x.Label.Contains("UKS0")).SetSavedDlgAttribute("DlgWindow", "815x755+200+250");
+            activeModules.FindFirst(x => x.Label.Contains("UKS0")).SetSavedDlgAttribute("Root", "Thought");
+            activeModules.FindFirst(x => x.Label.Contains("UKS0")).SetSavedDlgAttribute("ExpandAll", "Unknown");
+            activeModules.FindFirst(x => x.Label.Contains("Statement")).SetSavedDlgAttribute("DlgWindow", "530x275+1090+130");
+            activeModules.FindFirst(x => x.Label.Contains("Query")).SetSavedDlgAttribute("DlgWindow", "530x550+1090+430");
+            foreach (var x in activeModules)
+                x.ShowDialog();
         }
 
         public string ActivateModule(string moduleType)
@@ -251,6 +260,7 @@ namespace BrainSimulator
             if (!moduleType.Contains(".py"))
             {
                 ModuleBase newModule = CreateNewModule(moduleType);
+
                 if (newModule is null) return "";
                 newModule.Label = t.Label;
                 activeModules.Add(newModule);
@@ -267,7 +277,7 @@ namespace BrainSimulator
         public ModuleBase GetModuleByLabel(string label)
         {
             return activeModules.FindFirst(x => x.Label == label);
-        }   
+        }
 
 
         public void CloseAllModuleDialogs()

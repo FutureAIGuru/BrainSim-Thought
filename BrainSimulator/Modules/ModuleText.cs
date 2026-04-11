@@ -80,7 +80,7 @@ public class ModuleText : ModuleBase
             thePhrase.TimeToLive = TimeSpan.FromSeconds(30); // adjust as needed
             if (wordsInPhrase.Count > 1)
             {
-                theUKS.AddSequence(thePhrase, "hasWords", wordsInPhrase);
+                theUKS.AddSequenceAndLink(thePhrase, "hasWords", wordsInPhrase);
                 //create bigrams
                 CreateBigrams(wordsInPhrase);
             }

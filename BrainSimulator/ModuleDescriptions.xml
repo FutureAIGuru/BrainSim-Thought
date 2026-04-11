@@ -71,7 +71,7 @@ Example
           Target: electric violin
 Where the Target creates a subclass of violin with the modifier electric, the Type creates a subclass of can with the modifier play.
 
-Link may also have a confidence level and a duration which will be set if the Set Conf. checkbox is checked. Confidences can change automatically under certain conditions. When the duration of a Link expires, it will vanish.
+Link may also have a confidence level and a time-to-live which will be set if the Set Conf. checkbox is checked. Confidences can change automatically under certain conditions. When the timetonext of a Link expires, it will vanish.
 
 </description>
   </ModuleDescription>

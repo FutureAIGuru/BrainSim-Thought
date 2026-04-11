@@ -211,7 +211,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             //show sequence content unless details are selected
             if (r.From is SeqElement)
             {
-                if (r.LinkType.Label == "VLU" || r.LinkType.Label == "duration")
+                if (r.LinkType.Label == "VLU" || r.LinkType.Label == "timetonext")
                 {
                     header = $"[{r.From.Label}→{r.LinkType.Label}→{r.To.Label}]";
                     if (r.To.Label == "")
@@ -228,15 +228,24 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 }
                 else
                 {
-                    var seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.Label);
-                    seqElementLabels = seqElementLabels
-                        .Select(s =>
-                        {
-                            int i = s.IndexOf(':');
-                            return i >= 0 ? s[(i + 1)..] : s;
-                        }).ToList();
-                    string sequence = "^" + string.Join(joinCharacter, seqElementLabels);
-                    header = $"[{r.From.Label}→{r.LinkType.Label}→{sequence}]";
+                    var seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.Label).ToList();
+                    if (seqElementLabels.Count() > 0)
+                    {
+                        if (string.IsNullOrEmpty(seqElementLabels[0]))
+                            seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.ToString()).ToList();
+
+                        int i = seqElementLabels[0].IndexOf(':');
+                        string leftSide = seqElementLabels[0][..(i+1)];
+
+                        seqElementLabels = seqElementLabels
+                            .Select(s =>
+                            {
+                                int i = s.IndexOf(':');
+                                return i >= 0 ? s[(i + 1)..] : s;
+                            }).ToList();
+                        string sequence = "^" +leftSide +  string.Join(joinCharacter, seqElementLabels);
+                        header = $"[{r.From.Label}→{r.LinkType.Label}→{sequence}]";
+                    }
                 }
             }
         }
@@ -265,7 +274,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         currentLabel = currentLabel.Replace("||", "|"); //parentLabel may or may not have a leading '|'
         if (expandedItems.Contains(currentLabel))
             tviChild.IsExpanded = true;
-        if (child.Ancestors.Contains(expandAll) &&
+        if (child.AncestorsWithSelf.Contains(expandAll) &&
             (child.Label == "" || !parentLabel.Contains("|" + child.Label)))
             tviChild.IsExpanded = true;
         tviChild.Expanded += EmptyChild_Expanded;
@@ -356,8 +365,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         mi.IsEnabled = false;
         menu.Items.Add(mi);
 
-        TextBox renameBox = new() { Text = thoughtLabel, Width = 200, Name = "RenameBox" };
+        TextBox renameBox = new() { Text = thoughtLabel, Width = 200, Name = "RenameBox",Foreground=Brushes.White,Background=Brushes.DarkBlue };
         renameBox.PreviewKeyDown += RenameBox_PreviewKeyDown;
+      
         mi = new();
         mi.Header = renameBox;
         menu.Items.Add(mi);
@@ -445,7 +455,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 tb.Background = new SolidColorBrush(Colors.Pink);
                 return;
             }
-            tb.Background = new SolidColorBrush(Colors.White);
+            tb.Background = new SolidColorBrush(Colors.DarkBlue);
             if (e.Key == Key.Enter)
             {
                 t.Label = tb.Text;
@@ -707,11 +717,14 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         mouseInWindow = true;
         theTreeView.Background = new SolidColorBrush(Colors.LightSteelBlue);
+        SetStatus("Paused");
+
     }
     private void TheTreeView_MouseLeave(object sender, MouseEventArgs e)
     {
         mouseInWindow = false;
         theTreeView.Background = new SolidColorBrush(Colors.LightGray);
+        SetStatus("OK");
     }
 
     private void RefreshButton_Click(object sender, RoutedEventArgs e)

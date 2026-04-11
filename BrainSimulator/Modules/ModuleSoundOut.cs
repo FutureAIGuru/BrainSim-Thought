@@ -15,6 +15,7 @@
 using NAudio.Midi;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,7 +34,7 @@ public class ModuleSoundOut : ModuleBase
     List<Thought> tuneToSearch = null;
 
     private readonly HashSet<int> _pressedNotes = new();
-    private readonly Dictionary<int, Thought> _noteInputs = new();
+    private readonly Dictionary<int, Thought> _pitchs = new();
     private const int MinNote = 60; // C4
     private const int MaxNote = 76; // E5
 
@@ -76,17 +77,17 @@ public class ModuleSoundOut : ModuleBase
     public override void Initialize()
     {
     }
-    public void PlayThePhrase(Thought phrase)
+    public void PlayThePhrase(Thought phrase, bool addToMentalModel = false)
     {
         SeqElement seqStart = (SeqElement)phrase.GetTargetOfFirstLinkOfType("soundAs");
         if (seqStart is null && phrase is SeqElement s)
             seqStart = s; //handle passing in a starting point
-        PlayThePhrase(seqStart);
+        PlayThePhrase(seqStart, addToMentalModel);
     }
     private CancellationTokenSource _phraseCts;
     private Task _phraseTask;
 
-    private void PlayThePhrase (SeqElement start)
+    private void PlayThePhrase(SeqElement start, bool addToMentalModel = false)
     {
         // cancel any current phrase playback
         _phraseCts?.Cancel();
@@ -95,42 +96,66 @@ public class ModuleSoundOut : ModuleBase
         if (start is null) return;
 
         _phraseCts = new CancellationTokenSource();
-        _phraseTask = RunPhraseAsync(start, _phraseCts.Token);
+        _phraseTask = RunPhraseAsync(start, addToMentalModel, _phraseCts.Token);
     }
 
-    private async Task RunPhraseAsync(SeqElement start, CancellationToken token)
+    private async Task RunPhraseAsync(SeqElement start, bool addToMentalModel, CancellationToken token)
     {
+        var listener = addToMentalModel ? MainWindow.theWindow?.activeModules.OfType<ModuleSoundIn>().FirstOrDefault() : null;
         var enumerator = theUKS.EnumerateSequenceElements(start).GetEnumerator();
+        List<int> pitches = new();
+        List<int> timesToNextMs = new();
+        //get all the relevant info for the phrase
+        foreach (var seqNode in theUKS.EnumerateSequenceElements(start) )
+        {
+            pitches.Add(GetIntegerToRightOfColon(seqNode.VLU.Label));
+            Thought timeToNext = seqNode.LinksTo.FindFirst(x => x.LinkType?.Label == "timetonext")?.To;
+            timesToNextMs.Add(GetIntegerToRightOfColon(timeToNext?.Label));
+        }
         try
         {
-            while (!token.IsCancellationRequested && enumerator.MoveNext())
+            //play the phrase
+            for (int i = 0; i < pitches.Count &&!token.IsCancellationRequested;i++ )
             {
-                SeqElement elem = enumerator.Current;
-                Thought value = theUKS.GetElementValue(elem);
-                if (value?.Label is { } lbl && lbl.StartsWith("noteInput:", StringComparison.OrdinalIgnoreCase))
-                    if (int.TryParse(lbl.AsSpan(10), out int noteNum))
+                int adjustedNote = pitches[i] + PitchOffset;
+                int timeToNextMs = (int)(timesToNextMs[i] * Cadence / 100f);
+                int durationMs = 1000; //default duration
+                //make sure the current note is not repeated before the duration runs out...causes a mental model timing issue
+                int accumTime = timesToNextMs[i];
+                for (int j = i+1; j < pitches.Count && accumTime < durationMs; j++)
+                {
+                    if (pitches[j] == pitches[i])
                     {
-                        PlayNote(noteNum + PitchOffset);
+                        durationMs = accumTime - 10;
+                        break;
                     }
-
-                int delayMs = (int)((GetDurationMs(elem) * Cadence) / 100f);
-                if (delayMs > 0)
-                    await Task.Delay(delayMs, token);
+                    accumTime += timesToNextMs[j];
+                }
+                //output the note
+                PlayNote(adjustedNote, addToMentalModel, durationMs);
+                //wait the appropriate delay
+                if (timeToNextMs > 0)
+                    await Task.Delay(timeToNextMs, token);
             }
         }
         catch (OperationCanceledException)
         {
             // ignored
         }
-        finally
-        {
-            enumerator.Dispose();
-        }
     }
-
-    public static int GetDurationMs(SeqElement elem)
+    int GetIntegerToRightOfColon(string value)
     {
-        var link = elem?.LinksTo.FindFirst(x => x.LinkType?.Label == "duration");
+        int retVal = -1;
+        if (value is null) return retVal;
+        int index = value.IndexOf(":");
+        string numberString = value[(index + 1)..];
+        int.TryParse(numberString, out retVal);
+
+        return retVal;
+    }
+    public static int GetTimeToNextMs(SeqElement elem)
+    {
+        var link = elem?.LinksTo.FindFirst(x => x.LinkType?.Label == "timetonext");
         var dtThought = link?.To;
         if (dtThought?.Label is { } lbl && lbl.StartsWith("dt:", StringComparison.OrdinalIgnoreCase))
         {
@@ -154,7 +179,7 @@ public class ModuleSoundOut : ModuleBase
 
 
 
-    public async void PlayCMajorTriad(int durationMs = 300)
+    public async void PlayCMajorTriad(int timetonextMs = 300)
     {
         int channel = 1;
         int velocity = 100;
@@ -172,7 +197,7 @@ public class ModuleSoundOut : ModuleBase
         Midi.Send(MidiMessage.StartNote(e, velocity, channel).RawData);
         Midi.Send(MidiMessage.StartNote(g, velocity, channel).RawData);
 
-        await Task.Delay(durationMs);
+        await Task.Delay(timetonextMs);
 
         // Stop notes
         Midi.Send(MidiMessage.StopNote(c, 0, channel).RawData);
@@ -180,16 +205,16 @@ public class ModuleSoundOut : ModuleBase
         Midi.Send(MidiMessage.StopNote(g, 0, channel).RawData);
     }
 
-    bool listenToOutput = false;
-    public void PlayNote(int midiNote, int durationMs = 500)
+    public async void PlayNote(int midiNote, bool AddToMentalModel = false, int timetonextMs = 250)
     {
+        //Debug.WriteLine($"PlayNote: {midiNote}  {timetonextMs}");
         var listener = MainWindow.theWindow?.activeModules.OfType<ModuleSoundIn>().FirstOrDefault();
-        if (listenToOutput)
+        if (AddToMentalModel)
             listener.StartNote(midiNote);
         Midi.Send(MidiMessage.StartNote(midiNote, MidiVelocity, MidiChannel).RawData);
-        _ = Task.Delay(durationMs).ContinueWith(_ =>
+        _ = Task.Delay(timetonextMs).ContinueWith(_ =>
         {
-            if (listenToOutput)
+            if (AddToMentalModel)
                 listener.StopNote(midiNote);
             Midi.Send(MidiMessage.StopNote(midiNote, 0, MidiChannel).RawData);
         });

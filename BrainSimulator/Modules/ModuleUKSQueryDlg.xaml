@@ -7,8 +7,8 @@
         mc:Ignorable="d"
         Title="UKS Query" Height="550" Width="530" Background="Gray" ShowInTaskbar="False"  >
     <Grid Name="theGrid" Margin="0,0,0,0" >
-        <TabControl Background="DarkGray" SelectedIndex="1" Margin="0,36,0,35">
-            <TabItem Header="Get Attribs" FontSize="18" Background="LightGray">
+        <TabControl Background="DarkGray" SelectedIndex="0" Margin="0,36,0,35">
+            <TabItem Header="Get Attribs" FontSize="18" Background="LightGray" >
                 <Grid>
                     <Label Content="From"        HorizontalAlignment="Left"   Height="33"   Margin="10,20,0,0"       FontSize="16" Width="68" VerticalAlignment="Top"/>
                     <Label Content="Type"        HorizontalAlignment="Left"   Height="33"   Margin="10,70,0,0"    FontSize="16" Width="68" VerticalAlignment="Top"/>
