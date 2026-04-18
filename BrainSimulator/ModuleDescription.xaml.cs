@@ -16,6 +16,8 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
 using System.Xml.Serialization;
 
 namespace BrainSimulator
@@ -26,6 +28,8 @@ namespace BrainSimulator
     public partial class ModuleDescriptionDlg : Window
     {
         string moduleType = "";
+        private double zoomLevel = 1.0;
+        
         public ModuleDescriptionDlg(string theModuleType)
         {
             InitializeComponent();
@@ -39,7 +43,28 @@ namespace BrainSimulator
             }
             moduleSelector.SelectedItem = theModuleType.Replace("Module", "");
 
+            // Add MouseWheel event handler for font size adjustment
+            Description.PreviewMouseWheel += Description_PreviewMouseWheel;
+
             Owner = Application.Current.MainWindow;
+        }
+
+        private void Description_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                // Adjust zoom level based on wheel delta
+                double zoomDelta = e.Delta > 0 ? 0.1 : -0.1;
+                zoomLevel += zoomDelta;
+                
+                // Clamp zoom level between 0.5 and 3.0
+                zoomLevel = Math.Max(0.5, Math.Min(3.0, zoomLevel));
+
+                // Apply scale transform to the RichTextBox
+                Description.LayoutTransform = new ScaleTransform(zoomLevel, zoomLevel);
+
+                e.Handled = true;
+            }
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
