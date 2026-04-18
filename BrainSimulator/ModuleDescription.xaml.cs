@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Xml.Serialization;
 
 namespace BrainSimulator
@@ -43,7 +44,8 @@ namespace BrainSimulator
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            ModuleDescriptionFile.SetDescription(moduleType, Description.Text);
+            string rtfContent = GetRtfFromRichTextBox(Description);
+            ModuleDescriptionFile.SetDescription(moduleType, rtfContent);
             ModuleDescriptionFile.Save();
         }
 
@@ -52,13 +54,64 @@ namespace BrainSimulator
             if (sender is ComboBox cb)
             {
                 moduleType = "Module" + cb.SelectedItem.ToString();
-                Description.Text = ModuleDescriptionFile.GetDescription(moduleType);
+                string rtfContent = ModuleDescriptionFile.GetDescription(moduleType);
+                SetRtfToRichTextBox(Description, rtfContent);
             }
         }
 
         private void buttonClose_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private string GetRtfFromRichTextBox(RichTextBox rtb)
+        {
+            TextRange textRange = new TextRange(rtb.Document.ContentStart, rtb.Document.ContentEnd);
+            using (MemoryStream ms = new MemoryStream())
+            {
+                textRange.Save(ms, DataFormats.Rtf);
+                ms.Position = 0;
+                using (StreamReader reader = new StreamReader(ms))
+                {
+                    return reader.ReadToEnd();
+                }
+            }
+        }
+
+        private void SetRtfToRichTextBox(RichTextBox rtb, string content)
+        {
+            if (string.IsNullOrEmpty(content))
+            {
+                rtb.Document.Blocks.Clear();
+                return;
+            }
+
+            TextRange textRange = new TextRange(rtb.Document.ContentStart, rtb.Document.ContentEnd);
+            using (MemoryStream ms = new MemoryStream())
+            {
+                using (StreamWriter writer = new StreamWriter(ms))
+                {
+                    writer.Write(content);
+                    writer.Flush();
+                    ms.Position = 0;
+
+                    // Detect if content is RTF or plain text
+                    string format = content.TrimStart().StartsWith(@"{\rtf")
+                        ? DataFormats.Rtf
+                        : DataFormats.Text;
+
+                    try
+                    {
+                        textRange.Load(ms, format);
+                    }
+                    catch
+                    {
+                        // If RTF load fails, try as plain text
+                        ms.Position = 0;
+                        textRange.Load(ms, DataFormats.Text);
+                    }
+                }
+            }
         }
     }
 
@@ -138,7 +191,5 @@ namespace BrainSimulator
 
             return true;
         }
-
-
     }
 }

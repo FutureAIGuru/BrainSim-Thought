@@ -2,40 +2,65 @@
 <ArrayOfModuleDescription xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <ModuleDescription>
     <moduleName>ModuleUKS</moduleName>
-    <description>This dialog shows the content of the Universal Knowledge Store (UKS) which is a graph composed of Things and Links which connect them.  Unlike most modules, you may have any number of UKS dialogs open for multiple views into the same data.  You can expand items in the tree view.   
-
-Thing/Link Display: 
-          Each Thing with children has a small triangle which will expand it. 
-          After the Thing’s name, the first number is the number of children and the second one is the total number of descendants. 
-          Color: 
-                    Green: Thing or Link has recently been accessed/added/changed. 
-                    Yellow: Link is about to be deleted.
-
-Buttons:
-          Initialize: Creates a UKS with just a few basic elements.
-
-Context Menu:
-For a Link, the only option is to delete the link.
-For a Thing, options are:
-          Rename the Thing: Case is preserved but searches are case-insensitive. If the name already exists in the UKS, digits will be appended to make it unique.
-          Expand all descendants:  Only one thing can be fully expanded at a time.
-          Delete: Deletes the Thing and all its children
-          Make Root: Makes this Thing the root of the tree view.
-          Show All: Makes the Thing labeled “Thing” the root of the tree view.
-          Parents: All parents are shown.  Clicking on one makes it the root of the tree view.
-
-Bottom Panel:
-          Root: Type in the name of the Thing to be the root of the Tree view. Setting this to blank shows any Things which have no parents (for debugging).
-          Auto-refresh / Refresh button: When the checkbox is checked, the tree view refreshes every 200 ms. When it is not checked, use the Refresh button to update the display.
-          Show Conf. Shows or hide the confidence values associated with each Link. The confidence for Things is the confidence value of the Link which makes it a child.
-          Status: Shows total number of Things and Links in the UKS.
-</description>
+    <description>{\rtf1\ansi\ansicpg1252\uc1\htmautsp\deff2{\fonttbl{\f0\fcharset0 Times New Roman;}{\f2\fcharset0 Segoe UI;}{\f3\fcharset0 Aptos;}{\f4\fcharset0 Aptos Display;}}{\colortbl\red0\green0\blue0;\red255\green255\blue255;\red15\green71\blue97;}
+{\*\listtable
+{\list\listtemplateid1\listhybrid
+{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid5\'01\'b7}{\levelnumbers;}\fi-360\li720\lin720\jclisttab\tx720}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid6\'02\'01.;}{\levelnumbers\'01;}\fi-360\li1440\lin1440\jclisttab\tx1440}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid7\'02\'02.;}{\levelnumbers\'01;}\fi-360\li2160\lin2160\jclisttab\tx2160}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid8\'02\'03.;}{\levelnumbers\'01;}\fi-360\li2880\lin2880\jclisttab\tx2880}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid9\'02\'04.;}{\levelnumbers\'01;}\fi-360\li3600\lin3600\jclisttab\tx3600}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid10\'02\'05.;}{\levelnumbers\'01;}\fi-360\li4320\lin4320\jclisttab\tx4320}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid11\'02\'06.;}{\levelnumbers\'01;}\fi-360\li5040\lin5040\jclisttab\tx5040}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid12\'02\'07.;}{\levelnumbers\'01;}\fi-360\li5760\lin5760\jclisttab\tx5760}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid13\'02\'08.;}{\levelnumbers\'01;}\fi-360\li6480\lin6480\jclisttab\tx6480}
+{\listname ;}\listid1}}
+{\*\listoverridetable
+{\listoverride\listid1\listoverridecount0\ls1}
+}
+\loch\hich\dbch\pard\plain\ltrpar\itap0{\lang1033\fs30\f2\cf0 \cf0\ql{\fs28\f3 {\ltrch This dialog shows a view of the content of the Universal Knowledge Store (UKS) which is a graph composed of Thoughts and Links which connect them.  Unlike most modules, you may have any number of UKS module instances open for multiple views into the same data.  You can expand items in the tree view.   }\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs40\f4 {\cf2\ltrch Thought/Link Display Tree-View }\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs28\f3 {\ltrch      Each line in the tree-view represents a single Atomic Thought which is displayed as its label, OR (if the Thought represents a link) the form: [source\u8594?type\u8594?target]. "Is-a" relationships are shown by indenting so "Fido" indented below "dog" represents [Fido\u8594?is-a\u8594?dog].}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch      Each Thought may be expanded by double-clicking or clicking the small triangle at the left of the Thought. }\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch      Thoughts are alphabetized by label.  Links first.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch      }{\b\ltrch Color:}{\ltrch  }\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Green: Thought or Link has recently been accessed/added/changed. }\li360\ri0\sa160\sb0\jclisttab\tx360\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Yellow: Link is about to be deleted.}\li360\ri0\sa160\sb0\jclisttab\tx360\fi-360\ql\par}
+{\fs28\f3 {\ltrch      The details of the display can be controlled by the various option check-boxes in the dialog header (see below)}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs40\f4 {\cf2\ltrch Context Menus}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs28\f3 {\ltrch      Right-click any Thought in the tree-view to show its context menu.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch      For a non-link Thought, elements are:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch The Thought label and its index}{\ltrch  in the AllThoughts array (internal).}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch The editable Thought label: Case is preserved but searches are case-insensitive. If the name already exists in the UKS, digits will be appended to make it unique.}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Expand all descendants: Only one thought can be fully expanded at a time.}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Delete: Deletes the Thought and all its children}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Delete Child: deletes the is-a link which attaches this Thought to its parent.  }\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Make Root: Makes this Thought the root of the tree view.}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Show All: Makes the Thought labeled \ldblquote Thought\rdblquote  the root of the tree view.}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Parents: All parents are shown.  Clicking on one makes it the root of the tree view.}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\b\ltrch For a Link:}{\ltrch  the menu displays the link weight and time to live, a delete option and links to set the display root to the source, type, or target thoughts.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs40\f4 {\cf2\ltrch Top Panel}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs28\f3 {\ltrch Buttons:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Initialize}{\ltrch : Creates a UKS with just a few basic elements. }\li360\ri0\sa160\sb0\jclisttab\tx360\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Import: }{\ltrch Reads the content of a .txt file into the UKS.}\li360\ri0\sa160\sb0\jclisttab\tx360\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Export:}{\ltrch  Creates a .txt file of the content which is currently in the tree-view.}\li360\ri0\sa160\sb0\jclisttab\tx360\fi-360\ql\par}
+{\fs28\f3 {\ltrch TextBox}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Root:}{\ltrch  Type in the name of the Thought to be the root of the Tree view. Setting this to blank shows any Thoughts which have no parents (for debugging).}\li360\ri0\sa160\sb0\jclisttab\tx360\fi-360\ql\par}
+{\fs28\f3 {\ltrch Checkboxes}\li360\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Auto-refresh}{\ltrch  / Refresh button: When the checkbox is checked, the tree view refreshes every 200 ms. When it is not checked, use the Refresh button to update the display.}\li360\ri0\sa160\sb0\jclisttab\tx360\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Show Details:}{\ltrch  Shows or hide the confidence values associated with each Link. The confidence for Thoughts is the confidence value of the Link which makes it a child.}\li360\ri0\sa160\sb0\jclisttab\tx360\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Reverse Links: }{\ltrch When checked, the tree-view will include links to thoughts as well as links from thoughts.}\li360\ri0\sa160\sb0\jclisttab\tx360\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Show Conditionals: }{\ltrch Allow display of the conditions of compound links.}\li360\ri0\sa160\sb0\jclisttab\tx360\fi-360\ql\par}
+{\fs28\f3 \li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 \li0\ri0\sa160\sb0\fi0\ql\par}
+}
+}</description>
   </ModuleDescription>
   <ModuleDescription>
     <moduleName>ModuleSpeechInPlus</moduleName>
     <description>Speech input is handled through Azure Cognitive Services Speech to Text, verbal commands have to be prefaced with "Sallie". Text entered via the dialogue box, is inputted directly, doesn't need to include "Sallie."
 
-Sometimes the results from Speech Recognition well include words before the "Sallie" keyword. Everything up to and including "Sallie" is disregarded.
+Sometimes the results from Speech Recognition well include words before the "Sallie" keyword. Everythought up to and including "Sallie" is disregarded.
 
 Dialogue Contents:
 Enable Speech Recognition Checkbox: Pause or Resume Speech Recognition
@@ -47,50 +72,100 @@ Works together with SpeechParser, PhraseRecognizer, QueryResolution and SpeechOu
   </ModuleDescription>
   <ModuleDescription>
     <moduleName>ModuleUKSStatement</moduleName>
-    <description>This dialog adds Things and Links to the Universal Knowledge Store (UKS) which is a graph of Things connected by Links.  Each Link consists of a Source Thing, a Target Thing, connected by a LinkType Thing.  Enter Thing labels into the Source, Type, and Target boxes and press Add/Update to create a link.
-Example
-          Source: Fido
-          Type: is-a
-          Target: dog
-Would indicate that Fido is a dog. This is shown in the UKS dialog as a parent/child Link.  All other link types are shown as Source-&gt;Type-&gt;Target. All words in labels are singularized so:
-          Source: dogs
-          Type: have
-          Target: fur
-Is shown as dog-&gt;has-&gt;fur.  In general, Things in the UKS represent abstract singular entities so the Link dog-&gt;has.4-&gt;leg would represent that all dogs have 4 legs.
-If the Things in the text boxes do not exist, the boxes will have a yellow background and the Things will be created. If the link already exists, no action will be taken. In some cases the target may be omitted as in Mary runs. If a label is entered with an asterisk, it will have digits appended to it to ensure that it is unique. This feature can be used to create sequences in a specific order as in Pi-&gt;hasDigit*-&gt;3,  Pi-&gt;hasDigit*-&gt;., Pi-&gt;hasDigit*-&gt;1,  Pi-&gt;hasDigit*-&gt;4.
-
-Putting multiple labels in the text boxes will create a subclass. 
-Example
-          Source: Fido
-          Type: is-a
-          Target: big dog
-Will create a subclass of dog, big.dog with the Link big.dog-&gt;is-&gt;big and make Fido a child of big.dog.  In the Source and Target boxes, modifiers precede the main Thing; in the Type box, modifiers follow the type. 
-Example
-          Source: Mary
-          Type: can play
-          Target: electric violin
-Where the Target creates a subclass of violin with the modifier electric, the Type creates a subclass of can with the modifier play.
-
-Link may also have a confidence level and a time-to-live which will be set if the Set Conf. checkbox is checked. Confidences can change automatically under certain conditions. When the timetonext of a Link expires, it will vanish.
-
-</description>
+    <description>{\rtf1\ansi\ansicpg1252\uc1\htmautsp\deff2{\fonttbl{\f0\fcharset0 Times New Roman;}{\f2\fcharset0 Segoe UI;}{\f3\fcharset0 Aptos;}{\f4\fcharset0 Aptos Display;}}{\colortbl\red0\green0\blue0;\red255\green255\blue255;\red15\green71\blue97;}
+{\*\listtable
+{\list\listtemplateid1\listhybrid
+{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid5\'01\'b7}{\levelnumbers;}\fi-360\li720\lin720\jclisttab\tx720}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid6\'02\'01.;}{\levelnumbers\'01;}\fi-360\li1440\lin1440\jclisttab\tx1440}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid7\'02\'02.;}{\levelnumbers\'01;}\fi-360\li2160\lin2160\jclisttab\tx2160}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid8\'02\'03.;}{\levelnumbers\'01;}\fi-360\li2880\lin2880\jclisttab\tx2880}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid9\'02\'04.;}{\levelnumbers\'01;}\fi-360\li3600\lin3600\jclisttab\tx3600}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid10\'02\'05.;}{\levelnumbers\'01;}\fi-360\li4320\lin4320\jclisttab\tx4320}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid11\'02\'06.;}{\levelnumbers\'01;}\fi-360\li5040\lin5040\jclisttab\tx5040}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid12\'02\'07.;}{\levelnumbers\'01;}\fi-360\li5760\lin5760\jclisttab\tx5760}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid13\'02\'08.;}{\levelnumbers\'01;}\fi-360\li6480\lin6480\jclisttab\tx6480}
+{\listname ;}\listid1}}
+{\*\listoverridetable
+{\listoverride\listid1\listoverridecount0\ls1}
+}
+\loch\hich\dbch\pard\plain\ltrpar\itap0{\lang1033\fs30\f2\cf0 \cf0\ql{\fs28\f3 {\ltrch This dialog adds Thoughts and Links to the Universal Knowledge Store (UKS) which is a graph of Thoughts.  Each Link consists of a Source Thought, a Target Thought, and a LinkType Thought.  Enter Thought labels into the Source, Type, and Target boxes and press Add/Update to create a link.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch Example}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source: Fido}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type: is-a}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target: dog}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\ltrch Would indicate that Fido is a dog. This is shown in the UKS dialog as a parent/child Link.  All other link types are shown as Source-&gt;Type-&gt;Target. All words in labels are singularized so:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source: dogs}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type: have}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target: fur}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\ltrch Is shown as dog-&gt;has-&gt;fur.  In general, Thoughts in the UKS represent abstract singular entities so the Link dog-&gt;has.4-&gt;leg would represent that all dogs have 4 legs.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch If the Thoughts in the text boxes do not exist, the boxes will have a yellow background and the Thoughts will be created. If the link already exists, no action will be taken. In some cases the target may be omitted as in Mary runs. If a label is entered with an asterisk, it will have digits appended to it to ensure that it is unique. This feature can be used to create sequences in a specific order as in Pi-&gt;hasDigit*-&gt;3,  Pi-&gt;hasDigit*-&gt;., Pi-&gt;hasDigit*-&gt;1,  Pi-&gt;hasDigit*-&gt;4.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs40\f4 {\cf2\ltrch Subclasses}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs28\f3 {\ltrch Putting multiple labels in the text boxes will create a subclass. }\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source: Fido}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type: is-a}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target: big dog}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\ltrch Will create a subclass of dog, big.dog with the Link big.dog-&gt;is-&gt;big and make Fido a child of big.dog.  In the Source and Target boxes, modifiers precede the main Thought; in the Type box, modifiers follow the type. }\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source: Mary}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type: can play}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target: electric violin}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\ltrch Where the Target creates a subclass of violin with the modifier electric, the Type creates a subclass of can with the modifier play.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs40\f4 {\cf2\ltrch Sequences}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs28\f3 {\ltrch Sequences can be entered by prefacing the sequence with a "^" character and putting spaces between the Value thought labels.  }\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source: Fido}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type: spelled}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target: ^F i d o}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs40\f4 {\cf2\ltrch Conditionals}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs28\f3 {\ltrch Compound and Conditional statements can be created by putting a simple statement in either the Source or Target boxes.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source: Fido plays outside}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type: if}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target: weather is sunny}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\ltrch This will automatically create labels for the compound links (e.g. R0, R1...)  These can be used to reference these relationships later to create more complex links:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source: R0}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type: when}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target: R1}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f3 {\ltrch Link may also have a confidence level and a time-to-live which will be set if the Set Confidence/TTL checkbox is checked. Confidences can change automatically under certain conditions. When the timeToLive of a Link expires, it will vanish. If this is an "Event", that is, part of a sequence, checking the "This is an Event" checkbox will also add this statement to an event queue.}\li0\ri0\sa160\sb0\fi0\ql\par}
+}
+}</description>
   </ModuleDescription>
   <ModuleDescription>
     <moduleName>ModuleUKSQuery</moduleName>
-    <description>This dialog queries the UKS content and returns the result.  There are 4 textboxes: 
- Source
- Type
- Target
- Filter
-
-Each of these can be filled in with one or more Thing labels separated by spaces. Text which is not a Thing label is ignored. Searches are case-insensitive and singularized.
-
-If Source or Target alone, the system will respond with all links which match. If any two of Source, Target, and Type are provided, the system will respond with the data which would fill in the empty item.  If you fill in all three, the system will respond with the Link (if any) which matches.
-
-The system first searches for a sequence of inputs.  Entering 3 . 1 4 (with intervening spaces) will respond with data about Pi as it matches the sequences.  If there is no sequence, the system attempts to find a Thing which has attributes matchings all the given Things.  As such, big.dog and big dog will have equivalent meaning. The first is a single Thing label which the second is two Thing labels of which only matching Thing is big.dog.
-
-After the query is performed, any Things in the Filter box will limit the result to items which have Filter Things as ancestors.
-</description>
+    <description>{\rtf1\ansi\ansicpg1252\uc1\htmautsp\deff2{\fonttbl{\f0\fcharset0 Times New Roman;}{\f2\fcharset0 Segoe UI;}{\f3\fcharset0 Aptos Display;}}{\colortbl\red0\green0\blue0;\red255\green255\blue255;\red15\green71\blue97;}
+{\*\listtable
+{\list\listtemplateid1\listhybrid
+{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid5\'01\'b7}{\levelnumbers;}\fi-360\li720\lin720\jclisttab\tx720}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid6\'02\'01.;}{\levelnumbers\'01;}\fi-360\li1440\lin1440\jclisttab\tx1440}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid7\'02\'02.;}{\levelnumbers\'01;}\fi-360\li2160\lin2160\jclisttab\tx2160}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid8\'02\'03.;}{\levelnumbers\'01;}\fi-360\li2880\lin2880\jclisttab\tx2880}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid9\'02\'04.;}{\levelnumbers\'01;}\fi-360\li3600\lin3600\jclisttab\tx3600}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid10\'02\'05.;}{\levelnumbers\'01;}\fi-360\li4320\lin4320\jclisttab\tx4320}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid11\'02\'06.;}{\levelnumbers\'01;}\fi-360\li5040\lin5040\jclisttab\tx5040}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid12\'02\'07.;}{\levelnumbers\'01;}\fi-360\li5760\lin5760\jclisttab\tx5760}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid13\'02\'08.;}{\levelnumbers\'01;}\fi-360\li6480\lin6480\jclisttab\tx6480}
+{\listname ;}\listid1}}
+{\*\listoverridetable
+{\listoverride\listid1\listoverridecount0\ls1}
+}
+\loch\hich\dbch\pard\plain\ltrpar\itap0{\lang1033\fs30\f2\cf0 \cf0\ql{\f2 {\ltrch This dialog queries the UKS content and returns the result.  There are two query types:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Get  Attribs:  Retrieves the attributes of a given Thought}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Search by Attribs: Retrieves Thoughts given a set of attributes.}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs40\f0 {\cf2\ltrch Get Attribs}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\f2 {\ltrch There are 4 textboxes: }\li0\ri0\sa160\sb0\fi0\ql\par}
+{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Filter (not used)}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\f2 {\ltrch Each of these can be filled in with one or more Thought labels separated by spaces. Text which is not a Thought label is ignored. Searches are case-insensitive and singularized.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\f2 {\ltrch If Source or Target alone, the system will respond with all links which match. If any two of Source, Target, and Type are provided, the system will respond with the data which would fill in the empty item.  If you fill in all three, the system will respond with the Link (if any) which matches.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\f2 {\ltrch The system attempts to find a Thought which has attributes matchings all the given Thoughts.  As such, big.dog and big dog will have equivalent meaning. The first is a single Thought label which the second is two Thought labels of which only matching Thought is big.dog.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs40\f3 {\cf2\ltrch Search by Attribs}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\f2 {\ltrch Attributes are entered as a type and a target (to).  Enter is and warm-blooded to get a list of warm-blooded Thoughts.  Use the New, Add, and Clear buttons to build a list of multiple search attributes which show in the Query textbox.  }\li0\ri0\sa160\sb0\fi0\ql\par}
+}
+}</description>
   </ModuleDescription>
   <ModuleDescription>
     <moduleName>ModuleUKSClause</moduleName>
@@ -117,10 +192,10 @@ Given a number of dogs, some of which are defined as having 4 legs, the having-4
 Import:
 1. Press "Import” 
 2. Select a .txt file to import
-Content will be added to the UKS using the names of Things in the text file.  That way, it can append new data to existing content, but be sure that usage is consistent across multiple data sources.
+Content will be added to the UKS using the names of Thoughts in the text file.  That way, it can append new data to existing content, but be sure that usage is consistent across multiple data sources.
 
 Export:
-1. In the UKS display dialog, select the root of the data to be saved. All descendants of that thing will be parsed and saved.
+1. In the UKS display dialog, select the root of the data to be saved. All descendants of that thought will be parsed and saved.
 2. Press “Export”
 3. Select the file location… the system will overwrite existing files.
 </description>
