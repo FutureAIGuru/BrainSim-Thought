@@ -20,5 +20,7 @@
         <TextBlock Text="Description:" HorizontalAlignment="Left" Margin="20,28,0,0" TextWrapping="Wrap" VerticalAlignment="Top" RenderTransformOrigin="0.859,1.19"/>
         <ComboBox x:Name="moduleSelector" HorizontalAlignment="Left" Margin="368,10,0,0" VerticalAlignment="Top" Width="180" SelectionChanged="moduleSelector_SelectionChanged"/>
         <TextBlock HorizontalAlignment="Left" Margin="180,10,0,0" TextWrapping="Wrap" Text="Select Module Type:" VerticalAlignment="Top" />
+        <Label Content="Use ctrl-Mouse-wheel to change the display font size." HorizontalAlignment="Left" Margin="12,0,0,44" Height="37" VerticalAlignment="Bottom"/>
+        <Label Content="To edit, copy content to a text editor, then paste back, and save it." HorizontalAlignment="Left" Margin="12,0,0,7" Height="37" VerticalAlignment="Bottom"/>
     </Grid>
 </Window>
