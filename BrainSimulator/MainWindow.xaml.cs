@@ -220,7 +220,7 @@ namespace BrainSimulator
                 string name = t.Label;
                 if (CSharpModules.FindFirst(x => x.Name == name) is not null) continue;
                 if (PythonModules.FindFirst(x => x == name) is not null) continue;
-                theUKS.DeleteAllChildren(t);
+                theUKS.DeleteAllChildrenAndLinks(t);
                 t.Delete();
             }
 

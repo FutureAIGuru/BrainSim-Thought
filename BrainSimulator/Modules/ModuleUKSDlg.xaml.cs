@@ -563,7 +563,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                         ActionModule.TakeActrion(t);
                     break;
                 case "Delete":
-                    theUKS.DeleteAllChildren(t);
+                    theUKS.DeleteAllChildrenAndLinks(t);
                     t.Delete();
                     break;
                 case "Delete Child":

@@ -374,7 +374,9 @@ public partial class UKS
             {
                 if (r1.From == target) continue;
                 var existing = thoughtsToSearch.FindFirst(x => x == r1.From);
-                if ((r1.LinkType == r.LinkType || r1.LinkType?.HasAncestor(r.LinkType) == true) && r1.To == r.To && existing is null)
+                if ((r1.LinkType == r.LinkType || r1.LinkType?.HasAncestor(r.LinkType) == true) &&
+                    r1.From.HasAncestor(root) &&
+                    r1.To == r.To && existing is null)
                 {
                     thoughtsToSearch.Add(r1.From);
                     if (!searchCandidates.ContainsKey(r1.From))

@@ -134,7 +134,7 @@ Works together with SpeechParser, PhraseRecognizer, QueryResolution and SpeechOu
   </ModuleDescription>
   <ModuleDescription>
     <moduleName>ModuleUKSQuery</moduleName>
-    <description>{\rtf1\ansi\ansicpg1252\uc1\htmautsp\deff2{\fonttbl{\f0\fcharset0 Times New Roman;}{\f2\fcharset0 Segoe UI;}{\f3\fcharset0 Aptos Display;}}{\colortbl\red0\green0\blue0;\red255\green255\blue255;\red15\green71\blue97;}
+    <description>{\rtf1\ansi\ansicpg1252\uc1\htmautsp\deff2{\fonttbl{\f0\fcharset0 Times New Roman;}{\f2\fcharset0 Segoe UI;}{\f3\fcharset0 Aptos;}{\f4\fcharset0 Aptos Display;}}{\colortbl\red0\green0\blue0;\red255\green255\blue255;\red15\green71\blue97;}
 {\*\listtable
 {\list\listtemplateid1\listhybrid
 {\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid5\'01\'b7}{\levelnumbers;}\fi-360\li720\lin720\jclisttab\tx720}
@@ -150,20 +150,21 @@ Works together with SpeechParser, PhraseRecognizer, QueryResolution and SpeechOu
 {\*\listoverridetable
 {\listoverride\listid1\listoverridecount0\ls1}
 }
-\loch\hich\dbch\pard\plain\ltrpar\itap0{\lang1033\fs30\f2\cf0 \cf0\ql{\f2 {\ltrch This dialog queries the UKS content and returns the result.  There are two query types:}\li0\ri0\sa160\sb0\fi0\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Get  Attribs:  Retrieves the attributes of a given Thought}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Search by Attribs: Retrieves Thoughts given a set of attributes.}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{\fs40\f0 {\cf2\ltrch Get Attribs}\li0\ri0\sa80\sb360\fi0\ql\par}
-{\f2 {\ltrch There are 4 textboxes: }\li0\ri0\sa160\sb0\fi0\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Filter (not used)}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{\f2 {\ltrch Each of these can be filled in with one or more Thought labels separated by spaces. Text which is not a Thought label is ignored. Searches are case-insensitive and singularized.}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\f2 {\ltrch If Source or Target alone, the system will respond with all links which match. If any two of Source, Target, and Type are provided, the system will respond with the data which would fill in the empty item.  If you fill in all three, the system will respond with the Link (if any) which matches.}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\f2 {\ltrch The system attempts to find a Thought which has attributes matchings all the given Thoughts.  As such, big.dog and big dog will have equivalent meaning. The first is a single Thought label which the second is two Thought labels of which only matching Thought is big.dog.}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\fs40\f3 {\cf2\ltrch Search by Attribs}\li0\ri0\sa80\sb360\fi0\ql\par}
-{\f2 {\ltrch Attributes are entered as a type and a target (to).  Enter is and warm-blooded to get a list of warm-blooded Thoughts.  Use the New, Add, and Clear buttons to build a list of multiple search attributes which show in the Query textbox.  }\li0\ri0\sa160\sb0\fi0\ql\par}
+\loch\hich\dbch\pard\plain\ltrpar\itap0{\lang1033\fs30\f2\cf0 \cf0\ql{\fs24\f3 {\ltrch This dialog queries the UKS content and returns the result.  If the Auto-Refresh checkbox is checked, it will repeat the query and update the results every few seconds. Otherwise, it will perform the query when the query criteria are changed.  There are two query types:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Get  Attribs:  Retrieves the attributes of a given Thought}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Search by Attribs: Retrieves Thoughts given a set of attributes.}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs40\f4 {\cf2\ltrch Get Attribs}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs24\f3 {\ltrch There are 3 textboxes: }\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f3 {\ltrch Each of these can be filled in with a Thought label. Text which is not a Thought label is ignored. Searches are case-insensitive and singularized.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch If Source or Target alone, the system will respond with all links which match. If any two of Source, Target, and Type are provided, the system will respond with the data which would fill in the empty item.  If you fill in all three, the system will respond with the Link (if any) which matches.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch The system attempts to find a Thought which has attributes matching all the given Thoughts.  It returns the attribute and its weight or confidence.  If the \ldblquote Show full links\rdblquote  checkbox is checked, it will show the complete link which may be useful in differentiating between direct and inherited attributes.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs40\f4 {\cf2\ltrch Search by Attribs}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs24\f3 {\ltrch Attributes are entered as a type and a target.  Enter is and warm-blooded to get a list of warm-blooded Thoughts.  Use the New, Add, and Clear buttons to build a list of multiple search attributes which show in the Query textbox.  }\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch The result is shown as a list of Thoughts with their relative confidences.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 \li0\ri0\sa160\sb0\fi0\ql\par}
 }
 }</description>
   </ModuleDescription>

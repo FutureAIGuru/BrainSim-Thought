@@ -208,7 +208,7 @@ namespace BrainSimulator.Modules
                         if (descendentCount == 1)
                         {
                             i--;
-                            theUKS.DeleteAllChildren(child);
+                            theUKS.DeleteAllChildrenAndLinks(child);
                             child.Delete();
                         }
                     }

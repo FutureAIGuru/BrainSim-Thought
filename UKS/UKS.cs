@@ -162,22 +162,22 @@ public partial class UKS
     /// Recursively removes all the descendants of a Thought. If these descendants have no other parents, they will be deleted as well.
     /// </summary>
     /// <param name="t">The thought to remove the children from.</param>
-    public void DeleteAllChildren(Thought t)
+    public void DeleteAllChildrenAndLinks(Thought t)
     {
         if (t is not null)
         {
-            List<Thought> subThoughts = t.EnumerateSubThoughts().ToList();
-            foreach (Link t1 in subThoughts)
+            //List<Thought> subThoughts = t.EnumerateSubThoughts().ToList();
+            List<Thought> descendants = t.Descendants.ToList();
+            foreach (Link t1 in t.LinksTo)
             {
                 if (t1.To is SeqElement s)
                 {
                     DeleteSequence(s);
                 }
-                else
-                {
-                    t1.Delete();
-                }
+                t1.Delete();
             }
+            foreach (Thought t1 in descendants)
+                t1.Delete();
         }
     }
 

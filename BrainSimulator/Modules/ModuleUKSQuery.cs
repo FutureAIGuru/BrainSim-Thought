@@ -74,7 +74,7 @@ Follow has ONLY if called out in type
 
     //this is called from the GetAttribs tab
     public List<(Thought r, float confidence)> GetAttributes(string sourceIn, string linkTypeIn, string targetIn,
-            string filter, out List<Thought> thoughtResult, out List<Link> links)
+            out List<Thought> thoughtResult, out List<Link> links)
     {
         thoughtResult = new();
         links = new();
@@ -142,11 +142,11 @@ Follow has ONLY if called out in type
             { links.RemoveAt(i); i--; continue; }
         }
 
-        if (filter != "")
-        {
-            List<Thought> filterThoughts = ModuleUKSStatement.ThoughtListFromString(filter);
-            links = theUKS.FilterResults(links, filterThoughts).ToList();
-        }
+        //if (filter != "")
+        //{
+        //    List<Thought> filterThoughts = ModuleUKSStatement.ThoughtListFromString(filter);
+        //    links = theUKS.FilterResults(links, filterThoughts).ToList();
+        //}
 
         //if (paramCount == 2)
         //{
