@@ -141,7 +141,7 @@ public partial class UKS
     {
         return s.FRST;
     }
-    private SeqElement GetLastlement(SeqElement s)
+    public SeqElement GetLastlement(SeqElement s)
     {
         SeqElement retVal = s;
         SeqElement next = s.NXT;

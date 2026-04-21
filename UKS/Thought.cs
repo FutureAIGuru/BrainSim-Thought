@@ -210,7 +210,7 @@ public class Thought
     /// </summary>
     public override string ToString()
     {
-        string retVal = Label;
+        string retVal = Label.Trim();
         if (V is not null)
             retVal += "_V:" + V.ToString();
 

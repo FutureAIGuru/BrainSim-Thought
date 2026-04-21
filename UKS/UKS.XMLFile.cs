@@ -277,7 +277,8 @@ public partial class UKS
     {
         AtomicThoughts.Clear();
         ThoughtLabels.ClearLabelList();
-        //get all the thoughts
+        //3 passes:  1) find all the labels and allocate thoughts 2) fill in links by label  3) remove temp labels from unlabeled thoughts
+        //allocate all the thoughts
         foreach (sThought st in UKSTemp)
         {
             if (st.source == -1 || st.linkType == -1)
@@ -293,24 +294,53 @@ public partial class UKS
             }
             else //this must be a link
             {
+                Link l = new()
+                {
+                    Label = st.label,
+                    Weight = st.weight,
+                    V = st.V,
+                };
+                l.TimeToLive = TimeSpan.MaxValue;
+                //AtomicThoughts.Add(l);
+            }
+        }
+        //add contents of links
+        foreach (sThought st in UKSTemp)
+        {
+            if (st.source == -1 || st.linkType == -1)
+            {
+            }
+            else //this must be a link
+            {
                 Thought from = null;
                 Thought linkType = null;
                 Thought to = null;
                 from = Labeled(UKSTemp[st.source].label);
                 linkType = Labeled(UKSTemp[st.linkType].label);
                 if (st.target != -1) to = Labeled(UKSTemp[st.target].label);
-
-                Link newLink = from?.AddLink(linkType, to);
-                if (newLink is not null)
+                Link theLink = (Link)Labeled(st.label);
+                if (theLink is null)
+                    continue;
+                theLink.To = to;
+                theLink.From = from;
+                theLink.LinkType = linkType;
+                theLink.Weight = st.weight;
+                theLink.V = st.V;
+                theLink.TimeToLive = TimeSpan.MaxValue;
+                theLink.From.AddLink(theLink.LinkType, theLink.To);
+                if (linkType.Label == "VLU")
+                    PromoteToSeqElement(theLink.From);
+            }
+        }
+        //remove temporary labels
+        foreach (sThought st in UKSTemp)
+        {
+            if (st.label.StartsWith("unl_"))
+            {
+                Thought x = Labeled(st.label);
+                if (x is not null)
                 {
-                    newLink.Weight = st.weight;
-                    if (!st.label.StartsWith("unl")) newLink.Label = st.label;
-                    newLink.V = st.V;
-                    newLink.TimeToLive = TimeSpan.MaxValue;
-                    if (newLink.LinkType.Label == "VLU")
-                    {//this must a a sequence element, promote it to one.
-                        SeqElement newfrom = PromoteToSeqElement(newLink.From);
-                    }
+                    x.Label = "";
                 }
             }
         }

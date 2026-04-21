@@ -221,7 +221,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             if (r.To is SeqElement s)
             {
                 string joinCharacter = " ";
-                if (r.LinkType.Label == "events") joinCharacter = "\n\t\t"; //hack for better dieplay of longer items
+                if (r.LinkType.Label == "events" || s.VLU is Link l) joinCharacter = "\n\t\t"; //hack for better dieplay of longer items
                 if (r.LinkType.Label == "NXT" || r.LinkType.Label == "FRST")
                 {
                     header = $"[{r.From.Label}→{r.LinkType.Label}→{r.To.Label}]";

@@ -86,13 +86,15 @@ public partial class UKS
             retVal += " V: " + t.V.ToString();
         if (t is Link r)
         {
+            if (r.From is Link r1) EnsureLabel(r1);
+            if (r.To is Link r2) EnsureLabel(r2);
             retVal += "[";
             if (r.From is not null)
-                retVal += r.From?.Label;
+                retVal += r.From?.Label.Trim();
             if (r.LinkType is not null)
-                retVal += ((retVal == "") ? "" : "->") + r.LinkType?.Label;
+                retVal += ((retVal == "") ? "" : "->") + r.LinkType?.Label.Trim();
             if (r.To is not null)
-                retVal += ((retVal == "") ? "" : "->") + ((r.To.Label == "") ? r.To?.Label : r.To.Label);
+                retVal += ((retVal == "") ? "" : "->") + ((r.To.Label == "") ? r.To.ToString() : r.To.Label.Trim());
             retVal += "]";
         }
         return retVal;
@@ -131,6 +133,28 @@ public partial class UKS
         }
     }
 
+    /// <summary>
+    /// Processes a single line of UKS text format and creates the corresponding thought/link.
+    /// </summary>
+    /// <param name="line">The line to process in UKS text format (e.g., "label[from->linkType->to] weight")</param>
+    /// <returns>The created Thought/Link, or null if parsing failed.</returns>
+    public Thought ProcessSingleLine(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return null;
+
+        string code = StripEolComment(line);
+        if (string.IsNullOrWhiteSpace(code)) return null;
+
+        var tokens = TokenizeTopLevel(code);
+        if (tokens.Count < 2) return null;
+
+        var stmt = ParseBracketStmt(tokens[1], 0);
+        if (stmt.Count < 2) return null;
+
+        Thought r = AddLinkStmt(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
+        return r;
+    }
+
     // Adds a link, 
     private Thought AddLinkStmt(string label, List<string> linkParts, string sWeight)
     {
@@ -159,6 +183,7 @@ public partial class UKS
             if (linkParts.Count > 2)
             {
                 to = Labeled(linkParts[2]);
+                if (to is null && linkParts[2].StartsWith("unl_")) { to = new Link(); to.Label = linkParts[2]; }
                 if (to is null) to = AddThought(linkParts[2], null);
             }
 
@@ -187,8 +212,9 @@ public partial class UKS
     // Parse "[F->L->T]" or "[S,R,O,N]" (comma separated, quotes allowed around items)
     private static List<string> ParseBracketStmt(string s, int lineNo)
     {
-        s = s.Substring(1, s.Length - 2); // drop initialFinal [ ]
         var result = new List<string>();
+        if (string.IsNullOrEmpty(s)) return result;
+        s = s.Substring(1, s.Length - 2); // drop initialFinal [ ]
         var sb = new StringBuilder();
         int bracketDepth = 0;
 
@@ -202,7 +228,7 @@ public partial class UKS
                 s[i] == '-' &&
                 s[i + 1] == '>')
             {
-                result.Add(sb.ToString());
+                result.Add(sb.ToString().Trim());
                 sb.Clear();
                 i++; // skip '>'
                 continue;
@@ -263,9 +289,9 @@ public partial class UKS
         int rightBrackedPos = code.LastIndexOf("]") + 1;
         if (leftBracketPos == -1 || rightBrackedPos == -1) return tokens;
 
-        string label = code[..leftBracketPos];
-        string weight = code[rightBrackedPos..];
-        string body = code[leftBracketPos..rightBrackedPos];
+        string label = code[..leftBracketPos].Trim();
+        string weight = code[rightBrackedPos..].Trim();
+        string body = code[leftBracketPos..rightBrackedPos].Trim();
 
         tokens.Add(label);
         tokens.Add(body);
