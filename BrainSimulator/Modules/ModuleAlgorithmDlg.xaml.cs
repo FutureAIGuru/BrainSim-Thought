@@ -62,6 +62,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
     private void ExecuteButton_Click(object sender, RoutedEventArgs e)
     {
         ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+
         if (parent?.theUKS == null) return;
 
         string taskName = taskInput.Text?.Trim();
@@ -80,10 +81,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         }
 
         // Get the first step of the task's sequence
-        Thought pc = parent.theUKS.GetOrAddThought("PC", "Task");
         SeqElement currentStep = (SeqElement)taskThought.GetTargetOfFirstLinkOfType("steps");
-        pc.RemoveLinks("is");
-        pc.AddLink("is", currentStep);
         if (currentStep is null)
         {
             SetStatus("Task has no steps");
@@ -91,64 +89,116 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         }
 
         // Loop through all steps
+        bool flowControl = ExecuteTask(ref currentStep);
+        if (!flowControl)
+        {
+            return;
+        }
+
+        //SetStatus("Task execution complete");
+    }
+
+    private bool ExecuteTask(ref SeqElement currentStep)
+    {
+        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
         while (currentStep is not null)
         {
             // Get the action from the current step
-            Link action = (Link)currentStep.VLU;
-            Link newLink = new(action.From, action.LinkType, action.To);
-            string toLabel = action.To?.Label.ToLower();
-            Thought newTarget = null;
-            if (toLabel == "param1")
-                newTarget = parent.theUKS.Labeled(parameter1Input.Text);
-            if (toLabel == "param2")
-                newTarget = parent.theUKS.Labeled(parameter2Input.Text);
-            string[] parts = toLabel.Split(".");
-            if (parts.Length > 1)
-            {
-                newTarget = parent.theUKS.Labeled(parts[0]);
-                for (int i = 1; i < parts.Length; i++)
-                {
-                    Thought linkType = parent.theUKS.Labeled(parts[i]);
-                    newTarget = newTarget?.GetTargetOfFirstLinkOfType(linkType);
-                }
-            }
-            if (newTarget is not null)
-                newLink.To = newTarget; //this changes the value not the programp1
-
-            //handle goto statements
-            if (newLink.From.Label.ToLower() == "pc")
-            {
-                string[] parts1 = currentStep.Label.Split("-");
-                string newPCLabel = parts1[0] + "-" + newLink.To.Label;
-                Thought newStep = parent.theUKS.Labeled(newPCLabel);
-                if (newStep is not null)
-                {
-                    currentStep = newStep as SeqElement;
-                    pc.RemoveLinks("is");
-                    pc.AddLink("is", currentStep);
-                }
+            Link action = currentStep.VLU as Link;
+            if (action is null)
+            { //it's not a link...must be a context to evaluate  (or a call???)
+                Thought action1 = currentStep.VLU as Thought;
+                Thought response = EvaluateContext(action1);
+                if (response is null) currentStep = null;
+                else currentStep = (SeqElement)response.GetTargetOfFirstLinkOfType("steps");
             }
             else
-            { // perhaps this is the only type we support??
-                if (newLink.LinkType.Label.Trim() == "set")
+            {
+                Link newLink = new(action.From, action.LinkType, action.To);
+                string toLabel = action.To?.Label.ToLower();
+                string fromLabel = action.From?.Label.ToLower();
+                string linkLabel = action.LinkType?.Label.ToLower();
+                Thought newTarget = null;
+                    newTarget = ParseIndirection(toLabel);
+                if (newTarget is not null)
+                    newLink.To = newTarget; //this changes the value not the programp1
+                Thought newFrom = ParseIndirection(fromLabel);
+
+                if (action.LinkType.HasAncestor("write"))
                 {
-                    newLink.LinkType = parent.theUKS.GetOrAddThought("is");
-                    newLink.From.RemoveLinks("is");
-                    newLink.From.AddLink("is", newLink.To);
+                    Thought newLinkType = action.LinkType.GetTargetOfFirstLinkOfType("is");
+                    newFrom.RemoveLinks(newLinkType);
+                    newLink = newFrom.AddLink(newLinkType, newTarget);
+                    newLink.TimeToLive = TimeSpan.FromSeconds(30);
+                    SetStatus("Link Written: " + newLink.ToString());
                 }
                 // Move to the next step
                 currentStep = currentStep?.NXT;
-                pc.RemoveLinks("is");
-                pc.AddLink("is", currentStep);
             }
         }
 
-        SetStatus("Task execution complete");
+        return true;
     }
 
-    bool ConditionIsTrue(Link r1)
+    private Thought EvaluateContext(Thought contextRoot)
     {
-        return false;
+        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+        Thought bestResponse = null;
+        float bestWeight = 0;
+        foreach (Thought t in contextRoot.Children)
+        {
+            float weight = 0;
+            foreach (Link l in t.LinksTo.Where(x => x.LinkType.Label == "has"))
+            {
+                Link test = (Link)l.To;
+                if (test.LinkType.HasAncestor("exist"))
+                {
+                    bool not = false;
+                    if (test.LinkType.HasAncestor("not")) not = true;
+                    Thought testType = test.LinkType.GetTargetOfFirstLinkOfType("is");
+                    var src = ParseIndirection(test.From.Label);
+                    if (src is null) continue;
+                    if (test.To.Label == "??")
+                    {
+                        if (!not && src.HasLink(testType) is not null) weight++;
+                        if (not && src.HasLink(testType) is null) weight++;
+                    }
+                    else
+                    {
+                        Thought target = ParseIndirection(test.To.Label);
+                        if (!not && src.HasLink(testType, target) is not null) weight++;
+                        if (not && src.HasLink(testType, target) is null) weight++;
+                    }
+                }
+            }
+            if (weight > bestWeight)
+            {
+                bestResponse = t.LinksTo.FindFirst(x => x.LinkType.Label == "response")?.To;
+                bestWeight = weight;
+            }
+        }
+
+        return bestResponse;
+    }
+
+
+    private Thought ParseIndirection(string toLabel)
+    {
+        if (string.IsNullOrEmpty(toLabel)) return null;
+        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+        if (toLabel == "param1")
+            return parent.theUKS.Labeled(parameter1Input.Text);
+        if (toLabel == "param2")
+            return parent.theUKS.Labeled(parameter2Input.Text);
+        
+        string[] parts = toLabel.Split(".");
+        Thought newTarget = parent.theUKS.Labeled(parts[0]);
+        for (int i = 1; i < parts.Length; i++)
+        {
+            Thought linkType = parent.theUKS.Labeled(parts[i]);
+            newTarget = newTarget?.GetTargetOfFirstLinkOfType(linkType);
+        }
+        return newTarget;
     }
 
     private void AddStepButton_Click(object sender, RoutedEventArgs e)
@@ -160,6 +210,8 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         string newStepText = newStepInput.Text?.Trim();
 
         if (string.IsNullOrEmpty(taskName) || string.IsNullOrEmpty(newStepText)) return;
+        if (!newStepText.StartsWith("[")) newStepText = "[" + newStepText;
+        if (!newStepText.EndsWith("]")) newStepText = newStepText + "]";
 
         // Parse the new step text using UKS.TextFile parser
         Thought stepThought = parent.theUKS.ProcessSingleLine(newStepText);
@@ -172,7 +224,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         // Get or create the task thought
         Thought taskThought = parent.theUKS.Labeled(taskName);
         SeqElement lastStep = null;
-        if (taskThought is not null)
+        if (taskThought is not null && taskThought.HasLink("steps") is not null)
         {
             lastStep = (SeqElement)taskThought.GetTargetOfFirstLinkOfType("steps");
             if (lastStep is not null)
@@ -190,6 +242,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
             parent.theUKS.GetOrAddThought("Task", "Thought");
             parent.theUKS.GetOrAddThought("steps", "Task");
             taskThought = parent.theUKS.GetOrAddThought(taskName, "Task");
+            taskThought.AddParent("Task");
             // Createthe sequence and link to it
             Thought firstStep = parent.theUKS.CreateFirstElement(taskName, stepThought);
             taskThought.AddLink("steps", firstStep);

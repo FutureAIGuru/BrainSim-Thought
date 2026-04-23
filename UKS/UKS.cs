@@ -207,6 +207,8 @@ public partial class UKS
             if (instanceThought is null)
             {
                 instanceThought = AddThought(label, baseThought);
+                if (baseThought.Label.ToLower() == "not")
+                    instanceThought.AddParent(attribs[1]);
             }
             for (int i = 1; i < attribs.Length; i++)
             {

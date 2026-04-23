@@ -831,6 +831,8 @@ public partial class UKS
             seq.LinksFromWriteable.Add(link);
         }
         t.LinksFromWriteable.Clear();
+        //At this time...   Sequence elements are always parentless
+        t.RemoveParent("Unknown");
 
         // Replace in global list
         lock (AtomicThoughts)

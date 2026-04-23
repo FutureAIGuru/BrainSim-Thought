@@ -110,22 +110,74 @@ public partial class UKS
     public void ImportTextFile(string filePath)
     {
         if (filePath is null) throw new ArgumentNullException(nameof(filePath));
+        var lines = File.ReadAllLines(filePath);
 
-        int lineNo = 0;
-        foreach (var raw in File.ReadLines(filePath))
+        // FIRST PASS: Find all defined labels
+        List<string> definedLabels = new();
+        foreach (var line in lines)
         {
-            lineNo++;
-            string code = StripEolComment(raw);
+            string code = StripEolComment(line);
             if (string.IsNullOrWhiteSpace(code)) continue;
-
-            var tokens = TokenizeTopLevel(code); // bracket tokens + connector tokens
+            var tokens = TokenizeTopLevel(code);
             if (tokens.Count == 0) continue;
-
-            var stmt = ParseBracketStmt(tokens[1], lineNo);
-            Thought r = AddLinkStmt(tokens[0], stmt, tokens[2]);
+            string label = tokens[0].Trim();
+                if (!string.IsNullOrEmpty(label))
+                definedLabels.Add(label);
         }
 
-        //remove unnecessary "unl_..."  labels
+        // SECOND PASS: Find all referenced labels (in bracket parts)
+        HashSet<string> referencedLabels = new();
+        foreach (var line in lines)
+        {
+            string code = StripEolComment(line);
+            if (string.IsNullOrWhiteSpace(code)) continue;
+            var tokens = TokenizeTopLevel(code);
+            if (tokens.Count < 2) continue;
+            
+            var stmt = ParseBracketStmt(tokens[1], 0);
+            foreach (var part in stmt)
+            {
+                string trimmed = part.Trim();
+                if (!string.IsNullOrEmpty(trimmed))
+                    referencedLabels.Add(trimmed);
+            }
+        }
+
+        // Keep only labels that are referenced
+        List<string> labelsToPreAllocate = definedLabels
+            .Where(label => referencedLabels.Contains(label))
+            .ToList();
+
+        // Now pre-allocate only the labels that are actually used as references
+        foreach (var label in labelsToPreAllocate)
+        {
+            Thought existing = Labeled(label);
+            if (existing is null)
+            {
+                Link placeholder = new Link();
+                placeholder.Label = label;
+                AtomicThoughts.Add(placeholder);
+            }
+            else if (existing is not Link)
+            {
+                // Existing Thought needs to become a Link
+                existing.Label = ""; // Release the label
+                Link replacement = new Link();
+                replacement.Label = label;
+                AtomicThoughts.Add(replacement);
+                
+                if (existing.LinksTo.Count == 0 && existing.LinksFrom.Count == 0)
+                    existing.Delete();
+            }
+        }
+
+        // THIRD PASS: Actually process the lines
+        foreach (var line in lines)
+        {
+            ProcessSingleLine(line);
+        }
+
+        // Remove unnecessary "unl_..." labels
         foreach (var t in ((Thought)"Thought").EnumerateSubThoughts())
         {
             if (t.Label.StartsWith("unl_"))
@@ -158,49 +210,44 @@ public partial class UKS
     // Adds a link, 
     private Thought AddLinkStmt(string label, List<string> linkParts, string sWeight)
     {
-        if (linkParts[0].Contains("seq0"))
-        { }
-        Link r = null;
         if (linkParts.Count < 2) return null;
-        if (r is null)
+
+        //get value strings (used in config  OBSOLETE
+        string value = "";
+        if (linkParts[0].Contains("_V:"))
         {
-            //get value strings (used in config
-            string value = "";
-            if (linkParts[0].Contains("_V:"))
-            {
-                int index = linkParts[0].IndexOf("_V:");
-                value = linkParts[0][(index + 3)..];
-                linkParts[0] = linkParts[0][..index];
-                Thought t1 = Labeled(linkParts[0]);
-                t1?.Delete();
-            }
-            //if (r1 or r2 are set, use them instead here
-            Thought from = Labeled(linkParts[0]);
-            if (from is null) from = AddThought(linkParts[0], null);
-            Thought linkType = Labeled(linkParts[1]);
-            if (linkType is null) linkType = AddThought(linkParts[1], null);
-            Thought to = null;
-            if (linkParts.Count > 2)
-            {
-                to = Labeled(linkParts[2]);
-                if (to is null && linkParts[2].StartsWith("unl_")) { to = new Link(); to.Label = linkParts[2]; }
-                if (to is null) to = AddThought(linkParts[2], null);
-            }
+            int index = linkParts[0].IndexOf("_V:");
+            value = linkParts[0][(index + 3)..];
+            linkParts[0] = linkParts[0][..index];
+            Thought t1 = Labeled(linkParts[0]);
+            t1?.Delete();
+        }
+        //if (r1 or r2 are set, use them instead here
+        Thought from = Labeled(linkParts[0]);
+        if (from is null) from = GetOrAddThought(linkParts[0]);
+        Thought linkType = Labeled(linkParts[1]);
+        if (linkType is null) linkType = GetOrAddThought(linkParts[1]);
+        Thought to = null;
+        if (linkParts.Count > 2)
+        {
+            to = Labeled(linkParts[2]);
+            if (to is null && linkParts[2].StartsWith("unl_")) { to = new Link(); to.Label = linkParts[2]; }
+            if (to is null) to = GetOrAddThought(linkParts[2]);
+        }
 
-            r = AddStatement(from, linkType, to, label);
+        Link r = AddStatement(from, linkType, to, label);
 
-            if (value != "")
-                r.From.V = value;
-            if (label != "" && !label.StartsWith("unl_"))
-            {
-                r.Label = label.Trim();
-                if (!AtomicThoughts.Contains(r))
-                    AtomicThoughts.Add(r);
-            }
-            if (linkType.Label == "VLU")
-            {//this must a a sequence element, promote it to one.
-                var newfrom = PromoteToSeqElement(from);
-            }
+        if (value != "")
+            r.From.V = value;
+        if (label != "" && !label.StartsWith("unl_"))
+        {
+            r.Label = label.Trim();
+            if (!AtomicThoughts.Contains(r))
+                AtomicThoughts.Add(r);
+        }
+        if (linkType.Label == "VLU")
+        {//this must a a sequence element, promote it to one.
+            var newfrom = PromoteToSeqElement(from);
         }
         if (sWeight is { } n)
         {

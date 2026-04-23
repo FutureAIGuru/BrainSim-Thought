@@ -8,13 +8,13 @@
         Title="Algorithm Module" Height="208" Width="550" Background="Gray" ShowInTaskbar="False" FontSize="16" >
 
     <Grid Margin="0,0,0,32" >
-        <Label Content="Task:" Margin="26,8,470,0" Height="28" VerticalAlignment="Top" />
-        <TextBox x:Name="taskInput" Height="28" Width="114" VerticalAlignment="Top" Margin="29,41,0,0" HorizontalAlignment="Left" ></TextBox>
+        <Label Content="Task:" Margin="52,8,384,0" Height="28" VerticalAlignment="Top" />
+        <TextBox x:Name="taskInput" Height="28" Width="114" VerticalAlignment="Top" Margin="55,41,0,0" HorizontalAlignment="Left" ></TextBox>
 
         <Label Content="Param 1:" Margin="185,8,251,0" Height="28" VerticalAlignment="Top" />
         <TextBox x:Name="parameter1Input" Height="28" Width="114" VerticalAlignment="Top" Margin="188,41,0,0" HorizontalAlignment="Left" ></TextBox>
 
-        <Label Content="Param 2:" Margin="317,8,113,0" Height="28" VerticalAlignment="Top" />
+        <Label Content="Param 2:" Margin="317,8,119,0" Height="28" VerticalAlignment="Top" />
         <TextBox x:Name="parameter2Input" Height="28" Width="114" VerticalAlignment="Top" Margin="320,41,0,0" HorizontalAlignment="Left" ></TextBox>
 
         <Button x:Name="executeButton" Content="Execute" Height="28" VerticalAlignment="Top" Margin="0,41,16,0" HorizontalAlignment="Right" Width="80" />

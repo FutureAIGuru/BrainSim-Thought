@@ -15,7 +15,7 @@ using System;
 
 namespace BrainSimulator.Modules;
 
-public class ModuleAlgorithm : ModuleBase
+public class ModuleSequenceEditor : ModuleBase
 {
 
     // Fill this method in with code which will execute
@@ -37,16 +37,6 @@ public class ModuleAlgorithm : ModuleBase
     // called whenever the UKS performs an Initialize()
     public override void UKSInitializedNotification()
     {
-        //initialization stuff  MOVE
-        theUKS.GetOrAddThought("Task", "Thought");
-        theUKS.GetOrAddThought("Context", "Task");
-        theUKS.GetOrAddThought("EXIST", "LinkType");
-        theUKS.GetOrAddThought("WRITE", "LinkType");
-        theUKS.GetOrAddThought("EQ", "Comparison");
-        theUKS.GetOrAddThought("GT", "Comparison");
 
-        theUKS.CreateThoughtFromMultipleAttributes("write EQ", true);
-        theUKS.CreateThoughtFromMultipleAttributes("write GT", true);
-        theUKS.CreateThoughtFromMultipleAttributes("write is", true);
     }
 }

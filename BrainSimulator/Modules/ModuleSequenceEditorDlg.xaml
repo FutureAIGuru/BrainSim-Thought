@@ -1,0 +1,28 @@
+<local:ModuleBaseDlg x:Class="BrainSimulator.Modules.ModuleSequenceEditorDlg"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BrainSimulator.Modules"
+        mc:Ignorable="d"
+        Title="Sequence Editor" Height="400" Width="550" Background="Gray" ShowInTaskbar="False" FontSize="16
+                     ">
+
+    <Grid Margin="0,0,0,20" >
+        <Label Content="Sequence:" Margin="23,20,473,0" Height="28" VerticalAlignment="Top" />
+        <TextBox x:Name="sequenceNameInput" Height="28" Width="300" VerticalAlignment="Top" Margin="120,20,0,0" HorizontalAlignment="Left" ></TextBox>
+        
+        <Label Content="Elements:" Margin="23,60,473,0" Height="28" VerticalAlignment="Top" />
+        
+        <!-- Line numbers TextBox -->
+        <TextBox x:Name="lineNumbersTextBox" Height="250" Width="40" VerticalAlignment="Top" Margin="23,90,0,0" HorizontalAlignment="Left" 
+                 IsReadOnly="True" VerticalScrollBarVisibility="Hidden" TextWrapping="NoWrap" FontFamily="Consolas" 
+                 Background="LightGray" BorderThickness="0,1,0,1" Padding="5,0,5,0" TextAlignment="Right"></TextBox>
+        
+        <!-- Content TextBox -->
+        <TextBox x:Name="sequenceContentInput" Height="250" Width="437" VerticalAlignment="Top" Margin="66,90,0,0" HorizontalAlignment="Left" 
+                 AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextWrapping="NoWrap" FontFamily="Consolas"></TextBox>
+        
+        <Button x:Name="saveButton" Content="Save" Height="28" Width="80" VerticalAlignment="Top" Margin="23,350,0,0" HorizontalAlignment="Left" ></Button>
+    </Grid>
+</local:ModuleBaseDlg>

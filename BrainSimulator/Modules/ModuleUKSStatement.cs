@@ -64,41 +64,6 @@ public class ModuleUKSStatement : ModuleBase
     }
 
 
-    public Link AddTheLink(Thought tSource, string linkType, string to)
-    {
-        GetUKS();
-        if (theUKS is null) return null;
-
-        //figure out the LinkType
-        Thought tLinkType = theUKS.CreateThoughtFromMultipleAttributes(linkType, true);
-
-        //Figure out the target
-        var targetParts = Singular(to.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-        Thought tTarget = null;
-
-        if (targetParts.Length == 3 && !targetParts[0].StartsWith("^"))
-            tTarget = theUKS.AddStatement(targetParts[0], targetParts[1], targetParts[2]);
-        if (tTarget is null)
-            tTarget = theUKS.CreateThoughtFromMultipleAttributes(to, false);
-
-        //TODO what is this case?
-        if (to == "" && linkType == "is-a")
-        {
-            //if (from != "")
-            //    theUKS.AddThought(from, null);
-            return null;
-        }
-
-        //Create the link
-        Link r = theUKS.AddStatement(tSource, tLinkType, tTarget);
-
-        if (tLinkType.Label == "IF")  //this is a HACK which must be fixed later
-        {
-            tSource.AddLink("hasProperty","isResult");
-            tTarget.AddLink("hasProperty", "isCondition");
-        }
-        return r;
-    }
 
     public string[]  Singular(string[] s)
     {
