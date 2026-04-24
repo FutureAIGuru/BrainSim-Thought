@@ -169,6 +169,7 @@ public partial class UKS
         return FlattenSequence(firstNode).Count;
     }
 
+
     /// <summary>
     /// Inserts a new element at the beginning of the sequence, shifting the previous first element forward.
     /// </summary>

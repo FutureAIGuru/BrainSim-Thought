@@ -228,22 +228,25 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 }
                 else
                 {
-                    var seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.Label).ToList();
-                    if (seqElementLabels.Count() > 0)
+                    var seqElements = theUKS.FlattenSequence(s);
+                    if (seqElements.Count() > 0)
                     {
-                        if (string.IsNullOrEmpty(seqElementLabels[0]))
-                            seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.ToString()).ToList();
+                        List<string> seqLabels = new();
+                        foreach (var t1 in seqElements)
+                            if (string.IsNullOrEmpty(t1.Label))
+                                seqLabels.Add(t1.ToString());
+                            else
+                                seqLabels.Add(t1.Label);
+                        int i = seqLabels[0].IndexOf(':');
+                        string leftSide = seqLabels[0][..(i+1)];
 
-                        int i = seqElementLabels[0].IndexOf(':');
-                        string leftSide = seqElementLabels[0][..(i+1)];
-
-                        seqElementLabels = seqElementLabels
+                        seqLabels = seqLabels
                             .Select(s =>
                             {
                                 int i = s.IndexOf(':');
                                 return i >= 0 ? s[(i + 1)..] : s;
                             }).ToList();
-                        string sequence = "^" +leftSide +  string.Join(joinCharacter, seqElementLabels);
+                        string sequence = "^" +leftSide +  string.Join(joinCharacter, seqLabels);
                         header = $"[{r.From.Label}→{r.LinkType.Label}→{sequence}]";
                     }
                 }

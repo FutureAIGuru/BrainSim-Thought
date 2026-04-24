@@ -101,25 +101,18 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
     private bool ExecuteTask(ref SeqElement currentStep)
     {
         ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+        parent.theUKS.GetOrAddThought("retVal", "Task");
         while (currentStep is not null)
         {
             // Get the action from the current step
-            Link action = currentStep.VLU as Link;
-            if (action is null)
-            { //it's not a link...must be a context to evaluate  (or a call???)
-                Thought action1 = currentStep.VLU as Thought;
-                Thought response = EvaluateContext(action1);
-                if (response is null) currentStep = null;
-                else currentStep = (SeqElement)response.GetTargetOfFirstLinkOfType("steps");
-            }
-            else
+            if (currentStep.VLU is Link action)
             {
                 Link newLink = new(action.From, action.LinkType, action.To);
                 string toLabel = action.To?.Label.ToLower();
                 string fromLabel = action.From?.Label.ToLower();
                 string linkLabel = action.LinkType?.Label.ToLower();
                 Thought newTarget = null;
-                    newTarget = ParseIndirection(toLabel);
+                newTarget = ParseIndirection(toLabel);
                 if (newTarget is not null)
                     newLink.To = newTarget; //this changes the value not the programp1
                 Thought newFrom = ParseIndirection(fromLabel);
@@ -129,15 +122,63 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
                     Thought newLinkType = action.LinkType.GetTargetOfFirstLinkOfType("is");
                     newFrom.RemoveLinks(newLinkType);
                     newLink = newFrom.AddLink(newLinkType, newTarget);
-                    newLink.TimeToLive = TimeSpan.FromSeconds(30);
+                    //newLink.TimeToLive = TimeSpan.FromSeconds(5);
                     SetStatus("Link Written: " + newLink.ToString());
                 }
+                else
+                {
+                    SetStatus("Invalid Operator: " + action.LinkType.ToString());
+                }
                 // Move to the next step
+                //if currentStep is null, we are done with this task...check for a return addded to the task and if so, return to it
+                if (currentStep.NXT is null)
+                { //RETURN
+                    Thought retVal = GetReturn(currentStep.FRST);
+                    currentStep = (SeqElement)retVal;
+                }
                 currentStep = currentStep?.NXT;
             }
+            else
+            {
+                //it's not a link...must be a context to evaluate  (or a call???)
+                Thought action1 = currentStep.VLU as Thought;
+                if (action1.HasLink("steps") is not null) //CALL
+                {  //CALL
+                    Thought retVal = currentStep;
+                    // jump to the new task
+                    currentStep = (SeqElement)action1.GetTargetOfFirstLinkOfType("steps");
+                    // write the return address (currentStep.NXT) in action.retval  
+                    SetReturn(currentStep, retVal);
+                }
+                else  //CONTEXT Test
+                { //JUMP (computed)
+                    Thought response = EvaluateContext(action1);
+                    Thought retVal = GetReturn(currentStep.FRST);
+                    if (response is null)
+                    {
+                        currentStep = null;
+                    }
+                    else
+                    {
+                        currentStep = (SeqElement)response.GetTargetOfFirstLinkOfType("steps");
+                        SetReturn(currentStep, retVal);
+                    }
+                }
+            }
         }
-
         return true;
+    }
+    private void SetReturn(Thought current, Thought retVal)
+    {
+        current.RemoveLinks("retVal");
+        Link l = current.AddLink("retVal", retVal);
+        //l.TimeToLive = TimeSpan.FromSeconds(30);
+    }
+    private Thought GetReturn(Thought current)
+    {
+        Thought retVal = current.GetTargetOfFirstLinkOfType("retVal");
+        current.RemoveLinks("retVal");
+        return retVal;
     }
 
     private Thought EvaluateContext(Thought contextRoot)
@@ -190,7 +231,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
             return parent.theUKS.Labeled(parameter1Input.Text);
         if (toLabel == "param2")
             return parent.theUKS.Labeled(parameter2Input.Text);
-        
+
         string[] parts = toLabel.Split(".");
         Thought newTarget = parent.theUKS.Labeled(parts[0]);
         for (int i = 1; i < parts.Length; i++)
