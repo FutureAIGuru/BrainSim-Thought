@@ -14,6 +14,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -24,11 +25,16 @@ namespace BrainSimulator.Modules;
 
 public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 {
+    private bool isEditingSequence = true; // Track whether we're editing a sequence or context
+    private string undoContent = ""; // Store content for undo
+
     public ModuleSequenceEditorDlg()
     {
         InitializeComponent();
         sequenceNameInput.KeyDown += SequenceNameInput_KeyDown;
         saveButton.Click += SaveButton_Click;
+        replacePatternInput.KeyDown += ReplacePatternInput_KeyDown;
+        sequenceContentInput.KeyDown += SequenceContentInput_KeyDown;
         sequenceContentInput.TextChanged += SequenceContentInput_TextChanged;
         sequenceContentInput.Loaded += SequenceContentInput_Loaded;
     }
@@ -93,6 +99,17 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         lineNumbersTextBox.Text = lineNumbers.ToString();
     }
 
+    private bool IsSequence(Thought thought)
+    {
+        // A sequence has a link to a SeqElement (e.g., "steps", "spelled", etc.)
+        foreach (Link link in thought.LinksTo)
+        {
+            if (link.To is SeqElement)
+                return true;
+        }
+        return false;
+    }
+
     private void LoadSequence()
     {
         ModuleSequenceEditor parent = (ModuleSequenceEditor)base.ParentModule;
@@ -105,26 +122,55 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             return;
         }
 
-        // Try to find the sequence
-        Thought sequenceThought = parent.theUKS.Labeled(sequenceName + "-seq0");
+        // Try to find the thought
+        Thought thought = parent.theUKS.Labeled(sequenceName);
+        if (thought == null)
+        {
+            SetStatus("Thought not found");
+            sequenceContentInput.Text = "";
+            return;
+        }
+
+        // Determine if it's a sequence or context
+        if (IsSequence(thought))
+        {
+            isEditingSequence = true;
+            LoadSequenceContent(thought, parent);
+        }
+        else
+        {
+            isEditingSequence = false;
+            LoadContextContent(thought, parent);
+        }
+    }
+
+    private void LoadSequenceContent(Thought thought, ModuleSequenceEditor parent)
+    {
+        // Find the first sequence element
+        Thought sequenceThought = parent.theUKS.Labeled(thought.Label + "-seq0");
         if (sequenceThought == null)
         {
-            SetStatus("Sequence not found");
-            sequenceContentInput.Text = "";
-            return;
+            // Try to find any SeqElement link
+            foreach (Link link in thought.LinksTo)
+            {
+                if (link.To is SeqElement)
+                {
+                    sequenceThought = link.To;
+                    break;
+                }
+            }
         }
 
-        // Check if it's actually a sequence element
         if (sequenceThought is not SeqElement firstElement)
         {
-            SetStatus("Thought is not a sequence");
+            SetStatus("Sequence element not found");
             sequenceContentInput.Text = "";
             return;
         }
 
-        // Flatten the sequence and display it (NO line numbers in content)
+        // Flatten the sequence and display it
         List<Thought> elements = parent.theUKS.FlattenSequence(firstElement);
-            StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
 
         for (int i = 0; i < elements.Count; i++)
         {
@@ -135,6 +181,37 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         SetStatus($"Loaded sequence with {elements.Count} elements");
     }
 
+    private void LoadContextContent(Thought context, ModuleSequenceEditor parent)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine(context.Label);
+
+        // Get all children (contexts within this context)
+        var children = context.Children.Where(c => c.Label.StartsWith("c")).OrderBy(c => c.Label).ToList();
+
+        foreach (var child in children)
+        {
+            sb.AppendLine($"  {child.Label}");
+            
+            // Get all "has" links
+            var hasLinks = child.LinksTo.Where(l => l.LinkType?.Label == "has").ToList();
+            foreach (var hasLink in hasLinks)
+            {
+                sb.AppendLine($"    [{child.Label}→has→{hasLink.To}]");
+            }
+
+            // Get all "response" links
+            var responseLinks = child.LinksTo.Where(l => l.LinkType?.Label == "response").ToList();
+            foreach (var responseLink in responseLinks)
+            {
+                sb.AppendLine($"    [{child.Label}→response→{responseLink.To}]");
+            }
+        }
+
+        sequenceContentInput.Text = sb.ToString();
+        SetStatus($"Loaded context with {children.Count} child contexts");
+    }
+
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
         ModuleSequenceEditor parent = (ModuleSequenceEditor)base.ParentModule;
@@ -143,19 +220,32 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         string sequenceName = sequenceNameInput.Text?.Trim();
         if (string.IsNullOrEmpty(sequenceName))
         {
-            SetStatus("No sequence name specified");
+            SetStatus("No name specified");
             return;
         }
 
         string content = sequenceContentInput.Text?.Trim();
         if (string.IsNullOrEmpty(content))
         {
-            SetStatus("No sequence content to save");
+            SetStatus("No content to save");
             return;
         }
 
-        // Parse the content - each line is a statement (no line numbers to parse!)
         string[] lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        
+        // Use the saved state to determine how to save
+        if (isEditingSequence)
+        {
+            SaveSequence(parent, sequenceName, lines);
+        }
+        else
+        {
+            SaveContext(parent, sequenceName, lines);
+        }
+    }
+
+    private void SaveSequence(ModuleSequenceEditor parent, string sequenceName, string[] lines)
+    {
         List<Thought> newElements = new List<Thought>();
 
         foreach (string line in lines)
@@ -192,7 +282,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         Link linkToChange = null;
         foreach (Link l in rootElement.LinksTo)
             if (l.To is SeqElement s)
-            { linkToChange = l;break; }
+            { linkToChange = l; break; }
 
         // Delete the old sequence if it exists
         Thought oldSequence = parent.theUKS.Labeled(sequenceName + "-seq0");
@@ -203,7 +293,8 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 
         // Create the new sequence
         SeqElement newSequence = parent.theUKS.AddSequence(sequenceName, newElements);
-        linkToChange.To = newSequence;
+        if (linkToChange != null)
+            linkToChange.To = newSequence;
 
         if (newSequence != null)
         {
@@ -213,6 +304,173 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         else
         {
             SetStatus("Failed to create sequence");
+        }
+    }
+
+    private void SaveContext(ModuleSequenceEditor parent, string contextName, string[] lines)
+    {
+        if (lines.Length == 0)
+        {
+            SetStatus("No content to save");
+            return;
+        }
+
+        // Use the first line as the root context name
+        string rootContextName = lines[0].Trim();
+        
+        // Get or create the root context
+        Thought rootContext = parent.theUKS.GetOrAddThought(rootContextName, "Task");
+        
+        // Track current context at each indentation level
+        Dictionary<int, Thought> indentationStack = new Dictionary<int, Thought>();
+        indentationStack[0] = rootContext;
+        
+        Thought currentContext = null;
+        int previousIndent = 0;
+
+        for (int i = 1; i < lines.Length; i++) // Skip first line (root context name)
+        {
+            string line = lines[i];
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            // Calculate indentation level (number of leading spaces)
+            int indent = line.Length - line.TrimStart().Length;
+            string trimmedLine = line.Trim();
+
+            // Determine if this is a context name or a relationship
+            if (trimmedLine.StartsWith("[") && trimmedLine.EndsWith("]"))
+            {
+                // This is a relationship statement
+                if (currentContext == null)
+                {
+                    SetStatus($"Relationship found without context: {trimmedLine}");
+                    return;
+                }
+
+                // Parse the relationship [subject->linkType->object]
+                string statement = trimmedLine;
+                statement = statement.Replace("→", "->");
+                
+                Link link = (Link)parent.theUKS.ProcessSingleLine(statement);
+                if (link == null)
+                {
+                    SetStatus($"Could not parse relationship: {trimmedLine}");
+                    return;
+                }
+                Link x =link.From.AddLink(link.LinkType, link.To);
+            }
+            else
+            {
+                // This is a context name
+                if (indent > previousIndent)
+                {
+                    // Child of the previous context
+                    Thought parentContext = indentationStack.ContainsKey(previousIndent) 
+                        ? indentationStack[previousIndent] 
+                        : rootContext;
+                    
+                    currentContext = parent.theUKS.GetOrAddThought(trimmedLine, parentContext);
+                    indentationStack[indent] = currentContext;
+                }
+                else if (indent == previousIndent)
+                {
+                    // Sibling of the previous context
+                    Thought parentContext = indentationStack.ContainsKey(indent - 2) 
+                        ? indentationStack[indent - 2] 
+                        : rootContext;
+                    
+                    currentContext = parent.theUKS.GetOrAddThought(trimmedLine, parentContext);
+                    indentationStack[indent] = currentContext;
+                }
+                else // indent < previousIndent
+                {
+                    // Going back up the hierarchy
+                    Thought parentContext = indentationStack.ContainsKey(indent - 2) 
+                        ? indentationStack[indent - 2] 
+                        : rootContext;
+                    
+                    currentContext = parent.theUKS.GetOrAddThought(trimmedLine, parentContext);
+                    indentationStack[indent] = currentContext;
+                }
+                
+                previousIndent = indent;
+            }
+        }
+
+        SetStatus($"Saved context: {rootContextName}");
+    }
+
+    private void ReplacePatternInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            PerformReplace();
+            e.Handled = true;
+        }
+    }
+
+    private void SequenceContentInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.X && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            PerformUndo();
+            e.Handled = true;
+        }
+    }
+
+    private void PerformReplace()
+    {
+        string searchPattern = searchPatternInput.Text?.Trim();
+        string replacePattern = replacePatternInput.Text?.Trim();
+
+        if (string.IsNullOrEmpty(searchPattern))
+        {
+            SetStatus("Search pattern is empty");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(replacePattern))
+        {
+            SetStatus("Replace pattern is empty");
+            return;
+        }
+
+        string content = sequenceContentInput.Text;
+        if (string.IsNullOrEmpty(content))
+        {
+            SetStatus("No content to replace");
+            return;
+        }
+
+        // Store current content for undo
+        undoContent = content;
+
+        // Use regex to replace pattern like "c1", "c2", etc. with "newString1", "newString2", etc.
+        // Matches the search pattern followed by digits
+        var regex = new System.Text.RegularExpressions.Regex($@"\b{System.Text.RegularExpressions.Regex.Escape(searchPattern)}(\d+)\b");
+        
+        int replacementCount = 0;
+        string newContent = regex.Replace(content, match =>
+        {
+            replacementCount++;
+            return replacePattern + match.Groups[1].Value; // Keep the digit part
+        });
+
+        sequenceContentInput.Text = newContent;
+        SetStatus($"Replaced {replacementCount} occurrence(s) of '{searchPattern}X' with '{replacePattern}X' (Ctrl+X to undo)");
+    }
+
+    private void PerformUndo()
+    {
+        if (!string.IsNullOrEmpty(undoContent))
+        {
+            sequenceContentInput.Text = undoContent;
+            SetStatus("Undo successful");
+            undoContent = ""; // Clear undo buffer after using it
+        }
+        else
+        {
+            SetStatus("Nothing to undo");
         }
     }
 }
