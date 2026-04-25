@@ -8,7 +8,7 @@
         Title="Sequence/Context Editor" Height="400" Width="550" Background="Gray" ShowInTaskbar="False" FontSize="16
                      ">
 
-    <Grid Margin="0,0,0,20" >
+    <Grid Margin="0,0,0,46" >
         <Label Content="Sequence/Context:" Margin="43,27,349,0" Height="28" VerticalAlignment="Top" />
         <TextBox x:Name="sequenceNameInput" Height="28" VerticalAlignment="Top" Margin="203,27,23,0" />
 

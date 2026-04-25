@@ -198,6 +198,10 @@ public partial class UKS
         string code = StripEolComment(line);
         if (string.IsNullOrWhiteSpace(code)) return null;
 
+        code = code.Trim();
+        if (!code.StartsWith("[")) code = "[" + code;
+        if (!code.EndsWith("]")) code = code+"]";
+
         var tokens = TokenizeTopLevel(code);
         if (tokens.Count < 2) return null;
 

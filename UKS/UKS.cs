@@ -195,8 +195,20 @@ public partial class UKS
         if (string.IsNullOrEmpty(label)) return thoughtToReturn;
 
         thoughtToReturn = ThoughtLabels.GetThought(label);
-        if (thoughtToReturn is not null) return thoughtToReturn;
+        Thought correctParent = null;
+        if (parent is string s)
+            correctParent = ThoughtLabels.GetThought(s);
+        if (parent is Thought t)
+            correctParent = t;
+        if (correctParent is null)
+            correctParent = ThoughtLabels.GetThought("Unknown");
 
+
+        if (thoughtToReturn is not null)
+        {
+            if (correctParent is not null) thoughtToReturn.AddParent(correctParent);
+            return thoughtToReturn;
+        }
         //. are used to indicate attributes to be added
         if (label.Contains(".") && label != "." && !label.Contains(".py"))
         {
@@ -220,13 +232,6 @@ public partial class UKS
             return instanceThought;
         }
 
-        Thought correctParent = null;
-        if (parent is string s)
-            correctParent = ThoughtLabels.GetThought(s);
-        if (parent is Thought t)
-            correctParent = t;
-        if (correctParent is null)
-            correctParent = ThoughtLabels.GetThought("Unknown");
 
         if (correctParent is null) return null;
         //            throw new ArgumentException("GetOrAddThought: could not find parent");

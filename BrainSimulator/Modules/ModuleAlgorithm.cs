@@ -70,7 +70,7 @@ public class ModuleAlgorithm : ModuleBase
     /// <returns>True if execution succeeded, false otherwise</returns>
     public bool ExecuteTask(string taskName, string param1 = "", string param2 = "")
     {
-        linkTimeToLive = TimeSpan.FromSeconds(5);
+        linkTimeToLive = TimeSpan.FromSeconds(60);
         LastLinkWritten = null;
         
         if (theUKS == null) return false;

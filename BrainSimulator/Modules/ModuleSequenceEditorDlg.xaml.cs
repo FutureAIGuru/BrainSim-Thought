@@ -220,9 +220,10 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         string sequenceName = sequenceNameInput.Text?.Trim();
         if (string.IsNullOrEmpty(sequenceName))
         {
-            SetStatus("No name specified");
-            return;
+            isEditingSequence = false;
         }
+        else
+            isEditingSequence = true;
 
         string content = sequenceContentInput.Text?.Trim();
         if (string.IsNullOrEmpty(content))
@@ -262,12 +263,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             }
             else
             {
-                Thought t = parent.theUKS.Labeled(statement);
-                if (t is null)
-                {
-                    SetStatus($"Could not parse: {statement}");
-                    return;
-                }
+                Thought t = parent.theUKS.GetOrAddThought(statement,"Task");
                 newElements.Add(t);
             }
         }
@@ -278,11 +274,24 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             return;
         }
 
+        // Check if this sequence already exists
         Thought rootElement = parent.theUKS.Labeled(sequenceName);
+        bool isNewSequence = (rootElement == null);
+        
+        // Get or create the root element
+        //if (rootElement == null)
+        {
+            rootElement = parent.theUKS.GetOrAddThought(sequenceName, "Task");
+        }
+
+        // Find existing sequence link to update
         Link linkToChange = null;
         foreach (Link l in rootElement.LinksTo)
             if (l.To is SeqElement s)
-            { linkToChange = l; break; }
+            { 
+                linkToChange = l;
+                break; 
+            }
 
         // Delete the old sequence if it exists
         Thought oldSequence = parent.theUKS.Labeled(sequenceName + "-seq0");
@@ -293,13 +302,27 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 
         // Create the new sequence
         SeqElement newSequence = parent.theUKS.AddSequence(sequenceName, newElements);
-        if (linkToChange != null)
-            linkToChange.To = newSequence;
-
+        
         if (newSequence != null)
         {
             newSequence.Label = sequenceName + "-seq0";
-            SetStatus($"Saved sequence with {newElements.Count} elements");
+            
+            // Link the sequence to the root element
+            if (linkToChange != null)
+            {
+                linkToChange.To = newSequence;
+            }
+            else
+            {
+                // Create new link if it didn't exist
+                Thought stepsType = parent.theUKS.GetOrAddThought("steps", "LinkType");
+                rootElement.AddLink(stepsType, newSequence);
+            }
+            
+            if (isNewSequence)
+                SetStatus($"Created new sequence '{sequenceName}' with {newElements.Count} elements");
+            else
+                SetStatus($"Updated sequence '{sequenceName}' with {newElements.Count} elements");
         }
         else
         {
