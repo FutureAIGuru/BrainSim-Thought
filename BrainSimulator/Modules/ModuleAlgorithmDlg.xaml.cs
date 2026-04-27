@@ -12,7 +12,9 @@
  */
 
 using System.IO;
+using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using UKS;
 
@@ -87,6 +89,28 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         }
     }
     
+    //temporary hack to clean up structures from erroneous input
+    void Cleanup()
+    {
+        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+        //1. clear unknown from things with multiple parents
+        Thought unknownRoot = parent.theUKS.Labeled("Unknown");
+        if (unknownRoot is null) return;
+        foreach (Thought t in unknownRoot.Children)
+        {
+            if (t.Parents.Count > 1)
+            {
+                t.RemoveParent("Unknown");
+            }
+        }
+        Thought root = parent.theUKS.GetOrAddThought("InvertBoolean");
+        
+        var subThoughts = root.EnumerateSubThoughts().ToList();
+
+        //check for duplicate checks
+        //removed labels from check clauses
+        //check the "is" parameters on dotted names
+    }
 
     private void AddStepButton_Click(object sender, RoutedEventArgs e)
     {
@@ -96,7 +120,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         string taskName = taskInput.Text?.Trim();
         string newStepText = newStepInput.Text?.Trim();
 
-        if (string.IsNullOrEmpty(taskName) || string.IsNullOrEmpty(newStepText)) return;
+        if (string.IsNullOrEmpty(taskName) || string.IsNullOrEmpty(newStepText)) { Cleanup(); return; }
         if (!newStepText.StartsWith("[")) newStepText = "[" + newStepText;
         if (!newStepText.EndsWith("]")) newStepText = newStepText + "]";
 

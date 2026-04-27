@@ -141,6 +141,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         {
             isEditingSequence = false;
             LoadContextContent(thought, parent);
+            sequenceNameInput.Text = "";
         }
     }
 
@@ -360,6 +361,15 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             int indent = line.Length - line.TrimStart().Length;
             string trimmedLine = line.Trim();
 
+            //is there a weight on the end of this line?
+            int sp = trimmedLine.LastIndexOf(" ");
+            sp++;
+            float newWeight = 1f;
+            if (float.TryParse(trimmedLine[sp..], out newWeight))
+            { sp--; trimmedLine = trimmedLine[..sp]; }
+            else
+                newWeight = 1;
+
             // Determine if this is a context name or a relationship
             if (trimmedLine.StartsWith("[") && trimmedLine.EndsWith("]"))
             {
@@ -373,14 +383,15 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
                 // Parse the relationship [subject->linkType->object]
                 string statement = trimmedLine;
                 statement = statement.Replace("→", "->");
-                
+
                 Link link = (Link)parent.theUKS.ProcessSingleLine(statement);
                 if (link == null)
                 {
                     SetStatus($"Could not parse relationship: {trimmedLine}");
                     return;
                 }
-                Link x =link.From.AddLink(link.LinkType, link.To);
+                Link x = link.From.AddLink(link.LinkType, link.To);
+                x.Weight = newWeight;
             }
             else
             {
@@ -388,34 +399,34 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
                 if (indent > previousIndent)
                 {
                     // Child of the previous context
-                    Thought parentContext = indentationStack.ContainsKey(previousIndent) 
-                        ? indentationStack[previousIndent] 
+                    Thought parentContext = indentationStack.ContainsKey(previousIndent)
+                        ? indentationStack[previousIndent]
                         : rootContext;
-                    
+
                     currentContext = parent.theUKS.GetOrAddThought(trimmedLine, parentContext);
                     indentationStack[indent] = currentContext;
                 }
                 else if (indent == previousIndent)
                 {
                     // Sibling of the previous context
-                    Thought parentContext = indentationStack.ContainsKey(indent - 2) 
-                        ? indentationStack[indent - 2] 
+                    Thought parentContext = indentationStack.ContainsKey(indent - 2)
+                        ? indentationStack[indent - 2]
                         : rootContext;
-                    
+
                     currentContext = parent.theUKS.GetOrAddThought(trimmedLine, parentContext);
                     indentationStack[indent] = currentContext;
                 }
                 else // indent < previousIndent
                 {
                     // Going back up the hierarchy
-                    Thought parentContext = indentationStack.ContainsKey(indent - 2) 
-                        ? indentationStack[indent - 2] 
+                    Thought parentContext = indentationStack.ContainsKey(indent - 2)
+                        ? indentationStack[indent - 2]
                         : rootContext;
-                    
+
                     currentContext = parent.theUKS.GetOrAddThought(trimmedLine, parentContext);
                     indentationStack[indent] = currentContext;
                 }
-                
+
                 previousIndent = indent;
             }
         }

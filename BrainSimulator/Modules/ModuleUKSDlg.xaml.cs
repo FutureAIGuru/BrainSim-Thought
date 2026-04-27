@@ -301,6 +301,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         }
         header += ": Children:" + t.Children.Count;
         header += " Links:" + t.LinksTo.Count;
+        header += " Refs:" + t.LinksFrom.Count;
         return header;
     }
 

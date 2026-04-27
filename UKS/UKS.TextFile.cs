@@ -281,8 +281,11 @@ public partial class UKS
     {
         if (string.IsNullOrWhiteSpace(part)) return null;
 
-        string trimmed = part.Trim();
-        
+
+        var tokens = TokenizeTopLevel(part);
+        if (tokens.Count < 2) return null;
+        string trimmed = tokens[1].Trim();
+
         // Check if this is a nested link (starts with '[')
         if (trimmed.StartsWith("[") && trimmed.EndsWith("]"))
         {

@@ -23,7 +23,7 @@ public class ModuleAlgorithm : ModuleBase
     private string param1;
     private string param2;
     private TimeSpan linkTimeToLive = TimeSpan.FromSeconds(5);
-    
+
     /// <summary>
     /// The last link written during task execution, used as a return value
     /// </summary>
@@ -50,7 +50,6 @@ public class ModuleAlgorithm : ModuleBase
     {
         //initialization stuff  MOVE
         theUKS.GetOrAddThought("Task", "Thought");
-        theUKS.GetOrAddThought("Context", "Task");
         theUKS.GetOrAddThought("EXIST", "LinkType");
         theUKS.GetOrAddThought("WRITE", "LinkType");
         theUKS.GetOrAddThought("EQ", "Comparison");
@@ -70,9 +69,9 @@ public class ModuleAlgorithm : ModuleBase
     /// <returns>True if execution succeeded, false otherwise</returns>
     public bool ExecuteTask(string taskName, string param1 = "", string param2 = "")
     {
-        linkTimeToLive = TimeSpan.FromSeconds(60);
+        linkTimeToLive = TimeSpan.FromSeconds(600);
         LastLinkWritten = null;
-        
+
         if (theUKS == null) return false;
 
         this.param1 = param1;
@@ -107,7 +106,7 @@ public class ModuleAlgorithm : ModuleBase
             // Get the action from the current step
             if (currentStep.VLU is Link action)
             {
-                Debug.Write("Instruction: " + action.ToString() + "   ");
+                Debug.WriteLine("Instruction: " + action.ToString() + "   ");
                 Link newLink = new(action.From, action.LinkType, action.To);
                 string toLabel = action.To?.Label.ToLower();
                 string fromLabel = action.From?.Label.ToLower();
@@ -140,6 +139,10 @@ public class ModuleAlgorithm : ModuleBase
                     Debug.WriteLine("Returning to: " + currentStep?.ToString());
                 }
                 currentStep = currentStep?.NXT;
+            }
+            else if (currentStep.VLU is null)
+            {
+                currentStep = null;
             }
             else if (currentStep.VLU is Thought action1)
             {
@@ -174,6 +177,7 @@ public class ModuleAlgorithm : ModuleBase
                     else
                     {
                         currentStep = (SeqElement)response.GetTargetOfFirstLinkOfType("steps");
+                        if (currentStep is not null)
                         SetReturn(currentStep, retVal);
                     }
                 }
@@ -210,22 +214,30 @@ public class ModuleAlgorithm : ModuleBase
                 {
                     bool not = false;
                     if (test.LinkType.HasAncestor("not")) not = true;
-                    Thought testType = test.LinkType.GetTargetOfFirstLinkOfType("is");
+                    //Thought testType = test.LinkType.GetTargetOfFirstLinkOfType("is");
+                    Thought testType = test.LinkType.LinksTo.FindFirst(x => x.LinkType.Label.ToLower() == "is" && x.To.Label != "EXIST")?.To;
                     var src = ParseIndirection(test.From.Label);
                     if (src is null) continue;
-                    if (test.To.Label == "??")
+                    if (test.LinkType.HasAncestor("same"))
                     {
-                        if (!not && src.HasLink(testType) is not null) weight++;
-                        if (not && src.HasLink(testType) is null) weight++;
+                        Thought target = ParseIndirection(test.To.Label);
+                        if (src == target) weight += test.Weight;
+                    }
+                    else if (test.To.Label == "??")
+                    {
+                        if (!not && src.HasLink(testType) is not null) weight+=test.Weight;
+                        if (not && src.HasLink(testType) is null) weight += test.Weight;
                     }
                     else
                     {
                         Thought target = ParseIndirection(test.To.Label);
-                        if (!not && src.HasLink(testType, target) is not null) weight++;
-                        if (not && src.HasLink(testType, target) is null) weight++;
+                        if (!not && src.HasLink(testType, target) is not null) weight += test.Weight;
+                        if (not && src.HasLink(testType, target) is null) weight += test.Weight;
                     }
+                    //Debug.WriteLine($"Compared: {test.ToString()}  Weight: {weight}  Src: {src} Type: {testType} NOT: {not}");
                 }
             }
+            Debug.WriteLine($"Case: {t.Label}  Weight: {weight}");
             if (weight > bestWeight)
             {
                 bestResponse = t.LinksTo.FindFirst(x => x.LinkType.Label == "response")?.To;
@@ -233,13 +245,14 @@ public class ModuleAlgorithm : ModuleBase
             }
         }
 
+        Debug.WriteLine($"Context: {contextRoot} returned {bestResponse}");
         return bestResponse;
     }
 
     private Thought ParseIndirection(string toLabel)
     {
         if (string.IsNullOrEmpty(toLabel)) return null;
-        
+
         if (toLabel == "param1")
             return theUKS.Labeled(param1);
         if (toLabel == "param2")
