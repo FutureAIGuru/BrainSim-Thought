@@ -22,12 +22,17 @@ namespace BrainSimulator.Modules;
 
 public partial class ModuleAlgorithmDlg : ModuleBaseDlg
 {
+    private bool _isTextChangingInternally = false;
+    private int _previousTextLength = 0;
+
     public ModuleAlgorithmDlg()
     {
         InitializeComponent();
-        addStepButton.Click += AddStepButton_Click;
         executeButton.Click += ExecuteButton_Click;
-        newStepInput.KeyDown += NewStepInput_KeyDown;
+        parameter1Input.KeyDown += Param1_KeyDown;
+        parameter2Input.KeyDown += Param2_KeyDown;
+        taskInput.TextChanged += TaskInput_TextChanged;
+        taskInput.PreviewKeyDown += TaskInput_PreviewKeyDown;
     }
 
     public override bool Draw(bool checkDrawTimer)
@@ -44,12 +49,103 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         Draw(false);
     }
 
-    private void NewStepInput_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    private void TaskInput_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+       var tb = taskInput as TextBox;
+        if (tb is null) return;
+
+        // Allow text changes when keys like backspace, delete are pressed
+        if (e.Key == Key.Back || e.Key == Key.Delete)
+        {
+            _isTextChangingInternally = true;
+            int caretIndex = tb.CaretIndex;
+            if (e.Key == Key.Back) caretIndex--;
+            if (caretIndex < 0) caretIndex = 0;
+            tb.Text = tb.Text.Substring(0, caretIndex);
+            tb.CaretIndex = caretIndex;
+            e.Handled = true;
+            _isTextChangingInternally = false;
+            if (e.Key == Key.Back)
+                TaskInput_TextChanged(null, null);
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            parameter1Input.Focus();
+        }
+    }
+
+    private void TaskInput_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isTextChangingInternally)
+            return;
+
+        var tb = taskInput as TextBox;
+        if (tb == null) return;
+
+        string searchText = taskInput.Text;
+        
+        // Track only the unselected (typed) portion
+        int actualTypedLength = tb.SelectionStart;
+        
+        // Check if we're deleting text
+        bool isDeleting = actualTypedLength < _previousTextLength;
+        
+        // Only autocomplete if text is being added (not deleted)
+        if (string.IsNullOrEmpty(searchText) || isDeleting)
+        {
+            _previousTextLength = actualTypedLength;
+            return;
+        }
+
+        // Update previous length before autocomplete might change it
+        _previousTextLength = actualTypedLength;
+
+        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+        if (parent?.theUKS == null)
+            return;
+
+        // Get all children of "Task" excluding "Variable"
+        Thought taskThought = parent.theUKS.Labeled("Task");
+        if (taskThought == null)
+            return;
+
+        // Get the text that was actually typed (without selection)
+        string typedText = searchText.Substring(0, actualTypedLength);
+
+        var suggestion = taskThought.Children
+            .Where(t => t.Label.ToLower() != "variable" &&
+                       t.Label.StartsWith(typedText, System.StringComparison.OrdinalIgnoreCase))
+            .OrderBy(t => t.Label)
+            .Select(t => t.Label)
+            .FirstOrDefault();
+
+        if (suggestion != null && !suggestion.Equals(searchText, System.StringComparison.OrdinalIgnoreCase))
+        {
+            int caretIndex = tb.CaretIndex;
+            _isTextChangingInternally = true;
+            taskInput.Text = suggestion;
+            tb.CaretIndex = caretIndex;
+            tb.SelectionStart = caretIndex;
+            tb.SelectionLength = suggestion.Length - caretIndex;
+            tb.SelectionOpacity = .4;
+            _isTextChangingInternally = false;
+        }
+    }
+
+    private void Param2_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
-            AddStepButton_Click(sender, e);
+            ExecuteButton_Click(sender, e);
             e.Handled = true;
+        }
+    }
+    private void Param1_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            parameter2Input.Focus();
         }
     }
 
@@ -71,7 +167,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
 
         // Execute the task using the module's execution engine
         bool success = parent.ExecuteTask(taskName, param1, param2);
-        
+
         if (success)
         {
             if (parent.LastLinkWritten != null)
@@ -87,82 +183,5 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         {
             SetStatus("Task execution failed");
         }
-    }
-    
-    //temporary hack to clean up structures from erroneous input
-    void Cleanup()
-    {
-        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
-        //1. clear unknown from things with multiple parents
-        Thought unknownRoot = parent.theUKS.Labeled("Unknown");
-        if (unknownRoot is null) return;
-        foreach (Thought t in unknownRoot.Children)
-        {
-            if (t.Parents.Count > 1)
-            {
-                t.RemoveParent("Unknown");
-            }
-        }
-        Thought t1 = parent.theUKS.Labeled("BrainSim");
-        t1.RemoveParent("Unknown");
-        t1 = parent.theUKS.Labeled("Thought");
-        t1.RemoveParent("Unknown");
-        Thought root = parent.theUKS.GetOrAddThought("InvertBoolean");
-        var subThoughts = root.EnumerateSubThoughts().ToList();
-
-        //check for duplicate checks
-        //removed labels from check clauses
-        //check the "is" parameters on dotted names
-    }
-
-    private void AddStepButton_Click(object sender, RoutedEventArgs e)
-    {
-        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
-        if (parent?.theUKS == null) return;
-
-        string taskName = taskInput.Text?.Trim();
-        string newStepText = newStepInput.Text?.Trim();
-
-        if (string.IsNullOrEmpty(taskName) || string.IsNullOrEmpty(newStepText)) { Cleanup(); return; }
-        if (!newStepText.StartsWith("[")) newStepText = "[" + newStepText;
-        if (!newStepText.EndsWith("]")) newStepText = newStepText + "]";
-
-        // Parse the new step text using UKS.TextFile parser
-        Thought stepThought = parent.theUKS.ProcessSingleLineWithNesting(newStepText);
-        if (stepThought == null)
-        {
-            SetStatus("Could not parse step");
-            return;
-        }
-
-        // Get or create the task thought
-        Thought taskThought = parent.theUKS.Labeled(taskName);
-        SeqElement lastStep = null;
-        if (taskThought is not null && taskThought.HasLink("steps") is not null)
-        {
-            lastStep = (SeqElement)taskThought.GetTargetOfFirstLinkOfType("steps");
-            if (lastStep is not null)
-            {
-                lastStep = parent.theUKS.GetLastlement(lastStep);
-                parent.theUKS.AddElement(lastStep, stepThought);
-            }
-            else
-            {
-                throw new InvalidDataException("Missing sequence on task");
-            }
-        }
-        else
-        {
-            parent.theUKS.GetOrAddThought("Task", "Thought");
-            parent.theUKS.GetOrAddThought("steps", "Task");
-            taskThought = parent.theUKS.GetOrAddThought(taskName, "Task");
-            taskThought.AddParent("Task");
-            // Createthe sequence and link to it
-            Thought firstStep = parent.theUKS.CreateFirstElement(taskName, stepThought);
-            taskThought.AddLink("steps", firstStep);
-        }
-
-        // Clear the new step input
-        newStepInput.Text = "";
     }
 }

@@ -5,11 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BrainSimulator.Modules"
         mc:Ignorable="d"
-        Title="Sequence/Context Editor" Height="400" Width="550" Background="Gray" ShowInTaskbar="False" FontSize="16
-                     ">
+        Title="Algorithm Editor" Height="400" Width="550" Background="Gray" ShowInTaskbar="False" FontSize="16">
 
     <Grid Margin="0,0,0,46" >
-        <Label Content="Task Name:" Margin="43,27,349,0" Height="28" VerticalAlignment="Top" HorizontalContentAlignment="Right" />
+        <Label Content="Task Name:" Margin="43,27,0,0" Height="28" VerticalAlignment="Top" HorizontalContentAlignment="Right" HorizontalAlignment="Left" Width="158" />
         <TextBox x:Name="sequenceNameInput" Height="28" VerticalAlignment="Top" Margin="203,27,23,0" />
 
         <Label Content="Elements:" Margin="23,60,401,0" Height="28" VerticalAlignment="Top" />
@@ -24,11 +23,11 @@
                  AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextWrapping="NoWrap" FontFamily="Consolas"/>
 
         <Button x:Name="saveButton" Content="Save" Height="28" Width="80" VerticalAlignment="Bottom" Margin="23,0,0,12" HorizontalAlignment="Left" ></Button>
-        
+
         <!-- Search/Replace controls -->
         <Label Content="Srch:" Height="28" VerticalAlignment="Bottom" Margin="118,0,0,12" HorizontalAlignment="Left" Width="35" FontSize="14" />
         <TextBox x:Name="searchPatternInput" Height="28" Width="60" VerticalAlignment="Bottom" Margin="153,0,0,12" HorizontalAlignment="Left" FontSize="14" />
-        
+
         <Label Content="Repl:" Height="28" VerticalAlignment="Bottom" Margin="223,0,0,12" HorizontalAlignment="Left" Width="42" FontSize="14" />
         <TextBox x:Name="replacePatternInput" Height="28" Width="80" VerticalAlignment="Bottom" Margin="265,0,0,12" HorizontalAlignment="Left" FontSize="14" />
     </Grid>

@@ -5,23 +5,18 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BrainSimulator.Modules"
         mc:Ignorable="d"
-        Title="Algorithm Module" Height="208" Width="550" Background="Gray" ShowInTaskbar="False" FontSize="16" >
+        Title="Algorithm Module" Height="207" Width="471" Background="Gray" ShowInTaskbar="False" FontSize="16" >
 
-    <Grid Margin="0,0,0,32" >
-        <Label Content="Task:" Margin="52,8,384,0" Height="28" VerticalAlignment="Top" />
-        <TextBox x:Name="taskInput" Height="28" Width="114" VerticalAlignment="Top" Margin="55,41,0,0" HorizontalAlignment="Left" ></TextBox>
+    <Grid Margin="0,0,22,32" >
+        <Label Content="Task:" Margin="52,8,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
+        <TextBox x:Name="taskInput" Height="28" VerticalAlignment="Top" Margin="55,41,0,0" HorizontalAlignment="Left" Width="205" />
 
-        <Label Content="Param 1:" Margin="185,8,251,0" Height="28" VerticalAlignment="Top" />
-        <TextBox x:Name="parameter1Input" Height="28" Width="114" VerticalAlignment="Top" Margin="188,41,0,0" HorizontalAlignment="Left" ></TextBox>
+        <Label Content="Param 1:" Margin="53,72,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
+        <TextBox x:Name="parameter1Input" Height="28" Width="114" VerticalAlignment="Top" Margin="56,105,0,0" HorizontalAlignment="Left" ></TextBox>
 
-        <Label Content="Param 2:" Margin="317,8,119,0" Height="28" VerticalAlignment="Top" />
-        <TextBox x:Name="parameter2Input" Height="28" Width="114" VerticalAlignment="Top" Margin="320,41,0,0" HorizontalAlignment="Left" ></TextBox>
+        <Label Content="Param 2:" Margin="185,72,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
+        <TextBox x:Name="parameter2Input" Height="28" Width="114" VerticalAlignment="Top" Margin="188,105,0,0" HorizontalAlignment="Left" ></TextBox>
 
-        <Button x:Name="executeButton" Content="Execute" Height="28" VerticalAlignment="Top" Margin="0,41,16,0" HorizontalAlignment="Right" Width="80" />
-
-        <Label Content="New Step:" Margin="23,101,0,0" Height="36" VerticalAlignment="Top" HorizontalAlignment="Left" Width="88" />
-        <TextBox x:Name="newStepInput" Height="28" VerticalAlignment="Top" Margin="120,101,116,0" />
-
-        <Button x:Name="addStepButton" Content="Add Step" Height="28" VerticalAlignment="Top" Margin="0,101,16,0" HorizontalAlignment="Right" Width="80" />
+        <Button x:Name="executeButton" Content="Execute" Height="28" VerticalAlignment="Top" Margin="322,105,0,0" HorizontalAlignment="Left" Width="80" />
     </Grid>
 </local:ModuleBaseDlg>

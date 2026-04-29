@@ -68,7 +68,7 @@ public class ModuleAlgorithm : ModuleBase
     /// <returns>True if execution succeeded, false otherwise</returns>
     public bool ExecuteTask(string taskName, string param1Value = "", string param2Value = "")
     {
-        linkTimeToLive = TimeSpan.FromSeconds(600);
+        linkTimeToLive = TimeSpan.FromSeconds(10);
         LastLinkWritten = null;
 
         if (theUKS == null) return false;
@@ -118,13 +118,30 @@ public class ModuleAlgorithm : ModuleBase
 
         // Get the first step of the task's sequence
         SeqElement currentStep = taskThought.GetTargetOfFirstLinkOfType("steps") as SeqElement;
+        
+        // If no steps found, try appending "_main" to the task name
+        if (currentStep is null)
+        {
+            string mainTaskName = taskName + "_main";
+            Thought mainTaskThought = theUKS.Labeled(mainTaskName);
+            if (mainTaskThought != null)
+            {
+                currentStep = mainTaskThought.GetTargetOfFirstLinkOfType("steps") as SeqElement;
+                if (currentStep != null)
+                {
+                    Debug.WriteLine($"Using main task: {mainTaskName}");
+                    taskThought = mainTaskThought; // Use the _main task
+                }
+            }
+        }
+        
         if (currentStep is null)
         {
             Debug.WriteLine($"Task has no steps: {taskName}");
             return false;
         }
 
-        theUKS.GetOrAddThought("retVal", "Task");
+        theUKS.GetOrAddThought("retVal", "Variable");
 
         // Execute the task
         return ExecuteSteps(ref currentStep);

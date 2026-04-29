@@ -81,7 +81,7 @@ public class ModuleAlgorithmTests : IDisposable
         // Test: BoolNot with TRUE input
         // Expected: p1->is->FALSE
         
-        bool success = module.ExecuteTask("BoolNot", "TRUE", "FALSE");
+        bool success = module.ExecuteTask("invertBool", "TRUE", "FALSE");
         
         Assert.True(success, "BoolNot task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
@@ -96,7 +96,7 @@ public class ModuleAlgorithmTests : IDisposable
         // Test: BoolNot with FALSE input
         // Expected: p1->is->TRUE
         
-        bool success = module.ExecuteTask("BoolNot", "FALSE", "TRUE");
+        bool success = module.ExecuteTask("invertBool", "FALSE", "TRUE");
         
         Assert.True(success, "BoolNot task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
@@ -109,7 +109,7 @@ public class ModuleAlgorithmTests : IDisposable
     public void Test03_VerifyLinkPersistence()
     {
         // Execute task and verify link exists in UKS
-        module.ExecuteTask("BoolNot", "TRUE", "FALSE");
+        module.ExecuteTask("invertBool", "TRUE", "FALSE");
         
         Thought p1 = uks.Labeled("p1");
         Assert.NotNull(p1);
@@ -127,11 +127,11 @@ public class ModuleAlgorithmTests : IDisposable
         // Test multiple executions
         
         // First: TRUE -> FALSE
-        module.ExecuteTask("BoolNot", "TRUE", "FALSE");
+        module.ExecuteTask("invertBool", "TRUE", "FALSE");
         Assert.Equal("false", module.LastLinkWritten.To?.Label.ToLower());
         
         // Second: FALSE -> TRUE
-        module.ExecuteTask("BoolNot", "FALSE", "TRUE");
+        module.ExecuteTask("invertBool", "FALSE", "TRUE");
         Assert.Equal("true", module.LastLinkWritten.To?.Label.ToLower());
     }
 
@@ -139,7 +139,7 @@ public class ModuleAlgorithmTests : IDisposable
     public void Test05_TaskExists()
     {
         // Verify BoolNot task loaded from XML
-        Thought boolNotTask = uks.Labeled("BoolNot");
+        Thought boolNotTask = uks.Labeled("invertBool_main");
         Assert.NotNull(boolNotTask);
         
         // Verify it has steps
@@ -148,14 +148,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test06_CompareLength_DogVsCat_Equal()
+    public void Test06_SeqLength_DogVsCat_Equal()
     {
-        // Test: CompareLength with dog (3) and cat (3)
+        // Test: SeqLength with dog (3) and cat (3)
         // Expected: dog->EQ->cat
 
-        bool success = module.ExecuteTask("compareLength", "dog", "cat");
+        bool success = module.ExecuteTask("SeqLength", "dog", "cat");
 
-        Assert.True(success, "compareLength task execution should succeed");
+        Assert.True(success, "SeqLength task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
 
         // Get the thoughts directly
@@ -168,14 +168,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test07_CompareLength_DogVsPuppy_Less()
+    public void Test07_SeqLength_DogVsPuppy_Less()
     {
-        // Test: CompareLength with dog (3) and puppy (5)
+        // Test: SeqLength with dog (3) and puppy (5)
         // When dog < puppy, result is reversed: puppy->GT->dog
 
-        bool success = module.ExecuteTask("compareLength", "dog", "puppy");
+        bool success = module.ExecuteTask("SeqLength", "dog", "puppy");
 
-        Assert.True(success, "compareLength task execution should succeed");
+        Assert.True(success, "SeqLength task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
 
         // Get the thoughts directly
@@ -189,14 +189,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test08_CompareLength_PuppyVsDog_Greater()
+    public void Test08_SeqLength_PuppyVsDog_Greater()
     {
-        // Test: CompareLength with puppy (5) and dog (3)
+        // Test: SeqLength with puppy (5) and dog (3)
         // Expected: puppy->GT->dog
 
-        bool success = module.ExecuteTask("compareLength", "puppy", "dog");
+        bool success = module.ExecuteTask("SeqLength", "puppy", "dog");
 
-        Assert.True(success, "compareLength task execution should succeed");
+        Assert.True(success, "SeqLength task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
 
         // Get the thoughts directly
@@ -209,14 +209,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test09_CompareLength_KittenVsPuppy_Greater()
+    public void Test09_SeqLength_KittenVsPuppy_Greater()
     {
-        // Test: CompareLength with kitten (6) and puppy (5)
+        // Test: SeqLength with kitten (6) and puppy (5)
         // Expected: kitten->GT->puppy
 
-        bool success = module.ExecuteTask("compareLength", "kitten", "puppy");
+        bool success = module.ExecuteTask("SeqLength", "kitten", "puppy");
 
-        Assert.True(success, "compareLength task execution should succeed");
+        Assert.True(success, "SeqLength task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
 
         // Get the thoughts directly
@@ -229,14 +229,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test10_CompareLength_CatVsKitten_Less()
+    public void Test10_SeqLength_CatVsKitten_Less()
     {
-        // Test: CompareLength with cat (3) and kitten (6)
+        // Test: SeqLength with cat (3) and kitten (6)
         // Expected: kitten->GT->cat (reversed)
 
-        bool success = module.ExecuteTask("compareLength", "cat", "kitten");
+        bool success = module.ExecuteTask("SeqLength", "cat", "kitten");
 
-        Assert.True(success, "compareLength task execution should succeed");
+        Assert.True(success, "SeqLength task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
 
         // Get the thoughts directly
@@ -249,10 +249,10 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test11_CompareLength_VerifyLinkInUKS()
+    public void Test11_SeqLength_VerifyLinkInUKS()
     {
         // Execute comparison and verify link exists in UKS
-        module.ExecuteTask("compareLength", "dog", "cat");
+        module.ExecuteTask("SeqLength", "dog", "cat");
 
         Thought dog = uks.Labeled("dog");
         Thought cat = uks.Labeled("cat");
@@ -264,26 +264,26 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test12_CompareLength_TaskExists()
+    public void Test12_SeqLength_TaskExists()
     {
-        // Verify compareLength task loaded from XML
-        Thought compareLengthTask = uks.Labeled("compareLength");
-        Assert.NotNull(compareLengthTask);
+        // Verify SeqLength task loaded from XML
+        Thought seqLengthTask = uks.Labeled("SeqLength_main");
+        Assert.NotNull(seqLengthTask);
         
         // Verify it has steps
-        SeqElement steps = compareLengthTask.GetTargetOfFirstLinkOfType("steps") as SeqElement;
+        SeqElement steps = seqLengthTask.GetTargetOfFirstLinkOfType("steps") as SeqElement;
         Assert.NotNull(steps);
     }
 
     [Fact]
-    public void Test13_CompareAlpha_SameLetter_Equal()
+    public void Test13_CompareLetters_SameLetter_Equal()
     {
-        // Test: CompareAlpha with A and A
+        // Test: CompareLetters with A and A
         // Expected: A->EQ->A
         
-        bool success = module.ExecuteTask("comparealpha", "A", "A");
+        bool success = module.ExecuteTask("CompareLetters", "A", "A");
         
-        Assert.True(success, "comparealpha task execution should succeed");
+        Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         Thought a1 = uks.Labeled("A");
@@ -295,14 +295,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test14_CompareAlpha_BAfterA_Greater()
+    public void Test14_CompareLetters_BAfterA_Greater()
     {
-        // Test: CompareAlpha with B and A
+        // Test: CompareLetters with B and A
         // Expected: B->GT->A (B comes after A)
         
-        bool success = module.ExecuteTask("comparealpha", "B", "A");
+        bool success = module.ExecuteTask("CompareLetters", "B", "A");
         
-        Assert.True(success, "comparealpha task execution should succeed");
+        Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         Thought b = uks.Labeled("B");
@@ -314,14 +314,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test15_CompareAlpha_ABeforeB_Reversed()
+    public void Test15_CompareLetters_ABeforeB_Reversed()
     {
-        // Test: CompareAlpha with A and B
+        // Test: CompareLetters with A and B
         // When A < B, result is reversed: B->GT->A
         
-        bool success = module.ExecuteTask("comparealpha", "A", "B");
+        bool success = module.ExecuteTask("CompareLetters", "A", "B");
         
-        Assert.True(success, "comparealpha task execution should succeed");
+        Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         Thought a = uks.Labeled("A");
@@ -334,14 +334,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test16_CompareAlpha_ZAfterA_Greater()
+    public void Test16_CompareLetters_ZAfterA_Greater()
     {
-        // Test: CompareAlpha with Z and A
+        // Test: CompareLetters with Z and A
         // Expected: Z->GT->A (Z comes after A)
         
-        bool success = module.ExecuteTask("comparealpha", "Z", "A");
+        bool success = module.ExecuteTask("CompareLetters", "Z", "A");
         
-        Assert.True(success, "comparealpha task execution should succeed");
+        Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         Thought z = uks.Labeled("Z");
@@ -353,14 +353,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test17_CompareAlpha_MAfterC_Greater()
+    public void Test17_CompareLetters_MAfterC_Greater()
     {
-        // Test: CompareAlpha with M and C
+        // Test: CompareLetters with M and C
         // Expected: M->GT->C (M comes after C)
         
-        bool success = module.ExecuteTask("comparealpha", "M", "C");
+        bool success = module.ExecuteTask("CompareLetters", "M", "C");
         
-        Assert.True(success, "comparealpha task execution should succeed");
+        Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         Thought m = uks.Labeled("M");
@@ -372,14 +372,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test18_CompareAlpha_CBeforeM_Reversed()
+    public void Test18_CompareLetters_CBeforeM_Reversed()
     {
-        // Test: CompareAlpha with C and M
+        // Test: CompareLetters with C and M
         // When C < M, result is reversed: M->GT->C
         
-        bool success = module.ExecuteTask("comparealpha", "C", "M");
+        bool success = module.ExecuteTask("CompareLetters", "C", "M");
         
-        Assert.True(success, "comparealpha task execution should succeed");
+        Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         Thought c = uks.Labeled("C");
@@ -392,10 +392,10 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test19_CompareAlpha_VerifyLinkInUKS()
+    public void Test19_CompareLetters_VerifyLinkInUKS()
     {
         // Execute comparison and verify link exists in UKS
-        module.ExecuteTask("comparealpha", "B", "A");
+        module.ExecuteTask("CompareLetters", "B", "A");
         
         Thought b = uks.Labeled("B");
         Thought a = uks.Labeled("A");
@@ -407,48 +407,48 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test20_CompareAlpha_Sequential()
+    public void Test20_CompareLetters_Sequential()
     {
         // Test multiple sequential comparisons
         
         // Equal case
-        module.ExecuteTask("comparealpha", "D", "D");
+        module.ExecuteTask("CompareLetters", "D", "D");
         Assert.Equal("eq", module.LastLinkWritten.LinkType?.Label.ToLower());
         
         // GT case
-        module.ExecuteTask("comparealpha", "X", "Y");
+        module.ExecuteTask("CompareLetters", "X", "Y");
         Thought y = uks.Labeled("Y");
         Assert.Equal(y, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
         
         // Another GT case (reversed)
-        module.ExecuteTask("comparealpha", "F", "Z");
+        module.ExecuteTask("CompareLetters", "F", "Z");
         Thought z = uks.Labeled("Z");
         Assert.Equal(z, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
     }
 
     [Fact]
-    public void Test21_CompareAlpha_TaskExists()
+    public void Test21_CompareLetters_TaskExists()
     {
-        // Verify comparealpha task loaded from XML
-        Thought compareAlphaTask = uks.Labeled("comparealpha");
-        Assert.NotNull(compareAlphaTask);
+        // Verify CompareLetters task loaded from XML
+        Thought compareLettersTask = uks.Labeled("CompareLetters_main");
+        Assert.NotNull(compareLettersTask);
         
         // Verify it has steps
-        SeqElement steps = compareAlphaTask.GetTargetOfFirstLinkOfType("steps") as SeqElement;
+        SeqElement steps = compareLettersTask.GetTargetOfFirstLinkOfType("steps") as SeqElement;
         Assert.NotNull(steps);
     }
 
     [Fact]
-    public void Test22_WordCompare_EqualWords()
+    public void Test22_Alphabetize_EqualWords()
     {
-        // Test: WordCompare with "cat" and "cat"
+        // Test: alphabetize with "cat" and "cat"
         // Expected: cat->EQ->cat
 
-        bool success = module.ExecuteTask("WordCompare", "cat", "cat");
+        bool success = module.ExecuteTask("alphabetize", "cat", "cat");
 
-        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.True(success, "alphabetize task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
 
         Thought cat = uks.Labeled("cat");
@@ -459,14 +459,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test23_WordCompare_FirstGreater()
+    public void Test23_Alphabetize_FirstGreater()
     {
-        // Test: WordCompare with "zebra" and "apple"
+        // Test: alphabetize with "zebra" and "apple"
         // Expected: zebra->GT->apple (zebra comes after apple)
         
-        bool success = module.ExecuteTask("WordCompare", "zebra", "apple");
+        bool success = module.ExecuteTask("alphabetize", "zebra", "apple");
         
-        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.True(success, "alphabetize task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         Thought zebra = uks.Labeled("zebra");
@@ -478,14 +478,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test24_WordCompare_SecondGreater()
+    public void Test24_Alphabetize_SecondGreater()
     {
-        // Test: WordCompare with "apple" and "zebra"
+        // Test: alphabetize with "apple" and "zebra"
         // Expected: zebra->GT->apple (reversed - zebra comes after)
         
-        bool success = module.ExecuteTask("WordCompare", "apple", "zebra");
+        bool success = module.ExecuteTask("alphabetize", "apple", "zebra");
         
-        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.True(success, "alphabetize task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         Thought apple = uks.Labeled("apple");
@@ -498,14 +498,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test25_WordCompare_DifferingLength()
+    public void Test25_Alphabetize_DifferingLength()
     {
-        // Test: WordCompare with "car" and "cart"
+        // Test: alphabetize with "car" and "cart"
         // Expected: cart->GT->car (cart comes after car)
         
-        bool success = module.ExecuteTask("WordCompare", "car", "cart");
+        bool success = module.ExecuteTask("alphabetize", "car", "cart");
         
-        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.True(success, "alphabetize task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         Thought car = uks.Labeled("car");
@@ -518,14 +518,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test26_WordCompare_NewWordsCreated()
+    public void Test26_Alphabetize_NewWordsCreated()
     {
-        // Test: WordCompare with arbitrary strings that don't exist yet
+        // Test: alphabetize with arbitrary strings that don't exist yet
         // Expected: Words are created with spelling sequences
         
-        bool success = module.ExecuteTask("WordCompare", "hello", "world");
+        bool success = module.ExecuteTask("alphabetize", "hello", "world");
         
-        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.True(success, "alphabetize task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         // Verify the words were created
@@ -547,14 +547,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test27_WordCompare_CaseSensitive()
+    public void Test27_Alphabetize_CaseSensitive()
     {
-        // Test: WordCompare with different case variations
+        // Test: alphabetize with different case variations
         // Expected: Comparison is case-insensitive (uppercase in spelling)
         
-        bool success = module.ExecuteTask("WordCompare", "Book", "Apple");
+        bool success = module.ExecuteTask("alphabetize", "Book", "Apple");
         
-        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.True(success, "alphabetize task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
         Thought book = uks.Labeled("Book");
@@ -567,14 +567,14 @@ public class ModuleAlgorithmTests : IDisposable
     }
 
     [Fact]
-    public void Test28_WordCompare_TaskExists()
+    public void Test28_Alphabetize_TaskExists()
     {
-        // Verify WordCompare task loaded from XML
-        Thought wordCompareTask = uks.Labeled("WordCompare");
-        Assert.NotNull(wordCompareTask);
+        // Verify alphabetize task loaded from XML
+        Thought alphabetizeTask = uks.Labeled("alphabetize_main");
+        Assert.NotNull(alphabetizeTask);
         
         // Verify it has steps
-        SeqElement steps = wordCompareTask.GetTargetOfFirstLinkOfType("steps") as SeqElement;
+        SeqElement steps = alphabetizeTask.GetTargetOfFirstLinkOfType("steps") as SeqElement;
         Assert.NotNull(steps);
     }
 }
