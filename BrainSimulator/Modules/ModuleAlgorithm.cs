@@ -177,11 +177,7 @@ public class ModuleAlgorithm : ModuleBase
 
     private bool ExecuteSteps(ref SeqElement currentStep)
     {
-        //hack to correct a problem with save/restore of weights
-        Thought t = theUKS.GetOrAddThought("cDifferent");
-        t.LinksTo[1].Weight = 3;
-
-        while (currentStep is not null)
+         while (currentStep is not null)
         {
             // Get the action from the current step
             if (currentStep.VLU is Link action)

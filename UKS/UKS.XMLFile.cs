@@ -327,11 +327,13 @@ public partial class UKS
                 theLink.Weight = st.weight;
                 theLink.V = st.V;
                 theLink.TimeToLive = TimeSpan.MaxValue;
-                theLink.From.AddLink(theLink.LinkType, theLink.To);
+                Link newLink = theLink.From.AddLink(theLink.LinkType, theLink.To);
+                newLink.Weight = st.weight;
                 if (linkType.Label == "VLU")
                     PromoteToSeqElement(theLink.From);
             }
         }
+ 
         //remove temporary labels
         foreach (sThought st in UKSTemp)
         {
