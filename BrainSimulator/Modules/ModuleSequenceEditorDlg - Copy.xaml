@@ -9,7 +9,7 @@
                      ">
 
     <Grid Margin="0,0,0,46" >
-        <Label Content="Task Name:" Margin="43,27,349,0" Height="28" VerticalAlignment="Top" HorizontalContentAlignment="Right" />
+        <Label Content="Sequence/Context:" Margin="43,27,349,0" Height="28" VerticalAlignment="Top" />
         <TextBox x:Name="sequenceNameInput" Height="28" VerticalAlignment="Top" Margin="203,27,23,0" />
 
         <Label Content="Elements:" Margin="23,60,401,0" Height="28" VerticalAlignment="Top" />

@@ -151,111 +151,101 @@ public class ModuleAlgorithmTests : IDisposable
     public void Test06_CompareLength_DogVsCat_Equal()
     {
         // Test: CompareLength with dog (3) and cat (3)
-        // Expected: dog->spelled->EQ->cat->spelled
-    
+        // Expected: dog->EQ->cat
+
         bool success = module.ExecuteTask("compareLength", "dog", "cat");
-    
+
         Assert.True(success, "compareLength task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
-    
-        // Get the sequences
+
+        // Get the thoughts directly
         Thought dog = uks.Labeled("dog");
         Thought cat = uks.Labeled("cat");
-        SeqElement dogSpelled = dog.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-        SeqElement catSpelled = cat.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-    
-        Assert.Equal(dogSpelled, module.LastLinkWritten.From);
+
+        Assert.Equal(dog, module.LastLinkWritten.From);
         Assert.Equal("eq", module.LastLinkWritten.LinkType?.Label.ToLower());
-        Assert.Equal(catSpelled, module.LastLinkWritten.To);
+        Assert.Equal(cat, module.LastLinkWritten.To);
     }
 
     [Fact]
     public void Test07_CompareLength_DogVsPuppy_Less()
     {
         // Test: CompareLength with dog (3) and puppy (5)
-        // When dog < puppy, result is reversed: puppy->spelled->GT->dog->spelled
-    
+        // When dog < puppy, result is reversed: puppy->GT->dog
+
         bool success = module.ExecuteTask("compareLength", "dog", "puppy");
-    
+
         Assert.True(success, "compareLength task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
-    
-        // Get the sequences
+
+        // Get the thoughts directly
         Thought dog = uks.Labeled("dog");
         Thought puppy = uks.Labeled("puppy");
-        SeqElement dogSpelled = dog.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-        SeqElement puppySpelled = puppy.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-    
+
         // Result is reversed: puppy GT dog (not dog LT puppy)
-        Assert.Equal(puppySpelled, module.LastLinkWritten.From);
+        Assert.Equal(puppy, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
-        Assert.Equal(dogSpelled, module.LastLinkWritten.To);
+        Assert.Equal(dog, module.LastLinkWritten.To);
     }
 
     [Fact]
     public void Test08_CompareLength_PuppyVsDog_Greater()
     {
         // Test: CompareLength with puppy (5) and dog (3)
-        // Expected: puppy->spelled->GT->dog->spelled
-    
+        // Expected: puppy->GT->dog
+
         bool success = module.ExecuteTask("compareLength", "puppy", "dog");
-    
+
         Assert.True(success, "compareLength task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
-    
-        // Get the sequences
+
+        // Get the thoughts directly
         Thought puppy = uks.Labeled("puppy");
         Thought dog = uks.Labeled("dog");
-        SeqElement puppySpelled = puppy.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-        SeqElement dogSpelled = dog.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-    
-        Assert.Equal(puppySpelled, module.LastLinkWritten.From);
+
+        Assert.Equal(puppy, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
-        Assert.Equal(dogSpelled, module.LastLinkWritten.To);
+        Assert.Equal(dog, module.LastLinkWritten.To);
     }
 
     [Fact]
     public void Test09_CompareLength_KittenVsPuppy_Greater()
     {
         // Test: CompareLength with kitten (6) and puppy (5)
-        // Expected: kitten->spelled->GT->puppy->spelled
-    
+        // Expected: kitten->GT->puppy
+
         bool success = module.ExecuteTask("compareLength", "kitten", "puppy");
-    
+
         Assert.True(success, "compareLength task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
-    
-        // Get the sequences
+
+        // Get the thoughts directly
         Thought kitten = uks.Labeled("kitten");
         Thought puppy = uks.Labeled("puppy");
-        SeqElement kittenSpelled = kitten.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-        SeqElement puppySpelled = puppy.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-    
-        Assert.Equal(kittenSpelled, module.LastLinkWritten.From);
+
+        Assert.Equal(kitten, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
-        Assert.Equal(puppySpelled, module.LastLinkWritten.To);
+        Assert.Equal(puppy, module.LastLinkWritten.To);
     }
 
     [Fact]
     public void Test10_CompareLength_CatVsKitten_Less()
     {
         // Test: CompareLength with cat (3) and kitten (6)
-        // Expected: cat->spelled->LT->kitten->spelled
-    
+        // Expected: kitten->GT->cat (reversed)
+
         bool success = module.ExecuteTask("compareLength", "cat", "kitten");
-    
+
         Assert.True(success, "compareLength task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
-    
-        // Get the sequences
+
+        // Get the thoughts directly
         Thought cat = uks.Labeled("cat");
         Thought kitten = uks.Labeled("kitten");
-        SeqElement catSpelled = cat.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-        SeqElement kittenSpelled = kitten.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-    
-        Assert.Equal(catSpelled, module.LastLinkWritten.To);
+
+        Assert.Equal(cat, module.LastLinkWritten.To);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
-        Assert.Equal(kittenSpelled, module.LastLinkWritten.From);
+        Assert.Equal(kitten, module.LastLinkWritten.From);
     }
 
     [Fact]
@@ -263,15 +253,13 @@ public class ModuleAlgorithmTests : IDisposable
     {
         // Execute comparison and verify link exists in UKS
         module.ExecuteTask("compareLength", "dog", "cat");
-    
+
         Thought dog = uks.Labeled("dog");
         Thought cat = uks.Labeled("cat");
-        SeqElement dogSpelled = dog.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-        SeqElement catSpelled = cat.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
-    
+
         // Verify the link exists
         Thought eqType = uks.Labeled("EQ");
-        Link comparisonLink = dogSpelled.HasLink(eqType, catSpelled);
+        Link comparisonLink = dog.HasLink(eqType, cat);
         Assert.NotNull(comparisonLink);
     }
 
@@ -449,6 +437,144 @@ public class ModuleAlgorithmTests : IDisposable
         
         // Verify it has steps
         SeqElement steps = compareAlphaTask.GetTargetOfFirstLinkOfType("steps") as SeqElement;
+        Assert.NotNull(steps);
+    }
+
+    [Fact]
+    public void Test22_WordCompare_EqualWords()
+    {
+        // Test: WordCompare with "cat" and "cat"
+        // Expected: cat->EQ->cat
+
+        bool success = module.ExecuteTask("WordCompare", "cat", "cat");
+
+        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.NotNull(module.LastLinkWritten);
+
+        Thought cat = uks.Labeled("cat");
+
+        Assert.Equal(cat, module.LastLinkWritten.From);
+        Assert.Equal("eq", module.LastLinkWritten.LinkType?.Label.ToLower());
+        Assert.Equal(cat, module.LastLinkWritten.To);
+    }
+
+    [Fact]
+    public void Test23_WordCompare_FirstGreater()
+    {
+        // Test: WordCompare with "zebra" and "apple"
+        // Expected: zebra->GT->apple (zebra comes after apple)
+        
+        bool success = module.ExecuteTask("WordCompare", "zebra", "apple");
+        
+        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.NotNull(module.LastLinkWritten);
+        
+        Thought zebra = uks.Labeled("zebra");
+        Thought apple = uks.Labeled("apple");
+        
+        Assert.Equal(zebra, module.LastLinkWritten.From);
+        Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
+        Assert.Equal(apple, module.LastLinkWritten.To);
+    }
+
+    [Fact]
+    public void Test24_WordCompare_SecondGreater()
+    {
+        // Test: WordCompare with "apple" and "zebra"
+        // Expected: zebra->GT->apple (reversed - zebra comes after)
+        
+        bool success = module.ExecuteTask("WordCompare", "apple", "zebra");
+        
+        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.NotNull(module.LastLinkWritten);
+        
+        Thought apple = uks.Labeled("apple");
+        Thought zebra = uks.Labeled("zebra");
+        
+        // Result is reversed: zebra GT apple (not apple LT zebra)
+        Assert.Equal(zebra, module.LastLinkWritten.From);
+        Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
+        Assert.Equal(apple, module.LastLinkWritten.To);
+    }
+
+    [Fact]
+    public void Test25_WordCompare_DifferingLength()
+    {
+        // Test: WordCompare with "car" and "cart"
+        // Expected: cart->GT->car (cart comes after car)
+        
+        bool success = module.ExecuteTask("WordCompare", "car", "cart");
+        
+        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.NotNull(module.LastLinkWritten);
+        
+        Thought car = uks.Labeled("car");
+        Thought cart = uks.Labeled("cart");
+        
+        // cart comes after car alphabetically
+        Assert.Equal(cart, module.LastLinkWritten.From);
+        Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
+        Assert.Equal(car, module.LastLinkWritten.To);
+    }
+
+    [Fact]
+    public void Test26_WordCompare_NewWordsCreated()
+    {
+        // Test: WordCompare with arbitrary strings that don't exist yet
+        // Expected: Words are created with spelling sequences
+        
+        bool success = module.ExecuteTask("WordCompare", "hello", "world");
+        
+        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.NotNull(module.LastLinkWritten);
+        
+        // Verify the words were created
+        Thought hello = uks.Labeled("hello");
+        Thought world = uks.Labeled("world");
+        Assert.NotNull(hello);
+        Assert.NotNull(world);
+        
+        // Verify they have spelling sequences
+        SeqElement helloSpelled = hello.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
+        SeqElement worldSpelled = world.GetTargetOfFirstLinkOfType("spelled") as SeqElement;
+        Assert.NotNull(helloSpelled);
+        Assert.NotNull(worldSpelled);
+        
+        // Verify comparison result (world > hello alphabetically)
+        Assert.Equal(world, module.LastLinkWritten.From);
+        Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
+        Assert.Equal(hello, module.LastLinkWritten.To);
+    }
+
+    [Fact]
+    public void Test27_WordCompare_CaseSensitive()
+    {
+        // Test: WordCompare with different case variations
+        // Expected: Comparison is case-insensitive (uppercase in spelling)
+        
+        bool success = module.ExecuteTask("WordCompare", "Book", "Apple");
+        
+        Assert.True(success, "WordCompare task execution should succeed");
+        Assert.NotNull(module.LastLinkWritten);
+        
+        Thought book = uks.Labeled("Book");
+        Thought apple = uks.Labeled("Apple");
+        
+        // Book > Apple alphabetically
+        Assert.Equal(book, module.LastLinkWritten.From);
+        Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
+        Assert.Equal(apple, module.LastLinkWritten.To);
+    }
+
+    [Fact]
+    public void Test28_WordCompare_TaskExists()
+    {
+        // Verify WordCompare task loaded from XML
+        Thought wordCompareTask = uks.Labeled("WordCompare");
+        Assert.NotNull(wordCompareTask);
+        
+        // Verify it has steps
+        SeqElement steps = wordCompareTask.GetTargetOfFirstLinkOfType("steps") as SeqElement;
         Assert.NotNull(steps);
     }
 }

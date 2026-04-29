@@ -103,8 +103,11 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
                 t.RemoveParent("Unknown");
             }
         }
+        Thought t1 = parent.theUKS.Labeled("BrainSim");
+        t1.RemoveParent("Unknown");
+        t1 = parent.theUKS.Labeled("Thought");
+        t1.RemoveParent("Unknown");
         Thought root = parent.theUKS.GetOrAddThought("InvertBoolean");
-        
         var subThoughts = root.EnumerateSubThoughts().ToList();
 
         //check for duplicate checks
@@ -125,7 +128,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         if (!newStepText.EndsWith("]")) newStepText = newStepText + "]";
 
         // Parse the new step text using UKS.TextFile parser
-        Thought stepThought = parent.theUKS.ProcessSingleLine(newStepText);
+        Thought stepThought = parent.theUKS.ProcessSingleLineWithNesting(newStepText);
         if (stepThought == null)
         {
             SetStatus("Could not parse step");

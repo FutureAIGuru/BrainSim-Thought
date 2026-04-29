@@ -192,7 +192,9 @@ public class UKSTextFileTests : IDisposable
     {
         // Create a nested link where the source is a link
         // [dog->has->tail]->color->brown
-        
+
+        ClearUKS();
+        Thought thing = uks.GetOrAddThought("Thing", "Thought");
         Thought dog = uks.GetOrAddThought("dog", "Thing");
         Thought tail = uks.GetOrAddThought("tail", "Thing");
         Thought brown = uks.GetOrAddThought("brown", "Color");
@@ -205,7 +207,7 @@ public class UKSTextFileTests : IDisposable
         Link outerLink = innerLink.AddLink(colorType, brown);
         
         // Export and reimport
-        uks.ExportTextFile("Thought", testFilePath);
+        uks.ExportTextFile("Thing", testFilePath);
         ClearUKS();
         uks.ImportTextFile(testFilePath);
         
@@ -242,7 +244,7 @@ public class UKSTextFileTests : IDisposable
         Link outerLink = dog.AddLink(ownsType, innerLink);
         
         // Export and reimport
-        uks.ExportTextFile("Thought", testFilePath);
+        uks.ExportTextFile("Thing", testFilePath);
         ClearUKS();
         uks.ImportTextFile(testFilePath);
         
@@ -262,10 +264,12 @@ public class UKSTextFileTests : IDisposable
     public void Test08_Context_Simple()
     {
         // Create a simple context with children
+        uks.GetOrAddThought("Thing", "Thought");
+        uks.GetOrAddThought("Context", "Thing");
         Thought rootContext = uks.GetOrAddThought("Algorithm", "Context");
         Thought c1 = uks.GetOrAddThought("c1", rootContext);
         Thought c2 = uks.GetOrAddThought("c2", rootContext);
-        
+
         // Add relationships to contexts
         Thought r1 = uks.GetOrAddThought("R1", "Thing");
         Thought hasType = uks.GetOrAddThought("has", "LinkType");
@@ -273,7 +277,7 @@ public class UKSTextFileTests : IDisposable
         c1.AddLink(hasType, r1);
         
         // Export and reimport
-        uks.ExportTextFile("Thought", testFilePath);
+        uks.ExportTextFile("Thing", testFilePath);
         ClearUKS();
         uks.ImportTextFile(testFilePath);
         
@@ -297,6 +301,8 @@ public class UKSTextFileTests : IDisposable
     public void Test09_Context_WithNestedLinks()
     {
         // Create a context with nested link relationships
+        uks.GetOrAddThought("Thing", "Thought");
+        uks.GetOrAddThought("Context", "Thing");
         Thought rootContext = uks.GetOrAddThought("Algorithm", "Context");
         Thought c1 = uks.GetOrAddThought("c1", rootContext);
         
@@ -312,7 +318,7 @@ public class UKSTextFileTests : IDisposable
         Link outerLink = c1.AddLink(hasType, innerLink);
         
         // Export and reimport
-        uks.ExportTextFile("Thought", testFilePath);
+        uks.ExportTextFile("Thing", testFilePath);
         ClearUKS();
         uks.ImportTextFile(testFilePath);
         

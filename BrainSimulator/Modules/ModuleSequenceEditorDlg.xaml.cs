@@ -25,8 +25,8 @@ namespace BrainSimulator.Modules;
 
 public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 {
-    private bool isEditingSequence = true; // Track whether we're editing a sequence or context
     private string undoContent = ""; // Store content for undo
+    private UKS.UKS theUKS; // Store reference to UKS
 
     public ModuleSequenceEditorDlg()
     {
@@ -45,6 +45,8 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         //this has a timer so that no matter how often you might call draw, the dialog
         //only updates 10x per second
         ModuleSequenceEditor parent = (ModuleSequenceEditor)base.ParentModule;
+        if (theUKS is null)
+           theUKS = parent?.theUKS;
         return true;
     }
 
@@ -112,47 +114,72 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 
     private void LoadSequence()
     {
-        ModuleSequenceEditor parent = (ModuleSequenceEditor)base.ParentModule;
-        if (parent?.theUKS == null) return;
+        if (theUKS == null) return;
 
-        string sequenceName = sequenceNameInput.Text?.Trim();
-        if (string.IsNullOrEmpty(sequenceName))
+        string taskName = sequenceNameInput.Text?.Trim();
+        if (string.IsNullOrEmpty(taskName))
         {
-            SetStatus("No sequence name specified");
+            SetStatus("No task name specified");
             return;
         }
 
-        // Try to find the thought
-        Thought thought = parent.theUKS.Labeled(sequenceName);
-        if (thought == null)
+        // Try to find the task
+        Thought taskThought = theUKS.Labeled(taskName);
+        if (taskThought == null)
         {
-            SetStatus("Thought not found");
+            SetStatus("Task not found");
             sequenceContentInput.Text = "";
             return;
         }
 
-        // Determine if it's a sequence or context
-        if (IsSequence(thought))
-        {
-            isEditingSequence = true;
-            LoadSequenceContent(thought, parent);
-        }
-        else
-        {
-            isEditingSequence = false;
-            LoadContextContent(thought, parent);
-            sequenceNameInput.Text = "";
-        }
+        // Load the entire task with all its children
+        LoadTaskContent(taskThought);
     }
 
-    private void LoadSequenceContent(Thought thought, ModuleSequenceEditor parent)
+    private void LoadTaskContent(Thought task)
     {
+        StringBuilder sb = new StringBuilder();
+        int itemCount = 0;
+
+        foreach (var child in task.Children)
+        {
+            if (itemCount > 0)
+                sb.AppendLine(); // Blank line between items
+
+            // Determine if this child is a sequence or context
+            if (IsSequence(child))
+            {
+                // Display as sequence with ^ prefix
+                string sequenceContent = FormatSequence(child, task);
+                sb.Append(sequenceContent);
+            }
+            else
+            {
+                // Display as context
+                string contextContent = FormatContext(child, task);
+                sb.Append(contextContent);
+            }
+
+            itemCount++;
+        }
+
+        sequenceContentInput.Text = sb.ToString();
+        SetStatus($"Loaded task '{task.Label}' with {itemCount} items");
+    }
+
+    private string FormatSequence(Thought sequence, Thought task)
+    {
+        StringBuilder sb = new StringBuilder();
+        
+        // Add sequence header with ^ prefix
+        sb.AppendLine($"{sequence.Label}^");
+
         // Find the first sequence element
-        Thought sequenceThought = parent.theUKS.Labeled(thought.Label + "-seq0");
+        Thought sequenceThought = theUKS.Labeled(sequence.Label + "-seq0");
         if (sequenceThought == null)
         {
             // Try to find any SeqElement link
-            foreach (Link link in thought.LinksTo)
+            foreach (Link link in sequence.LinksTo)
             {
                 if (link.To is SeqElement)
                 {
@@ -162,69 +189,109 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             }
         }
 
-        if (sequenceThought is not SeqElement firstElement)
+        if (sequenceThought is SeqElement firstElement)
         {
-            SetStatus("Sequence element not found");
-            sequenceContentInput.Text = "";
-            return;
+            // Flatten the sequence and display it
+            List<Thought> elements = theUKS.FlattenSequence(firstElement);
+            
+            foreach (var element in elements)
+            {
+                string elementStr = element?.ToString() ?? "";
+                
+                // Check if this element is a global reference (from a different task)
+                if (element is Thought elementThought && !IsLink(element))
+                {
+                    if (IsExternalToTask(element, task))
+                    {
+                        // This is a global reference, prefix with $
+                        elementStr = "$" + elementStr;
+                    }
+                }
+                
+                sb.AppendLine($"  {elementStr}");
+            }
         }
 
-        // Flatten the sequence and display it
-        List<Thought> elements = parent.theUKS.FlattenSequence(firstElement);
-        StringBuilder sb = new StringBuilder();
-
-        for (int i = 0; i < elements.Count; i++)
-        {
-            sb.AppendLine(elements[i]?.ToString() ?? "");
-        }
-
-        sequenceContentInput.Text = sb.ToString();
-        SetStatus($"Loaded sequence with {elements.Count} elements");
+        return sb.ToString();
     }
 
-    private void LoadContextContent(Thought context, ModuleSequenceEditor parent)
+    private bool IsLink(Thought thought)
+    {
+        return thought is Link;
+    }
+
+    private bool IsExternalToTask(Thought t,Thought task)
+    {
+        if (t.Parents.Contains(task)) return false;
+        return true;
+    }
+    private string FormatContext(Thought context, Thought task)
     {
         StringBuilder sb = new StringBuilder();
-        sb.AppendLine(context.Label);
+        
+        // Add context header
+        if (IsExternalToTask(context, task))
+            sb.AppendLine("$" + context.Label);
+        else
+            sb.AppendLine(context.Label);
 
-        // Get all children (contexts within this context)
-        var children = context.Children.Where(c => c.Label.StartsWith("c")).OrderBy(c => c.Label).ToList();
-
-        foreach (var child in children)
-        {
-            sb.AppendLine($"  {child.Label}");
-            
-            // Get all "has" links
-            var hasLinks = child.LinksTo.Where(l => l.LinkType?.Label == "has").ToList();
-            foreach (var hasLink in hasLinks)
+        foreach (var child in context.Children)
             {
-                sb.AppendLine($"    [{child.Label}→has→{hasLink.To}]");
+                // Check if child is from a different task
+                string childLabel = child.Label;
+
+                if (IsExternalToTask(child, task) && IsExternalToTask(child, context))
+                {
+                    // This is a global reference
+                    childLabel = "$" + childLabel;
+                }
+
+                sb.AppendLine($"  {childLabel}");
+
+                // Get all "has" links
+                var hasLinks = child.LinksTo.Where(l => l.LinkType?.Label == "has").ToList();
+                foreach (var hasLink in hasLinks)
+                {
+                    string linkLine = $"    [{child.Label}→has→{hasLink.To}]";
+
+                    // Append weight if not 1.0
+                    if (Math.Abs(hasLink.Weight - 1.0f) > 0.001f)
+                    {
+                        linkLine += $" {hasLink.Weight:F2}";
+                    }
+
+                    sb.AppendLine(linkLine);
+                }
+
+                // Get all "response" links
+                var responseLinks = child.LinksTo.Where(l => l.LinkType?.Label == "response").ToList();
+                foreach (var responseLink in responseLinks)
+                {
+                    string linkLine = $"    [{child.Label}→response→{responseLink.To}]";
+
+                    // Append weight if not 1.0
+                    if (Math.Abs(responseLink.Weight - 1.0f) > 0.001f)
+                    {
+                        linkLine += $" {responseLink.Weight:F2}";
+                    }
+
+                    sb.AppendLine(linkLine);
+                }
             }
 
-            // Get all "response" links
-            var responseLinks = child.LinksTo.Where(l => l.LinkType?.Label == "response").ToList();
-            foreach (var responseLink in responseLinks)
-            {
-                sb.AppendLine($"    [{child.Label}→response→{responseLink.To}]");
-            }
-        }
-
-        sequenceContentInput.Text = sb.ToString();
-        SetStatus($"Loaded context with {children.Count} child contexts");
+        return sb.ToString();
     }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
-        ModuleSequenceEditor parent = (ModuleSequenceEditor)base.ParentModule;
-        if (parent?.theUKS == null) return;
+        if (theUKS == null) return;
 
-        string sequenceName = sequenceNameInput.Text?.Trim();
-        if (string.IsNullOrEmpty(sequenceName))
+        string taskName = sequenceNameInput.Text?.Trim();
+        if (string.IsNullOrEmpty(taskName))
         {
-            isEditingSequence = false;
+            SetStatus("No task name specified");
+            return;
         }
-        else
-            isEditingSequence = true;
 
         string content = sequenceContentInput.Text?.Trim();
         if (string.IsNullOrEmpty(content))
@@ -233,205 +300,275 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             return;
         }
 
+        // Get or create the task
+        Thought taskThought = theUKS.Labeled(taskName);
+        bool isNewTask = (taskThought == null);
+        
+        if (taskThought == null)
+        {
+            Thought taskType = theUKS.Labeled("Task");
+            taskThought = theUKS.GetOrAddThought(taskName, taskType);
+        }
+
+        // Delete all existing children
+        theUKS.DeleteAllChildrenAndLinks(taskThought);
+
+        // Parse and save the content
+        SaveTaskContent(taskThought, content);
+
+        if (isNewTask)
+            SetStatus($"Created new task '{taskName}'");
+        else
+            SetStatus($"Updated task '{taskName}'");
+    }
+
+    private void SaveTaskContent(Thought task, string content)
+    {
         string[] lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-        
-        // Use the saved state to determine how to save
-        if (isEditingSequence)
-        {
-            SaveSequence(parent, sequenceName, lines);
-        }
-        else
-        {
-            SaveContext(parent, sequenceName, lines);
-        }
-    }
 
-    private void SaveSequence(ModuleSequenceEditor parent, string sequenceName, string[] lines)
-    {
-        List<Thought> newElements = new List<Thought>();
-
-        foreach (string line in lines)
+        int lineIndex = 0;
+        while (lineIndex < lines.Length)
         {
+            string line = lines[lineIndex];
             string trimmedLine = line.Trim();
-            if (string.IsNullOrEmpty(trimmedLine)) continue;
 
-            // Parse the statement
-            string statement = trimmedLine.Replace("→", "->");
-            Link element = (Link)parent.theUKS.ProcessSingleLine(statement);
-            if (element is not null)
+            if (string.IsNullOrWhiteSpace(trimmedLine))
             {
-                newElements.Add(element);
+                lineIndex++;
+                continue;
+            }
+
+            // Check if this is a sequence (ends with ^)
+            if (trimmedLine.EndsWith("^"))
+            {
+                // Parse sequence
+                lineIndex = SaveSequenceChild(task, lines, lineIndex);
             }
             else
             {
-                Thought t = parent.theUKS.GetOrAddThought(statement,"Task");
-                newElements.Add(t);
+                // Parse context
+                lineIndex = SaveContextChild(task, lines, lineIndex);
             }
-        }
-
-        if (newElements.Count == 0)
-        {
-            SetStatus("No valid elements found");
-            return;
-        }
-
-        // Check if this sequence already exists
-        Thought rootElement = parent.theUKS.Labeled(sequenceName);
-        bool isNewSequence = (rootElement == null);
-        
-        // Get or create the root element
-        //if (rootElement == null)
-        {
-            rootElement = parent.theUKS.GetOrAddThought(sequenceName, "Task");
-        }
-
-        // Find existing sequence link to update
-        Link linkToChange = null;
-        foreach (Link l in rootElement.LinksTo)
-            if (l.To is SeqElement s)
-            { 
-                linkToChange = l;
-                break; 
-            }
-
-        // Delete the old sequence if it exists
-        Thought oldSequence = parent.theUKS.Labeled(sequenceName + "-seq0");
-        if (oldSequence is SeqElement oldSeqElement)
-        {
-            parent.theUKS.DeleteSequence(oldSeqElement);
-        }
-
-        // Create the new sequence
-        SeqElement newSequence = parent.theUKS.AddSequence(sequenceName, newElements);
-        
-        if (newSequence != null)
-        {
-            newSequence.Label = sequenceName + "-seq0";
-            
-            // Link the sequence to the root element
-            if (linkToChange != null)
-            {
-                linkToChange.To = newSequence;
-            }
-            else
-            {
-                // Create new link if it didn't exist
-                Thought stepsType = parent.theUKS.GetOrAddThought("steps", "LinkType");
-                rootElement.AddLink(stepsType, newSequence);
-            }
-            
-            if (isNewSequence)
-                SetStatus($"Created new sequence '{sequenceName}' with {newElements.Count} elements");
-            else
-                SetStatus($"Updated sequence '{sequenceName}' with {newElements.Count} elements");
-        }
-        else
-        {
-            SetStatus("Failed to create sequence");
         }
     }
 
-    private void SaveContext(ModuleSequenceEditor parent, string contextName, string[] lines)
+    private int SaveSequenceChild(Thought task, string[] lines, int startIndex)
     {
-        if (lines.Length == 0)
+        string sequenceName = lines[startIndex].Trim().TrimEnd('^');
+        
+        // Create the sequence as a child of the task
+        Thought sequenceThought = theUKS.GetOrAddThought(sequenceName, task);
+        
+        // Collect sequence elements
+        List<Thought> sequenceElements = new List<Thought>();
+        int currentIndex = startIndex + 1;
+        
+        // Read indented lines until we hit a non-indented line or end
+        while (currentIndex < lines.Length)
         {
-            SetStatus("No content to save");
-            return;
+            string line = lines[currentIndex];
+            
+            // Check if line is indented (part of this sequence)
+            if (line.StartsWith("  ") || line.StartsWith("\t"))
+            {
+                string trimmedLine = line.Trim();
+                if (!string.IsNullOrEmpty(trimmedLine))
+                {
+                    // Check if this is a global reference
+                    if (trimmedLine.StartsWith("$"))
+                    {
+                        // Global reference - look up existing thought, don't create
+                        string globalName = trimmedLine.Substring(1); // Remove $
+                        Thought globalThought = theUKS.Labeled(globalName);
+                        if (globalThought != null)
+                        {
+                            sequenceElements.Add(globalThought);
+                        }
+                    }
+                    else
+                    {
+                        // Parse the statement
+                        string statement = trimmedLine.Replace("→", "->");
+                        Link element = (Link)theUKS.ProcessSingleLineWithNesting(" " + statement);
+                        if (element != null)
+                        {
+                            sequenceElements.Add(element);
+                        }
+                        else
+                        {
+                            Thought t = theUKS.GetOrAddThought(trimmedLine, task);
+                            sequenceElements.Add(t);
+                        }
+                    }
+                }
+                currentIndex++;
+            }
+            else
+            {
+                // End of this sequence
+                break;
+            }
+        }
+        
+        // Create the sequence if we have elements
+        if (sequenceElements.Count > 0)
+        {
+            // Delete old sequence if it exists
+            Thought oldSeq = theUKS.Labeled(sequenceName + "-seq0");
+            if (oldSeq is SeqElement oldSeqElement)
+            {
+                theUKS.DeleteSequence(oldSeqElement);
+            }
+            
+            // Create new sequence
+            SeqElement newSequence = theUKS.AddSequence(sequenceName, sequenceElements);
+            if (newSequence != null)
+            {
+                newSequence.Label = sequenceName + "-seq0";
+                Thought stepsType = theUKS.GetOrAddThought("steps", "LinkType");
+                sequenceThought.AddLink(stepsType, newSequence);
+            }
+        }
+        
+        return currentIndex;
+    }
+
+    private int SaveContextChild(Thought task, string[] lines, int startIndex)
+    {
+        string contextName = lines[startIndex].Trim();
+
+        // Check if this is a global reference
+        if (contextName.StartsWith("$"))
+        {
+            // Global reference - skip to next non-indented line without creating
+            int currentIndex = startIndex + 1;
+            while (currentIndex < lines.Length)
+            {
+                string line = lines[currentIndex];
+                int indent = line.Length - line.TrimStart().Length;
+                if (indent == 0)
+                    break;
+                currentIndex++;
+            }
+            return currentIndex;
         }
 
-        // Use the first line as the root context name
-        string rootContextName = lines[0].Trim();
+        // Create the context as a child of the task
+        Thought contextThought = theUKS.GetOrAddThought(contextName, task);
         
-        // Get or create the root context
-        Thought rootContext = parent.theUKS.GetOrAddThought(rootContextName, "Task");
+        int currentIndex2 = startIndex + 1;
         
         // Track current context at each indentation level
         Dictionary<int, Thought> indentationStack = new Dictionary<int, Thought>();
-        indentationStack[0] = rootContext;
+        indentationStack[0] = contextThought;
         
         Thought currentContext = null;
         int previousIndent = 0;
-
-        for (int i = 1; i < lines.Length; i++) // Skip first line (root context name)
+        
+        // Read until we hit a non-indented line or end
+        while (currentIndex2 < lines.Length)
         {
-            string line = lines[i];
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            // Calculate indentation level (number of leading spaces)
+            string line = lines[currentIndex2];
+            
+            // Calculate indentation
             int indent = line.Length - line.TrimStart().Length;
+            
+            // If no indentation, we've reached the next top-level item
+            if (indent == 0)
+                break;
+            
             string trimmedLine = line.Trim();
-
-            //is there a weight on the end of this line?
-            int sp = trimmedLine.LastIndexOf(" ");
-            sp++;
+            if (string.IsNullOrWhiteSpace(trimmedLine))
+            {
+                currentIndex2++;
+                continue;
+            }
+            
+            // Extract weight if present
             float newWeight = 1f;
-            if (float.TryParse(trimmedLine[sp..], out newWeight))
-            { sp--; trimmedLine = trimmedLine[..sp]; }
-            else
-                newWeight = 1;
-
-            // Determine if this is a context name or a relationship
+            int sp = trimmedLine.LastIndexOf(" ");
+            if (sp > 0)
+            {
+                string weightStr = trimmedLine.Substring(sp + 1);
+                if (float.TryParse(weightStr, out newWeight))
+                {
+                    trimmedLine = trimmedLine.Substring(0, sp);
+                }
+            }
+            
+            // Check if this is a relationship (starts with [)
             if (trimmedLine.StartsWith("[") && trimmedLine.EndsWith("]"))
             {
-                // This is a relationship statement
                 if (currentContext == null)
                 {
-                    SetStatus($"Relationship found without context: {trimmedLine}");
-                    return;
+                    currentIndex2++;
+                    continue;
                 }
-
-                // Parse the relationship [subject->linkType->object]
-                string statement = trimmedLine;
-                statement = statement.Replace("→", "->");
-
-                Link link = (Link)parent.theUKS.ProcessSingleLine(statement);
-                if (link == null)
+                
+                // Parse relationship
+                string statement = " " + trimmedLine.Replace("→", "->");
+                Link link = (Link)theUKS.ProcessSingleLineWithNesting(statement);
+                if (link != null)
                 {
-                    SetStatus($"Could not parse relationship: {trimmedLine}");
-                    return;
+                    Link x = link.From.AddLink(link.LinkType, link.To);
+                    x.Weight = newWeight;
                 }
-                Link x = link.From.AddLink(link.LinkType, link.To);
-                x.Weight = newWeight;
             }
             else
             {
-                // This is a context name
-                if (indent > previousIndent)
+                // Check if this is a global reference
+                if (trimmedLine.StartsWith("$"))
                 {
-                    // Child of the previous context
-                    Thought parentContext = indentationStack.ContainsKey(previousIndent)
-                        ? indentationStack[previousIndent]
-                        : rootContext;
-
-                    currentContext = parent.theUKS.GetOrAddThought(trimmedLine, parentContext);
-                    indentationStack[indent] = currentContext;
+                    // Global reference - don't create, just look up
+                    string globalName = trimmedLine.Substring(1);
+                    currentContext = theUKS.Labeled(globalName);
+                    if (currentContext != null)
+                    {
+                        indentationStack[indent] = currentContext;
+                    }
+                    previousIndent = indent;
                 }
-                else if (indent == previousIndent)
+                else
                 {
-                    // Sibling of the previous context
-                    Thought parentContext = indentationStack.ContainsKey(indent - 2)
-                        ? indentationStack[indent - 2]
-                        : rootContext;
-
-                    currentContext = parent.theUKS.GetOrAddThought(trimmedLine, parentContext);
-                    indentationStack[indent] = currentContext;
+                    // This is a context name - create as child
+                    if (indent > previousIndent)
+                    {
+                        // Child of previous context
+                        Thought parentContext = indentationStack.ContainsKey(previousIndent)
+                            ? indentationStack[previousIndent]
+                            : contextThought;
+                        
+                        currentContext = theUKS.GetOrAddThought(trimmedLine, parentContext);
+                        indentationStack[indent] = currentContext;
+                    }
+                    else if (indent == previousIndent)
+                    {
+                        // Sibling
+                        Thought parentContext = indentationStack.ContainsKey(indent - 2)
+                            ? indentationStack[indent - 2]
+                            : contextThought;
+                        
+                        currentContext = theUKS.GetOrAddThought(trimmedLine, parentContext);
+                        indentationStack[indent] = currentContext;
+                    }
+                    else // indent < previousIndent
+                    {
+                        // Going back up
+                        Thought parentContext = indentationStack.ContainsKey(indent - 2)
+                            ? indentationStack[indent - 2]
+                            : contextThought;
+                        
+                        currentContext = theUKS.GetOrAddThought(trimmedLine, parentContext);
+                        indentationStack[indent] = currentContext;
+                    }
+                    
+                    previousIndent = indent;
                 }
-                else // indent < previousIndent
-                {
-                    // Going back up the hierarchy
-                    Thought parentContext = indentationStack.ContainsKey(indent - 2)
-                        ? indentationStack[indent - 2]
-                        : rootContext;
-
-                    currentContext = parent.theUKS.GetOrAddThought(trimmedLine, parentContext);
-                    indentationStack[indent] = currentContext;
-                }
-
-                previousIndent = indent;
             }
+            currentIndex2++;
         }
-
-        SetStatus($"Saved context: {rootContextName}");
+        
+        return currentIndex2;
     }
 
     private void ReplacePatternInput_KeyDown(object sender, KeyEventArgs e)

@@ -58,6 +58,8 @@ public partial class UKS
     /// <returns>The newly created thought.</returns>
     public virtual Thought AddThought(string label, Thought? parent)
     {
+        if (label == "WRITE.EQ")
+        { }
         Thought newThought = new();
         newThought.Label = label;
         if (parent is not null)
@@ -203,10 +205,19 @@ public partial class UKS
         if (correctParent is null)
             correctParent = ThoughtLabels.GetThought("Unknown");
 
-
         if (thoughtToReturn is not null)
         {
-            if (correctParent is not null) thoughtToReturn.AddParent(correctParent);
+            if (thoughtToReturn.Parents.Count == 0 &&
+                thoughtToReturn.Label.ToLower() != "brainsim" &&
+                thoughtToReturn.Label.ToLower() != "thought" &&
+                correctParent is not null)
+                thoughtToReturn.AddParent(correctParent);
+            if (correctParent.Label != "Unknown")
+            {
+                thoughtToReturn.RemoveParent("Unknown");
+                thoughtToReturn.AddParent(correctParent);
+            }
+
             return thoughtToReturn;
         }
         //. are used to indicate attributes to be added
@@ -287,7 +298,7 @@ public partial class UKS
                 }
             }
             string seqLabel = string.Join("", targetParts);
-            Thought r1 = (Thought)theUKS.AddSequence(seqLabel,targets);
+            Thought r1 = (Thought)theUKS.AddSequence(seqLabel, targets);
             return r1;
 
         }
@@ -305,17 +316,19 @@ public partial class UKS
         {
             thoughtLabel = tempStringArray[0];
             for (int i = 1; i < tempStringArray.Length; i++)
-                if (!string.IsNullOrEmpty(tempStringArray[i]))
-                    thoughtLabel += "." + tempStringArray[i];
+                //if (!string.IsNullOrEmpty(tempStringArray[i]))
+                thoughtLabel += "." + tempStringArray[i];
         }
         else
         {
             int last = tempStringArray.Length - 1;
             thoughtLabel = tempStringArray[last];
             for (int i = 0; i < last; i++)
-                if (!string.IsNullOrEmpty(tempStringArray[i]))
-                    thoughtLabel += "." + tempStringArray[i];
+                //if (!string.IsNullOrEmpty(tempStringArray[i]))
+                thoughtLabel += "." + tempStringArray[i];
         }
+
+        //find the base thing so we can assign the parent?
 
         Thought t = GetOrAddThought(thoughtLabel);
         return t;

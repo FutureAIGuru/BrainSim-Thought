@@ -62,8 +62,6 @@ public partial class UKS
         //remove unnecessary "unl_..."  labels
         foreach (var t in Root.EnumerateSubThoughts())
         {
-            if (t.Label.ToLower() == "fido")
-            { }
             int i = AtomicThoughts.IndexOf(t);
 
             if (t.Label.StartsWith("unl_"))
@@ -112,6 +110,7 @@ public partial class UKS
         if (filePath is null) throw new ArgumentNullException(nameof(filePath));
         var lines = File.ReadAllLines(filePath);
 
+        // The 3-pass is needed to handle forward label references
         // FIRST PASS: Find all defined labels
         List<string> definedLabels = new();
         foreach (var line in lines)
@@ -174,7 +173,7 @@ public partial class UKS
         // THIRD PASS: Actually process the lines
         foreach (var line in lines)
         {
-            ProcessSingleLine(line);
+            ProcessSingleLine(line);  //without the possibility of compound or sequence statements, this is straightforward
         }
 
         // Remove unnecessary "unl_..." labels
@@ -185,12 +184,6 @@ public partial class UKS
         }
     }
 
-    /// <summary>
-    /// Processes a single line of UKS text format and creates the corresponding thought/link.
-    /// Handles nested links where src, type, or target can themselves be links.
-    /// </summary>
-    /// <param name="line">The line to process in UKS text format (e.g., "label[from->linkType->to] weight")</param>
-    /// <returns>The created Thought/Link, or null if parsing failed.</returns>
     public Thought ProcessSingleLine(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return null;
@@ -199,8 +192,6 @@ public partial class UKS
         if (string.IsNullOrWhiteSpace(code)) return null;
 
         code = code.Trim();
-        if (!code.StartsWith("[")) code = "[" + code;
-        if (!code.EndsWith("]")) code = code+"]";
 
         var tokens = TokenizeTopLevel(code);
         if (tokens.Count < 2) return null;
@@ -211,9 +202,85 @@ public partial class UKS
         Thought r = AddLinkStmt(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
         return r;
     }
-
     // Adds a link, handling nested links in src, type, or target
     private Thought AddLinkStmt(string label, List<string> linkParts, string sWeight)
+    {
+        if (linkParts.Count < 2) return null;
+
+        // Get value strings (used in config - OBSOLETE)
+        string value = "";
+        if (linkParts[0].Contains("_V:"))
+        {
+            int index = linkParts[0].IndexOf("_V:");
+            value = linkParts[0][(index + 3)..];
+            linkParts[0] = linkParts[0][..index];
+            Thought t1 = Labeled(linkParts[0]);
+            t1?.Delete();
+        }
+
+        // Process 'from'
+        Thought from = GetOrAddThought(linkParts[0]);
+
+        // Process 'linkType' 
+        Thought linkType = GetOrAddThought(linkParts[1]);
+
+        // Process 'to'
+        Thought to = GetOrAddThought(linkParts[2]);       
+
+        Link r = AddStatement(from, linkType, to, label);
+        //Link r = from.AddLink(linkType, to);
+        if (!string.IsNullOrEmpty(label))
+            r.Label = label;
+
+        if (value != "")
+            r.From.V = value;
+        if (label != "" && !label.StartsWith("unl_"))
+        {
+            r.Label = label.Trim();
+            if (!AtomicThoughts.Contains(r))
+                AtomicThoughts.Add(r);
+        }
+        if (linkType.Label == "VLU")
+        {
+            // This must be a sequence element, promote it to one
+            var newfrom = PromoteToSeqElement(from);
+        }
+        if (sWeight is { } n)
+        {
+            if (float.TryParse(n, out float weight))
+                r.Weight = weight;
+        }
+        return r;
+    }
+
+
+    /// <summary>
+    /// Processes a single line of UKS text format and creates the corresponding thought/link.
+    /// Handles nested links where src, type, or target can themselves be links.
+    /// </summary>
+    /// <param name="line">The line to process in UKS text format (e.g., "label[from->linkType->to] weight")</param>
+    /// <returns>The created Thought/Link, or null if parsing failed.</returns>
+    public Thought ProcessSingleLineWithNesting(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return null;
+
+        string code = StripEolComment(line);
+        if (string.IsNullOrWhiteSpace(code)) return null;
+
+        code = code.Trim();
+
+        var tokens = TokenizeTopLevel(code);
+        if (tokens.Count < 2) return null;
+
+        var stmt = ParseBracketStmt(tokens[1], 0);
+        if (stmt.Count < 2) return null;
+
+        Thought r = AddLinkStmtWithNesting(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
+        return r;
+    }
+
+    // Adds a link, handling nested links in src, type, or target
+    private Thought AddLinkStmtWithNesting(string label, List<string> linkParts, string sWeight)
     {
         if (linkParts.Count < 2) return null;
 
@@ -249,7 +316,10 @@ public partial class UKS
             if (to is null) to = GetOrAddThought(linkParts[2]);
         }
 
-        Link r = AddStatement(from, linkType, to, label);
+        //        Link r = AddStatement(from, linkType, to, label);
+        Link r = from.AddLink(linkType, to);
+        if (!string.IsNullOrEmpty(label))
+            r.Label = label;
 
         if (value != "")
             r.From.V = value;
@@ -294,7 +364,7 @@ public partial class UKS
             if (nestedStmt.Count >= 2)
             {
                 // Recursively create the nested link (with empty label)
-                return AddLinkStmt("", nestedStmt, null);
+                return AddLinkStmtWithNesting("", nestedStmt, null);
             }
             return null;
         }

@@ -12,16 +12,15 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using UKS;
 
 namespace BrainSimulator.Modules;
-
+    
 public class ModuleAlgorithm : ModuleBase
 {
-    private string param1;
-    private string param2;
     private TimeSpan linkTimeToLive = TimeSpan.FromSeconds(5);
 
     /// <summary>
@@ -64,18 +63,50 @@ public class ModuleAlgorithm : ModuleBase
     /// Execute a task with the given parameters
     /// </summary>
     /// <param name="taskName">Name of the task to execute</param>
-    /// <param name="param1">First parameter value</param>
-    /// <param name="param2">Second parameter value</param>
+    /// <param name="param1Value">First parameter value (can be any string)</param>
+    /// <param name="param2Value">Second parameter value (can be any string)</param>
     /// <returns>True if execution succeeded, false otherwise</returns>
-    public bool ExecuteTask(string taskName, string param1 = "", string param2 = "")
+    public bool ExecuteTask(string taskName, string param1Value = "", string param2Value = "")
     {
         linkTimeToLive = TimeSpan.FromSeconds(600);
         LastLinkWritten = null;
 
         if (theUKS == null) return false;
 
-        this.param1 = param1;
-        this.param2 = param2;
+        // Get or create param1 and param2 thoughts
+        Thought param1Thought = theUKS.GetOrAddThought("param1", "Variable");
+        Thought param2Thought = theUKS.GetOrAddThought("param2", "Variable");
+        Thought isType = theUKS.GetOrAddThought("is", "LinkType");
+
+        // Process param1
+        if (!string.IsNullOrEmpty(param1Value))
+        {
+            Thought param1ValueThought = theUKS.Labeled(param1Value);
+            if (param1ValueThought == null)
+            {
+                // Create new thought with spelling sequence
+                param1ValueThought = theUKS.GetOrAddThought(param1Value, "Thing");
+                CreateSpellingSequence(param1Value, param1ValueThought);
+            }
+            // Link: param1 -> is -> param1ValueThought
+            param1Thought.RemoveLinks(isType);
+            param1Thought.AddLink(isType, param1ValueThought);
+        }
+
+        // Process param2
+        if (!string.IsNullOrEmpty(param2Value))
+        {
+            Thought param2ValueThought = theUKS.Labeled(param2Value);
+            if (param2ValueThought == null)
+            {
+                // Create new thought with spelling sequence
+                param2ValueThought = theUKS.GetOrAddThought(param2Value, "Thing");
+                CreateSpellingSequence(param2Value, param2ValueThought);
+            }
+            // Link: param2 -> is -> param2ValueThought
+            param2Thought.RemoveLinks(isType);
+            param2Thought.AddLink(isType, param2ValueThought);
+        }
 
         // Get the task thought
         Thought taskThought = theUKS.Labeled(taskName);
@@ -99,8 +130,57 @@ public class ModuleAlgorithm : ModuleBase
         return ExecuteSteps(ref currentStep);
     }
 
+    private void CreateSpellingSequence(string word, Thought wordThought)
+    {
+        List<Thought> letters = new List<Thought>();
+        foreach (char c in word.ToUpper())
+        {
+            string letterName = c.ToString();
+            Thought letterThought = theUKS.GetOrAddThought(letterName, "Letter");
+            letters.Add(letterThought);
+        }
+        
+        if (letters.Count > 0)
+        {
+            SeqElement spellingSeq = theUKS.AddSequence(word + "-spelling", letters);
+            if (spellingSeq != null)
+            {
+                spellingSeq.Label = word + "-seq0";
+                Thought spelledType = theUKS.GetOrAddThought("spelled", "LinkType");
+                wordThought.AddLink(spelledType, spellingSeq);
+            }
+        }
+    }
+
+    private Thought ParseIndirection(string toLabel)
+    {
+        if (string.IsNullOrEmpty(toLabel)) return null;
+
+        // Special handling for param1/param2 - automatically follow the "is" link
+        // This allows tasks to reference "param1" instead of "param1.is"
+        if (toLabel == "param1" || toLabel == "param2")
+        {
+            Thought paramThought = theUKS.Labeled(toLabel);
+            Thought valueThought = paramThought?.GetTargetOfFirstLinkOfType("is");
+            return valueThought ?? paramThought;
+        }
+
+        string[] parts = toLabel.Split(".");
+        Thought newTarget = theUKS.Labeled(parts[0]);
+        for (int i = 1; i < parts.Length; i++)
+        {
+            Thought linkType = theUKS.Labeled(parts[i]);
+            newTarget = newTarget?.GetTargetOfFirstLinkOfType(linkType);
+        }
+        return newTarget;
+    }
+
     private bool ExecuteSteps(ref SeqElement currentStep)
     {
+        //hack to correct a problem with save/restore of weights
+        Thought t = theUKS.GetOrAddThought("cDifferent");
+        t.LinksTo[1].Weight = 3;
+
         while (currentStep is not null)
         {
             // Get the action from the current step
@@ -218,21 +298,22 @@ public class ModuleAlgorithm : ModuleBase
                     Thought testType = test.LinkType.LinksTo.FindFirst(x => x.LinkType.Label.ToLower() == "is" && x.To.Label != "EXIST")?.To;
                     var src = ParseIndirection(test.From.Label);
                     if (src is null) continue;
-                    if (test.LinkType.HasAncestor("same"))
+                    if (test.LinkType.HasAncestor("same") || test.LinkType.Label.ToLower().Contains("same")) //hack if ancestor not set properly
                     {
                         Thought target = ParseIndirection(test.To.Label);
-                        if (src == target) weight += test.Weight;
+                        if (!not && src == target) weight += l.Weight;
+                        if (not && src != target) weight += l.Weight;
                     }
                     else if (test.To.Label == "??")
                     {
-                        if (!not && src.HasLink(testType) is not null) weight+=test.Weight;
-                        if (not && src.HasLink(testType) is null) weight += test.Weight;
+                        if (!not && src.HasLink(testType) is not null) weight+=l.Weight;
+                        if (not && src.HasLink(testType) is null) weight += l.Weight;
                     }
                     else
                     {
                         Thought target = ParseIndirection(test.To.Label);
-                        if (!not && src.HasLink(testType, target) is not null) weight += test.Weight;
-                        if (not && src.HasLink(testType, target) is null) weight += test.Weight;
+                        if (!not && src.HasLink(testType, target) is not null) weight += l.Weight;
+                        if (not && src.HasLink(testType, target) is null) weight += l.Weight;
                     }
                     //Debug.WriteLine($"Compared: {test.ToString()}  Weight: {weight}  Src: {src} Type: {testType} NOT: {not}");
                 }
@@ -247,24 +328,5 @@ public class ModuleAlgorithm : ModuleBase
 
         Debug.WriteLine($"Context: {contextRoot} returned {bestResponse}");
         return bestResponse;
-    }
-
-    private Thought ParseIndirection(string toLabel)
-    {
-        if (string.IsNullOrEmpty(toLabel)) return null;
-
-        if (toLabel == "param1")
-            return theUKS.Labeled(param1);
-        if (toLabel == "param2")
-            return theUKS.Labeled(param2);
-
-        string[] parts = toLabel.Split(".");
-        Thought newTarget = theUKS.Labeled(parts[0]);
-        for (int i = 1; i < parts.Length; i++)
-        {
-            Thought linkType = theUKS.Labeled(parts[i]);
-            newTarget = newTarget?.GetTargetOfFirstLinkOfType(linkType);
-        }
-        return newTarget;
     }
 }
