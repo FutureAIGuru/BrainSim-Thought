@@ -47,9 +47,9 @@ public class UKSSequenceTests
         var linkType = uks.GetOrAddThought("spelled", "LinkType");
         var targets = new List<Thought>
         {
-            uks.GetOrAddThought("c"),
-            uks.GetOrAddThought("a"),
-            uks.GetOrAddThought("t"),
+            uks.GetOrAddThought("C"),
+            uks.GetOrAddThought("A"),
+            uks.GetOrAddThought("T"),
         };
 
         SeqElement first = uks.AddSequenceAndLink(source, linkType, targets);
@@ -58,7 +58,7 @@ public class UKSSequenceTests
         Assert.True(uks.IsSequenceElement(first));
 
         var flat = uks.FlattenSequence(first);
-        Assert.Equal(new[] { "c", "a", "t" }, flat.Select(x => x.Label));
+        Assert.Equal(new[] { "C", "A", "T" }, flat.Select(x => x.Label));
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public class UKSSequenceTests
         SeqElement updatedFirst = uks.InsertElement(first, newVal);
 
         var flat = uks.FlattenSequence(updatedFirst);
-        Assert.Equal(new[] { "!", "d", "o", "g" }, flat.Select(x => x.Label));
+        Assert.Equal(new[] { "!", "D", "O", "G" }, flat.Select(x => x.Label));
     }
 
     [Fact]

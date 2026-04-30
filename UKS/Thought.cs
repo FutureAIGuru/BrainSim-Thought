@@ -210,7 +210,7 @@ public class Thought
     /// </summary>
     public override string ToString()
     {
-        string retVal = Label;
+        string retVal = Label.Trim();
         if (V is not null)
             retVal += "_V:" + V.ToString();
 
@@ -537,11 +537,11 @@ public class Thought
     {
         return LinksTo.FindFirst(x => x.LinkType == linkType)?.To;
     }
-    private Link HasLink(Thought linkType, Thought to)
+    public  Link HasLink(Thought linkType, Thought to = null)
     {
         foreach (Link r in _linksTo)
         {
-            if (r.From == this && r.To == to && r.LinkType == linkType)
+            if (r.From == this && (r.To == to || to is null) && r.LinkType == linkType)
                 return r;
         }
         return null;

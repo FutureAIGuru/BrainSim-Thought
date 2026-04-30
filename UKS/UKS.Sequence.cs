@@ -141,7 +141,7 @@ public partial class UKS
     {
         return s.FRST;
     }
-    private SeqElement GetLastlement(SeqElement s)
+    public SeqElement GetLastlement(SeqElement s)
     {
         SeqElement retVal = s;
         SeqElement next = s.NXT;
@@ -168,6 +168,7 @@ public partial class UKS
     {
         return FlattenSequence(firstNode).Count;
     }
+
 
     /// <summary>
     /// Inserts a new element at the beginning of the sequence, shifting the previous first element forward.
@@ -831,6 +832,8 @@ public partial class UKS
             seq.LinksFromWriteable.Add(link);
         }
         t.LinksFromWriteable.Clear();
+        //At this time...   Sequence elements are always parentless
+        t.RemoveParent("Unknown");
 
         // Replace in global list
         lock (AtomicThoughts)

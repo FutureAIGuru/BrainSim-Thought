@@ -221,29 +221,32 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             if (r.To is SeqElement s)
             {
                 string joinCharacter = " ";
-                if (r.LinkType.Label == "events") joinCharacter = "\n\t\t"; //hack for better dieplay of longer items
+                if (r.LinkType.Label == "events" || s.VLU is Link l) joinCharacter = "\n\t\t"; //hack for better dieplay of longer items
                 if (r.LinkType.Label == "NXT" || r.LinkType.Label == "FRST")
                 {
                     header = $"[{r.From.Label}→{r.LinkType.Label}→{r.To.Label}]";
                 }
                 else
                 {
-                    var seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.Label).ToList();
-                    if (seqElementLabels.Count() > 0)
+                    var seqElements = theUKS.FlattenSequence(s);
+                    if (seqElements.Count() > 0)
                     {
-                        if (string.IsNullOrEmpty(seqElementLabels[0]))
-                            seqElementLabels = theUKS.FlattenSequence(s).Select(x => x?.ToString()).ToList();
+                        List<string> seqLabels = new();
+                        foreach (var t1 in seqElements)
+                            if (string.IsNullOrEmpty(t1.Label))
+                                seqLabels.Add(t1.ToString());
+                            else
+                                seqLabels.Add(t1.Label);
+                        int i = seqLabels[0].IndexOf(':');
+                        string leftSide = seqLabels[0][..(i+1)];
 
-                        int i = seqElementLabels[0].IndexOf(':');
-                        string leftSide = seqElementLabels[0][..(i+1)];
-
-                        seqElementLabels = seqElementLabels
+                        seqLabels = seqLabels
                             .Select(s =>
                             {
                                 int i = s.IndexOf(':');
                                 return i >= 0 ? s[(i + 1)..] : s;
                             }).ToList();
-                        string sequence = "^" +leftSide +  string.Join(joinCharacter, seqElementLabels);
+                        string sequence = "^" +leftSide +  string.Join(joinCharacter, seqLabels);
                         header = $"[{r.From.Label}→{r.LinkType.Label}→{sequence}]";
                     }
                 }
@@ -298,6 +301,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         }
         header += ": Children:" + t.Children.Count;
         header += " Links:" + t.LinksTo.Count;
+        header += " Refs:" + t.LinksFrom.Count;
         return header;
     }
 
@@ -563,7 +567,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                         ActionModule.TakeActrion(t);
                     break;
                 case "Delete":
-                    theUKS.DeleteAllChildren(t);
+                    theUKS.DeleteAllChildrenAndLinks(t);
                     t.Delete();
                     break;
                 case "Delete Child":

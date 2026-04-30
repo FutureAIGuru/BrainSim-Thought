@@ -47,7 +47,7 @@ public partial class UKS
 		Thought t = Labeled(label);
 		Link existing = t as Link;
 		Link lnk = null;
-		if (existing == null) existing = GetLink(source, linkType, target);
+		if (existing is null) existing = GetLink(source, linkType, target);
 
 		if (existing is null)
 		{

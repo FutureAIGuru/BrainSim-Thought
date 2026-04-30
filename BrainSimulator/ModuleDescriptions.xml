@@ -134,7 +134,7 @@ Works together with SpeechParser, PhraseRecognizer, QueryResolution and SpeechOu
   </ModuleDescription>
   <ModuleDescription>
     <moduleName>ModuleUKSQuery</moduleName>
-    <description>{\rtf1\ansi\ansicpg1252\uc1\htmautsp\deff2{\fonttbl{\f0\fcharset0 Times New Roman;}{\f2\fcharset0 Segoe UI;}{\f3\fcharset0 Aptos Display;}}{\colortbl\red0\green0\blue0;\red255\green255\blue255;\red15\green71\blue97;}
+    <description>{\rtf1\ansi\ansicpg1252\uc1\htmautsp\deff2{\fonttbl{\f0\fcharset0 Times New Roman;}{\f2\fcharset0 Segoe UI;}{\f3\fcharset0 Aptos;}{\f4\fcharset0 Aptos Display;}}{\colortbl\red0\green0\blue0;\red255\green255\blue255;\red15\green71\blue97;}
 {\*\listtable
 {\list\listtemplateid1\listhybrid
 {\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid5\'01\'b7}{\levelnumbers;}\fi-360\li720\lin720\jclisttab\tx720}
@@ -150,20 +150,21 @@ Works together with SpeechParser, PhraseRecognizer, QueryResolution and SpeechOu
 {\*\listoverridetable
 {\listoverride\listid1\listoverridecount0\ls1}
 }
-\loch\hich\dbch\pard\plain\ltrpar\itap0{\lang1033\fs30\f2\cf0 \cf0\ql{\f2 {\ltrch This dialog queries the UKS content and returns the result.  There are two query types:}\li0\ri0\sa160\sb0\fi0\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Get  Attribs:  Retrieves the attributes of a given Thought}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Search by Attribs: Retrieves Thoughts given a set of attributes.}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{\fs40\f0 {\cf2\ltrch Get Attribs}\li0\ri0\sa80\sb360\fi0\ql\par}
-{\f2 {\ltrch There are 4 textboxes: }\li0\ri0\sa160\sb0\fi0\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{{\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Filter (not used)}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{\f2 {\ltrch Each of these can be filled in with one or more Thought labels separated by spaces. Text which is not a Thought label is ignored. Searches are case-insensitive and singularized.}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\f2 {\ltrch If Source or Target alone, the system will respond with all links which match. If any two of Source, Target, and Type are provided, the system will respond with the data which would fill in the empty item.  If you fill in all three, the system will respond with the Link (if any) which matches.}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\f2 {\ltrch The system attempts to find a Thought which has attributes matchings all the given Thoughts.  As such, big.dog and big dog will have equivalent meaning. The first is a single Thought label which the second is two Thought labels of which only matching Thought is big.dog.}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\fs40\f3 {\cf2\ltrch Search by Attribs}\li0\ri0\sa80\sb360\fi0\ql\par}
-{\f2 {\ltrch Attributes are entered as a type and a target (to).  Enter is and warm-blooded to get a list of warm-blooded Thoughts.  Use the New, Add, and Clear buttons to build a list of multiple search attributes which show in the Query textbox.  }\li0\ri0\sa160\sb0\fi0\ql\par}
+\loch\hich\dbch\pard\plain\ltrpar\itap0{\lang1033\fs30\f2\cf0 \cf0\ql{\fs24\f3 {\ltrch This dialog queries the UKS content and returns the result.  If the Auto-Refresh checkbox is checked, it will repeat the query and update the results every few seconds. Otherwise, it will perform the query when the query criteria are changed.  There are two query types:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Get  Attribs:  Retrieves the attributes of a given Thought}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Search by Attribs: Retrieves Thoughts given a set of attributes.}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs40\f4 {\cf2\ltrch Get Attribs}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs24\f3 {\ltrch There are 3 textboxes: }\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Source}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Type}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f3 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Target}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f3 {\ltrch Each of these can be filled in with a Thought label. Text which is not a Thought label is ignored. Searches are case-insensitive and singularized.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch If Source or Target alone, the system will respond with all links which match. If any two of Source, Target, and Type are provided, the system will respond with the data which would fill in the empty item.  If you fill in all three, the system will respond with the Link (if any) which matches.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch The system attempts to find a Thought which has attributes matching all the given Thoughts.  It returns the attribute and its weight or confidence.  If the \ldblquote Show full links\rdblquote  checkbox is checked, it will show the complete link which may be useful in differentiating between direct and inherited attributes.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs40\f4 {\cf2\ltrch Search by Attribs}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs24\f3 {\ltrch Attributes are entered as a type and a target.  Enter is and warm-blooded to get a list of warm-blooded Thoughts.  Use the New, Add, and Clear buttons to build a list of multiple search attributes which show in the Query textbox.  }\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch The result is shown as a list of Thoughts with their relative confidences.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 \li0\ri0\sa160\sb0\fi0\ql\par}
 }
 }</description>
   </ModuleDescription>
@@ -643,6 +644,203 @@ ffd8ffe000104a46494600010101006000600000ffdb004300030202030202030303030403030405
 {\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch learn from experience rather than explicit programming}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
 {\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch associate inputs with actions based on outcomes}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
 {\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch improve behavior through reinforcement over time}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+}
+}</description>
+  </ModuleDescription>
+  <ModuleDescription>
+    <moduleName>ModuleSequenceEditor</moduleName>
+    <description>{\rtf1\ansi\ansicpg1252\uc1\htmautsp\deff2{\fonttbl{\f0\fcharset0 Times New Roman;}{\f2\fcharset0 Segoe UI;}{\f3\fcharset0 Aptos;}{\f4\fcharset0 Aptos Display;}}{\colortbl\red0\green0\blue0;\red255\green255\blue255;\red15\green71\blue97;}\loch\hich\dbch\pard\plain\ltrpar\itap0{\lang1033\fs30\f2\cf0 \cf0\ql{\fs24\f3 {\b\ltrch Algorithm Editor Help}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch The Algorithm Editor creates and edits BrainSim Thought tasks. A task is a collection of sequences and contexts stored in the UKS.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs32\f4 {\cf2\ltrch Task Name}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f3 {\ltrch Enter the task name at the top. When saved, the task and all of its elements are stored under this name.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs32\f4 {\cf2\ltrch Elements Box}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f3 {\ltrch Enter sequences and contexts as plain text.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch A sequence begins with a name followed by ^.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch Alphabetize_main^}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch   $GetInputParameters}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch   [p1\u8594?WRITE.IS\u8594?p1.is.spelled]}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch   [p2\u8594?WRITE.IS\u8594?p2.is.spelled]}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch   ContextWordAlpha}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch Each following indented line is a step. A step may be:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3\b {\ltrch [a\u8594?WRITE.IS\u8594?b]}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch to write a link,}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\b\ltrch SomeOtherSequence  }{\ltrch (a sequence Thought name)}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch to call another sequence,}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch or}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3\b {\ltrch SomeContext}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch to evaluate a context.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch A context begins with its name without ^.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch ContextWordAlpha}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch   cSameContinue}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch     [cSameContinue\u8594?has\u8594?[p1.is.VLU\u8594?EXIST.same\u8594?p2.is.VLU]]}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch     [cSameContinue\u8594?response\u8594?advanceWordLetters]}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch Each context contains cases. A case contains one or more has conditions and one response.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs32\f4 {\cf2\ltrch WRITE Instructions}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f3 {\ltrch WRITE.X creates or updates a link of type X.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch [p1\u8594?WRITE.IS\u8594?p1.is.NXT]}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch means:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch [p1\u8594?IS\u8594?p1.is.NXT]}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs32\f4 {\cf2\ltrch EXIST Conditions}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f3 {\ltrch EXIST.X tests whether a link or virtual relationship exists.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch [p1.is\u8594?EXIST.NXT\u8594???]}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch tests whether the current value of p1 has a NXT link.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch [p1.is.VLU\u8594?EXIST.same\u8594?p2.is.VLU]}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch tests whether both expressions resolve to the same Thought.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch Use NOT.EXIST.X to test that a relationship does not exist.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs32\f4 {\cf2\ltrch Indirection}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f3 {\ltrch Dot notation follows links.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch p1.is}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch means the target of p1\u8594?IS\u8594??.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch p1.is.NXT}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch means follow IS, then follow NXT.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs32\f4 {\cf2\ltrch Search and Replace}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f3 {\ltrch Use }{\b\ltrch Srch}{\ltrch  to find text in the editor.}{\ltrch \line }{\ltrch Use }{\b\ltrch Repl}{\ltrch  to replace matching text. This is useful for renaming contexts, cases, responses, or variables.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs32\f4 {\cf2\ltrch Save}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f3 {\ltrch Click }{\b\ltrch Save}{\ltrch  to parse and store the task in the UKS. The status line reports whether the task was saved or loaded successfully.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 \li0\ri0\sa160\sb0\fi0\ql\par}
+}
+}</description>
+  </ModuleDescription>
+  <ModuleDescription>
+    <moduleName>ModuleAlgorithm</moduleName>
+    <description>{\rtf1\ansi\ansicpg1252\uc1\htmautsp\deff2{\fonttbl{\f0\fcharset0 Times New Roman;}{\f2\fcharset0 Segoe UI;}{\f3\fcharset0 Aptos Display;}{\f4\fcharset0 Aptos;}}{\colortbl\red0\green0\blue0;\red255\green255\blue255;\red15\green71\blue97;}
+{\*\listtable
+{\list\listtemplateid1\listhybrid
+{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid5\'01\'b7}{\levelnumbers;}\fi-360\li720\lin720\jclisttab\tx720}
+{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid6\'01\'b7}{\levelnumbers;}\fi-360\li1440\lin1440\jclisttab\tx1440}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid7\'02\'02.;}{\levelnumbers\'01;}\fi-360\li2160\lin2160\jclisttab\tx2160}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid8\'02\'03.;}{\levelnumbers\'01;}\fi-360\li2880\lin2880\jclisttab\tx2880}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid9\'02\'04.;}{\levelnumbers\'01;}\fi-360\li3600\lin3600\jclisttab\tx3600}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid10\'02\'05.;}{\levelnumbers\'01;}\fi-360\li4320\lin4320\jclisttab\tx4320}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid11\'02\'06.;}{\levelnumbers\'01;}\fi-360\li5040\lin5040\jclisttab\tx5040}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid12\'02\'07.;}{\levelnumbers\'01;}\fi-360\li5760\lin5760\jclisttab\tx5760}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid13\'02\'08.;}{\levelnumbers\'01;}\fi-360\li6480\lin6480\jclisttab\tx6480}
+{\listname ;}\listid1}
+{\list\listtemplateid2\listhybrid
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid14\'02\'00.;}{\levelnumbers\'01;}\fi-360\li720\lin720\jclisttab\tx720}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid15\'02\'01.;}{\levelnumbers\'01;}\fi-360\li1440\lin1440\jclisttab\tx1440}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid16\'02\'02.;}{\levelnumbers\'01;}\fi-360\li2160\lin2160\jclisttab\tx2160}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid17\'02\'03.;}{\levelnumbers\'01;}\fi-360\li2880\lin2880\jclisttab\tx2880}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid18\'02\'04.;}{\levelnumbers\'01;}\fi-360\li3600\lin3600\jclisttab\tx3600}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid19\'02\'05.;}{\levelnumbers\'01;}\fi-360\li4320\lin4320\jclisttab\tx4320}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid20\'02\'06.;}{\levelnumbers\'01;}\fi-360\li5040\lin5040\jclisttab\tx5040}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid21\'02\'07.;}{\levelnumbers\'01;}\fi-360\li5760\lin5760\jclisttab\tx5760}
+{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid22\'02\'08.;}{\levelnumbers\'01;}\fi-360\li6480\lin6480\jclisttab\tx6480}
+{\listname ;}\listid2}}
+{\*\listoverridetable
+{\listoverride\listid1\listoverridecount0\ls1}
+{\listoverride\listid2\listoverridecount0\ls2}
+}
+\loch\hich\dbch\pard\plain\ltrpar\itap0{\lang1033\fs30\f2\cf0 \cf0\ql{\fs40\f3 {\cf2\ltrch Algorithm Module Dialog - User Guide}\li0\ri0\sa80\sb360\fi0\ql\par}
+{\fs32\f3 {\cf2\ltrch Overview}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f4 {\ltrch The Algorithm Module Dialog allows you to execute predefined tasks (algorithms) with custom parameters. Tasks are stored in the Universal Knowledge Store (UKS) and can perform operations like comparisons, boolean logic, and sequence manipulations.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs32\f3 {\cf2\ltrch Dialog Components}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs28\f4 {\cf2\ltrch Task Name Field}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Autocomplete}{\ltrch : Type the first few letters of a task name to see suggestions}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Navigation}{\ltrch : Use Up/Down arrow keys to navigate suggestions}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Selection}{\ltrch : Press Enter or Tab to accept the highlighted suggestion}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch The dialog automatically searches for tasks that are children of "Task" (excluding "Variable")}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs28\f4 {\cf2\ltrch Parameter Fields}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1 {\b\ltrch Parameter 1}{\ltrch : First input value for the task}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1 {\b\ltrch Parameter 2}{\ltrch : Second input value for the task}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1 {\b\ltrch Flexible Input}{\ltrch : Parameters can be:}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch Existing Thought labels (e.g., "TRUE", "FALSE", "dog", "cat")}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch Arbitrary strings (automatically created as new Thoughts with spelling sequences)}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs28\f4 {\cf2\ltrch Execute Button}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Keyboard Shortcut}{\ltrch : Press Enter in Parameter 2 field to execute}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Execution}{\ltrch : Runs the selected task with the provided parameters}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Status}{\ltrch : Results are displayed in the status bar at the bottom}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs32\f3 {\cf2\ltrch How It Works}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs28\f4 {\cf2\ltrch Task Execution Flow}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f4 {\listtext 1.\tab}\ls2 {\b\ltrch Parameter Processing}{\ltrch :}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch If parameters don't exist as Thoughts, they are automatically created}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch Spelling sequences are generated for new words (each letter becomes a Thought)}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch Links are created:\~param1 -&gt; is -&gt; &lt;value1&gt;\~and\~param2 -&gt; is -&gt; &lt;value2&gt;}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext 2.\tab}\ls2 {\b\ltrch Task Lookup}{\ltrch :}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch The system finds the task by name}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch If the task has no "steps" link, it tries\~&lt;taskname&gt;_main}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch This allows tasks to have both a root and a main implementation}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext 3.\tab}\ls2 {\b\ltrch Execution}{\ltrch :}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch The task's sequence of steps is executed}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch Contexts are evaluated to determine control flow}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch Links are written to the UKS}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext 4.\tab}\ls2 {\b\ltrch Return Value}{\ltrch :}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch The result is stored in\~LastLinkWritten}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch The status bar displays the result link}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs32\f3 {\cf2\ltrch Built-in Algorithms}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f4\b {\ltrch BoolNot}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\b\ltrch Purpose}{\ltrch : Logical NOT operation}{\ltrch \line }{\b\ltrch Parameters}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch param1: TRUE or FALSE}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch param2: (unused, can be empty)}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\b\ltrch Result}{\ltrch :\~p1 -&gt; is -&gt; opposite_value}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\b\ltrch Example}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4\b {\ltrch SeqLength}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\b\ltrch Purpose}{\ltrch : Compare the lengths of two sequences (words)}{\ltrch \line }{\b\ltrch Parameters}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch param1: First word (e.g., "dog")}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch param2: Second word (e.g., "cat")}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\b\ltrch Result}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch word1 -&gt; EQ -&gt; word2\~if equal length}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch longer -&gt; GT -&gt; shorter\~if different lengths}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\b\ltrch Example}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4\b {\ltrch CompareLetters}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\b\ltrch Purpose}{\ltrch : Compare two single letters alphabetically}{\ltrch \line }{\b\ltrch Parameters}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch param1: First letter (e.g., "A")}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch param2: Second letter (e.g., "B")}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\b\ltrch Result}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch letter1 -&gt; EQ -&gt; letter2\~if same}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch later -&gt; GT -&gt; earlier\~for different letters}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\b\ltrch Example}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4\b {\ltrch alphabetize}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\b\ltrch Purpose}{\ltrch : Compare two words alphabetically (recursive letter-by-letter)}{\ltrch \line }{\b\ltrch Parameters}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch param1: First word (e.g., "apple")}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch param2: Second word (e.g., "zebra")}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\b\ltrch Result}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch word1 -&gt; EQ -&gt; word2\~if identical}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch later -&gt; GT -&gt; earlier\~for different words}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\b\ltrch Example}{\ltrch :}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4\b {\ltrch Tips and Best Practices}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4\b {\ltrch Creating New Words}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1 {\ltrch Simply type any string as a parameter}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1 {\ltrch The system automatically creates:}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch A Thought with that label}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch A spelling sequence (one Thought per letter)}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4 {\listtext \'B7\tab}\ls1\ilvl1 {\ltrch A link:\~word -&gt; spelled -&gt; sequence}\li1440\ri0\sa160\sb0\jclisttab\tx1440\fi-360\ql\par}
+{\fs24\f4\b {\ltrch Autocomplete Usage}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Start typing immediately - autocomplete activates after 1 character}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Use Backspace freely - autocomplete only triggers when adding text}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Press Escape to close suggestions without selecting}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4\b {\ltrch Debugging}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Check the status bar for execution results}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch The result shows the link that was written}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Use the UKS Module to inspect created Thoughts and Links}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4\b {\ltrch Creating Custom Algorithms}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext 1.\tab}{\*\pn\pnlvlbody\pndec\pnstart1{\pntxta .}}{\ltrch Use the Algorithm Editor (Sequence/Context Editor) to create tasks}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext 2.\tab}{\*\pn\pnlvlbody\pndec\pnstart1{\pntxta .}}{\ltrch Define sequences with instructions like\~[p1\u8594?write EQ\u8594?TRUE]}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext 3.\tab}{\*\pn\pnlvlbody\pndec\pnstart1{\pntxta .}}{\ltrch Use contexts to create conditional logic}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext 4.\tab}{\*\pn\pnlvlbody\pndec\pnstart1{\pntxta .}}{\ltrch Save tasks as children of "Task"}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4\b {\ltrch Common Patterns}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4\b {\ltrch Troubleshooting}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\b\ltrch Problem}{\ltrch : Task not found}{\ltrch \line }{\b\ltrch Solution}{\ltrch : Check spelling, verify task exists in UKS Module, ensure task has "steps" link or "_main" variant}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\b\ltrch Problem}{\ltrch : Autocomplete not working}{\ltrch \line }{\b\ltrch Solution}{\ltrch : Ensure module is initialized, check that tasks are children of "Task" Thought}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\b\ltrch Problem}{\ltrch : Unexpected results}{\ltrch \line }{\b\ltrch Solution}{\ltrch : Verify parameter values, check task definition in Algorithm Editor, inspect UKS content}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\b\ltrch Problem}{\ltrch : Nothing happens when executing}{\ltrch \line }{\b\ltrch Solution}{\ltrch : Check status bar for error messages, verify UKS is initialized, ensure task has valid sequence}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4\b {\ltrch Related Modules}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Algorithm Editor}{\ltrch : Create and modify task definitions}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch UKS Module}{\ltrch : Inspect and browse all Thoughts and Links}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Sequence Module}{\ltrch : View and edit sequences}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4\b {\ltrch Keyboard Shortcuts}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Enter}{\ltrch \~in Task field: Accept autocomplete suggestion}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Enter}{\ltrch \~in Param2 field: Execute task}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Tab}{\ltrch : Accept autocomplete suggestion}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Escape}{\ltrch : Close autocomplete without selecting}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\b\ltrch Up/Down}{\ltrch : Navigate autocomplete suggestions}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 \li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 {\i\ltrch For more information about creating custom algorithms, see the Algorithm Editor documentation.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f4 \li0\ri0\sa160\sb0\fi0\ql\par}
 }
 }</description>
   </ModuleDescription>

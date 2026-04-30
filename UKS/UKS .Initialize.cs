@@ -168,6 +168,16 @@ public partial class UKS
         AddStatement("pi", "is-a", "number");
         AddSequenceAndLink("pi", "hasDigit", new List<Thought> { "3", ".", "1", "4", "1", "5", "9" });
 
+        //put in letters
+        GetOrAddThought("letter", "Abstract");
+        List<Thought> theAlphabet = new();
+        for (char c = 'A'; c <= 'Z'; c++)
+        {
+            theAlphabet.Add(GetOrAddThought(c.ToString(), "Letter"));
+        }
+        GetOrAddThought("alphabet", "abstract");
+        AddSequenceAndLink("alphabet", "order", theAlphabet);
+
 
         AddBrainSimConfigSectionIfNeeded();
     }

@@ -5,9 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BrainSimulator.Modules"
         mc:Ignorable="d"
-        Title="Empty Dialog Template" Height="170" Width="560" Background="Gray" ShowInTaskbar="False" >
+        Title="Empty Dialog Template" Height="165" Width="532" Background="Gray" ShowInTaskbar="False" >
 
     <Grid Margin="0,0,0,20" >
-
+        <Label Content="The Label:" Margin="23,20,473,0" Height="28" VerticalAlignment="Top" />
+        <TextBox x:Name="theInput" Height="28" Width="120" VerticalAlignment="Top" Margin="87,20,0,0" HorizontalAlignment="Left" ></TextBox>
     </Grid>
 </local:ModuleBaseDlg>

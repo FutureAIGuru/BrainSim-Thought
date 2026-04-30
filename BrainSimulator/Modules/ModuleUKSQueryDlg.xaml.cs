@@ -93,12 +93,11 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         string source = sourceText.Text;
         string type = typeText.Text;
         string target = targetText.Text;
-        string filter = filterText.Text;
 
         List<Thought> thoughts;
         List<Link> links;
         ModuleUKSQuery UKSQuery = (ModuleUKSQuery)ParentModule;
-        var results1 = UKSQuery.GetAttributes(source, type, target, filter, out thoughts, out links);
+        var results1 = UKSQuery.GetAttributes(source, type, target,out thoughts, out links);
 
         if (results1 is not null)
         {
@@ -133,17 +132,17 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         if (allResults.Count == 0)
         {
             resultText1.Text = "<No Results>";
-            BtnNo.IsEnabled = true;
-            if (queryThought.LinksTo.Count > 0)
-                BtnLearn.IsEnabled = true;
-            else
-                BtnLearn.IsEnabled = false;
+            //BtnNo.IsEnabled = true;
+            //if (queryThought.LinksTo.Count > 0)
+            //    BtnLearn.IsEnabled = true;
+            //else
+            //    BtnLearn.IsEnabled = false;
             queryThought.Delete();
             return;
         }
-        BtnNo.IsEnabled = true;
+        //BtnNo.IsEnabled = true;
         //        BtnLearn.IsEnabled = false;
-        BtnLearn.IsEnabled = true;
+        //BtnLearn.IsEnabled = true;
 
         resultText1.Text = "";
         foreach (var result1 in allResults)

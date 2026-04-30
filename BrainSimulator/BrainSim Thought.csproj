@@ -39,6 +39,8 @@
     <Compile Remove="Modules\ModulePremise.cs" />
     <Compile Remove="Modules\ModulePremiseDlg.xaml.cs" />
     <Compile Remove="Modules\ModuleQueryResolution.cs" />
+    <Compile Remove="Modules\ModuleSequenceEditor - Copy.cs" />
+    <Compile Remove="Modules\ModuleSequenceEditorDlg - Copy.xaml.cs" />
     <Compile Remove="Modules\ModuleTurn.cs" />
     <Compile Remove="Modules\ModuleUKSSearch.cs" />
     <Compile Remove="Modules\PhysicalObject.cs" />
@@ -70,6 +72,7 @@
     <Page Remove="Modules\Module2DSimDlg.xaml" />
     <Page Remove="Modules\ModuleObjectDlg.xaml" />
     <Page Remove="Modules\ModulePremiseDlg.xaml" />
+    <Page Remove="Modules\ModuleSequenceEditorDlg - Copy.xaml" />
     <Page Remove="Tools\ModuleDlg.xaml" />
   </ItemGroup>
   <ItemGroup>

@@ -89,11 +89,23 @@ public class ModuleTextIn : ModuleBase
         {
             if (dlg is ModuleTextInDlg ti)
             {
-                var attributes = theUKS.GetAllLinks(new List<Thought> { l.From });
-                if (attributes.Where(x => x.LinkType == l.LinkType && x.To == l.To).ToList().Count > 0)
-                    ti.Answer("is true.");
+                //special case for is-a
+                if (l.LinkType.Label == "is-a")
+                {
+                    if (l.From.HasAncestor(l.To))
+                        ti.Answer("is true.");
+                    else
+                        ti.Answer("is false.");
+                }
                 else
-                    ti.Answer("is false.");
+                {
+
+                    var attributes = theUKS.GetAllLinks(new List<Thought> { l.From });
+                    if (attributes.Where(x => x.LinkType == l.LinkType && x.To == l.To).ToList().Count > 0)
+                        ti.Answer("is true.");
+                    else
+                        ti.Answer("is false.");
+                }
             }
         }
     }

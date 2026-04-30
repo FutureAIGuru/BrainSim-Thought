@@ -1,0 +1,22 @@
+<local:ModuleBaseDlg x:Class="BrainSimulator.Modules.ModuleAlgorithmDlg"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BrainSimulator.Modules"
+        mc:Ignorable="d"
+        Title="Algorithm Module" Height="207" Width="471" Background="Gray" ShowInTaskbar="False" FontSize="16" >
+
+    <Grid Margin="0,0,22,32" >
+        <Label Content="Task:" Margin="52,8,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
+        <TextBox x:Name="taskInput" Height="28" VerticalAlignment="Top" Margin="55,41,0,0" HorizontalAlignment="Left" Width="205" />
+
+        <Label Content="Param 1:" Margin="53,72,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
+        <TextBox x:Name="parameter1Input" Height="28" Width="114" VerticalAlignment="Top" Margin="56,105,0,0" HorizontalAlignment="Left" ></TextBox>
+
+        <Label Content="Param 2:" Margin="185,72,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
+        <TextBox x:Name="parameter2Input" Height="28" Width="114" VerticalAlignment="Top" Margin="188,105,0,0" HorizontalAlignment="Left" ></TextBox>
+
+        <Button x:Name="executeButton" Content="Execute" Height="28" VerticalAlignment="Top" Margin="322,105,0,0" HorizontalAlignment="Left" Width="80" />
+    </Grid>
+</local:ModuleBaseDlg>
