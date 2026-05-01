@@ -43,7 +43,12 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         //this has a timer so that no matter how often you might call draw, the dialog
         //only updates 10x per second
         ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
-        SetStatus(parent.LastAction);
+        if (!string.IsNullOrEmpty(parent.LastAction))
+            SetStatus(parent.LastAction);
+        if (parent.CurrentStep is null)
+        {
+            singleStepButton.IsEnabled = false;
+        }
         return true;
     }
 
@@ -206,7 +211,8 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
             return;
         }
         
-        SetStatus($"Task ready: {taskName} (click Single Step to execute)");
+        SetStatus($"Task ready: {taskName} (click Single Step)");
+        singleStepButton.IsEnabled = true;
     }
 
     private void SingleStepButton_Click(object sender, RoutedEventArgs e)

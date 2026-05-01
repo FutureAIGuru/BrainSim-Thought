@@ -18,7 +18,7 @@ using System.Linq;
 using UKS;
 
 namespace BrainSimulator.Modules;
-    
+
 public class ModuleAlgorithm : ModuleBase
 {
     private TimeSpan linkTimeToLive = TimeSpan.FromSeconds(5);
@@ -51,9 +51,6 @@ public class ModuleAlgorithm : ModuleBase
         if (currentStep is not null && !IsSingleStepMode)
         {
             ExecuteSingleStep();
-            CycleCount++;
-            if (currentStep is null)
-                LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
         }
 
         UpdateDialog();
@@ -97,6 +94,7 @@ public class ModuleAlgorithm : ModuleBase
         linkTimeToLive = IsSingleStepMode ? TimeSpan.FromMinutes(1) : TimeSpan.FromSeconds(10);
         LastLinkWritten = null;
         CycleCount = 0;
+        LastAction = "";
 
         if (theUKS == null) return false;
 
@@ -145,7 +143,7 @@ public class ModuleAlgorithm : ModuleBase
 
         // Get the first step of the task's sequence
         currentStep = taskThought.GetTargetOfFirstLinkOfType("steps") as SeqElement;
-        
+
         // If no steps found, try appending "_main" to the task name
         if (currentStep is null)
         {
@@ -161,7 +159,7 @@ public class ModuleAlgorithm : ModuleBase
                 }
             }
         }
-        
+
         if (currentStep is null)
         {
             Debug.WriteLine($"Task has no steps: {taskName}");
@@ -173,7 +171,7 @@ public class ModuleAlgorithm : ModuleBase
         // Execute immediately for tests, or let the polling loop handle it
         if (executeImmediately)
             return ExecuteSteps();
-        
+
         return true;
     }
 
@@ -186,7 +184,7 @@ public class ModuleAlgorithm : ModuleBase
             Thought letterThought = theUKS.GetOrAddThought(letterName, "Letter");
             letters.Add(letterThought);
         }
-        
+
         if (letters.Count > 0)
         {
             SeqElement spellingSeq = theUKS.AddSequence(word + "-spelling", letters);
@@ -207,10 +205,10 @@ public class ModuleAlgorithm : ModuleBase
         }
         return true;
     }
-    
+
     public void ExecuteSingleStep()
     {
-        if (currentStep is null) return;
+        if (currentStep is null)return;
 
         // Get the action from the current step
         if (currentStep.VLU is Link action)
@@ -225,15 +223,15 @@ public class ModuleAlgorithm : ModuleBase
                 Link newLink = newFrom.AddLink(newLinkType, newTarget);
                 newLink.TimeToLive = linkTimeToLive;
                 LastLinkWritten = newLink; // <-- Save the last link written
-                LastAction = $"Step {CycleCount}: {newLink.ToString()}";
+                LastAction = $"STEP {CycleCount}: {newLink.ToString()}";
             }
             else
             {
-                Debug.WriteLine("Invalid Operator: " + action.LinkType.ToString());
                 LastAction = $"Invalid Operator: {action.LinkType.ToString()}";
             }
             // Move to the next step
-            //if currentStep is null, we are done with this task...check for a return added to the task and if so, return to it
+            //if currentStep is null, we are done with this subtask...
+            //check for a return location and if so, return to it
             if (currentStep.NXT is null)
             { //RETURN
                 Thought retVal = GetReturn(currentStep.FRST);
@@ -248,7 +246,6 @@ public class ModuleAlgorithm : ModuleBase
         else if (currentStep.VLU is Thought action1)
         {
             //it's not a link...must be a context to evaluate  (or a call or end)
-            Debug.Write("Instruction: " + action1.ToString() + "   ");
             if (action1.HasLink("steps") is not null) //CALL
             {  //CALL
                 Thought retVal = currentStep;
@@ -256,10 +253,9 @@ public class ModuleAlgorithm : ModuleBase
                 currentStep = (SeqElement)action1.GetTargetOfFirstLinkOfType("steps");
                 // write the return address (currentStep.NXT) in action.retval  
                 SetReturn(currentStep, retVal);
-                Debug.WriteLine("Calling: " + currentStep.ToString());
-                LastAction = $"Calling: {action1.Label}";
+                LastAction = $"CALL: {action1.Label}";
             }
-            else if (action1.Label.ToLower() == "end")
+            else if (action1.Label.ToLower() == "end") //END
             {
                 SetReturn(currentStep, null);
                 currentStep = null;
@@ -274,19 +270,24 @@ public class ModuleAlgorithm : ModuleBase
                 {
                     //TODO check for return
                     currentStep = null;
-                    LastAction = $"Context {action1.Label}: No response";
+                    LastAction = $"CONTEXT: {action1.Label}: No response";
                 }
                 else
                 {
                     currentStep = (SeqElement)response.GetTargetOfFirstLinkOfType("steps");
-                    if (currentStep is not null)
+                    if (currentStep is not null) //because there is no stack, if we JMP, we need to Forward the return address
                         SetReturn(currentStep, retVal);
-                    LastAction = $"Context {action1.Label}: Jump to {response.Label}";
+                    LastAction = $"CONTEXT: {action1.Label} JMP: {response.Label}";
                 }
             }
         }
-        
+
         CycleCount++;
+        if (currentStep is null)
+        {
+            LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
+            return;
+        }
     }
 
     private void SetReturn(Thought current, Thought retVal)
@@ -329,7 +330,7 @@ public class ModuleAlgorithm : ModuleBase
                     }
                     else if (test.To.Label == "??")
                     {
-                        if (!not && src.HasLink(testType) is not null) weight+=l.Weight;
+                        if (!not && src.HasLink(testType) is not null) weight += l.Weight;
                         if (not && src.HasLink(testType) is null) weight += l.Weight;
                     }
                     else
