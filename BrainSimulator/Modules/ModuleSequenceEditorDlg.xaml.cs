@@ -14,6 +14,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Windows;
@@ -27,16 +28,101 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 {
     private string undoContent = ""; // Store content for undo
     private UKS.UKS theUKS; // Store reference to UKS
+    private bool isHighlightedByCode = false; // Track if selection was made by our code
+    private string lastHighlightedText = null; // Track the last highlighted text
+    private bool _isTaskNameChangingInternally = false; // Track internal changes for autocomplete
+    private int _previousTaskNameLength = 0; // Track previous length for autocomplete
 
     public ModuleSequenceEditorDlg()
     {
         InitializeComponent();
         sequenceNameInput.KeyDown += SequenceNameInput_KeyDown;
+        sequenceNameInput.PreviewKeyDown += SequenceNameInput_PreviewKeyDown;
+        sequenceNameInput.TextChanged += SequenceNameInput_TextChanged;
         saveButton.Click += SaveButton_Click;
         replacePatternInput.KeyDown += ReplacePatternInput_KeyDown;
         sequenceContentInput.KeyDown += SequenceContentInput_KeyDown;
         sequenceContentInput.TextChanged += SequenceContentInput_TextChanged;
         sequenceContentInput.Loaded += SequenceContentInput_Loaded;
+        sequenceContentInput.SelectionChanged += SequenceContentInput_SelectionChanged;
+    }
+
+    private void SequenceNameInput_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        var tb = sequenceNameInput as TextBox;
+        if (tb is null) return;
+
+        // Allow text changes when keys like backspace, delete are pressed
+        if (e.Key == Key.Back || e.Key == Key.Delete)
+        {
+            _isTaskNameChangingInternally = true;
+            int caretIndex = tb.CaretIndex;
+            if (e.Key == Key.Back) caretIndex--;
+            if (caretIndex < 0) caretIndex = 0;
+            tb.Text = tb.Text.Substring(0, caretIndex);
+            tb.CaretIndex = caretIndex;
+            e.Handled = true;
+            _isTaskNameChangingInternally = false;
+            if (e.Key == Key.Back)
+                SequenceNameInput_TextChanged(null, null);
+        }
+    }
+
+    private void SequenceNameInput_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isTaskNameChangingInternally)
+            return;
+
+        var tb = sequenceNameInput as TextBox;
+        if (tb == null) return;
+
+        string searchText = sequenceNameInput.Text;
+        
+        // Track only the unselected (typed) portion
+        int actualTypedLength = tb.SelectionStart;
+        
+        // Check if we're deleting text
+        bool isDeleting = actualTypedLength < _previousTaskNameLength;
+        
+        // Only autocomplete if text is being added (not deleted)
+        if (string.IsNullOrEmpty(searchText) || isDeleting)
+        {
+            _previousTaskNameLength = actualTypedLength;
+            return;
+        }
+
+        // Update previous length before autocomplete might change it
+        _previousTaskNameLength = actualTypedLength;
+
+        if (theUKS == null)
+            return;
+
+        // Get all children of "Task" excluding "Variable"
+        Thought taskThought = theUKS.Labeled("Task");
+        if (taskThought == null)
+            return;
+
+        // Get the text that was actually typed (without selection)
+        string typedText = searchText.Substring(0, actualTypedLength);
+
+        var suggestion = taskThought.Children
+            .Where(t => t.Label.ToLower() != "variable" &&
+                       t.Label.StartsWith(typedText, System.StringComparison.OrdinalIgnoreCase))
+            .OrderBy(t => t.Label)
+            .Select(t => t.Label)
+            .FirstOrDefault();
+
+        if (suggestion != null && !suggestion.Equals(searchText, System.StringComparison.OrdinalIgnoreCase))
+        {
+            int caretIndex = tb.CaretIndex;
+            _isTaskNameChangingInternally = true;
+            sequenceNameInput.Text = suggestion;
+            tb.CaretIndex = caretIndex;
+            tb.SelectionStart = caretIndex;
+            tb.SelectionLength = suggestion.Length - caretIndex;
+            tb.SelectionOpacity = .4;
+            _isTaskNameChangingInternally = false;
+        }
     }
 
     public override bool Draw(bool checkDrawTimer)
@@ -46,8 +132,95 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         //only updates 10x per second
         ModuleSequenceEditor parent = (ModuleSequenceEditor)base.ParentModule;
         if (theUKS is null)
-           theUKS = parent?.theUKS;
+            theUKS = parent?.theUKS;
+
+        // Get the ModuleAlgorithm to highlight last executed step
+        if (MainWindow.theWindow != null)
+        {
+            ModuleAlgorithm algorithmModule = MainWindow.theWindow.activeModules
+                .OfType<ModuleAlgorithm>()
+                .FirstOrDefault();
+
+            if (algorithmModule?.LastExecutedStep?.VLU is not null)
+            {
+                string currentLabel = null;
+
+                // Get the label from the VLU (could be Link or Thought)
+                if (algorithmModule.LastExecutedStep.VLU is Link link)
+                {
+                    currentLabel = link.ToString();
+                }
+                else if (algorithmModule.LastExecutedStep.VLU is Thought thought)
+                {
+                    currentLabel = thought.Label;
+                }
+
+                // Only highlight if the text has changed
+                if (!string.IsNullOrEmpty(currentLabel) && currentLabel != lastHighlightedText)
+                {
+                    HighlightTextInSequence(currentLabel);
+                    lastHighlightedText = currentLabel;
+                }
+            }
+            else
+            {
+                // Clear selection only if we previously had something highlighted
+                if (lastHighlightedText != null)
+                {
+                    ClearSelection();
+                    lastHighlightedText = null;
+                }
+            }
+        }
+
         return true;
+    }
+    private void SequenceContentInput_SelectionChanged(object sender, RoutedEventArgs e)
+    {
+        // If selection changed and it wasn't us, clear our flag
+        if (!isHighlightedByCode)
+        {
+            // User made a selection, so we shouldn't clear it
+        }
+        else
+        {
+            // Reset flag after our programmatic selection is done
+            isHighlightedByCode = false;
+        }
+    }
+
+    private void ClearSelection()
+    {
+        if (isHighlightedByCode && sequenceContentInput.SelectionLength > 0)
+        {
+            sequenceContentInput.Select(0, 0);
+            isHighlightedByCode = false;
+        }
+    }
+
+    private void HighlightTextInSequence(string textToHighlight)
+    {
+        string content = sequenceContentInput.Text;
+        if (string.IsNullOrEmpty(content))
+            return;
+        
+        // Find the text in the content
+        int index = content.IndexOf(textToHighlight, StringComparison.OrdinalIgnoreCase);
+
+        if (index >= 0)
+        {
+            IInputElement previouslyFocusedElement = Keyboard.FocusedElement;
+            sequenceContentInput.Focus();
+            // Select the text WITHOUT taking focus
+            sequenceContentInput.Select(index, textToHighlight.Length);
+
+            sequenceContentInput.ScrollToLine(sequenceContentInput.GetLineIndexFromCharacterIndex(index));
+            // Mark that we're making this selection
+            isHighlightedByCode = true;
+            previouslyFocusedElement?.Focus();
+        }
+        else
+            ClearSelection();
     }
 
     private void TheGrid_SizeChanged(object sender, SizeChangedEventArgs e)

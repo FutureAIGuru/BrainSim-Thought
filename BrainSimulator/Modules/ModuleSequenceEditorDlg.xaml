@@ -8,27 +8,38 @@
         Title="Algorithm Editor" Height="400" Width="550" Background="Gray" ShowInTaskbar="False" FontSize="16">
 
     <Grid Margin="0,0,0,46" >
-        <Label Content="Task Name:" Margin="43,27,0,0" Height="28" VerticalAlignment="Top" HorizontalContentAlignment="Right" HorizontalAlignment="Left" Width="158" />
-        <TextBox x:Name="sequenceNameInput" Height="28" VerticalAlignment="Top" Margin="203,27,23,0" />
-
-        <Label Content="Elements:" Margin="23,60,401,0" Height="28" VerticalAlignment="Top" />
+        <Label Content="Task Name:" Margin="-62,10,0,0" Height="28" VerticalAlignment="Top" HorizontalContentAlignment="Right" HorizontalAlignment="Left" Width="158" />
+        <TextBox x:Name="sequenceNameInput" Height="28" VerticalAlignment="Top" Margin="98,10,172,0" />
 
         <!-- Line numbers TextBox -->
-        <TextBox x:Name="lineNumbersTextBox" Width="40" Margin="23,90,0,45" HorizontalAlignment="Left" 
+        <TextBox x:Name="lineNumbersTextBox" Width="40" Margin="23,90,0,0" HorizontalAlignment="Left" 
                  IsReadOnly="True" VerticalScrollBarVisibility="Hidden" TextWrapping="NoWrap" FontFamily="Consolas" 
                  Background="LightGray" BorderThickness="0,1,0,1" Padding="5,0,5,0" TextAlignment="Right"/>
 
         <!-- Content TextBox -->
-        <TextBox x:Name="sequenceContentInput" Margin="66,90,23,45" 
-                 AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextWrapping="NoWrap" FontFamily="Consolas"/>
+        <TextBox x:Name="sequenceContentInput" 
+                 AcceptsReturn="True" 
+                 AcceptsTab="True" 
+                 VerticalScrollBarVisibility="Auto" 
+                 HorizontalScrollBarVisibility="Auto"
+                 IsInactiveSelectionHighlightEnabled="True"
+                 Background="LightGray"
+                 FontFamily="Consolas" 
+                 FontSize="16" Margin="68,90,10,0" >
+            <TextBox.Resources>
+                <!-- Change 'Yellow' to any color you prefer -->
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" 
+                         Color="Yellow" />
+            </TextBox.Resources>
+        </TextBox>
 
-        <Button x:Name="saveButton" Content="Save" Height="28" Width="80" VerticalAlignment="Bottom" Margin="23,0,0,12" HorizontalAlignment="Left" ></Button>
+        <Button x:Name="saveButton" Content="Save" Margin="0,10,60,0" HorizontalAlignment="Right" Width="80" Height="28" VerticalAlignment="Top" />
 
         <!-- Search/Replace controls -->
-        <Label Content="Srch:" Height="28" VerticalAlignment="Bottom" Margin="118,0,0,12" HorizontalAlignment="Left" Width="35" FontSize="14" />
-        <TextBox x:Name="searchPatternInput" Height="28" Width="60" VerticalAlignment="Bottom" Margin="153,0,0,12" HorizontalAlignment="Left" FontSize="14" />
+        <Label Content="Search:" Margin="19,43,0,0" HorizontalAlignment="Left" Width="70" FontSize="14" HorizontalContentAlignment="Right" Height="28" VerticalAlignment="Top" />
+        <TextBox x:Name="searchPatternInput" Width="90" Margin="98,46,0,0" HorizontalAlignment="Left" FontSize="14" Height="28" VerticalAlignment="Top" />
 
-        <Label Content="Repl:" Height="28" VerticalAlignment="Bottom" Margin="223,0,0,12" HorizontalAlignment="Left" Width="42" FontSize="14" />
-        <TextBox x:Name="replacePatternInput" Height="28" Width="80" VerticalAlignment="Bottom" Margin="265,0,0,12" HorizontalAlignment="Left" FontSize="14" />
+        <Label Content="Replace:" Margin="223,41,0,0" HorizontalAlignment="Left" Width="70" FontSize="14" Height="28" VerticalAlignment="Top" />
+        <TextBox x:Name="replacePatternInput" Width="90" Margin="288,44,0,0" HorizontalAlignment="Left" FontSize="14" Height="28" VerticalAlignment="Top" />
     </Grid>
 </local:ModuleBaseDlg>

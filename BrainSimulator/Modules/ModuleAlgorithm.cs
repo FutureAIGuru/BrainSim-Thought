@@ -35,6 +35,11 @@ public class ModuleAlgorithm : ModuleBase
     public SeqElement CurrentStep => currentStep;
 
     /// <summary>
+    /// The last step that was executed (for highlighting in UI)
+    /// </summary>
+    public SeqElement LastExecutedStep { get; private set; }
+
+    /// <summary>
     /// The last link written during task execution, used as a return value
     /// </summary>
     public Link LastLinkWritten { get; private set; }
@@ -48,7 +53,7 @@ public class ModuleAlgorithm : ModuleBase
         Init();
 
         // Only execute steps if not in single-step mode
-        if (currentStep is not null && !IsSingleStepMode)
+        if ((LastExecutedStep is not null || currentStep is not null) && !IsSingleStepMode)
         {
             ExecuteSingleStep();
         }
@@ -137,7 +142,6 @@ public class ModuleAlgorithm : ModuleBase
         Thought taskThought = theUKS.Labeled(taskName);
         if (taskThought is null)
         {
-            Debug.WriteLine($"Task not found: {taskName}");
             return false;
         }
 
@@ -154,7 +158,6 @@ public class ModuleAlgorithm : ModuleBase
                 currentStep = mainTaskThought.GetTargetOfFirstLinkOfType("steps") as SeqElement;
                 if (currentStep != null)
                 {
-                    Debug.WriteLine($"Using main task: {mainTaskName}");
                     taskThought = mainTaskThought; // Use the _main task
                 }
             }
@@ -162,7 +165,6 @@ public class ModuleAlgorithm : ModuleBase
 
         if (currentStep is null)
         {
-            Debug.WriteLine($"Task has no steps: {taskName}");
             return false;
         }
 
@@ -199,16 +201,25 @@ public class ModuleAlgorithm : ModuleBase
 
     private bool ExecuteSteps()
     {
-        while (currentStep is not null)
+        do
         {
             ExecuteSingleStep();
-        }
+        } while (currentStep is not null);
+        LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
+        LastExecutedStep = null;
         return true;
     }
 
     public void ExecuteSingleStep()
     {
-        if (currentStep is null)return;
+        if (currentStep is null)
+        {
+            LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
+            LastExecutedStep = null;
+            return;
+        }
+        // Save the step we're about to execute
+        LastExecutedStep = currentStep;
 
         // Get the action from the current step
         if (currentStep.VLU is Link action)
@@ -230,8 +241,7 @@ public class ModuleAlgorithm : ModuleBase
                 LastAction = $"Invalid Operator: {action.LinkType.ToString()}";
             }
             // Move to the next step
-            //if currentStep is null, we are done with this subtask...
-            //check for a return location and if so, return to it
+            //if currentStep is null, we are done with this task...check for a return added to the task and if so, return to it
             if (currentStep.NXT is null)
             { //RETURN
                 Thought retVal = GetReturn(currentStep.FRST);
@@ -255,11 +265,10 @@ public class ModuleAlgorithm : ModuleBase
                 SetReturn(currentStep, retVal);
                 LastAction = $"CALL: {action1.Label}";
             }
-            else if (action1.Label.ToLower() == "end") //END
+            else if (action1.Label.ToLower() == "end")
             {
                 SetReturn(currentStep, null);
                 currentStep = null;
-                Debug.WriteLine("End of Task");
                 LastAction = "End of Task";
             }
             else  //CONTEXT 
@@ -283,11 +292,12 @@ public class ModuleAlgorithm : ModuleBase
         }
 
         CycleCount++;
-        if (currentStep is null)
-        {
-            LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
-            return;
-        }
+        //if (currentStep is null)
+        //{
+        //    LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
+        //    LastExecutedStep = null;
+        //    return;
+        //}
     }
 
     private void SetReturn(Thought current, Thought retVal)
@@ -339,7 +349,6 @@ public class ModuleAlgorithm : ModuleBase
                         if (!not && src.HasLink(testType, target) is not null) weight += l.Weight;
                         if (not && src.HasLink(testType, target) is null) weight += l.Weight;
                     }
-                    //Debug.WriteLine($"Compared: {test.ToString()}  Weight: {weight}  Src: {src} Type: {testType} NOT: {not}");
                 }
             }
             Debug.WriteLine($"Case: {t.Label}  Weight: {weight}");

@@ -45,10 +45,6 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
         if (!string.IsNullOrEmpty(parent.LastAction))
             SetStatus(parent.LastAction);
-        if (parent.CurrentStep is null)
-        {
-            singleStepButton.IsEnabled = false;
-        }
         return true;
     }
 
@@ -59,7 +55,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
 
     private void TaskInput_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-       var tb = taskInput as TextBox;
+        var tb = taskInput as TextBox;
         if (tb is null) return;
 
         // Allow text changes when keys like backspace, delete are pressed
@@ -92,13 +88,13 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         if (tb == null) return;
 
         string searchText = taskInput.Text;
-        
+
         // Track only the unselected (typed) portion
         int actualTypedLength = tb.SelectionStart;
-        
+
         // Check if we're deleting text
         bool isDeleting = actualTypedLength < _previousTextLength;
-        
+
         // Only autocomplete if text is being added (not deleted)
         if (string.IsNullOrEmpty(searchText) || isDeleting)
         {
@@ -175,10 +171,10 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
 
         // Set to full-speed execution
         parent.IsSingleStepMode = false;
-        
+
         // Execute the task using the module's execution engine
         bool success = parent.ExecuteTask(taskName, param1, param2, false);
-        
+
         if (success)
         {
             SetStatus($"Executing task: {taskName}");
@@ -204,13 +200,13 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         // Set to single-step mode and initialize the task
         parent.IsSingleStepMode = true;
         bool success = parent.ExecuteTask(taskName, param1, param2, false);
-        
+
         if (!success)
         {
             SetStatus("Failed to start task");
             return;
         }
-        
+
         SetStatus($"Task ready: {taskName} (click Single Step)");
         singleStepButton.IsEnabled = true;
     }
@@ -222,22 +218,14 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         if (parent?.theUKS == null) return;
 
         // Check if we have a current step
-        if (parent.CurrentStep == null)
+        if (parent.CurrentStep is null)
         {
-            SetStatus("No task running. Click Start first.");
-            return;
+            singleStepButton.IsEnabled = false;
         }
-        
+
         // Execute one step
         parent.ExecuteSingleStep();
-        
-        if (parent.CurrentStep == null)
-        {
-            SetStatus("Task completed");
-        }
-        else
-        {
-            SetStatus(parent.LastAction);
-        }
+
+        SetStatus(parent.LastAction);
     }
 }
