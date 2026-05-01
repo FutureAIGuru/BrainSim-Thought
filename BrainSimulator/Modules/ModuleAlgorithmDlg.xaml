@@ -8,15 +8,17 @@
         Title="Algorithm Module" Height="207" Width="471" Background="Gray" ShowInTaskbar="False" FontSize="16" >
 
     <Grid Margin="0,0,22,32" >
-        <Label Content="Task:" Margin="52,8,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
-        <TextBox x:Name="taskInput" Height="28" VerticalAlignment="Top" Margin="55,41,0,0" HorizontalAlignment="Left" Width="205" />
+        <Label Content="Task:" Margin="13,10,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
+        <TextBox x:Name="taskInput" Height="28" VerticalAlignment="Top" Margin="16,43,0,0" HorizontalAlignment="Left" Width="205" />
 
-        <Label Content="Param 1:" Margin="53,72,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
-        <TextBox x:Name="parameter1Input" Height="28" Width="114" VerticalAlignment="Top" Margin="56,105,0,0" HorizontalAlignment="Left" ></TextBox>
+        <Label Content="Param 1:" Margin="14,74,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
+        <TextBox x:Name="parameter1Input" Height="28" Width="114" VerticalAlignment="Top" Margin="17,107,0,0" HorizontalAlignment="Left" ></TextBox>
 
-        <Label Content="Param 2:" Margin="185,72,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
-        <TextBox x:Name="parameter2Input" Height="28" Width="114" VerticalAlignment="Top" Margin="188,105,0,0" HorizontalAlignment="Left" ></TextBox>
+        <Label Content="Param 2:" Margin="146,74,0,0" Height="28" VerticalAlignment="Top" HorizontalAlignment="Left" Width="114" />
+        <TextBox x:Name="parameter2Input" Height="28" Width="114" VerticalAlignment="Top" Margin="149,107,0,0" HorizontalAlignment="Left" ></TextBox>
 
-        <Button x:Name="executeButton" Content="Execute" Height="28" VerticalAlignment="Top" Margin="322,105,0,0" HorizontalAlignment="Left" Width="80" />
+        <Button x:Name="executeButton" Content="Execute" Height="28" VerticalAlignment="Top" Margin="295,107,0,0" HorizontalAlignment="Left" Width="90" />
+        <Button x:Name="startButton" Content="Start" Height="28" VerticalAlignment="Top" Margin="238,43,0,0" HorizontalAlignment="Left" Width="90" />
+        <Button x:Name="singleStepButton" Content="Single Step" Height="28" VerticalAlignment="Top" Margin="340,43,0,0" HorizontalAlignment="Left" Width="90" />
     </Grid>
 </local:ModuleBaseDlg>

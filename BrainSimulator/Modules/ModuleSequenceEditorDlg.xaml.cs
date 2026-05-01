@@ -141,6 +141,11 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         StringBuilder sb = new StringBuilder();
         int itemCount = 0;
 
+        if (task.Children.Count == 0)
+        {
+            string sequenceContent = FormatSequence(task, task);
+            sb.Append(sequenceContent);
+        }
         foreach (var child in task.Children)
         {
             if (itemCount > 0)

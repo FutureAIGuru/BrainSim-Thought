@@ -29,6 +29,8 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
     {
         InitializeComponent();
         executeButton.Click += ExecuteButton_Click;
+        startButton.Click += StartButton_Click;
+        singleStepButton.Click += SingleStepButton_Click;
         parameter1Input.KeyDown += Param1_KeyDown;
         parameter2Input.KeyDown += Param2_KeyDown;
         taskInput.TextChanged += TaskInput_TextChanged;
@@ -41,6 +43,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         //this has a timer so that no matter how often you might call draw, the dialog
         //only updates 10x per second
         ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+        SetStatus(parent.LastAction);
         return true;
     }
 
@@ -165,23 +168,70 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         string param1 = parameter1Input.Text?.Trim() ?? "";
         string param2 = parameter2Input.Text?.Trim() ?? "";
 
+        // Set to full-speed execution
+        parent.IsSingleStepMode = false;
+        
         // Execute the task using the module's execution engine
-        bool success = parent.ExecuteTask(taskName, param1, param2);
-
+        bool success = parent.ExecuteTask(taskName, param1, param2, false);
+        
         if (success)
         {
-            if (parent.LastLinkWritten != null)
-            {
-                SetStatus($"Task complete: {parent.LastLinkWritten}");
-            }
-            else
-            {
-                SetStatus("Task execution complete");
-            }
+            SetStatus($"Executing task: {taskName}");
+        }
+    }
+
+    private void StartButton_Click(object sender, RoutedEventArgs e)
+    {
+        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+
+        if (parent?.theUKS == null) return;
+
+        string taskName = taskInput.Text?.Trim();
+        if (string.IsNullOrEmpty(taskName))
+        {
+            SetStatus("No task specified");
+            return;
+        }
+
+        string param1 = parameter1Input.Text?.Trim() ?? "";
+        string param2 = parameter2Input.Text?.Trim() ?? "";
+
+        // Set to single-step mode and initialize the task
+        parent.IsSingleStepMode = true;
+        bool success = parent.ExecuteTask(taskName, param1, param2, false);
+        
+        if (!success)
+        {
+            SetStatus("Failed to start task");
+            return;
+        }
+        
+        SetStatus($"Task ready: {taskName} (click Single Step to execute)");
+    }
+
+    private void SingleStepButton_Click(object sender, RoutedEventArgs e)
+    {
+        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+
+        if (parent?.theUKS == null) return;
+
+        // Check if we have a current step
+        if (parent.CurrentStep == null)
+        {
+            SetStatus("No task running. Click Start first.");
+            return;
+        }
+        
+        // Execute one step
+        parent.ExecuteSingleStep();
+        
+        if (parent.CurrentStep == null)
+        {
+            SetStatus("Task completed");
         }
         else
         {
-            SetStatus("Task execution failed");
+            SetStatus(parent.LastAction);
         }
     }
 }
