@@ -23,6 +23,7 @@ public class ModuleAlgorithm : ModuleBase
 {
     private TimeSpan linkTimeToLive = TimeSpan.FromSeconds(5);
     private SeqElement currentStep = null;
+    private DateTime lastCycle = DateTime.Now;
 
     /// <summary>
     /// Controls whether execution happens one step at a time (true) or at full speed (false)
@@ -51,6 +52,9 @@ public class ModuleAlgorithm : ModuleBase
     public override void Fire()
     {
         Init();
+        if (DateTime.Now < lastCycle + TimeSpan.FromMilliseconds(250))
+            return;
+        lastCycle = DateTime.Now;
 
         // Only execute steps if not in single-step mode
         if ((LastExecutedStep is not null || currentStep is not null) && !IsSingleStepMode)
@@ -218,7 +222,7 @@ public class ModuleAlgorithm : ModuleBase
             LastExecutedStep = null;
             return;
         }
-        // Save the step we're about to execute
+        // Save the step we're about to execute so we can display it in the dlg
         LastExecutedStep = currentStep;
 
         // Get the action from the current step
@@ -230,11 +234,23 @@ public class ModuleAlgorithm : ModuleBase
             if (action.LinkType.HasAncestor("write") && newFrom is not null)
             {
                 Thought newLinkType = action.LinkType.GetTargetOfFirstLinkOfType("is");
-                newFrom.RemoveLinks(newLinkType);
-                Link newLink = newFrom.AddLink(newLinkType, newTarget);
-                newLink.TimeToLive = linkTimeToLive;
-                LastLinkWritten = newLink; // <-- Save the last link written
-                LastAction = $"STEP {CycleCount}: {newLink.ToString()}";
+                Link existingLink = theUKS.GetLink(newFrom, newLinkType, newTarget);
+                if (existingLink is null)
+                {
+                    newFrom.RemoveLinks(newLinkType);
+                    Link newLink = newFrom.AddLink(newLinkType, newTarget);
+                    newLink.TimeToLive = linkTimeToLive;
+                    LastLinkWritten = newLink; // <-- Save the last link written
+                    LastAction = $"STEP {CycleCount}: {newLink.ToString()}";
+                }
+                else //extend the TLL of an existing link.  This should become an inherent property of Thoughts
+                {
+                    existingLink.Fire();
+                    existingLink.TimeToLive *= 2;
+                    Debug.WriteLine($"Existing link extended: {existingLink.ToString()}  TTL: {existingLink.TimeToLive}");
+                    LastLinkWritten = existingLink; // <-- Save as the last link written
+                    LastAction = $"STEP {CycleCount}: {existingLink.ToString()}";
+                }
             }
             else
             {
@@ -255,7 +271,7 @@ public class ModuleAlgorithm : ModuleBase
         }
         else if (currentStep.VLU is Thought action1)
         {
-            //it's not a link...must be a context to evaluate  (or a call or end)
+            //it's not a link...must be a context, call, or end
             if (action1.HasLink("steps") is not null) //CALL
             {  //CALL
                 Thought retVal = currentStep;
@@ -271,14 +287,14 @@ public class ModuleAlgorithm : ModuleBase
                 currentStep = null;
                 LastAction = "End of Task";
             }
-            else  //CONTEXT 
+            else  //CONTEXT NAME
             { //JUMP (computed)
                 Thought response = EvaluateContext(action1);
                 Thought retVal = GetReturn(currentStep.FRST);
                 if (response is null)
                 {
                     //TODO check for return
-                    currentStep = null;
+                    currentStep = null;// (SeqElement)GetReturn(currentStep);
                     LastAction = $"CONTEXT: {action1.Label}: No response";
                 }
                 else
@@ -292,12 +308,6 @@ public class ModuleAlgorithm : ModuleBase
         }
 
         CycleCount++;
-        //if (currentStep is null)
-        //{
-        //    LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
-        //    LastExecutedStep = null;
-        //    return;
-        //}
     }
 
     private void SetReturn(Thought current, Thought retVal)

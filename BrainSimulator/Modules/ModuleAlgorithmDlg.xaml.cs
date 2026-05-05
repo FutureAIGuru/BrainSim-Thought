@@ -45,7 +45,12 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
         if (!string.IsNullOrEmpty(parent.LastAction))
             SetStatus(parent.LastAction);
-        return true;
+        else //hack for video creation
+        {
+            SetStatus("OK");
+            parent.LastAction = "";
+        }
+            return true;
     }
 
     private void TheGrid_SizeChanged(object sender, SizeChangedEventArgs e)
