@@ -29,6 +29,8 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
     {
         InitializeComponent();
         executeButton.Click += ExecuteButton_Click;
+        startButton.Click += StartButton_Click;
+        singleStepButton.Click += SingleStepButton_Click;
         parameter1Input.KeyDown += Param1_KeyDown;
         parameter2Input.KeyDown += Param2_KeyDown;
         taskInput.TextChanged += TaskInput_TextChanged;
@@ -41,7 +43,14 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         //this has a timer so that no matter how often you might call draw, the dialog
         //only updates 10x per second
         ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
-        return true;
+        if (!string.IsNullOrEmpty(parent.LastAction))
+            SetStatus(parent.LastAction);
+        else //hack for video creation
+        {
+            SetStatus("OK");
+            parent.LastAction = "";
+        }
+            return true;
     }
 
     private void TheGrid_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -51,7 +60,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
 
     private void TaskInput_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-       var tb = taskInput as TextBox;
+        var tb = taskInput as TextBox;
         if (tb is null) return;
 
         // Allow text changes when keys like backspace, delete are pressed
@@ -84,13 +93,13 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         if (tb == null) return;
 
         string searchText = taskInput.Text;
-        
+
         // Track only the unselected (typed) portion
         int actualTypedLength = tb.SelectionStart;
-        
+
         // Check if we're deleting text
         bool isDeleting = actualTypedLength < _previousTextLength;
-        
+
         // Only autocomplete if text is being added (not deleted)
         if (string.IsNullOrEmpty(searchText) || isDeleting)
         {
@@ -165,23 +174,63 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         string param1 = parameter1Input.Text?.Trim() ?? "";
         string param2 = parameter2Input.Text?.Trim() ?? "";
 
+        // Set to full-speed execution
+        parent.IsSingleStepMode = false;
+
         // Execute the task using the module's execution engine
-        bool success = parent.ExecuteTask(taskName, param1, param2);
+        bool success = parent.ExecuteTask(taskName, param1, param2, false);
 
         if (success)
         {
-            if (parent.LastLinkWritten != null)
-            {
-                SetStatus($"Task complete: {parent.LastLinkWritten}");
-            }
-            else
-            {
-                SetStatus("Task execution complete");
-            }
+            SetStatus($"Executing task: {taskName}");
         }
-        else
+    }
+
+    private void StartButton_Click(object sender, RoutedEventArgs e)
+    {
+        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+
+        if (parent?.theUKS == null) return;
+
+        string taskName = taskInput.Text?.Trim();
+        if (string.IsNullOrEmpty(taskName))
         {
-            SetStatus("Task execution failed");
+            SetStatus("No task specified");
+            return;
         }
+
+        string param1 = parameter1Input.Text?.Trim() ?? "";
+        string param2 = parameter2Input.Text?.Trim() ?? "";
+
+        // Set to single-step mode and initialize the task
+        parent.IsSingleStepMode = true;
+        bool success = parent.ExecuteTask(taskName, param1, param2, false);
+
+        if (!success)
+        {
+            SetStatus("Failed to start task");
+            return;
+        }
+
+        SetStatus($"Task ready: {taskName} (click Single Step)");
+        singleStepButton.IsEnabled = true;
+    }
+
+    private void SingleStepButton_Click(object sender, RoutedEventArgs e)
+    {
+        ModuleAlgorithm parent = (ModuleAlgorithm)base.ParentModule;
+
+        if (parent?.theUKS == null) return;
+
+        // Check if we have a current step
+        if (parent.CurrentStep is null)
+        {
+            singleStepButton.IsEnabled = false;
+        }
+
+        // Execute one step
+        parent.ExecuteSingleStep();
+
+        SetStatus(parent.LastAction);
     }
 }

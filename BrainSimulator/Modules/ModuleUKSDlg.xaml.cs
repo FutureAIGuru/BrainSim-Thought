@@ -220,15 +220,15 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             }
             if (r.To is SeqElement s)
             {
+                var seqElements = theUKS.FlattenSequence(s);
                 string joinCharacter = " ";
-                if (r.LinkType.Label == "events" || s.VLU is Link l) joinCharacter = "\n\t\t"; //hack for better dieplay of longer items
+                if (r.LinkType.Label == "events" || seqElements.Count(x=>x is Link l)>0) joinCharacter = "\n\t\t"; //hack for better dieplay of longer items
                 if (r.LinkType.Label == "NXT" || r.LinkType.Label == "FRST")
                 {
                     header = $"[{r.From.Label}→{r.LinkType.Label}→{r.To.Label}]";
                 }
                 else
                 {
-                    var seqElements = theUKS.FlattenSequence(s);
                     if (seqElements.Count() > 0)
                     {
                         List<string> seqLabels = new();

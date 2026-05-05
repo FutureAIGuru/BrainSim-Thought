@@ -31,7 +31,6 @@ public class ModuleAlgorithmTests : IDisposable
         
         module = new ModuleAlgorithm();
         module.theUKS = uks;
-        //module.UKSInitializedNotification();
 
         string currentDir = Directory.GetCurrentDirectory();
         string brainSimRoot = FindBrainSimRoot(currentDir);

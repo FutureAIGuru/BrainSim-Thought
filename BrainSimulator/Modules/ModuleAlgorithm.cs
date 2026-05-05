@@ -18,21 +18,49 @@ using System.Linq;
 using UKS;
 
 namespace BrainSimulator.Modules;
-    
+
 public class ModuleAlgorithm : ModuleBase
 {
     private TimeSpan linkTimeToLive = TimeSpan.FromSeconds(5);
+    private SeqElement currentStep = null;
+    private DateTime lastCycle = DateTime.Now;
+
+    /// <summary>
+    /// Controls whether execution happens one step at a time (true) or at full speed (false)
+    /// </summary>
+    public bool IsSingleStepMode { get; set; } = false;
+
+    /// <summary>
+    /// Expose current step for UI to check execution state
+    /// </summary>
+    public SeqElement CurrentStep => currentStep;
+
+    /// <summary>
+    /// The last step that was executed (for highlighting in UI)
+    /// </summary>
+    public SeqElement LastExecutedStep { get; private set; }
 
     /// <summary>
     /// The last link written during task execution, used as a return value
     /// </summary>
     public Link LastLinkWritten { get; private set; }
+    public string LastAction = "";
+    public int CycleCount = 0;
 
     // Fill this method in with code which will execute
     // once for each cycle of the engine
     public override void Fire()
     {
         Init();
+        if (DateTime.Now < lastCycle + TimeSpan.FromMilliseconds(250))
+            return;
+        lastCycle = DateTime.Now;
+
+        // Only execute steps if not in single-step mode
+        if ((LastExecutedStep is not null || currentStep is not null) && !IsSingleStepMode)
+        {
+            ExecuteSingleStep();
+        }
 
         UpdateDialog();
     }
@@ -65,11 +93,17 @@ public class ModuleAlgorithm : ModuleBase
     /// <param name="taskName">Name of the task to execute</param>
     /// <param name="param1Value">First parameter value (can be any string)</param>
     /// <param name="param2Value">Second parameter value (can be any string)</param>
+    /// <param name="executeImmediately">If true, executes all steps immediately (for testing). If false, 
+    /// lets the polling loop or single-step execute steps.</param>
     /// <returns>True if execution succeeded, false otherwise</returns>
-    public bool ExecuteTask(string taskName, string param1Value = "", string param2Value = "")
+    public bool ExecuteTask(string taskName, string param1Value = "", string param2Value = "", bool executeImmediately = true)
     {
-        linkTimeToLive = TimeSpan.FromSeconds(10);
+        // Set link time-to-live based on execution mode
+        // Single-step mode gets longer TTL since user is manually stepping through
+        linkTimeToLive = IsSingleStepMode ? TimeSpan.FromMinutes(1) : TimeSpan.FromSeconds(10);
         LastLinkWritten = null;
+        CycleCount = 0;
+        LastAction = "";
 
         if (theUKS == null) return false;
 
@@ -112,13 +146,12 @@ public class ModuleAlgorithm : ModuleBase
         Thought taskThought = theUKS.Labeled(taskName);
         if (taskThought is null)
         {
-            Debug.WriteLine($"Task not found: {taskName}");
             return false;
         }
 
         // Get the first step of the task's sequence
-        SeqElement currentStep = taskThought.GetTargetOfFirstLinkOfType("steps") as SeqElement;
-        
+        currentStep = taskThought.GetTargetOfFirstLinkOfType("steps") as SeqElement;
+
         // If no steps found, try appending "_main" to the task name
         if (currentStep is null)
         {
@@ -129,22 +162,23 @@ public class ModuleAlgorithm : ModuleBase
                 currentStep = mainTaskThought.GetTargetOfFirstLinkOfType("steps") as SeqElement;
                 if (currentStep != null)
                 {
-                    Debug.WriteLine($"Using main task: {mainTaskName}");
                     taskThought = mainTaskThought; // Use the _main task
                 }
             }
         }
-        
+
         if (currentStep is null)
         {
-            Debug.WriteLine($"Task has no steps: {taskName}");
             return false;
         }
 
         theUKS.GetOrAddThought("retVal", "Variable");
 
-        // Execute the task
-        return ExecuteSteps(ref currentStep);
+        // Execute immediately for tests, or let the polling loop handle it
+        if (executeImmediately)
+            return ExecuteSteps();
+
+        return true;
     }
 
     private void CreateSpellingSequence(string word, Thought wordThought)
@@ -156,7 +190,7 @@ public class ModuleAlgorithm : ModuleBase
             Thought letterThought = theUKS.GetOrAddThought(letterName, "Letter");
             letters.Add(letterThought);
         }
-        
+
         if (letters.Count > 0)
         {
             SeqElement spellingSeq = theUKS.AddSequence(word + "-spelling", letters);
@@ -169,114 +203,111 @@ public class ModuleAlgorithm : ModuleBase
         }
     }
 
-    private Thought ParseIndirection(string toLabel)
+    private bool ExecuteSteps()
     {
-        if (string.IsNullOrEmpty(toLabel)) return null;
-
-        // Special handling for param1/param2 - automatically follow the "is" link
-        // This allows tasks to reference "param1" instead of "param1.is"
-        if (toLabel == "param1" || toLabel == "param2")
+        do
         {
-            Thought paramThought = theUKS.Labeled(toLabel);
-            Thought valueThought = paramThought?.GetTargetOfFirstLinkOfType("is");
-            return valueThought ?? paramThought;
-        }
-
-        string[] parts = toLabel.Split(".");
-        Thought newTarget = theUKS.Labeled(parts[0]);
-        for (int i = 1; i < parts.Length; i++)
-        {
-            Thought linkType = theUKS.Labeled(parts[i]);
-            newTarget = newTarget?.GetTargetOfFirstLinkOfType(linkType);
-        }
-        return newTarget;
+            ExecuteSingleStep();
+        } while (currentStep is not null);
+        LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
+        LastExecutedStep = null;
+        return true;
     }
 
-    private bool ExecuteSteps(ref SeqElement currentStep)
+    public void ExecuteSingleStep()
     {
-         while (currentStep is not null)
+        if (currentStep is null)
         {
-            // Get the action from the current step
-            if (currentStep.VLU is Link action)
-            {
-                Debug.WriteLine("Instruction: " + action.ToString() + "   ");
-                Link newLink = new(action.From, action.LinkType, action.To);
-                string toLabel = action.To?.Label.ToLower();
-                string fromLabel = action.From?.Label.ToLower();
-                string linkLabel = action.LinkType?.Label.ToLower();
-                Thought newTarget = null;
-                newTarget = ParseIndirection(toLabel);
-                if (newTarget is not null)
-                    newLink.To = newTarget; //this changes the value not the programp1
-                Thought newFrom = ParseIndirection(fromLabel);
+            LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
+            LastExecutedStep = null;
+            return;
+        }
+        // Save the step we're about to execute so we can display it in the dlg
+        LastExecutedStep = currentStep;
 
-                if (action.LinkType.HasAncestor("write") && newFrom is not null)
+        // Get the action from the current step
+        if (currentStep.VLU is Link action)
+        {
+            Thought newTarget = ParseIndirection(action.To);
+            Thought newFrom = ParseIndirection(action.From);
+
+            if (action.LinkType.HasAncestor("write") && newFrom is not null)
+            {
+                Thought newLinkType = action.LinkType.GetTargetOfFirstLinkOfType("is");
+                Link existingLink = theUKS.GetLink(newFrom, newLinkType, newTarget);
+                if (existingLink is null)
                 {
-                    Thought newLinkType = action.LinkType.GetTargetOfFirstLinkOfType("is");
                     newFrom.RemoveLinks(newLinkType);
-                    newLink = newFrom.AddLink(newLinkType, newTarget);
+                    Link newLink = newFrom.AddLink(newLinkType, newTarget);
                     newLink.TimeToLive = linkTimeToLive;
-                    Debug.WriteLine("Link Written: " + newLink.ToString());
                     LastLinkWritten = newLink; // <-- Save the last link written
+                    LastAction = $"STEP {CycleCount}: {newLink.ToString()}";
+                }
+                else //extend the TLL of an existing link.  This should become an inherent property of Thoughts
+                {
+                    existingLink.Fire();
+                    existingLink.TimeToLive *= 2;
+                    Debug.WriteLine($"Existing link extended: {existingLink.ToString()}  TTL: {existingLink.TimeToLive}");
+                    LastLinkWritten = existingLink; // <-- Save as the last link written
+                    LastAction = $"STEP {CycleCount}: {existingLink.ToString()}";
+                }
+            }
+            else
+            {
+                LastAction = $"Invalid Operator: {action.LinkType.ToString()}";
+            }
+            // Move to the next step
+            //if currentStep is null, we are done with this task...check for a return added to the task and if so, return to it
+            if (currentStep.NXT is null)
+            { //RETURN
+                Thought retVal = GetReturn(currentStep.FRST);
+                currentStep = (SeqElement)retVal;
+            }
+            currentStep = currentStep?.NXT;
+        }
+        else if (currentStep.VLU is null)
+        {
+            currentStep = null;
+        }
+        else if (currentStep.VLU is Thought action1)
+        {
+            //it's not a link...must be a context, call, or end
+            if (action1.HasLink("steps") is not null) //CALL
+            {  //CALL
+                Thought retVal = currentStep;
+                // jump to the new task
+                currentStep = (SeqElement)action1.GetTargetOfFirstLinkOfType("steps");
+                // write the return address (currentStep.NXT) in action.retval  
+                SetReturn(currentStep, retVal);
+                LastAction = $"CALL: {action1.Label}";
+            }
+            else if (action1.Label.ToLower() == "end")
+            {
+                SetReturn(currentStep, null);
+                currentStep = null;
+                LastAction = "End of Task";
+            }
+            else  //CONTEXT NAME
+            { //JUMP (computed)
+                Thought response = EvaluateContext(action1);
+                Thought retVal = GetReturn(currentStep.FRST);
+                if (response is null)
+                {
+                    //TODO check for return
+                    currentStep = null;// (SeqElement)GetReturn(currentStep);
+                    LastAction = $"CONTEXT: {action1.Label}: No response";
                 }
                 else
                 {
-                    Debug.WriteLine("Invalid Operator: " + action.LinkType.ToString());
-                }
-                // Move to the next step
-                //if currentStep is null, we are done with this task...check for a return added to the task and if so, return to it
-                if (currentStep.NXT is null)
-                { //RETURN
-                    Thought retVal = GetReturn(currentStep.FRST);
-                    currentStep = (SeqElement)retVal;
-                    Debug.WriteLine("Returning to: " + currentStep?.ToString());
-                }
-                currentStep = currentStep?.NXT;
-            }
-            else if (currentStep.VLU is null)
-            {
-                currentStep = null;
-            }
-            else if (currentStep.VLU is Thought action1)
-            {
-                //it's not a link...must be a context to evaluate  (or a call or end)
-                Debug.Write("Instruction: " + action1.ToString() + "   ");
-                if (action1.HasLink("steps") is not null) //CALL
-                {  //CALL
-                    Thought retVal = currentStep;
-                    // jump to the new task
-                    currentStep = (SeqElement)action1.GetTargetOfFirstLinkOfType("steps");
-                    // write the return address (currentStep.NXT) in action.retval  
-                    SetReturn(currentStep, retVal);
-                    Debug.WriteLine("Calling: " + currentStep.ToString());
-                }
-                else if (action1.Label.ToLower() == "end")
-                {
-                    SetReturn(currentStep, null);
-                    currentStep = null;
-                    Debug.WriteLine("End of Task");
-                }
-                else  //CONTEXT Test
-                { //JUMP (computed)
-                    Thought response = EvaluateContext(action1);
-                    Thought retVal = GetReturn(currentStep.FRST);
-                    Debug.WriteLine("Evaluating Context: " + action1?.ToString());
-                    Debug.WriteLine("Jumping to: " + currentStep?.ToString());
-                    if (response is null)
-                    {
-                        //TODO check for return
-                        currentStep = null;
-                    }
-                    else
-                    {
-                        currentStep = (SeqElement)response.GetTargetOfFirstLinkOfType("steps");
-                        if (currentStep is not null)
+                    currentStep = (SeqElement)response.GetTargetOfFirstLinkOfType("steps");
+                    if (currentStep is not null) //because there is no stack, if we JMP, we need to Forward the return address
                         SetReturn(currentStep, retVal);
-                    }
+                    LastAction = $"CONTEXT: {action1.Label} JMP: {response.Label}";
                 }
             }
         }
-        return true;
+
+        CycleCount++;
     }
 
     private void SetReturn(Thought current, Thought retVal)
@@ -309,26 +340,25 @@ public class ModuleAlgorithm : ModuleBase
                     if (test.LinkType.HasAncestor("not")) not = true;
                     //Thought testType = test.LinkType.GetTargetOfFirstLinkOfType("is");
                     Thought testType = test.LinkType.LinksTo.FindFirst(x => x.LinkType.Label.ToLower() == "is" && x.To.Label != "EXIST")?.To;
-                    var src = ParseIndirection(test.From.Label);
+                    var src = ParseIndirection(test.From);
                     if (src is null) continue;
                     if (test.LinkType.HasAncestor("same") || test.LinkType.Label.ToLower().Contains("same")) //hack if ancestor not set properly
                     {
-                        Thought target = ParseIndirection(test.To.Label);
+                        Thought target = ParseIndirection(test.To);
                         if (!not && src == target) weight += l.Weight;
                         if (not && src != target) weight += l.Weight;
                     }
                     else if (test.To.Label == "??")
                     {
-                        if (!not && src.HasLink(testType) is not null) weight+=l.Weight;
+                        if (!not && src.HasLink(testType) is not null) weight += l.Weight;
                         if (not && src.HasLink(testType) is null) weight += l.Weight;
                     }
                     else
                     {
-                        Thought target = ParseIndirection(test.To.Label);
+                        Thought target = ParseIndirection(test.To);
                         if (!not && src.HasLink(testType, target) is not null) weight += l.Weight;
                         if (not && src.HasLink(testType, target) is null) weight += l.Weight;
                     }
-                    //Debug.WriteLine($"Compared: {test.ToString()}  Weight: {weight}  Src: {src} Type: {testType} NOT: {not}");
                 }
             }
             Debug.WriteLine($"Case: {t.Label}  Weight: {weight}");
@@ -342,4 +372,21 @@ public class ModuleAlgorithm : ModuleBase
         Debug.WriteLine($"Context: {contextRoot} returned {bestResponse}");
         return bestResponse;
     }
+    private Thought ParseIndirection(Thought to)
+    {
+        if (to is null) return null;
+        string toLabel = to.Label;
+        if (string.IsNullOrEmpty(toLabel)) return null;
+
+        string[] parts = toLabel.Split(".");
+        Thought newTarget = theUKS.Labeled(parts[0]);
+        for (int i = 1; i < parts.Length; i++)
+        {
+            Thought linkType = theUKS.Labeled(parts[i]);
+            newTarget = newTarget?.GetTargetOfFirstLinkOfType(linkType);
+        }
+        return newTarget;
+    }
+
+
 }
