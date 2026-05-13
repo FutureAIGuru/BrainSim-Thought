@@ -13,7 +13,9 @@
 
         <!-- Line numbers TextBox -->
         <TextBox x:Name="lineNumbersTextBox" Width="40" Margin="23,90,0,0" HorizontalAlignment="Left" 
-                 IsReadOnly="True" VerticalScrollBarVisibility="Hidden" TextWrapping="NoWrap" FontFamily="Consolas" 
+                 IsReadOnly="True" VerticalScrollBarVisibility="Hidden" TextWrapping="NoWrap" 
+                 FontFamily="Consolas" 
+                 FontSize="16"
                  Background="LightGray" BorderThickness="0,1,0,1" Padding="5,0,5,0" TextAlignment="Right"/>
 
         <!-- Content TextBox -->
@@ -36,10 +38,10 @@
         <Button x:Name="saveButton" Content="Save" Margin="0,10,60,0" HorizontalAlignment="Right" Width="80" Height="28" VerticalAlignment="Top" />
 
         <!-- Search/Replace controls -->
-        <Label Content="Search:" Margin="19,43,0,0" HorizontalAlignment="Left" Width="70" FontSize="14" HorizontalContentAlignment="Right" Height="28" VerticalAlignment="Top" />
+        <Label Content="Search:" Margin="23,44,0,0" HorizontalAlignment="Left" Width="70" FontSize="14" HorizontalContentAlignment="Right" Height="28" VerticalAlignment="Top" />
         <TextBox x:Name="searchPatternInput" Width="90" Margin="98,46,0,0" HorizontalAlignment="Left" FontSize="14" Height="28" VerticalAlignment="Top" />
 
-        <Label Content="Replace:" Margin="223,41,0,0" HorizontalAlignment="Left" Width="70" FontSize="14" Height="28" VerticalAlignment="Top" />
-        <TextBox x:Name="replacePatternInput" Width="90" Margin="288,44,0,0" HorizontalAlignment="Left" FontSize="14" Height="28" VerticalAlignment="Top" />
+        <Label Content="Replace:" Margin="227,44,0,0" HorizontalAlignment="Left" Width="70" FontSize="14" Height="28" VerticalAlignment="Top" />
+        <TextBox x:Name="replacePatternInput" Width="90" Margin="288,46,0,0" HorizontalAlignment="Left" FontSize="14" Height="28" VerticalAlignment="Top" />
     </Grid>
 </local:ModuleBaseDlg>

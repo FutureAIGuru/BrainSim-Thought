@@ -221,6 +221,8 @@ public class ModuleBaseDlg : Window
             statusLabel.Foreground = new SolidColorBrush(Colors.Black);
         else
             statusLabel.Foreground = new SolidColorBrush((Color)c);
+        // Escape underscores for Label display (WPF treats _ as access key prefix)
+        message = message.Replace("_", "__");
 
         statusLabel.Content = message;
     }

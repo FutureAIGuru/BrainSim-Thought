@@ -45,7 +45,9 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         sequenceContentInput.TextChanged += SequenceContentInput_TextChanged;
         sequenceContentInput.Loaded += SequenceContentInput_Loaded;
         sequenceContentInput.SelectionChanged += SequenceContentInput_SelectionChanged;
+        sequenceContentInput.PreviewMouseWheel += SequenceContentInput_PreviewMouseWheel;
     }
+
 
     private void SequenceNameInput_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -133,6 +135,14 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         ModuleSequenceEditor parent = (ModuleSequenceEditor)base.ParentModule;
         if (theUKS is null)
             theUKS = parent?.theUKS;
+
+        // Load saved font size if available
+        string sizeString = parent?.GetSavedDlgAttribute("fontSize");
+        if (!string.IsNullOrEmpty(sizeString) && int.TryParse(sizeString, out int fontSize) && fontSize > 0)
+        {
+            if (Math.Abs(sequenceContentInput.FontSize - fontSize) > 0.1)
+                sequenceContentInput.FontSize = fontSize;
+        }
 
         // Get the ModuleAlgorithm to highlight last executed step
         if (MainWindow.theWindow != null)
@@ -760,7 +770,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 
     private void SequenceContentInput_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.X && Keyboard.Modifiers == ModifierKeys.Control)
+        if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control)
         {
             PerformUndo();
             e.Handled = true;
@@ -794,19 +804,39 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         // Store current content for undo
         undoContent = content;
 
-        // Use regex to replace pattern like "c1", "c2", etc. with "newString1", "newString2", etc.
-        // Matches the search pattern followed by digits
-        var regex = new System.Text.RegularExpressions.Regex($@"\b{System.Text.RegularExpressions.Regex.Escape(searchPattern)}(\d+)\b");
-        
+        // Count occurrences before replacing (case-insensitive)
         int replacementCount = 0;
-        string newContent = regex.Replace(content, match =>
+        int index = 0;
+        while ((index = content.IndexOf(searchPattern, index, StringComparison.OrdinalIgnoreCase)) >= 0)
         {
             replacementCount++;
-            return replacePattern + match.Groups[1].Value; // Keep the digit part
-        });
+            index += searchPattern.Length;
+        }
+
+        // Perform case-insensitive string replacement
+        // We need to manually replace to maintain the exact replacement string
+        StringBuilder result = new StringBuilder();
+        int lastIndex = 0;
+        index = 0;
+        
+        while ((index = content.IndexOf(searchPattern, index, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            // Append text before the match
+            result.Append(content.Substring(lastIndex, index - lastIndex));
+            // Append the replacement (maintaining its exact case)
+            result.Append(replacePattern);
+            // Move past the matched text
+            index += searchPattern.Length;
+            lastIndex = index;
+        }
+        
+        // Append remaining text after last match
+        result.Append(content.Substring(lastIndex));
+        
+        string newContent = result.ToString();
 
         sequenceContentInput.Text = newContent;
-        SetStatus($"Replaced {replacementCount} occurrence(s) of '{searchPattern}X' with '{replacePattern}X' (Ctrl+X to undo)");
+        SetStatus($"Replaced {replacementCount} occurrence(s) of '{searchPattern}' with '{replacePattern}' (Ctrl+Z to undo)");
     }
 
     private void PerformUndo()
@@ -822,4 +852,29 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             SetStatus("Nothing to undo");
         }
     }
+
+    // Using the mouse-wheel while pressing ctrl key changes the font size
+    private void SequenceContentInput_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if ((Keyboard.GetKeyStates(Key.LeftCtrl) & KeyStates.Down | Keyboard.GetKeyStates(Key.RightCtrl) & KeyStates.Down) != 0)
+        {
+            if (e.Delta < 0)
+            {
+                if (sequenceContentInput.FontSize > 2)
+                    sequenceContentInput.FontSize -= 1;
+            }
+            else if (e.Delta > 0)
+            {
+                sequenceContentInput.FontSize += 1;
+            }
+            lineNumbersTextBox.FontSize = sequenceContentInput.FontSize;
+
+            // Save the font size
+            ModuleSequenceEditor parent = (ModuleSequenceEditor)ParentModule;
+            parent?.SetSavedDlgAttribute("fontSize", sequenceContentInput.FontSize.ToString());
+
+            e.Handled = true; // Prevent scrolling
+        }
+    }
+
 }
