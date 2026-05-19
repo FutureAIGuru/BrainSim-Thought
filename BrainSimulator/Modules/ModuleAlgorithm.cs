@@ -31,10 +31,6 @@ public class ModuleAlgorithm : ModuleBase
     public bool IsSingleStepMode { get; set; } = false;
     private bool takeStep = false;
     public void Step() { takeStep = true; }
-    /// <summary>
-    /// Expose current step for UI to check execution state
-    /// </summary>
-    //public SeqElement CurrentStep => currentStep;
 
     /// <summary>
     /// The last step that was executed (for highlighting in UI)
@@ -90,11 +86,13 @@ public class ModuleAlgorithm : ModuleBase
     }
 
     //WE COULD REPLACE THESE WITH PROPERTIES
+    // Entry point: Thought with a "steps" link to a SeqElement
     private bool IsEntryPoint(Thought t) { return t.GetTargetOfFirstLinkOfType("steps") is not null; }
+    // Call: SeqElement with a VLU that has a "steps" link
     private bool IsCall(Thought t) { return t is not null && t is not Link && t.GetTargetOfFirstLinkOfType("steps") is not null; }
-
-    private bool IsContext(Thought t) { return t is not null && t is not Link && t is not SeqElement s && t.GetTargetOfFirstLinkOfType("steps") is null ; }
-
+    // Context: Thought with no "steps" link and not a call or assignment
+    private bool IsContext(Thought t) { return t is not null && t is not Link && t is not SeqElement s && t.GetTargetOfFirstLinkOfType("steps") is null; }
+    // Assignment: Link with a "write" ancestor
     private bool IsAssignment(Thought t) { return t is Link link && link.LinkType?.HasAncestor("write") == true; }
 
     private void FireNextStatement(Thought activeStep)
@@ -103,11 +101,11 @@ public class ModuleAlgorithm : ModuleBase
         if (activeStep is SeqElement s)
         {
             //do NOT step next if this is a CALL or a CONTEXT
-            if (IsCall(s.VLU)) { SetReturn(s.VLU.GetTargetOfFirstLinkOfType("steps"), s.NXT);s.VLU.Fire(); return; }
+            if (IsCall(s.VLU)) { SetReturn(s.VLU.GetTargetOfFirstLinkOfType("steps"), s.NXT); s.VLU.Fire(); return; }
             if (IsContext(s.VLU)) s.VLU.Fire();
             if (IsAssignment(s.VLU)) s.VLU.Fire();
-            Thought retVal = s.NXT;
-            if (retVal is null)
+            Thought retVal = s.NXT; //get the next statement in the sequence
+            if (retVal is null) //if we're at the end of a sequence, check for a return value to jump to
                 retVal = GetReturn(s.FRST);
             retVal?.Fire();
             Debug.WriteLine($"Next Statement: {retVal}");
@@ -143,8 +141,8 @@ public class ModuleAlgorithm : ModuleBase
         if (t is Link action)
         {
             Debug.WriteLine($"Handle assignment: {action}");
-            Thought newTarget = ParseIndirection(action.To);
-            Thought newFrom = ParseIndirection(action.From);
+            Thought newTarget = HandleIndirection(action.To);
+            Thought newFrom = HandleIndirection(action.From);
             if (action.LinkType.HasAncestor("write") && newFrom is not null)
             {
                 Thought newLinkType = action.LinkType.GetTargetOfFirstLinkOfType("is");
@@ -314,109 +312,14 @@ public class ModuleAlgorithm : ModuleBase
     private bool ExecuteAllSteps()
     {
         //Run the whole program
-        while (HandleFiringNeurons()) { };
+        while (HandleFiringNeurons()) { }
+        ;
 
         LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
         LastExecutedStep = null;
         return true;
     }
 
-/*    public void ExecuteSingleStep()
-    {
-        if (currentStep is null)
-        {
-            LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
-            LastExecutedStep = null;
-            return;
-        }
-        // Save the step we're about to execute so we can display it in the dlg
-        LastExecutedStep = currentStep;
-
-        // Get the action from the current step
-        if (currentStep.VLU is Link action)
-        {
-            Thought newTarget = ParseIndirection(action.To);
-            Thought newFrom = ParseIndirection(action.From);
-            action.Fire();
-            if (action.LinkType.HasAncestor("write") && newFrom is not null)
-            {
-                Thought newLinkType = action.LinkType.GetTargetOfFirstLinkOfType("is");
-                Link existingLink = theUKS.GetLink(newFrom, newLinkType, newTarget);
-                if (existingLink is null)
-                {
-                    newFrom.RemoveLinks(newLinkType);
-                    Link newLink = newFrom.AddLink(newLinkType, newTarget);
-                    newLink.TimeToLive = linkTimeToLive;
-                    LastLinkWritten = newLink; // <-- Save the last link written
-                    LastAction = $"STEP {CycleCount}: {newLink.ToString()}";
-                }
-                else //extend the TLL of an existing link.  This should become an inherent property of Thoughts
-                {
-                    existingLink.Fire();
-                    existingLink.TimeToLive *= 2;
-                    Debug.WriteLine($"Existing link extended: {existingLink.ToString()}  TTL: {existingLink.TimeToLive}");
-                    LastLinkWritten = existingLink; // <-- Save as the last link written
-                    LastAction = $"STEP {CycleCount}: {existingLink.ToString()}";
-                }
-            }
-            else
-            {
-                LastAction = $"Invalid Operator: {action.LinkType.ToString()}";
-            }
-            // Move to the next step
-            //if currentStep is null, we are done with this task...check for a return added to the task and if so, return to it
-            if (currentStep.NXT is null)
-            { //RETURN
-                Thought retVal = GetReturn(currentStep.FRST);
-                currentStep = (SeqElement)retVal;
-            }
-            currentStep = currentStep?.NXT;
-        }
-        else if (currentStep.VLU is null)
-        {
-            currentStep = null;
-        }
-        else if (currentStep.VLU is Thought action1)
-        {
-            //it's not a link...must be a context, call, or end
-            if (action1.HasLink("steps") is not null) //CALL
-            {  //CALL
-                Thought retVal = currentStep;
-                // jump to the new task
-                currentStep = (SeqElement)action1.GetTargetOfFirstLinkOfType("steps");
-                // write the return address (currentStep.NXT) in action.retval  
-                SetReturn(currentStep, retVal);
-                LastAction = $"CALL: {action1.Label}";
-            }
-            else if (action1.Label.ToLower() == "end")
-            {
-                SetReturn(currentStep, null);
-                currentStep = null;
-                LastAction = "End of Task";
-            }
-            else  //CONTEXT NAME
-            { //JUMP (computed)
-                action1.Fire();
-                Thought response = EvaluateContext(action1);
-                Thought retVal = GetReturn(currentStep.FRST);
-                if (response is null)
-                {
-                    //TODO check for return
-                    currentStep = null;// (SeqElement)GetReturn(currentStep);
-                    LastAction = $"CONTEXT: {action1.Label}: No response";
-                }
-                else
-                {
-                    currentStep = (SeqElement)response.GetTargetOfFirstLinkOfType("steps");
-                    if (currentStep is not null) //because there is no stack, if we JMP, we need to Forward the return address
-                        SetReturn(currentStep, retVal);
-                    LastAction = $"CONTEXT: {action1.Label} JMP: {response.Label}";
-                }
-            }
-        }
-        CycleCount++;
-    }
-*/
     private void SetReturn(Thought current, Thought retVal)
     {
         current.RemoveLinks("retVal");  //retval is the next action to take when done
@@ -448,11 +351,11 @@ public class ModuleAlgorithm : ModuleBase
                     if (test.LinkType.HasAncestor("not")) not = true;
                     //Thought testType = test.LinkType.GetTargetOfFirstLinkOfType("is");
                     Thought testType = test.LinkType.LinksTo.FindFirst(x => x.LinkType.Label.ToLower() == "is" && x.To.Label != "EXIST")?.To;
-                    var src = ParseIndirection(test.From);
+                    var src = HandleIndirection(test.From);
                     if (src is null) continue;
                     if (test.LinkType.HasAncestor("same") || test.LinkType.Label.ToLower().Contains("same")) //hack if ancestor not set properly
                     {
-                        Thought target = ParseIndirection(test.To);
+                        Thought target = HandleIndirection(test.To);
                         if (!not && src == target) weight += l.Weight;
                         if (not && src != target) weight += l.Weight;
                     }
@@ -463,7 +366,7 @@ public class ModuleAlgorithm : ModuleBase
                     }
                     else
                     {
-                        Thought target = ParseIndirection(test.To);
+                        Thought target = HandleIndirection(test.To);
                         if (!not && src.HasLink(testType, target) is not null) weight += l.Weight * test.Weight;
                         if (not && src.HasLink(testType, target) is null) weight += l.Weight * test.Weight;
                     }
@@ -472,7 +375,7 @@ public class ModuleAlgorithm : ModuleBase
             Debug.WriteLine($"Case: {t.Label}  Weight: {weight}");
             if (weight > bestWeight)
             {
-                bestResponse = t.LinksTo.FindFirst(x => x.LinkType.Label == "response")?.To;
+                bestResponse = t.GetTargetOfFirstLinkOfType("response");
                 bestWeight = weight;
             }
         }
@@ -482,7 +385,7 @@ public class ModuleAlgorithm : ModuleBase
         LastAction = $"CONTEXT: {contextRoot.Label} JMP: {bestResponse?.Label}";
         return bestResponse;
     }
-    private Thought ParseIndirection(Thought to)
+    private Thought HandleIndirection(Thought to)
     {
         if (to is null) return null;
         string toLabel = to.Label;
@@ -495,6 +398,7 @@ public class ModuleAlgorithm : ModuleBase
             Thought linkType = theUKS.Labeled(parts[i]);
             newTarget = newTarget?.GetTargetOfFirstLinkOfType(linkType);
         }
+
         return newTarget;
     }
 }

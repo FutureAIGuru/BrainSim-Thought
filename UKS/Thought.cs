@@ -364,6 +364,9 @@ public class Thought
     /// </summary>
     public void Fire()
     {
+        if (UKS.theUKS?.SuppressFiring == true)
+            return;
+            
         LastFiredTime = DateTime.Now;
         UseCount++;
         AddToRecentlyFired();

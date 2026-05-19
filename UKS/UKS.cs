@@ -50,6 +50,9 @@ public partial class UKS
         UKSTemp.Clear();
     }
 
+    // Handy for temporarily suppressing firing during bulk updates or similar operations
+    public bool SuppressFiring { get; set; } = false;
+
     /// <summary>
     /// This is a primitive method needed only to create ROOT Thoughts which have no parents.
     /// </summary>
