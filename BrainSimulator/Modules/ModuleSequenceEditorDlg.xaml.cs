@@ -45,7 +45,9 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         sequenceContentInput.TextChanged += SequenceContentInput_TextChanged;
         sequenceContentInput.Loaded += SequenceContentInput_Loaded;
         sequenceContentInput.SelectionChanged += SequenceContentInput_SelectionChanged;
+        sequenceContentInput.PreviewMouseWheel += SequenceContentInput_PreviewMouseWheel;
     }
+
 
     private void SequenceNameInput_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -77,13 +79,13 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         if (tb == null) return;
 
         string searchText = sequenceNameInput.Text;
-        
+
         // Track only the unselected (typed) portion
         int actualTypedLength = tb.SelectionStart;
-        
+
         // Check if we're deleting text
         bool isDeleting = actualTypedLength < _previousTaskNameLength;
-        
+
         // Only autocomplete if text is being added (not deleted)
         if (string.IsNullOrEmpty(searchText) || isDeleting)
         {
@@ -133,6 +135,14 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         ModuleSequenceEditor parent = (ModuleSequenceEditor)base.ParentModule;
         if (theUKS is null)
             theUKS = parent?.theUKS;
+
+        // Load saved font size if available
+        string sizeString = parent?.GetSavedDlgAttribute("fontSize");
+        if (!string.IsNullOrEmpty(sizeString) && int.TryParse(sizeString, out int fontSize) && fontSize > 0)
+        {
+            if (Math.Abs(sequenceContentInput.FontSize - fontSize) > 0.1)
+                sequenceContentInput.FontSize = fontSize;
+        }
 
         // Get the ModuleAlgorithm to highlight last executed step
         if (MainWindow.theWindow != null)
@@ -203,7 +213,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         string content = sequenceContentInput.Text;
         if (string.IsNullOrEmpty(content))
             return;
-        
+
         // Find the text in the content
         int index = content.IndexOf(textToHighlight, StringComparison.OrdinalIgnoreCase);
 
@@ -264,13 +274,13 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
     {
         string content = sequenceContentInput.Text;
         string[] lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-        
+
         StringBuilder lineNumbers = new StringBuilder();
         for (int i = 0; i < lines.Length; i++)
         {
             lineNumbers.AppendLine(i.ToString());
         }
-        
+
         lineNumbersTextBox.Text = lineNumbers.ToString();
     }
 
@@ -348,7 +358,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
     private string FormatSequence(Thought sequence, Thought task)
     {
         StringBuilder sb = new StringBuilder();
-        
+
         // Add sequence header with ^ prefix
         sb.AppendLine($"{sequence.Label}^");
 
@@ -371,11 +381,11 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         {
             // Flatten the sequence and display it
             List<Thought> elements = theUKS.FlattenSequence(firstElement);
-            
+
             foreach (var element in elements)
             {
                 string elementStr = element?.ToString() ?? "";
-                
+
                 // Check if this element is a global reference (from a different task)
                 if (element is Thought elementThought && !IsLink(element))
                 {
@@ -385,7 +395,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
                         elementStr = "$" + elementStr;
                     }
                 }
-                
+
                 sb.AppendLine($"  {elementStr}");
             }
         }
@@ -398,7 +408,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         return thought is Link;
     }
 
-    private bool IsExternalToTask(Thought t,Thought task)
+    private bool IsExternalToTask(Thought t, Thought task)
     {
         if (t.Parents.Contains(task)) return false;
         return true;
@@ -406,31 +416,22 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
     private string FormatContext(Thought context, Thought task)
     {
         StringBuilder sb = new StringBuilder();
-        
+
         // Add context header
-        if (IsExternalToTask(context, task))
-            sb.AppendLine("$" + context.Label);
-        else
-            sb.AppendLine(context.Label);
+        sb.AppendLine(context.Label);
 
         foreach (var child in context.Children)
+        {
+            sb.AppendLine($"  {child.Label}");
+
+            // Get all "has" links - unwrap them to show just the inner condition
+            var hasLinks = child.LinksTo.Where(l => l.LinkType?.Label == "has").ToList();
+            foreach (var hasLink in hasLinks)
             {
-                // Check if child is from a different task
-                string childLabel = child.Label;
-
-                if (IsExternalToTask(child, task) && IsExternalToTask(child, context))
+                // Extract the inner link from the has relationship
+                if (hasLink.To is Link innerLink)
                 {
-                    // This is a global reference
-                    childLabel = "$" + childLabel;
-                }
-
-                sb.AppendLine($"  {childLabel}");
-
-                // Get all "has" links
-                var hasLinks = child.LinksTo.Where(l => l.LinkType?.Label == "has").ToList();
-                foreach (var hasLink in hasLinks)
-                {
-                    string linkLine = $"    [{child.Label}→has→{hasLink.To}]";
+                    string linkLine = $"    [{innerLink.From}→{innerLink.LinkType}→{innerLink.To}]";
 
                     // Append weight if not 1.0
                     if (Math.Abs(hasLink.Weight - 1.0f) > 0.001f)
@@ -440,22 +441,23 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 
                     sb.AppendLine(linkLine);
                 }
-
-                // Get all "response" links
-                var responseLinks = child.LinksTo.Where(l => l.LinkType?.Label == "response").ToList();
-                foreach (var responseLink in responseLinks)
-                {
-                    string linkLine = $"    [{child.Label}→response→{responseLink.To}]";
-
-                    // Append weight if not 1.0
-                    if (Math.Abs(responseLink.Weight - 1.0f) > 0.001f)
-                    {
-                        linkLine += $" {responseLink.Weight:F2}";
-                    }
-
-                    sb.AppendLine(linkLine);
-                }
             }
+
+            // Get all "response" links - simplified to just the target name
+            var responseLinks = child.LinksTo.Where(l => l.LinkType?.Label == "response").ToList();
+            foreach (var responseLink in responseLinks)
+            {
+                string linkLine = $"    {responseLink.To}";
+
+                // Append weight if not 1.0
+                if (Math.Abs(responseLink.Weight - 1.0f) > 0.001f)
+                {
+                    linkLine += $" {responseLink.Weight:F2}";
+                }
+
+                sb.AppendLine(linkLine);
+            }
+        }
 
         return sb.ToString();
     }
@@ -478,26 +480,37 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             return;
         }
 
-        // Get or create the task
-        Thought taskThought = theUKS.Labeled(taskName);
-        bool isNewTask = (taskThought == null);
-        
-        if (taskThought == null)
+        // Suppress firing during save
+        bool previousSuppressState = theUKS.SuppressFiring;
+        try
         {
-            Thought taskType = theUKS.Labeled("Task");
-            taskThought = theUKS.GetOrAddThought(taskName, taskType);
+            theUKS.SuppressFiring = true;
+
+            // Get or create the task
+            Thought taskThought = theUKS.Labeled(taskName);
+            bool isNewTask = (taskThought == null);
+
+            if (taskThought == null)
+            {
+                Thought taskType = theUKS.Labeled("Task");
+                taskThought = theUKS.GetOrAddThought(taskName, taskType);
+            }
+
+            // Delete all existing children
+            theUKS.DeleteAllChildrenAndLinks(taskThought);
+
+            // Parse and save the content
+            SaveTaskContent(taskThought, content);
+
+            if (isNewTask)
+                SetStatus($"Created new task '{taskName}'");
+            else
+                SetStatus($"Updated task '{taskName}'");
         }
-
-        // Delete all existing children
-        theUKS.DeleteAllChildrenAndLinks(taskThought);
-
-        // Parse and save the content
-        SaveTaskContent(taskThought, content);
-
-        if (isNewTask)
-            SetStatus($"Created new task '{taskName}'");
-        else
-            SetStatus($"Updated task '{taskName}'");
+        finally
+        {
+            theUKS.SuppressFiring = previousSuppressState;
+        }
     }
 
     private void SaveTaskContent(Thought task, string content)
@@ -533,19 +546,19 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
     private int SaveSequenceChild(Thought task, string[] lines, int startIndex)
     {
         string sequenceName = lines[startIndex].Trim().TrimEnd('^');
-        
+
         // Create the sequence as a child of the task
         Thought sequenceThought = theUKS.GetOrAddThought(sequenceName, task);
-        
+
         // Collect sequence elements
         List<Thought> sequenceElements = new List<Thought>();
         int currentIndex = startIndex + 1;
-        
+
         // Read indented lines until we hit a non-indented line or end
         while (currentIndex < lines.Length)
         {
             string line = lines[currentIndex];
-            
+
             // Check if line is indented (part of this sequence)
             if (line.StartsWith("  ") || line.StartsWith("\t"))
             {
@@ -587,7 +600,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
                 break;
             }
         }
-        
+
         // Create the sequence if we have elements
         if (sequenceElements.Count > 0)
         {
@@ -597,7 +610,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             {
                 theUKS.DeleteSequence(oldSeqElement);
             }
-            
+
             // Create new sequence
             SeqElement newSequence = theUKS.AddSequence(sequenceName, sequenceElements);
             if (newSequence != null)
@@ -607,7 +620,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
                 sequenceThought.AddLink(stepsType, newSequence);
             }
         }
-        
+
         return currentIndex;
     }
 
@@ -615,53 +628,37 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
     {
         string contextName = lines[startIndex].Trim();
 
-        // Check if this is a global reference
-        if (contextName.StartsWith("$"))
-        {
-            // Global reference - skip to next non-indented line without creating
-            int currentIndex = startIndex + 1;
-            while (currentIndex < lines.Length)
-            {
-                string line = lines[currentIndex];
-                int indent = line.Length - line.TrimStart().Length;
-                if (indent == 0)
-                    break;
-                currentIndex++;
-            }
-            return currentIndex;
-        }
-
         // Create the context as a child of the task
         Thought contextThought = theUKS.GetOrAddThought(contextName, task);
-        
+
         int currentIndex2 = startIndex + 1;
-        
+
         // Track current context at each indentation level
         Dictionary<int, Thought> indentationStack = new Dictionary<int, Thought>();
         indentationStack[0] = contextThought;
-        
+
         Thought currentContext = null;
         int previousIndent = 0;
-        
+
         // Read until we hit a non-indented line or end
         while (currentIndex2 < lines.Length)
         {
             string line = lines[currentIndex2];
-            
+
             // Calculate indentation
             int indent = line.Length - line.TrimStart().Length;
-            
+
             // If no indentation, we've reached the next top-level item
             if (indent == 0)
                 break;
-            
+
             string trimmedLine = line.Trim();
             if (string.IsNullOrWhiteSpace(trimmedLine))
             {
                 currentIndex2++;
                 continue;
             }
-            
+
             // Extract weight if present
             float newWeight = 1f;
             int sp = trimmedLine.LastIndexOf(" ");
@@ -673,8 +670,8 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
                     trimmedLine = trimmedLine.Substring(0, sp);
                 }
             }
-            
-            // Check if this is a relationship (starts with [)
+
+            // Check if this is a condition link (starts with [)
             if (trimmedLine.StartsWith("[") && trimmedLine.EndsWith("]"))
             {
                 if (currentContext == null)
@@ -682,70 +679,62 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
                     currentIndex2++;
                     continue;
                 }
-                
-                // Parse relationship
+
+                // Parse the inner condition link
                 string statement = " " + trimmedLine.Replace("→", "->");
-                Link link = (Link)theUKS.ProcessSingleLineWithNesting(statement);
-                if (link != null)
+                Link innerLink = (Link)theUKS.ProcessSingleLineWithNesting(statement);
+                if (innerLink != null)
                 {
-                    Link x = link.From.AddLink(link.LinkType, link.To);
-                    x.Weight = newWeight;
+                    // Create the has link: currentContext→has→innerLink
+                    Thought hasType = theUKS.Labeled("has");
+                    if (hasType == null)
+                    {
+                        hasType = theUKS.GetOrAddThought("has", "LinkType");
+                    }
+
+                    Link hasLink = currentContext.AddLink(hasType, innerLink);
+                    hasLink.Weight = newWeight;
                 }
             }
             else
             {
-                // Check if this is a global reference
-                if (trimmedLine.StartsWith("$"))
+                // This is either a case name or a response reference
+                // Determine parent based on indentation
+                if (indent == 2)
                 {
-                    // Global reference - don't create, just look up
-                    string globalName = trimmedLine.Substring(1);
-                    currentContext = theUKS.Labeled(globalName);
-                    if (currentContext != null)
-                    {
-                        indentationStack[indent] = currentContext;
-                    }
+                    // This is a case (direct child of context)
+                    currentContext = theUKS.GetOrAddThought(trimmedLine, contextThought);
+                    indentationStack[indent] = currentContext;
                     previousIndent = indent;
                 }
-                else
+                else if (indent > 2)
                 {
-                    // This is a context name - create as child
-                    if (indent > previousIndent)
+                    // This is a response reference (deeper indentation)
+                    if (currentContext == null)
                     {
-                        // Child of previous context
-                        Thought parentContext = indentationStack.ContainsKey(previousIndent)
-                            ? indentationStack[previousIndent]
-                            : contextThought;
-                        
-                        currentContext = theUKS.GetOrAddThought(trimmedLine, parentContext);
-                        indentationStack[indent] = currentContext;
+                        currentIndex2++;
+                        continue;
                     }
-                    else if (indent == previousIndent)
+
+                    Thought targetThought = theUKS.Labeled(trimmedLine);
+                    if (targetThought == null)
                     {
-                        // Sibling
-                        Thought parentContext = indentationStack.ContainsKey(indent - 2)
-                            ? indentationStack[indent - 2]
-                            : contextThought;
-                        
-                        currentContext = theUKS.GetOrAddThought(trimmedLine, parentContext);
-                        indentationStack[indent] = currentContext;
+                        targetThought = theUKS.GetOrAddThought(trimmedLine, task);
                     }
-                    else // indent < previousIndent
+
+                    Thought responseType = theUKS.Labeled("response");
+                    if (responseType == null)
                     {
-                        // Going back up
-                        Thought parentContext = indentationStack.ContainsKey(indent - 2)
-                            ? indentationStack[indent - 2]
-                            : contextThought;
-                        
-                        currentContext = theUKS.GetOrAddThought(trimmedLine, parentContext);
-                        indentationStack[indent] = currentContext;
+                        responseType = theUKS.GetOrAddThought("response", "LinkType");
                     }
-                    
-                    previousIndent = indent;
+
+                    Link x = currentContext.AddLink(responseType, targetThought);
+                    x.Weight = newWeight;
                 }
             }
             currentIndex2++;
         }
-        
+
         return currentIndex2;
     }
 
@@ -760,7 +749,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 
     private void SequenceContentInput_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.X && Keyboard.Modifiers == ModifierKeys.Control)
+        if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control)
         {
             PerformUndo();
             e.Handled = true;
@@ -769,6 +758,17 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 
     private void PerformReplace()
     {
+        //quickie code to clean up lower-case "is" references
+        //foreach (var kvp in ThoughtLabels.LabelList)
+        //{
+        //    if (kvp.Key.Contains(".is", StringComparison.OrdinalIgnoreCase))
+        //    {
+        //        Thought t = kvp.Value;
+        //        string newLabel = t.Label.Replace(".is", ".IS");
+        //        t.Label = newLabel;
+        //    }
+        //}
+
         string searchPattern = searchPatternInput.Text?.Trim();
         string replacePattern = replacePatternInput.Text?.Trim();
 
@@ -794,19 +794,39 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         // Store current content for undo
         undoContent = content;
 
-        // Use regex to replace pattern like "c1", "c2", etc. with "newString1", "newString2", etc.
-        // Matches the search pattern followed by digits
-        var regex = new System.Text.RegularExpressions.Regex($@"\b{System.Text.RegularExpressions.Regex.Escape(searchPattern)}(\d+)\b");
-        
+        // Count occurrences before replacing (case-insensitive)
         int replacementCount = 0;
-        string newContent = regex.Replace(content, match =>
+        int index = 0;
+        while ((index = content.IndexOf(searchPattern, index, StringComparison.OrdinalIgnoreCase)) >= 0)
         {
             replacementCount++;
-            return replacePattern + match.Groups[1].Value; // Keep the digit part
-        });
+            index += searchPattern.Length;
+        }
+
+        // Perform case-insensitive string replacement
+        // We need to manually replace to maintain the exact replacement string
+        StringBuilder result = new StringBuilder();
+        int lastIndex = 0;
+        index = 0;
+
+        while ((index = content.IndexOf(searchPattern, index, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            // Append text before the match
+            result.Append(content.Substring(lastIndex, index - lastIndex));
+            // Append the replacement (maintaining its exact case)
+            result.Append(replacePattern);
+            // Move past the matched text
+            index += searchPattern.Length;
+            lastIndex = index;
+        }
+
+        // Append remaining text after last match
+        result.Append(content.Substring(lastIndex));
+
+        string newContent = result.ToString();
 
         sequenceContentInput.Text = newContent;
-        SetStatus($"Replaced {replacementCount} occurrence(s) of '{searchPattern}X' with '{replacePattern}X' (Ctrl+X to undo)");
+        SetStatus($"Replaced {replacementCount} occurrence(s) of '{searchPattern}' with '{replacePattern}' (Ctrl+Z to undo)");
     }
 
     private void PerformUndo()
@@ -822,4 +842,29 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             SetStatus("Nothing to undo");
         }
     }
+
+    // Using the mouse-wheel while pressing ctrl key changes the font size
+    private void SequenceContentInput_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if ((Keyboard.GetKeyStates(Key.LeftCtrl) & KeyStates.Down | Keyboard.GetKeyStates(Key.RightCtrl) & KeyStates.Down) != 0)
+        {
+            if (e.Delta < 0)
+            {
+                if (sequenceContentInput.FontSize > 2)
+                    sequenceContentInput.FontSize -= 1;
+            }
+            else if (e.Delta > 0)
+            {
+                sequenceContentInput.FontSize += 1;
+            }
+            lineNumbersTextBox.FontSize = sequenceContentInput.FontSize;
+
+            // Save the font size
+            ModuleSequenceEditor parent = (ModuleSequenceEditor)ParentModule;
+            parent?.SetSavedDlgAttribute("fontSize", sequenceContentInput.FontSize.ToString());
+
+            e.Handled = true; // Prevent scrolling
+        }
+    }
+
 }

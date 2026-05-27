@@ -141,6 +141,7 @@ public class Thought
                 i --;
         }
         if (_timeToLive == TimeSpan.MaxValue) return false;
+        if (_timeToLive > DateTime.MaxValue - LastFiredTime) return false; // Effectively never expires
         if (LastFiredTime + _timeToLive > DateTime.Now) return false;
 
         //Debug.WriteLine($"Thought forgotten: {this.ToString()}");
@@ -363,6 +364,9 @@ public class Thought
     /// </summary>
     public void Fire()
     {
+        if (UKS.theUKS?.SuppressFiring == true)
+            return;
+            
         LastFiredTime = DateTime.Now;
         UseCount++;
         AddToRecentlyFired();
@@ -374,6 +378,27 @@ public class Thought
         int maxCount = 100;
         recentlyFired.Enqueue(this);
         while (recentlyFired.Count > maxCount) _ = recentlyFired.Dequeue();
+    }
+    public static void DeleteFromRecentlyFired(Thought t)
+    {
+        //CAUTION NOT THREAD SAFE
+        var tempList = recentlyFired.Where(x => x != t).ToList();
+        recentlyFired = new Queue<Thought>(tempList);
+    }
+    public static IReadOnlyList<Thought> GetRecentlyFiredThoughts(TimeSpan recency)
+    {
+        //remove duplicates while preserving order (keeping the most recent occurrence of each Thought)
+        DateTime cutoff = DateTime.MinValue;
+        if (recency < DateTime.Now-DateTime.MinValue) cutoff =    DateTime.Now - recency;
+        var snapshot = recentlyFired.Where(x=>x.LastFiredTime > cutoff).ToArray();
+        var seen = new HashSet<Thought>();
+        var resultRev = new List<Thought>();
+        foreach (var item in snapshot.Reverse())
+        {
+            if (seen.Add(item))
+                resultRev.Add(item); // keep first time we see it from the back (i.e., the last occurrence)
+        }
+        return resultRev;
     }
     public static void FireAllRecentlyFiredThoughts(TimeSpan recency)
     {

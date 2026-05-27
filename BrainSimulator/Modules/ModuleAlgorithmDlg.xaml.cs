@@ -50,7 +50,7 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
             SetStatus("OK");
             parent.LastAction = "";
         }
-            return true;
+        return true;
     }
 
     private void TheGrid_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -223,13 +223,13 @@ public partial class ModuleAlgorithmDlg : ModuleBaseDlg
         if (parent?.theUKS == null) return;
 
         // Check if we have a current step
-        if (parent.CurrentStep is null)
+        if (parent.LastAction.StartsWith("TASK COMPLETE"))
         {
             singleStepButton.IsEnabled = false;
         }
 
         // Execute one step
-        parent.ExecuteSingleStep();
+        parent.Step();
 
         SetStatus(parent.LastAction);
     }
