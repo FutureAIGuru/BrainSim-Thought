@@ -99,6 +99,34 @@ public partial class UKS
         AddStatement("isCondition", "is-a", "Property");
         AddStatement("isResult", "is-a", "Property");
 
+        //sequence search options
+        AddStatement("Wildcard", "is-a", "Thought");
+        AddStatement("??", "is-a", "Wildcard");
+        AddStatement("SearchOption", "is-a", "Property");
+        AddStatement("SequenceSearchOption", "is-a", "SearchOption");
+        AddStatement("mustMatchFirst", "is-a", "SequenceSearchOption");
+        AddStatement("mustMatchLast", "is-a", "SequenceSearchOption");
+        AddStatement("allowWildcards", "is-a", "SequenceSearchOption");
+        AddStatement("allowNestedSequences", "is-a", "SequenceSearchOption");
+        AddStatement("allowCircularSearch", "is-a", "SequenceSearchOption");
+        AddStatement("allowOutOfOrder", "is-a", "SequenceSearchOption");
+        AddStatement("preferFirstLast", "is-a", "SequenceSearchOption");
+        AddStatement("allowPartialMatch", "is-a", "SequenceSearchOption");
+        AddStatement("SequenceSearchOptions", "is-a", "Thought");
+        AddStatement("ExactSequenceSearch", "is-a", "SequenceSearchOptions");
+        AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
+        AddStatement("MelodySearchOptions", "is-a", "SequenceSearchOptions");
+        AddStatement("OrderSearchOptions", "is-a", "SequenceSearchOptions");
+        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
+        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
+        AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");
+        AddStatement("TemplateSequenceSearch", "hasProperty", "allowWildcards");
+        AddStatement("MelodySearchOptions", "hasProperty", "allowNestedSequences");
+        AddStatement("MelodySearchOptions", "hasProperty", "preferFirstLast");
+        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchFirst");
+        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchLast");
+        AddStatement("OrderSearchOptions", "hasProperty", "allowNestedSequences");
+
         //colors
         AddStatement("color", "is-a", "Abstract");
         AddStatement("color", "hasProperty", "isExclusive");
@@ -150,9 +178,7 @@ public partial class UKS
         AddStatement("hasDigit", "is-a", "has");
 
 
-        //put in letters
-
-        //put in digits
+       //put in digits
         GetOrAddThought("some", "number");
         GetOrAddThought("many", "number");
         GetOrAddThought("none", "number");
@@ -173,11 +199,10 @@ public partial class UKS
         List<Thought> theAlphabet = new();
         for (char c = 'A'; c <= 'Z'; c++)
         {
-            theAlphabet.Add(GetOrAddThought(c.ToString(), "Letter"));
+            theAlphabet.Add(GetOrAddThought("l:"+c.ToString(), "Letter"));
         }
         GetOrAddThought("alphabet", "abstract");
         AddSequenceAndLink("alphabet", "order", theAlphabet);
-
 
         AddBrainSimConfigSectionIfNeeded();
     }

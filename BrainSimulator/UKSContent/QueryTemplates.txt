@@ -1,0 +1,73 @@
+[template->is-a->Unknown] 1.00
+
+[tpl:X_is_a_Y->is-a->template] 1.00
+[tpl:X_is_a_Y->hasWords->^w:?? w:is w:a w:??] 1.00
+[tpl:X_is_a_Y->outputs->^w:??1 is-a w:??2] 1.00
+
+[tpl:X_is_an_Y->is-a->template] 1.00
+[tpl:X_is_an_Y->hasWords->^w:?? w:is w:an w:??] 1.00
+[tpl:X_is_an_Y->outputs->^w:??1 is-a w:??2] 1.00
+
+[tpl:X_is_Y->is-a->template] 1.00
+[tpl:X_is_Y->hasWords->^w:?? w:is w:??] 1.00
+[tpl:X_is_Y->outputs->^w:??1 is w:??2] 1.00
+
+[tpl:X_is_ADJ_Y->is-a->template] 1.00
+[tpl:X_is_ADJ_Y->hasWords->^w:?? w:is w:a w:?? w:??] 1.00
+[tpl:X_is_ADJ_Y->outputs->^w:??1 is-a w:??3 w:??1 is w:??2] 1.00
+
+[tpl:X_has_Y->is-a->template] 1.00
+[tpl:X_has_Y->hasWords->^w:?? w:has w:??] 1.00
+[tpl:X_has_Y->outputs->^w:??1 has w:??2] 1.00
+
+[tpl:X_has_no_Y->is-a->template] 1.00
+[tpl:X_has_no_Y->hasWords->^w:?? w:has w:no w:??] 1.00
+[tpl:X_has_no_Y->outputs->^w:??1 has.not w:??2] 1.00
+
+[tpl:X_has_N_Y->is-a->template] 1.00
+[tpl:X_has_N_Y->hasWords->^w:?? w:has w:?? w:??] 1.00
+[tpl:X_has_N_Y->outputs->^w:??1 has.w:??2 w:??3] 1.00
+
+[tpl:X_can_Y->is-a->template] 1.00
+[tpl:X_can_Y->hasWords->^w:?? w:can w:??] 1.00
+[tpl:X_can_Y->outputs->^w:??1 can w:??2] 1.00
+
+[tpl:X_can_not_Y->is-a->template] 1.00
+[tpl:X_can_not_Y->hasWords->^w:?? w:can w:not w:??] 1.00
+[tpl:X_can_not_Y->outputs->^w:??1 can.not w:??2] 1.00
+
+[tpl:X_are_Y->is-a->template] 1.00
+[tpl:X_are_Y->hasWords->^w:?? w:are w:??] 1.00
+[tpl:X_are_Y->outputs->^w:??1 is w:??2] 1.00
+
+[tpl:X_are_ADJ_Y->is-a->template] 1.00
+[tpl:X_are_ADJ_Y->hasWords->^w:?? w:are w:?? w:??] 1.00
+[tpl:X_are_ADJ_Y->outputs->^w:??1 is-a w:??3 w:??1 is w:??2] 1.00
+
+[tpl:what_is_X->is-a->template] 1.00
+[tpl:what_is_X->hasWords->^w:what w:is w:??] 1.00
+[tpl:what_is_X->outputs->^w:??1 is-a w:??] 1.00
+
+[tpl:what_is_a_X->is-a->template] 1.00
+[tpl:what_is_X->hasWords->^w:what w:is w:a w:??] 1.00
+[tpl:what_is_X->outputs->^w:??1 is-a w:??] 1.00
+
+[tpl:what_has_X->is-a->template] 1.00
+[tpl:what_has_X->hasWords->^w:what w:has w:??] 1.00
+[tpl:what_has_X->outputs->^w:?? has w:??1] 1.00
+
+[tpl:what_does_X_have->is-a->template] 1.00
+[tpl:what_does_X_have->hasWords->^w:what w:does w:?? w:have] 1.00
+[tpl:what_does_X_have->outputs->^w:??1 has w:??] 1.00
+
+[tpl:what_can_X_do->is-a->template] 1.00
+[tpl:what_can_X_do->hasWords->^w:what w:can w:?? w:do] 1.00
+[tpl:what_can_X_do->outputs->^w:??1 can w:??] 1.00
+
+[tpl:what_can_X->is-a->template] 1.00
+[tpl:what_can_X->hasWords->^w:what w:can w:??] 1.00
+[tpl:what_can_X->outputs->^w:?? can w:??1] 1.00
+
+[tpl:what_ATTR_is_X->is-a->template] 1.00
+[tpl:what_ATTR_is_X->hasWords->^w:what w:?? w:is w:??] 1.00
+[tpl:what_ATTR_is_X->outputs->^w:??2 is w:?? w:?? is-a w:??1] 1.00

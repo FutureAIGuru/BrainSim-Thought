@@ -15,6 +15,15 @@
                  TextWrapping="NoWrap"
                  AcceptsReturn="False"
                  KeyDown="InputBox_KeyDown" Margin="0,17,123,0" />
+        <TextBox x:Name="OutputBox"
+                 Height="28"
+                 VerticalAlignment="Top"
+                 VerticalContentAlignment="Center"
+                 Foreground="White" Background="Black"
+                 TextWrapping="NoWrap"
+                 AcceptsReturn="False"
+                 IsReadOnly="True"
+                 Margin="0,70,123,0" />
         <TextBox x:Name="AttributesOfBoxInputBox"
             Height="28"
             VerticalAlignment="Top"
@@ -23,14 +32,15 @@
             TextWrapping="NoWrap"
             AcceptsReturn="False"
             KeyDown="InputBox_KeyDown" Margin="0,17,0,0" HorizontalAlignment="Right" Width="118" />
-        <ListBox x:Name="AttributesOutputBox" Margin="0,70,0,27" Foreground="White" Background="Black" HorizontalAlignment="Right" Width="168" />
+        <ListBox x:Name="AttributesOutputBox" Margin="0,123,0,27" Foreground="White" Background="Black" HorizontalAlignment="Right" Width="168" />
         <ListBox x:Name="ParsedInputBox"
-                 Margin="0,70,190,27"
+                 Margin="0,123,190,27"
                  Foreground="White" Background="Black" 
                  SelectionChanged="ParsedInputBox_SelectionChanged" />
         <Label Content="Text Input:" HorizontalAlignment="Left" Margin="0,-14,0,0" VerticalAlignment="Top"/>
         <Label Content="Select:" HorizontalAlignment="Right" Margin="0,-14,68,0" VerticalAlignment="Top"/>
-        <Label Content="Attributes:" HorizontalAlignment="Right" Margin="0,39,85,0" VerticalAlignment="Top"/>
-        <Label Content="Thoughts:" HorizontalAlignment="Left" Margin="1,39,0,0" VerticalAlignment="Top"/>
+        <Label Content="Answer:" HorizontalAlignment="Left" Margin="0,39,0,0" VerticalAlignment="Top"/>
+        <Label Content="Attributes:" HorizontalAlignment="Right" Margin="0,92,85,0" VerticalAlignment="Top"/>
+        <Label Content="Thoughts:" HorizontalAlignment="Left" Margin="1,92,0,0" VerticalAlignment="Top"/>
     </Grid>
 </local:ModuleBaseDlg>

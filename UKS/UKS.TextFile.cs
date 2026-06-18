@@ -225,7 +225,9 @@ public partial class UKS
         Thought linkType = GetOrAddThought(linkParts[1]);
 
         // Process 'to'
-        Thought to = GetOrAddThought(linkParts[2]);       
+        //this might be a sequence
+        Thought to = CreateThoughtFromMultipleAttributes(linkParts[2], false,false);
+        //Thought to = GetOrAddThought(linkParts[2]);       
 
         Link r = AddStatement(from, linkType, to, label);
         //Link r = from.AddLink(linkType, to);

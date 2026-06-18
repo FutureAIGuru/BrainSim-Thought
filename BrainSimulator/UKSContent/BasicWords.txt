@@ -1,0 +1,132 @@
+[Unknown->is-a->Thought] 1.00
+
+[word->is-a->Unknown] 1.00
+[phrase->is-a->Unknown] 1.00
+[sentence->is-a->Unknown] 1.00
+
+[wordType->is-a->Unknown] 1.00
+[noun->is-a->wordType] 1.00
+[verb->is-a->wordType] 1.00
+[adjective->is-a->wordType] 1.00
+[article->is-a->wordType] 1.00
+[questionWord->is-a->wordType] 1.00
+[plural->is-a->wordType] 1.00
+
+[animal->is-a->Unknown] 1.00
+[bodyPart->is-a->Unknown] 1.00
+[color->is-a->Unknown] 1.00
+[size->is-a->Unknown] 1.00
+[number->is-a->Unknown] 1.00
+
+[dog->is-a->animal] 1.00
+[cat->is-a->animal] 1.00
+[fido->is-a->dog] 1.00
+
+[tail->is-a->bodyPart] 1.00
+[leg->is-a->bodyPart] 1.00
+[fur->is-a->bodyPart] 1.00
+
+[brown->is-a->color] 1.00
+[black->is-a->color] 1.00
+[small->is-a->size] 1.00
+[large->is-a->size] 1.00
+
+[3->is-a->number] 1.00
+[4->is-a->number] 1.00
+
+[dog->has->tail] 1.00
+[dog->has.4->leg] 1.00
+[cat->has->tail] 1.00
+[cat->has.4->leg] 1.00
+[cat->has->fur] 1.00
+
+[fido->is->brown] 1.00
+[fido->is->small] 1.00
+
+[w:fido->is-a->word] 1.00
+[w:dog->is-a->word] 1.00
+[w:dogs->is-a->word] 1.00
+[w:cat->is-a->word] 1.00
+[w:cats->is-a->word] 1.00
+[w:animal->is-a->word] 1.00
+[w:animals->is-a->word] 1.00
+[w:tail->is-a->word] 1.00
+[w:tails->is-a->word] 1.00
+[w:leg->is-a->word] 1.00
+[w:legs->is-a->word] 1.00
+[w:fur->is-a->word] 1.00
+[w:brown->is-a->word] 1.00
+[w:black->is-a->word] 1.00
+[w:small->is-a->word] 1.00
+[w:large->is-a->word] 1.00
+[w:is->is-a->word] 1.00
+[w:a->is-a->word] 1.00
+[w:an->is-a->word] 1.00
+[w:has->is-a->word] 1.00
+[w:have->is-a->word] 1.00
+[w:what->is-a->word] 1.00
+[w:does->is-a->word] 1.00
+[w:do->is-a->word] 1.00
+
+[w:fido->is-a->noun] 1.00
+[w:dog->is-a->noun] 1.00
+[w:dogs->is-a->noun] 1.00
+[w:dogs->is-a->plural] 1.00
+[w:cat->is-a->noun] 1.00
+[w:cats->is-a->noun] 1.00
+[w:cats->is-a->plural] 1.00
+[w:animal->is-a->noun] 1.00
+[w:animals->is-a->noun] 1.00
+[w:animals->is-a->plural] 1.00
+[w:tail->is-a->noun] 1.00
+[w:tails->is-a->noun] 1.00
+[w:tails->is-a->plural] 1.00
+[w:leg->is-a->noun] 1.00
+[w:legs->is-a->noun] 1.00
+[w:legs->is-a->plural] 1.00
+[w:fur->is-a->noun] 1.00
+
+[w:is->is-a->verb] 1.00
+[w:has->is-a->verb] 1.00
+[w:have->is-a->verb] 1.00
+[w:does->is-a->verb] 1.00
+[w:do->is-a->verb] 1.00
+
+[w:brown->is-a->adjective] 1.00
+[w:black->is-a->adjective] 1.00
+[w:small->is-a->adjective] 1.00
+[w:large->is-a->adjective] 1.00
+
+[w:a->is-a->article] 1.00
+[w:an->is-a->article] 1.00
+[w:what->is-a->questionWord] 1.00
+
+[w:fido->means->fido] 1.00
+[w:dog->means->dog] 1.00
+[w:dogs->means->dog] 1.00
+[w:cat->means->cat] 1.00
+[w:cats->means->cat] 1.00
+[w:animal->means->animal] 1.00
+[w:animals->means->animal] 1.00
+[w:tail->means->tail] 1.00
+[w:tails->means->tail] 1.00
+[w:leg->means->leg] 1.00
+[w:legs->means->leg] 1.00
+[w:fur->means->fur] 1.00
+[w:brown->means->brown] 1.00
+[w:black->means->black] 1.00
+[w:small->means->small] 1.00
+[w:large->means->large] 1.00
+[w:is->means->is] 1.00
+[w:a->means->a] 1.00
+[w:an->means->a] 1.00
+[w:has->means->has] 1.00
+[w:have->means->has] 1.00
+[w:what->means->what] 1.00
+[w:does->means->do] 1.00
+[w:do->means->do] 1.00
+
+[p:is_a->is-a->phrase] 1.00
+[p:is_a->means->is-a] 1.00
+[p:is_a->hasWords->^w:is w:a] 1.00
+

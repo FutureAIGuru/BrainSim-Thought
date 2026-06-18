@@ -491,4 +491,46 @@ public partial class UKS
                     return true;
         return false;
     }
+
+    /// <summary>
+    /// Searches for links matching the specified criteria. Null parameters act as wildcards.
+    /// </summary>
+    /// <param name="from">The source thought, or null to match any source.</param>
+    /// <param name="linkType">The link type, or null to match any link type.</param>
+    /// <param name="to">The target thought, or null to match any target.</param>
+    /// <returns>List of links matching all specified (non-null) criteria.</returns>
+    public List<Link> SearchForRelationships(Link l)
+    {
+        List<Link> results = new List<Link>();
+        Thought from = l.From?.Label == "w:??" ? null : l.From;
+        Thought linkType = l.LinkType?.Label == "w:??" ? null : l.LinkType;
+        Thought to = l.To?.Label == "w:??" ? null : l.To;
+        if (from is null && to is null && linkType is null) return results;
+
+        // If from is specified, start there for efficiency (most constrained search)
+        if (from != null)
+        {
+            foreach (Link link in from.LinksTo)
+            {
+                if ((linkType == null || link.LinkType == linkType) &&
+                    (to == null || link.To == to))
+                {
+                    results.Add(link);
+                }
+            }
+        }
+        // If from is null but to is specified, search backwards from to
+        else if (to != null)
+        {
+            foreach (Link link in to.LinksFrom)
+            {
+                if (linkType == null || link.LinkType == linkType)
+                {
+                    results.Add(link);
+                }
+            }
+        }
+
+        return results;
+    }
 }

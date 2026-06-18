@@ -62,10 +62,7 @@ public partial class ModuleTextInDlg : ModuleBaseDlg
 
     public void Answer(string answer)
     {
-        string text = InputBox.Text;
-        if (text.EndsWith("?")) text = text[..^1];
-        text += " " + answer;
-        InputBox.Text = text;
+        OutputBox.Text = answer;
     }
     public void AddParsedOutput(Link l)
     {
@@ -130,7 +127,8 @@ public partial class ModuleTextInDlg : ModuleBaseDlg
     {
         AttributesOutputBox.Items.Clear();
         if (ParentModule?.theUKS is null) return;
-        if (responseLanguage is null) responseLanguage = ParentModule.theUKS.Labeled("EnglishWord");
+        //if (responseLanguage is null) 
+            responseLanguage = ParentModule.theUKS.Labeled("Word");
 
         string raw = AttributesOfBoxInputBox.Text;
         Thought t = ParentModule.theUKS.Labeled(raw);
@@ -160,6 +158,7 @@ public partial class ModuleTextInDlg : ModuleBaseDlg
                 .ToList();
             if (candidates.Count == 0) continue;
 
+            //gete the word label and strip off the 'w:'
             string theTo = candidates[_random.Next(candidates.Count)].From.Label;
             if (theTo is null) continue;
             theTo = theTo[2..];
