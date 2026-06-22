@@ -102,6 +102,7 @@ public partial class UKS
         //sequence search options
         AddStatement("Wildcard", "is-a", "Thought");
         AddStatement("??", "is-a", "Wildcard");
+        AddStatement("w:??", "is-a", "Wildcard");
         AddStatement("SearchOption", "is-a", "Property");
         AddStatement("SequenceSearchOption", "is-a", "SearchOption");
         AddStatement("mustMatchFirst", "is-a", "SequenceSearchOption");

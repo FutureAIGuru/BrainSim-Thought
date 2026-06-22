@@ -502,9 +502,9 @@ public partial class UKS
     public List<Link> SearchForRelationships(Link l)
     {
         List<Link> results = new List<Link>();
-        Thought from = l.From?.Label == "w:??" ? null : l.From;
-        Thought linkType = l.LinkType?.Label == "w:??" ? null : l.LinkType;
-        Thought to = l.To?.Label == "w:??" ? null : l.To;
+        Thought from = l.From?.Label.Contains("??") is true ? null : l.From;
+        Thought linkType = l.LinkType?.Label.Contains("??") is true ? null : l.LinkType;
+        Thought to = l.To?.Label.Contains("??") is true ? null : l.To;
         if (from is null && to is null && linkType is null) return results;
 
         // If from is specified, start there for efficiency (most constrained search)

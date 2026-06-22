@@ -37,23 +37,24 @@ public class ModuleTextIn : ModuleBase
 
     public override void UKSInitializedNotification()
     {
-        theUKS.GetOrAddThought("Language", "Thought");
+        theUKS.GetOrAddThought("LanguageElement", "Thought");
 
-        theUKS.GetOrAddThought("Phrase", "language");
-        theUKS.GetOrAddThought("Word", "language");
+        theUKS.GetOrAddThought("Phrase", "LanguageElement");
+        theUKS.GetOrAddThought("Word", "LanguageElement");
         theUKS.GetOrAddThought("WordType", "Word");
-        theUKS.GetOrAddThought("Sentence", "language");
-        theUKS.GetOrAddThought("QueryTemplate", "language");
+        theUKS.GetOrAddThought("Sentence", "LanguageElement");
+        theUKS.GetOrAddThought("Template", "LanguageElement");
         theUKS.GetOrAddThought("hasWords", "LinkType");
         theUKS.GetOrAddThought("means", "LinkType");
         theUKS.GetOrAddThought("spelled", "LinkType");
         theUKS.GetOrAddThought("pronounced", "LinkType");
     }
 
-    public void SubmitText(string text)
+    public string SubmitText(string text)
     {
+        string answer = null;
         string trimmed = text?.Trim();
-        if (string.IsNullOrEmpty(trimmed)) return;
+        if (string.IsNullOrEmpty(trimmed)) return null;
 
         //find the key words in the text 
         var keywords = FindKeywords(trimmed);
@@ -62,7 +63,7 @@ public class ModuleTextIn : ModuleBase
         var parameters = FindAndMapTemplates(keywords);
 
         //now convert words to meanings
-        if (parameters.Count > 2)
+        if (parameters?.Count > 2)
         {
             bool isQuery = parameters.FindFirst(x => x.Label == "w:??") is not null;
             Link l = BuildLink(parameters[0..3]);
@@ -71,22 +72,23 @@ public class ModuleTextIn : ModuleBase
             {
                 var results = theUKS.SearchForRelationships(l);
                 var words = ConvertRelationshipsToWords(results);
+                answer = string.Join(" ", words.Select(x => x.Label[2..]));
                 if (dlg is ModuleTextInDlg d)
                 {
-                    d.Answer(string.Join(" ", words.Select(x => x.Label[2..])));
+                    d.Answer(answer);
                 }
 
             }
             else
             {
-                l.From.AddLink(l.LinkType, l.To);
+                theUKS.AddStatement(l.From, l.LinkType, l.To);
             }
         }
         else
         {
             //could not find a template, so just use the keywords as parameters
         }
-
+        return answer;
     }
 
     List<Thought> ConvertRelationshipsToWords(List<Link> result)
@@ -163,19 +165,21 @@ public class ModuleTextIn : ModuleBase
             {
                 var subsequence = keywords.GetRange(i, length);
 
-                // Use HasSequence2 to find matching templates
-                var matchResults = theUKS.HasSequence2(subsequence, "hasWords", true, true);
+                // Use HasSequenceByActivation to find matching templates
+                //var matchResults = theUKS.HasSequence2(subsequence, "hasWords", true, true);
+                var matchResults = theUKS.FindSequencesByActivation(subsequence, "TemplateSequenceSearch");
+
                 //var w = matchResults[1].result;
                 //var v = theUKS.FlattenSequence((SeqElement)matchResults[1].result.GetTargetOfFirstLinkOfType("hasWords"));
                 //int ix = theUKS.FlattenSequence((SeqElement)matchResults[1].result.GetTargetOfFirstLinkOfType("hasWords")).Count(x=>x.Label.StartsWith("w:??"));
-//                matchResults.OrderBy(x=>x.result.GetTargetOfFirstLinkOfType("hasWords"))
+                //                matchResults.OrderBy(x=>x.result.GetTargetOfFirstLinkOfType("hasWords"))
 
                 if (matchResults.Count > 0)
                 {
                     // Found a matching template
                     foreach (var match in matchResults)
                     {
-                        Thought template = match.result;
+                        Thought template = match.seqNode.LinksFrom.FindFirst(x => x.LinkType?.Label == "hasWords")?.From;
                         // Get the captured wildcards from the match
                         var inputParams = theUKS.FlattenSequence(template.GetTargetOfFirstLinkOfType("hasWords") as SeqElement);
                         // Generate the output link

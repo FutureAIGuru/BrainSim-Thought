@@ -295,13 +295,16 @@ public partial class UKS
                 }
                 else
                 {
-
-                    Thought t1 = theUKS.GetOrAddThought(label1);
+                    Thought t1 = null;
+                    if (label1.StartsWith("w:"))
+                        t1 = theUKS.GetOrAddThought(label1,"word");
+                    else
+                        t1 = theUKS.GetOrAddThought(label1);
                     targets.Add(t1);
                 }
             }
             string seqLabel = string.Join("", targetParts);
-            Thought r1 = (Thought)theUKS.AddSequence(seqLabel, targets);
+            Thought r1 = (Thought)theUKS.AddSequence(seqLabel, targets, false);
             return r1;
 
         }
