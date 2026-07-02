@@ -378,6 +378,13 @@ public partial class UKS
         source.AddLink(linkType, rawSequence);
         return rawSequence;
     }
+    public Thought GetReferrer(SeqElement seqNode, Thought linkType)
+    {
+        var referrers = seqNode.LinksFrom.Where(x => x.LinkType == linkType);
+        if (referrers.Count() > 0)
+            return referrers.First().From;
+        return null;
+    }
 
     public List<(Thought result, float confidence)> HasSequence2(List<Thought> targets, Thought linkType,
      bool mustMatchFirst = false, bool mustMatchLast = false, bool circularSearch = false, bool allowOutOfOrder = false)
@@ -968,7 +975,7 @@ public partial class UKS
                 SeqElement t = sequenceStart;
                 for (int i = 0; i < seedPatternIndex; i++)
                 {
-                    t = (SeqElement) t.LinksFrom.FirstOrDefault(x => x.LinkType?.Label == "NXT")?.From;
+                    t = (SeqElement) t?.LinksFrom.FirstOrDefault(x => x.LinkType?.Label == "NXT")?.From;
                 }
                 return t;
             }

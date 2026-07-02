@@ -507,15 +507,26 @@ public partial class UKS
         Thought to = l.To?.Label.Contains("??") is true ? null : l.To;
         if (from is null && to is null && linkType is null) return results;
 
-        // If from is specified, start there for efficiency (most constrained search)
+        // hack to handle is-a searches
+        if (linkType.Label == "is-a" && from is not null)
+        {
+            foreach (Thought child in from.Parents)
+            {
+                results.Add(new Link { From = from, LinkType = linkType, To = child });
+            }
+            return results;
+        }
+           // If from is specified, start there for efficiency (most constrained search)
         if (from != null)
         {
-            foreach (Link link in from.LinksTo)
+            var attribs = GetAllLinks(new List<Thought> { from });
+            foreach (Link link in attribs)
             {
-                if ((linkType == null || link.LinkType == linkType) &&
+                if ((linkType == null || link.LinkType.HasAncestor(linkType)) &&
                     (to == null || link.To == to))
                 {
-                    results.Add(link);
+//                    results.Add(link);
+                    results.Add(new Link { From = from, LinkType = link.LinkType, To = link.To } );
                 }
             }
         }
@@ -530,7 +541,6 @@ public partial class UKS
                 }
             }
         }
-
         return results;
     }
 }

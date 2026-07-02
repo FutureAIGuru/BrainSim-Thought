@@ -310,32 +310,31 @@ public partial class UKS
         }
         IPluralize pluralizer = new Pluralizer();
         label = label.Trim();
-        string[] tempStringArray = label.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (tempStringArray.Length == 0 || tempStringArray[0].Length == 0) return null;
+        string[] attributeParts = label.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (attributeParts.Length == 0 || attributeParts[0].Length == 0) return null;
 
-        for (int i = 0; i < tempStringArray.Length; i++)
-            if (!char.IsUpper(tempStringArray[i][0]) && singularize)
-                tempStringArray[i] = pluralizer.Singularize(tempStringArray[i]);
+        for (int i = 0; i < attributeParts.Length; i++)
+            if (!char.IsUpper(attributeParts[i][0]) && singularize)
+                attributeParts[i] = pluralizer.Singularize(attributeParts[i]);
 
         string thoughtLabel;
         if (attributesFollow)
         {
-            thoughtLabel = tempStringArray[0];
-            for (int i = 1; i < tempStringArray.Length; i++)
+            thoughtLabel = attributeParts[0];
+            for (int i = 1; i < attributeParts.Length; i++)
                 //if (!string.IsNullOrEmpty(tempStringArray[i]))
-                thoughtLabel += "." + tempStringArray[i];
+                thoughtLabel += "." + attributeParts[i];
         }
         else
         {
-            int last = tempStringArray.Length - 1;
-            thoughtLabel = tempStringArray[last];
+            int last = attributeParts.Length - 1;
+            thoughtLabel = attributeParts[last];
             for (int i = 0; i < last; i++)
                 //if (!string.IsNullOrEmpty(tempStringArray[i]))
-                thoughtLabel += "." + tempStringArray[i];
+                thoughtLabel += "." + attributeParts[i];
         }
 
-        //find the base thing so we can assign the parent?
-
+        //find the base thing so we can assign the parent?  //this is handled in GetOrAddThought now, so we don't need to do it here
         Thought t = GetOrAddThought(thoughtLabel);
         return t;
     }

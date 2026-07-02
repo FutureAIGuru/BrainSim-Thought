@@ -12,6 +12,8 @@
  */
 
 
+using Microsoft.Msagl.GraphmapsWithMesh;
+using Microsoft.VisualBasic.FileIO;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,6 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows.Automation;
 using UKS;
 
 namespace BrainSimulator.Modules;
@@ -77,7 +80,7 @@ public class ModuleText : ModuleBase
             theUKS.GetOrAddThought("Phrase");
             theUKS.GetOrAddThought("hasWords", "LinkType");
             Thought thePhrase = theUKS.GetOrAddThought("p*", "Phrase");
-            thePhrase.TimeToLive = TimeSpan.FromSeconds(30); // adjust as needed
+            //thePhrase.TimeToLive = TimeSpan.FromSeconds(30); // adjust as needed
             if (wordsInPhrase.Count > 1)
             {
                 theUKS.AddSequenceAndLink(thePhrase, "hasWords", wordsInPhrase);
@@ -96,7 +99,7 @@ public class ModuleText : ModuleBase
     private static void CreateBigrams(List<Thought> wordsInPhrase)
     {
         var theUKS = MainWindow.theUKS;
-        theUKS.GetOrAddThought("bigram");
+        theUKS.GetOrAddThought("bigram", "LanguageElement");
         theUKS.GetOrAddThought("followedBy", "LinkType");
         for (int i = 0; i < wordsInPhrase.Count - 1; i++)
         {
@@ -135,7 +138,7 @@ public class ModuleText : ModuleBase
     public static string AddText(string text)
     {
         var theUKS = MainWindow.theUKS;
-        theUKS.GetOrAddThought("EnglishWord", "Thought");
+        theUKS.GetOrAddThought("Word", "Thought");
         if (string.IsNullOrWhiteSpace(text)) return "Null input";
 
         string[] sentences = Regex.Split(text, @"(?<=[\.!\?])\s+");
@@ -214,6 +217,10 @@ public class ModuleText : ModuleBase
                 string phrase = line.Trim();
                 if (phrase.Length == 0) continue;
 
+                //TEMPORARY ignore questions
+                if (phrase.ToLower().Contains("what")) continue;
+
+
                 int tabIdx = phrase.IndexOf('\t');
                 if (tabIdx >= 0)
                     phrase = phrase[..tabIdx].Trim();
@@ -264,14 +271,214 @@ public class ModuleText : ModuleBase
         _phraseReaderPath = null;
     }
 
+    public static int FindUniversalPatterns(int minMatches = 4, int maxWildcards = 1, int maxLength = 8)
+    {
+        var theUKS = MainWindow.theUKS;
+        Thought patternParent = theUKS.GetOrAddThought("UniversalPattern", "languageElement");
+        theUKS.GetOrAddThought("example", "linkType");
+        Thought wildcard = theUKS.Labeled("??");
+        Thought searchOptions = theUKS.Labeled("TemplateSequenceSearch");
+        int created = 0;
+
+        List<(Thought owner, SeqElement seq, string source)> sequences = new();
+
+        void AddSources(string parentLabel, string sequenceLink, string source)
+        {
+            Thought parent = theUKS.Labeled(parentLabel);
+            if (parent is null) return;
+
+            foreach (Thought owner in parent.Children)
+            {
+                if (owner.Parents[0] == patternParent) continue;
+                if (owner.GetTargetOfFirstLinkOfType(sequenceLink) is SeqElement seq)
+                    sequences.Add((owner, seq, source));
+            }
+        }
+
+        //        AddSources("Word", "spelled", "word");
+        AddSources("Phrase", "hasWords", "phrase");
+        // AddSources("phrase", "hasWords", "phrase");
+
+        foreach (var item in sequences.OrderBy(x => theUKS.GetSequenceLength(x.seq)))
+        {
+            List<Thought> elements = theUKS.FlattenSequence(item.seq);
+            int length = elements.Count;
+            if (length < 2 || length > maxLength) continue;
+
+            foreach (var wildcardPositions in WildcardMasks(length, maxWildcards))
+            {
+                List<Thought> testPattern = new(elements);
+                foreach (int pos in wildcardPositions)
+                    testPattern[pos] = wildcard;
+                string label = "up_" + item.source + "_" + string.Join("_", testPattern);
+                if (theUKS.Labeled(label) is not null) continue; // already exists)
+
+                int fixedCount = length - wildcardPositions.Count;
+                if (fixedCount == 0) continue;
+
+                var matches = theUKS.FindSequencesByActivation(testPattern, searchOptions);
+                //remove matches which have wildcards--they have already been processed
+                // we SHOULd make this into a search option in the future, but for now, this is a quick fix.
+                for (int i = matches.Count - 1; i >= 0; i--)
+                {
+                    var fullSequence = theUKS.FlattenSequence(matches[i].seqNode);
+                    if (fullSequence.FindFirst(x => x.HasAncestor(wildcard)) != null)
+                    {
+                        matches.RemoveAt(i);
+                        continue;
+                    }
+                }
+                int matchCount = matches.Count;
+                if (matchCount < minMatches) continue;
+
+                float score = matchCount * fixedCount / (float)length;
+                Thought pattern = theUKS.GetOrAddThought(label, "UniversalPattern");
+
+                if (pattern.GetTargetOfFirstLinkOfType("hasPattern") is null)
+                    theUKS.AddSequenceAndLink(pattern, "hasPattern", testPattern);
+
+                pattern.Weight = MathF.Max(pattern.Weight, score);
+                foreach (var match in matches)
+                {
+                    if (match.seqNode is SeqElement matchSeq)
+                    {
+                        //add an example
+                        theUKS.AddStatement(pattern, "example", match.seqNode);
+
+                        //What is the wildcard word?  Make it a child of the pattern so we can find it later.
+                        var words = theUKS.FlattenSequence(matchSeq);
+                        Thought wildcardWord = words[wildcardPositions[0]];
+                        wildcardWord.AddParent(pattern);
+                    }
+                }
+                created++;
+            }
+        }
+
+        return created;
+    }
+
+    public static int ComputeUniversalPatternOverlap(int minShared = 3, float minOverlap = 0.6f)
+    {
+        var theUKS = MainWindow.theUKS;
+        Thought patternParent = theUKS.Labeled("UniversalPattern");
+        if (patternParent is null) return 0;
+
+        Thought overlapType = theUKS.GetOrAddThought("overlaps", "linkType");
+        theUKS.AddStatement(overlapType, "hasProperty", "isCommutative");
+
+        List<Thought> patterns = patternParent.Children.ToList();
+        int overlapCount = 0;
+
+        for (int i = 0; i < patterns.Count - 1; i++)
+        {
+            HashSet<Thought> membersA = patterns[i].Children.ToHashSet();
+            if (membersA.Count == 0) continue;
+
+            for (int j = i + 1; j < patterns.Count; j++)
+            {
+                HashSet<Thought> membersB = patterns[j].Children.ToHashSet();
+                if (membersB.Count == 0) continue;
+
+                int shared = membersA.Intersect(membersB).Count();
+                if (shared < minShared) continue;
+
+                float overlap = shared / (float)Math.Max(membersA.Count, membersB.Count);
+                if (overlap < minOverlap) continue;
+
+                Link overlapLink = theUKS.AddStatement(patterns[i], overlapType, patterns[j]);
+                overlapLink.Weight = overlap;
+                overlapCount++;
+            }
+        }
+        return overlapCount;
+    }
+
+    private static IEnumerable<List<int>> WildcardMasks(int length, int maxWildcards)
+    {
+        for (int count = 1; count <= maxWildcards && count < length; count++)
+        {
+            foreach (var mask in WildcardMasks(length, count, 0, new List<int>()))
+                yield return mask;
+        }
+    }
+
+    private static IEnumerable<List<int>> WildcardMasks(int length, int count, int start, List<int> current)
+    {
+        if (current.Count == count)
+        {
+            yield return new List<int>(current);
+            yield break;
+        }
+
+        for (int i = start; i < length; i++)
+        {
+            current.Add(i);
+            foreach (var mask in WildcardMasks(length, count, i + 1, current))
+                yield return mask;
+            current.RemoveAt(current.Count - 1);
+        }
+    }
+
+    public static int CreateUniversalPatternClasses(int minMembers = 7, int minPatterns = 2)
+    {
+        var theUKS = MainWindow.theUKS;
+        Thought patternRoot = theUKS.Labeled("UniversalPattern");
+        if (patternRoot is null) return 0;
+
+        Thought classRoot = theUKS.GetOrAddThought("LearnedClass", "languageElement");
+        List<HashSet<Thought>> memberSets = new();
+        List<List<Thought>> patternGroups = new();
+
+        foreach (Thought pattern in patternRoot.Children)
+        {
+            HashSet<Thought> members = pattern.Children.ToHashSet();
+            if (members.Count < minMembers) continue;
+
+            int groupIndex = memberSets.FindIndex(x => x.SetEquals(members));
+            if (groupIndex < 0)
+            {
+                memberSets.Add(members);
+                patternGroups.Add(new List<Thought> { pattern });
+            }
+            else
+            {
+                patternGroups[groupIndex].Add(pattern);
+            }
+        }
+
+        int created = 0;
+
+        for (int i = 0; i < patternGroups.Count; i++)
+        {
+            if (patternGroups[i].Count < minPatterns) continue;
+
+            Thought learnedClass = theUKS.GetOrAddThought("class*", classRoot);
+            learnedClass.Weight = memberSets[i].Count;
+
+            foreach (Thought pattern in patternGroups[i])
+                pattern.AddParent(learnedClass);
+
+            created++;
+        }
+
+        return created;
+    }
+
 
     public static int CreateTrigrams()
     {
-        int retVal = 0;
+        int retVal = FindUniversalPatterns();
+        ComputeUniversalPatternOverlap();
+        CreateUniversalPatternClasses();
+        //        FindPatterns();
+        return retVal;
+
         var theUKS = MainWindow.theUKS;
+        //int retVal = 0;
 
         // Ensure type + link types exist
-        theUKS.GetOrAddThought("trigram");
+        theUKS.GetOrAddThought("trigram", "LanguageElement");
         theUKS.GetOrAddThought("first", "LinkType");
         theUKS.GetOrAddThought("second", "LinkType");
         theUKS.GetOrAddThought("third", "LinkType");
@@ -291,6 +498,8 @@ public class ModuleText : ModuleBase
             {
                 Thought c = l.To;
                 if (c == null) continue;
+                if (a.Label == "w:the" && b.Label == "w:baby")
+                { }
 
                 // Optional: ensure A,B,C occurs somewhere in actual ingested sequences
                 // This prevents creating trigrams that never appeared.
@@ -300,6 +509,8 @@ public class ModuleText : ModuleBase
 
                 // Build a deterministic trigram key (prefer IDs if stable)
                 string trigramKey = $"tg_{a.Label}_{b.Label}_{c.Label}";
+                if (trigramKey == "tg_the_baby_bird")
+                { }
 
                 Thought tg = theUKS.Labeled(trigramKey);
                 if (tg is null)
@@ -313,16 +524,18 @@ public class ModuleText : ModuleBase
 
                     // Set / reinforce trigram weight (use avg or min; min is more conservative)
                     float w = MathF.Min(t.Weight, l.Weight);     // conservative
-                    //float w = 0.5f * (t.Weight + l.Weight);   // alternative
+                                                                 //float w = 0.5f * (t.Weight + l.Weight);   // alternative
 
                     tg.Weight = MathF.Min(tg.Weight, 0.10f * w); // start small but proportional
+                    tg.Weight = results.Count;
                     retVal++;
                 }
-                else
-                {
-                    // reinforce existing trigram
-                    tg.Weight = MathF.Min(1f, tg.Weight + 0.05f * (1f - tg.Weight));
-                }
+                //else
+                //{
+                //    // reinforce existing trigram
+                //    //tg.Weight = MathF.Min(1f, tg.Weight + 0.05f * (1f - tg.Weight));
+                //    tg.Weight += 1; // simple increment; could also use a weighted average of component weights
+                //}
 
                 tg.LastFiredTime = DateTime.Now; // swap for UKS ticks later if you add recency
             }
@@ -332,6 +545,54 @@ public class ModuleText : ModuleBase
         for (int i = 50; i < topTrigrams.Count; i++)
             topTrigrams[i].Delete();
         return retVal;
+    }
+    public static void FindPatterns()
+    {
+        var theUKS = MainWindow.theUKS;
+        theUKS.GetOrAddThought("EndsWithS", "languageElement");
+        var resultsX = theUKS.FindSequencesByActivation(new List<Thought> { "c:S" }, "mustMatchLast");
+        foreach (var result in resultsX)
+        {
+            var searchPattern = theUKS.FlattenSequence(result.seqNode);
+            searchPattern.RemoveAt(searchPattern.Count - 1);
+            var resultsSingular = theUKS.FindSequencesByActivation(searchPattern, "SearchExactMatch");
+            if (resultsSingular.Count > 0)
+                theUKS.GetReferrer(resultsSingular[0].seqNode, "spelled")?.AddParent("EndsWithS");
+        }
+
+        theUKS.GetOrAddThought("Pattern", "languageElement");
+        int length = 5;
+        foreach (Thought t in ((Thought)"phrase").Children)
+        {
+            SeqElement thePhrase = t.GetTargetOfFirstLinkOfType("hasWords") as SeqElement;
+            Thought searchOptions = theUKS.Labeled("TemplateSequenceSearch");
+            if (theUKS.GetSequenceLength(thePhrase) == length)
+            {
+                var words = theUKS.FlattenSequence(thePhrase);
+                var bestCount = 0;
+                List<Thought> bestPattern = new();
+                for (int i = 0; i < length; i++)
+                {
+                    List<Thought> testPattern = new();
+
+                    testPattern.AddRange(words);
+                    testPattern[i] = theUKS.Labeled("??");
+                    var results = theUKS.FindSequencesByActivation(testPattern, searchOptions);
+                    if (results.Count > bestCount && results.Count > bestCount)
+                    {
+                        bestCount = results.Count;
+                        bestPattern = testPattern;
+                    }
+                }
+                if (bestCount > 2)
+                {
+                    string patternLabel = "tp_" + string.Join("_", bestPattern.Select(w => w.Label));
+                    Thought patternThought = theUKS.GetOrAddThought(patternLabel, "Pattern");
+                    theUKS.AddSequenceAndLink(patternThought, "hasWords", bestPattern);
+                    patternThought.Weight = bestCount;
+                }
+            }
+        }
     }
 
 }

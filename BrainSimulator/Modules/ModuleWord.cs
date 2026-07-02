@@ -57,7 +57,6 @@ public class ModuleWord : ModuleBase
     }
     public override void UKSInitializedNotification()
     {
-        theUKS.GetOrAddThought("EnglishWord", "Object");
         theUKS.GetOrAddThought("letter", "Object");
     }
 
@@ -96,7 +95,7 @@ public class ModuleWord : ModuleBase
             return null;
 
         // Get or create the word thought
-        Thought wordThought = theUKS.GetOrAddThought("w:" + word, "EnglishWord");
+        Thought wordThought = theUKS.GetOrAddThought("w:" + word, "Word");
         if (wordThought.LinksTo.FindFirst(x => x.LinkType.Label == "spelled") is not null)
         {
             wordThought.Fire();
@@ -115,7 +114,7 @@ public class ModuleWord : ModuleBase
 
         // Add the sequence
         var t = theUKS.AddSequenceAndLink(wordThought, spelledLinkType, letters);
-        wordThought.TimeToLive = TimeSpan.FromSeconds(10);
+        //wordThought.TimeToLive = TimeSpan.FromSeconds(10);
 
         return wordThought;
     }

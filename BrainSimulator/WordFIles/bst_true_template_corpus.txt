@@ -1,0 +1,751 @@
+A dog is an animal.
+The dog is an animal.
+Dogs are animals.
+The dogs are animals.
+a dog has a tail.
+The dog has a tail.
+Dogs have tails.
+The dogs have tails.
+A dog has four legs.
+The dog has four legs.
+Dogs have four legs.
+The dogs have four legs.
+A dog is brown.
+The dog is brown.
+Dogs are brown.
+The dogs are brown.
+A dog is large.
+The dog is large.
+Dogs are large.
+The dogs are large.
+A dog can bark.
+The dog can bark.
+Dogs can bark.
+The dogs can bark.
+What is a dog?
+What is the dog?
+What are dogs?
+What does a dog have?
+What does the dog have?
+What do dogs have?
+What can a dog do?
+What can the dog do?
+What can dogs do?
+What color is the dog?
+What size is the dog?
+A cat is an animal.
+The cat is an animal.
+Cats are animals.
+The cats are animals.
+a cat has a tail.
+The cat has a tail.
+Cats have tails.
+The cats have tails.
+A cat has four legs.
+The cat has four legs.
+Cats have four legs.
+The cats have four legs.
+A cat is black.
+The cat is black.
+Cats are black.
+The cats are black.
+A cat is small.
+The cat is small.
+Cats are small.
+The cats are small.
+A cat can meow.
+The cat can meow.
+Cats can meow.
+The cats can meow.
+What is a cat?
+What is the cat?
+What are cats?
+What does a cat have?
+What does the cat have?
+What do cats have?
+What can a cat do?
+What can the cat do?
+What can cats do?
+What color is the cat?
+What size is the cat?
+A bird is an animal.
+The bird is an animal.
+Birds are animals.
+The birds are animals.
+a bird has a wing.
+The bird has a wing.
+Birds have wings.
+The birds have wings.
+A bird has two wings.
+The bird has two wings.
+Birds have two wings.
+The birds have two wings.
+A bird is blue.
+The bird is blue.
+Birds are blue.
+The birds are blue.
+A bird is small.
+The bird is small.
+Birds are small.
+The birds are small.
+A bird can fly.
+The bird can fly.
+Birds can fly.
+The birds can fly.
+What is a bird?
+What is the bird?
+What are birds?
+What does a bird have?
+What does the bird have?
+What do birds have?
+What can a bird do?
+What can the bird do?
+What can birds do?
+What color is the bird?
+What size is the bird?
+A fish is an animal.
+The fish is an animal.
+Fish are animals.
+The fish are animals.
+a fish has a fin.
+The fish has a fin.
+Fish have fins.
+The fish have fins.
+A fish has two fins.
+The fish has two fins.
+Fish have two fins.
+The fish have two fins.
+A fish is silver.
+The fish is silver.
+Fish are silver.
+The fish are silver.
+A fish is small.
+The fish is small.
+Fish are small.
+The fish are small.
+A fish can swim.
+The fish can swim.
+Fish can swim.
+What is a fish?
+What is the fish?
+What are fish?
+What does a fish have?
+What does the fish have?
+What do fish have?
+What can a fish do?
+What can the fish do?
+What can fish do?
+What color is the fish?
+What size is the fish?
+A rabbit is an animal.
+The rabbit is an animal.
+Rabbits are animals.
+The rabbits are animals.
+a rabbit has a tail.
+The rabbit has a tail.
+Rabbits have tails.
+The rabbits have tails.
+A rabbit has four legs.
+The rabbit has four legs.
+Rabbits have four legs.
+The rabbits have four legs.
+A rabbit is white.
+The rabbit is white.
+Rabbits are white.
+The rabbits are white.
+A rabbit is small.
+The rabbit is small.
+Rabbits are small.
+The rabbits are small.
+A rabbit can hop.
+The rabbit can hop.
+Rabbits can hop.
+The rabbits can hop.
+What is a rabbit?
+What is the rabbit?
+What are rabbits?
+What does a rabbit have?
+What does the rabbit have?
+What do rabbits have?
+What can a rabbit do?
+What can the rabbit do?
+What can rabbits do?
+What color is the rabbit?
+What size is the rabbit?
+A horse is an animal.
+The horse is an animal.
+Horses are animals.
+The horses are animals.
+a horse has a tail.
+The horse has a tail.
+Horses have tails.
+The horses have tails.
+A horse has four legs.
+The horse has four legs.
+Horses have four legs.
+The horses have four legs.
+A horse is brown.
+The horse is brown.
+Horses are brown.
+The horses are brown.
+A horse is large.
+The horse is large.
+Horses are large.
+The horses are large.
+A horse can run.
+The horse can run.
+Horses can run.
+The horses can run.
+What is a horse?
+What is the horse?
+What are horses?
+What does a horse have?
+What does the horse have?
+What do horses have?
+What can a horse do?
+What can the horse do?
+What can horses do?
+What color is the horse?
+What size is the horse?
+A cow is an animal.
+The cow is an animal.
+Cows are animals.
+The cows are animals.
+a cow has a tail.
+The cow has a tail.
+Cows have tails.
+The cows have tails.
+A cow has four legs.
+The cow has four legs.
+Cows have four legs.
+The cows have four legs.
+A cow is black.
+The cow is black.
+Cows are black.
+The cows are black.
+A cow is large.
+The cow is large.
+Cows are large.
+The cows are large.
+A cow can moo.
+The cow can moo.
+Cows can moo.
+The cows can moo.
+What is a cow?
+What is the cow?
+What are cows?
+What does a cow have?
+What does the cow have?
+What do cows have?
+What can a cow do?
+What can the cow do?
+What can cows do?
+What color is the cow?
+What size is the cow?
+A duck is an animal.
+The duck is an animal.
+Ducks are animals.
+The ducks are animals.
+a duck has a wing.
+The duck has a wing.
+Ducks have wings.
+The ducks have wings.
+A duck has two wings.
+The duck has two wings.
+Ducks have two wings.
+The ducks have two wings.
+A duck is white.
+The duck is white.
+Ducks are white.
+The ducks are white.
+A duck is small.
+The duck is small.
+Ducks are small.
+The ducks are small.
+A duck can swim.
+The duck can swim.
+Ducks can swim.
+The ducks can swim.
+What is a duck?
+What is the duck?
+What are ducks?
+What does a duck have?
+What does the duck have?
+What do ducks have?
+What can a duck do?
+What can the duck do?
+What can ducks do?
+What color is the duck?
+What size is the duck?
+A frog is an animal.
+The frog is an animal.
+Frogs are animals.
+The frogs are animals.
+a frog has a leg.
+The frog has a leg.
+Frogs have legs.
+The frogs have legs.
+A frog has four legs.
+The frog has four legs.
+Frogs have four legs.
+The frogs have four legs.
+A frog is green.
+The frog is green.
+Frogs are green.
+The frogs are green.
+A frog is small.
+The frog is small.
+Frogs are small.
+The frogs are small.
+A frog can jump.
+The frog can jump.
+Frogs can jump.
+The frogs can jump.
+What is a frog?
+What is the frog?
+What are frogs?
+What does a frog have?
+What does the frog have?
+What do frogs have?
+What can a frog do?
+What can the frog do?
+What can frogs do?
+What color is the frog?
+What size is the frog?
+A snake is an animal.
+The snake is an animal.
+Snakes are animals.
+The snakes are animals.
+a snake has skin.
+The snake has skin.
+Snakes have skin.
+The snakes have skin.
+A snake has no legs.
+The snake has no legs.
+Snakes have no legs.
+The snakes have no legs.
+A snake is green.
+The snake is green.
+Snakes are green.
+The snakes are green.
+A snake is long.
+The snake is long.
+Snakes are long.
+The snakes are long.
+A snake can crawl.
+The snake can crawl.
+Snakes can crawl.
+The snakes can crawl.
+What is a snake?
+What is the snake?
+What are snakes?
+What does a snake have?
+What does the snake have?
+What do snakes have?
+What can a snake do?
+What can the snake do?
+What can snakes do?
+What color is the snake?
+What size is the snake?
+A mouse is an animal.
+The mouse is an animal.
+Mice are animals.
+The mice are animals.
+a mouse has a tail.
+The mouse has a tail.
+Mice have tails.
+The mice have tails.
+A mouse has four legs.
+The mouse has four legs.
+Mice have four legs.
+The mice have four legs.
+A mouse is gray.
+The mouse is gray.
+Mice are gray.
+The mice are gray.
+A mouse is small.
+The mouse is small.
+Mice are small.
+The mice are small.
+A mouse can squeak.
+The mouse can squeak.
+Mice can squeak.
+The mice can squeak.
+What is a mouse?
+What is the mouse?
+What are mice?
+What does a mouse have?
+What does the mouse have?
+What do mice have?
+What can a mouse do?
+What can the mouse do?
+What can mice do?
+What color is the mouse?
+What size is the mouse?
+A sheep is an animal.
+The sheep is an animal.
+Sheep are animals.
+The sheep are animals.
+a sheep has a tail.
+The sheep has a tail.
+Sheep have tails.
+The sheep have tails.
+A sheep has four legs.
+The sheep has four legs.
+Sheep have four legs.
+The sheep have four legs.
+A sheep is white.
+The sheep is white.
+Sheep are white.
+The sheep are white.
+A sheep is large.
+The sheep is large.
+Sheep are large.
+The sheep are large.
+A sheep can baa.
+The sheep can baa.
+Sheep can baa.
+What is a sheep?
+What is the sheep?
+What are sheep?
+What does a sheep have?
+What does the sheep have?
+What do sheep have?
+What can a sheep do?
+What can the sheep do?
+What can sheep do?
+What color is the sheep?
+What size is the sheep?
+A goose is an animal.
+The goose is an animal.
+Geese are animals.
+The geese are animals.
+a goose has a wing.
+The goose has a wing.
+Geese have wings.
+The geese have wings.
+A goose has two wings.
+The goose has two wings.
+Geese have two wings.
+The geese have two wings.
+A goose is white.
+The goose is white.
+Geese are white.
+The geese are white.
+A goose is large.
+The goose is large.
+Geese are large.
+The geese are large.
+A goose can fly.
+The goose can fly.
+Geese can fly.
+The geese can fly.
+What is a goose?
+What is the goose?
+What are geese?
+What does a goose have?
+What does the goose have?
+What do geese have?
+What can a goose do?
+What can the goose do?
+What can geese do?
+What color is the goose?
+What size is the goose?
+A tree is a plant.
+The tree is a plant.
+Trees are plants.
+The trees are plants.
+A tree has a leaf.
+The tree has a leaf.
+Trees have leaves.
+The trees have leaves.
+A tree is green.
+The tree is green.
+Trees are green.
+The trees are green.
+A tree is tall.
+The tree is tall.
+Trees are tall.
+The trees are tall.
+What is a tree?
+What is the tree?
+What are trees?
+What does a tree have?
+What does the tree have?
+What do trees have?
+What color is the tree?
+What size is the tree?
+A tree can grow.
+The tree can grow.
+Trees can grow.
+The trees can grow.
+What can a tree do?
+What can the tree do?
+What can trees do?
+A flower is a plant.
+The flower is a plant.
+Flowers are plants.
+The flowers are plants.
+A flower has a petal.
+The flower has a petal.
+Flowers have petals.
+The flowers have petals.
+A flower is red.
+The flower is red.
+Flowers are red.
+The flowers are red.
+A flower is small.
+The flower is small.
+Flowers are small.
+The flowers are small.
+What is a flower?
+What is the flower?
+What are flowers?
+What does a flower have?
+What does the flower have?
+What do flowers have?
+What color is the flower?
+What size is the flower?
+A flower can grow.
+The flower can grow.
+Flowers can grow.
+The flowers can grow.
+What can a flower do?
+What can the flower do?
+What can flowers do?
+A grass is a plant.
+The grass is a plant.
+Grasses are plants.
+The grasses are plants.
+A grass has a blade.
+The grass has a blade.
+Grasses have blades.
+The grasses have blades.
+A grass is green.
+The grass is green.
+Grasses are green.
+The grasses are green.
+A grass is short.
+The grass is short.
+Grasses are short.
+The grasses are short.
+What is a grass?
+What is the grass?
+What are grasses?
+What does a grass have?
+What does the grass have?
+What do grasses have?
+What color is the grass?
+What size is the grass?
+A grass can grow.
+The grass can grow.
+Grasses can grow.
+The grasses can grow.
+What can a grass do?
+What can the grass do?
+What can grasses do?
+A bush is a plant.
+The bush is a plant.
+Bushes are plants.
+The bushes are plants.
+A bush has a leaf.
+The bush has a leaf.
+Bushes have leaves.
+The bushes have leaves.
+A bush is green.
+The bush is green.
+Bushes are green.
+The bushes are green.
+A bush is small.
+The bush is small.
+Bushes are small.
+The bushes are small.
+What is a bush?
+What is the bush?
+What are bushes?
+What does a bush have?
+What does the bush have?
+What do bushes have?
+What color is the bush?
+What size is the bush?
+A bush can grow.
+The bush can grow.
+Bushes can grow.
+The bushes can grow.
+What can a bush do?
+What can the bush do?
+What can bushes do?
+A vine is a plant.
+The vine is a plant.
+Vines are plants.
+The vines are plants.
+A vine has a leaf.
+The vine has a leaf.
+Vines have leaves.
+The vines have leaves.
+A vine is green.
+The vine is green.
+Vines are green.
+The vines are green.
+A vine is long.
+The vine is long.
+Vines are long.
+The vines are long.
+What is a vine?
+What is the vine?
+What are vines?
+What does a vine have?
+What does the vine have?
+What do vines have?
+What color is the vine?
+What size is the vine?
+A vine can grow.
+The vine can grow.
+Vines can grow.
+The vines can grow.
+What can a vine do?
+What can the vine do?
+What can vines do?
+A ball is an object.
+The ball is an object.
+Balls are objects.
+The balls are objects.
+A ball has a shape.
+The ball has a shape.
+Balls have shapes.
+The balls have shapes.
+A ball is red.
+The ball is red.
+Balls are red.
+The balls are red.
+A ball is small.
+The ball is small.
+Balls are small.
+The balls are small.
+What is a ball?
+What is the ball?
+What are balls?
+What does a ball have?
+What does the ball have?
+What do balls have?
+What color is the ball?
+What size is the ball?
+A cup is an object.
+The cup is an object.
+Cups are objects.
+The cups are objects.
+A cup has a handle.
+The cup has a handle.
+Cups have handles.
+The cups have handles.
+A cup is white.
+The cup is white.
+Cups are white.
+The cups are white.
+A cup is small.
+The cup is small.
+Cups are small.
+The cups are small.
+What is a cup?
+What is the cup?
+What are cups?
+What does a cup have?
+What does the cup have?
+What do cups have?
+What color is the cup?
+What size is the cup?
+A book is an object.
+The book is an object.
+Books are objects.
+The books are objects.
+A book has a page.
+The book has a page.
+Books have pages.
+The books have pages.
+A book is blue.
+The book is blue.
+Books are blue.
+The books are blue.
+A book is small.
+The book is small.
+Books are small.
+The books are small.
+What is a book?
+What is the book?
+What are books?
+What does a book have?
+What does the book have?
+What do books have?
+What color is the book?
+What size is the book?
+A chair is an object.
+The chair is an object.
+Chairs are objects.
+The chairs are objects.
+A chair has a seat.
+The chair has a seat.
+Chairs have seats.
+The chairs have seats.
+A chair is brown.
+The chair is brown.
+Chairs are brown.
+The chairs are brown.
+A chair is large.
+The chair is large.
+Chairs are large.
+The chairs are large.
+What is a chair?
+What is the chair?
+What are chairs?
+What does a chair have?
+What does the chair have?
+What do chairs have?
+What color is the chair?
+What size is the chair?
+A table is an object.
+The table is an object.
+Tables are objects.
+The tables are objects.
+A table has a top.
+The table has a top.
+Tables have tops.
+The tables have tops.
+A table is brown.
+The table is brown.
+Tables are brown.
+The tables are brown.
+A table is large.
+The table is large.
+Tables are large.
+The tables are large.
+What is a table?
+What is the table?
+What are tables?
+What does a table have?
+What does the table have?
+What do tables have?
+What color is the table?
+What size is the table?
+What has fur?
+What has a tail?
+What has tails?
+What has four legs?
+What has two wings?
+What has no legs?
+What has leaves?
+What has a leaf?
+What has feathers?
+What has scales?
+What has fins?
+What has a fin?
+What has wool?
+What has a mane?
+What has a handle?
+What has a shape?
+What can bark?
+What can meow?
+What can fly?
+What can swim?
+What can hop?
+What can crawl?
+What can grow?
