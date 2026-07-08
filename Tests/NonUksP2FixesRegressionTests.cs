@@ -2,6 +2,7 @@
  * Regression tests for P2 non-UKS fixes (2026-07-07).
  */
 
+using System.IO;
 using UKS;
 using Xunit;
 
@@ -12,11 +13,15 @@ public class NonUksP2FixesRegressionTests
     [Fact]
     public void Thought_GetTargetOfFirstLinkOfType_string_overload()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new global::UKS.UKS(clear: true);
         uks.CreateInitialStructure();
         Thought parent = uks.GetOrAddThought("phrase1", "Object");
         Thought linkType = uks.GetOrAddThought("soundAs", "LinkType");
-        var seq = uks.AddSequenceAndLink(parent, linkType, new List<Thought> { uks.GetOrAddThought("note1", "Object") });
+        var seq = uks.AddSequenceAndLink(parent, linkType, new List<Thought>
+        {
+            uks.GetOrAddThought("note1", "Object"),
+            uks.GetOrAddThought("note2", "Object"),
+        });
         Assert.NotNull(seq);
         Thought target = parent.GetTargetOfFirstLinkOfType("soundAs");
         Assert.Same(seq, target);

@@ -11,6 +11,8 @@
  * See the LICENSE file in the project root for full license information.
  */
 
+#nullable disable
+
 using Microsoft.VisualBasic;
 using System.Runtime.InteropServices;
 using static UKS.UKS;
@@ -23,11 +25,11 @@ public class SeqElement : Thought
     /// Default constructor for sequence element placeholder.
     /// </summary>
     public SeqElement() { }
-    public SeqElement? FRST
+    public SeqElement FRST
     {
         get
         {
-            Link? nxt = LinksToWriteable.FindFirst(x => x.LinkType?.Label == "FRST");
+            Link nxt = LinksToWriteable.FindFirst(x => x.LinkType?.Label == "FRST");
             return nxt?.To as SeqElement;
         }
         set
@@ -40,11 +42,11 @@ public class SeqElement : Thought
             AddLink(nxtType, value);
         }
     }
-    public SeqElement? NXT
+    public SeqElement NXT
     {
         get
         {
-            Link? nxt = LinksTo.FindFirst(x => x.LinkType?.Label == "NXT");
+            Link nxt = LinksTo.FindFirst(x => x.LinkType?.Label == "NXT");
             return nxt?.To as SeqElement;
         }
         set
@@ -57,11 +59,11 @@ public class SeqElement : Thought
             AddLink(nxtType, value);
         }
     }
-    public Thought? VLU
+    public Thought VLU
     {
         get
         {
-            Link? nxt = LinksTo.FindFirst(x => x.LinkType?.Label == "VLU");
+            Link nxt = LinksTo.FindFirst(x => x.LinkType?.Label == "VLU");
             return nxt?.To;
         }
         set
@@ -201,7 +203,7 @@ public partial class UKS
         }
         else
         {
-            SeqElement? predecessor = prevElementIn.FRST;
+            SeqElement predecessor = prevElementIn.FRST;
             while (predecessor?.NXT is not null && predecessor.NXT != prevElementIn)
                 predecessor = predecessor.NXT;
             if (predecessor is null || predecessor.NXT != prevElementIn)
@@ -466,7 +468,7 @@ public partial class UKS
         // These are potential starting points for matching sequences
 
         // When this returns, seqNode is the first matching node.  curPos.Current is the last
-        List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = RawSearchExact(targets);
+        List<(SeqElement seqNode, IEnumerator<SeqElement> curPos, int matchCount)> searchCandidates = RawSearchExact(targets);
         if (searchCandidates.Count == 0) return retVal;
 
         //Do we want to follow up the chain of referrers?
@@ -645,9 +647,9 @@ public partial class UKS
         float score = count / (Math.Max(seq.Count, targets.Count) - 1);
         return score;
     }
-    public List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> RawSearchExact(List<Thought> targets)
+    public List<(SeqElement seqNode, IEnumerator<SeqElement> curPos, int matchCount)> RawSearchExact(List<Thought> targets)
     {
-        List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = new();
+        List<(SeqElement seqNode, IEnumerator<SeqElement> curPos, int matchCount)> searchCandidates = new();
         if (targets is null || targets.Count < 2) return searchCandidates;
         //Step 1: initialize enuerators for each candidate sequence
         var candidateNodes = targets[0].LinksFrom
@@ -678,8 +680,7 @@ public partial class UKS
 
             for (int j = 0; j < searchCandidates.Count; j++)
             {
-                SeqElement? nextThought = null;
-                Thought theValue = null;
+                SeqElement nextThought = null;
                 //have we reached the end of the current subsequence?
                 if (!searchCandidates[j].curPos.MoveNext())
                 {
@@ -1040,7 +1041,7 @@ public partial class UKS
             }
 
             activeElement.LastMatchElement = activeElement.CurPos;
-            activeElement.Confidence = activeElement.Confidence;  //do some arithmetic here to adjust confidence based on the match quality of this element (exact match vs wildcard, etc)
+            // TODO: adjust confidence based on match quality (exact match vs wildcard, etc.)
         }
 
         return activeElements;

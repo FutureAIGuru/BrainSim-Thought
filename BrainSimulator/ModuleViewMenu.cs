@@ -33,7 +33,6 @@ namespace BrainSimulator
                 cm = new ContextMenu();
             cm.SetValue(moduleNameProperty, nr.Label);
 
-            StackPanel sp;
             MenuItem mi = new MenuItem();
             mi = new MenuItem();
             mi.Header = "Delete";

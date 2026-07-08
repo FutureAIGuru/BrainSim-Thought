@@ -124,8 +124,8 @@ public class ModuleAttributeBubbleTests
         module.DoTheWork();
 
         // Assert
-        Assert.False(dog.LinksTo.Any(l => l.LinkType == breathes && l.To == air));
-        Assert.False(cat.LinksTo.Any(l => l.LinkType == breathes && l.To == air));
+        Assert.DoesNotContain(dog.LinksTo, l => l.LinkType == breathes && l.To == air);
+        Assert.DoesNotContain(cat.LinksTo, l => l.LinkType == breathes && l.To == air);
     }
 
     [Fact]

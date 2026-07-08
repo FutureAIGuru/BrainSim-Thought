@@ -84,16 +84,16 @@ namespace BrainSimulator.Modules
                 {
                     case "ChatGPT":
                         if (txt.EndsWith("?"))
-                            mcn.GetChatGPTResult(txt, ModuleOnlineInfo.QueryType.general);
+                            _ = mcn.GetChatGPTResult(txt, ModuleOnlineInfo.QueryType.general);
                         else if (txt.StartsWith("list some"))
-                            mcn.GetChatGPTResult(txt.Substring(10), ModuleOnlineInfo.QueryType.list);
+                            _ = mcn.GetChatGPTResult(txt.Substring(10), ModuleOnlineInfo.QueryType.list);
                         else if (txt.StartsWith("count some"))
-                            mcn.GetChatGPTResult(txt.Substring(11), ModuleOnlineInfo.QueryType.listCount);
+                            _ = mcn.GetChatGPTResult(txt.Substring(11), ModuleOnlineInfo.QueryType.listCount);
                         else if (txt.EndsWith("can"))
-                            mcn.GetChatGPTResult(txt.Substring(0,txt.Length-3), ModuleOnlineInfo.QueryType.can);
+                            _ = mcn.GetChatGPTResult(txt.Substring(0,txt.Length-3), ModuleOnlineInfo.QueryType.can);
                         else
                         {
-                            mcn.GetChatGPTResult(txt, qType);
+                            _ = mcn.GetChatGPTResult(txt, qType);
                             //Thread.Sleep(1000);
                             //mcn.GetChatGPTData(txt, ModuleOnlineInfo.QueryType.hasa);
                             //Thread.Sleep(1000);
@@ -108,16 +108,16 @@ namespace BrainSimulator.Modules
                         mcn.GetConceptNetData(txt);
                         break;
                     case "WikiData":
-                        mcn.GetWikidataData(txt, "subclass of");
+                        _ = mcn.GetWikidataData(txt, "subclass of");
                         break;
                     case "Wiktionary":
-                        mcn.GetWiktionaryData(txt);
+                        _ = mcn.GetWiktionaryData(txt);
                         break;
                     case "Free Dictionary":
-                        mcn.GetFreeDictionaryAPIData(txt);
+                        _ = mcn.GetFreeDictionaryAPIData(txt);
                         break;
                     case "Webster's Elementary":
-                        mcn.GetWebstersDictionaryAPIData(txt);
+                        _ = mcn.GetWebstersDictionaryAPIData(txt);
                         break;
                     case "Kid's Definition":
                         mcn.GetKidsDefinition(txt);

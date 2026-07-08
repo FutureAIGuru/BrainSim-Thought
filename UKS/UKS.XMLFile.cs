@@ -38,7 +38,7 @@ public partial class UKS
         [DefaultValue(1)]
         public float weight = 1;
         [DefaultValue(null)]
-        public object V;
+        public object? V;
         public override string ToString()
         {
             return $"{index}, {label}";
@@ -62,8 +62,10 @@ public partial class UKS
 
         string tempFilePath = Path.GetTempFileName();
         UKSTemp.Clear();
-        FormatContentForSaving("BrainSim");
-        FormatContentForSaving("Thought");
+        if (Labeled("BrainSim") is Thought brainSim)
+            FormatContentForSaving(brainSim);
+        if (Labeled("Thought") is Thought thoughtRoot)
+            FormatContentForSaving(thoughtRoot);
 
         //List<Type> extraTypes = GetTypesInUKS();
         Stream file = File.Create(tempFilePath);
@@ -93,7 +95,7 @@ public partial class UKS
 
     //gets the index of a Thought in the output array
     //and creates an entry if it's not already there.
-    private int GetIndex(Thought t)
+    private int GetIndex(Thought? t)
     {
         if (t is null) return -1;
         if (string.IsNullOrWhiteSpace(t.Label))  // Put the GUID into the label only when it's unlabeled
@@ -120,8 +122,9 @@ public partial class UKS
         return index;
     }
 
-    private void FormatContentForSaving(Thought root)
+    private void FormatContentForSaving(Thought? root)
     {
+        if (root is null) return;
         GetIndex(root);
         foreach (var t in root.EnumerateSubThoughts())
             GetIndex(t);
@@ -181,7 +184,7 @@ public partial class UKS
         XmlSerializer reader1 = new XmlSerializer(UKSTemp.GetType(), extraTypes.ToArray());
         try
         {
-            UKSTemp = (List<sThought>)reader1.Deserialize(file);
+            UKSTemp = (List<sThought>?)reader1.Deserialize(file) ?? new();
         }
         catch (Exception e)
         {
@@ -205,30 +208,47 @@ public partial class UKS
         //more hacks for compatibility old file formatting
         //this does nothought on updated file content
         AddStatement("inheritable", "is-a", "Property");
-        Thought hasChild = Labeled("has-child");
-        if (hasChild is not null)
+        if (Labeled("has-child") is Thought hasChild)
         {
-            hasChild.AddLink("inverseOf", "is-a");
-            hasChild.RemoveLink("hasProperty", "isTransitive");
-            hasChild.RemoveLink("hasProperty", "inheritable");
+            Thought? inverseOf = "inverseOf";
+            Thought? isAChild = "is-a";
+            Thought? hasProperty = "hasProperty";
+            Thought? isTransitive = "isTransitive";
+            Thought? inheritable = "inheritable";
+            if (inverseOf is not null && isAChild is not null)
+                hasChild.AddLink(inverseOf, isAChild);
+            if (hasProperty is not null && isTransitive is not null)
+                hasChild.RemoveLink(hasProperty, isTransitive);
+            if (hasProperty is not null && inheritable is not null)
+                hasChild.RemoveLink(hasProperty, inheritable);
         }
-        Thought isA = Labeled("is-a");
-        if (isA is not null)
+        if (Labeled("is-a") is Thought isA)
         {
-            isA.AddLink("hasProperty", "inheritable");
-            isA.AddLink("hasProperty", "isTransitive");
-            isA.RemoveLink("inverseOf", "has-child");
-            isA.RemoveLink("hasProperty", null);
+            Thought? hasProperty = "hasProperty";
+            Thought? inheritable = "inheritable";
+            Thought? isTransitive = "isTransitive";
+            Thought? inverseOf = "inverseOf";
+            Thought? hasChildLink = "has-child";
+            if (hasProperty is not null && inheritable is not null)
+                isA.AddLink(hasProperty, inheritable);
+            if (hasProperty is not null && isTransitive is not null)
+                isA.AddLink(hasProperty, isTransitive);
+            if (inverseOf is not null && hasChildLink is not null)
+                isA.RemoveLink(inverseOf, hasChildLink);
+            if (hasProperty is not null)
+                isA.RemoveLink(hasProperty, null!);
         }
-        Thought has = Labeled("has");
-        if (has is not null)
+        if (Labeled("has") is Thought has)
         {
-            has.AddLink("hasProperty", "inheritable");
+            Thought? hasProperty = "hasProperty";
+            Thought? inheritable = "inheritable";
+            if (hasProperty is not null && inheritable is not null)
+                has.AddLink(hasProperty, inheritable);
         }
         return true;
     }
 
-    private List<string> ExtractPortionOfUKS(Thought root)
+    private List<string> ExtractPortionOfUKS(Thought? root)
     {
         List<string> uksContent = new List<string>();
         if (root is null) return uksContent;
@@ -291,14 +311,10 @@ public partial class UKS
             }
             else //this must be a link
             {
-                Thought from = null;
-                Thought linkType = null;
-                Thought to = null;
-                from = Labeled(UKSTemp[st.source].label);
-                linkType = Labeled(UKSTemp[st.linkType].label);
-                if (st.target != -1) to = Labeled(UKSTemp[st.target].label);
-                Link theLink = (Link)Labeled(st.label);
-                if (theLink is null)
+                Thought? from = Labeled(UKSTemp[st.source].label);
+                Thought? linkType = Labeled(UKSTemp[st.linkType].label);
+                Thought? to = st.target != -1 ? Labeled(UKSTemp[st.target].label) : null;
+                if (Labeled(st.label) is not Link theLink)
                     continue;
                 theLink.To = to;
                 theLink.From = from;
@@ -306,11 +322,15 @@ public partial class UKS
                 theLink.Weight = st.weight;
                 theLink.V = st.V;
                 theLink.TimeToLive = TimeSpan.MaxValue;
-                Link newLink = theLink.From.AddLink(theLink.LinkType, theLink.To);
+                if (theLink.From is null || theLink.LinkType is null)
+                    continue;
+                Link? newLink = theLink.From.AddLink(theLink.LinkType, theLink.To);
+                if (newLink is null)
+                    continue;
                 newLink.Weight = st.weight;
                 if (!AtomicThoughts.Contains(newLink))
                     AtomicThoughts.Add(newLink);
-                if (linkType.Label == "VLU")
+                if (linkType?.Label == "VLU")
                     PromoteToSeqElement(theLink.From);
             }
         }
@@ -320,7 +340,7 @@ public partial class UKS
         {
             if (st.label.StartsWith("unl_"))
             {
-                Thought x = Labeled(st.label);
+                Thought? x = Labeled(st.label);
                 if (x is not null)
                 {
                     x.Label = "";

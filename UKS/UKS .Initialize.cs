@@ -59,13 +59,11 @@ public partial class UKS
         //because AddStatement and GetOrAddThing won't work without them
         //Thought
         if (Labeled("Thought") is null) AddThought("Thought", null);
-        Thought isA = Labeled("is-a");
-        if (isA is null) isA = AddThought("is-a", null);
-        Thought hasChild = Labeled("has-child");
-        if (hasChild is null) hasChild = AddThought("has-child", null);
+        Thought? isA = Labeled("is-a") ?? AddThought("is-a", null);
+        Thought? hasChild = Labeled("has-child") ?? AddThought("has-child", null);
         Thought linkType = AddThought("LinkType", "Thought");
-        isA.AddParent(linkType);
-        hasChild.AddParent(linkType);
+        isA?.AddParent(linkType);
+        hasChild?.AddParent(linkType);
         GetOrAddThought("Unknown", "Thought");
 
         GetOrAddThought("Abstract", "Thought");
@@ -189,21 +187,47 @@ public partial class UKS
             GetOrAddThought(i.ToString(), "digit");
         for (int i = 9; i > 0; i--)
             AddStatement(i.ToString(), "greaterThan", (i - 1).ToString());
-        AddSequenceAndLink("digit", "order", new List<Thought> { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" });
+        {
+            List<Thought> digits = new();
+            for (int i = 0; i < 10; i++)
+            {
+                Thought? digit = GetOrAddThought(i.ToString(), "digit");
+                if (digit is not null) digits.Add(digit);
+            }
+            Thought? digitType = GetOrAddThought("digit", "number");
+            Thought? orderLink = GetOrAddThought("order", "Comparison");
+            if (digitType is not null && orderLink is not null)
+                AddSequenceAndLink(digitType, orderLink, digits);
+        }
 
         //demo to add PI to the structure
         AddStatement("pi", "is-a", "number");
-        AddSequenceAndLink("pi", "hasDigit", new List<Thought> { "3", ".", "1", "4", "1", "5", "9" });
+        {
+            List<Thought> piDigits = new();
+            foreach (string d in new[] { "3", ".", "1", "4", "1", "5", "9" })
+            {
+                Thought? digit = GetOrAddThought(d, "digit");
+                if (digit is not null) piDigits.Add(digit);
+            }
+            Thought? piThought = Labeled("pi");
+            Thought? hasDigitLink = GetOrAddThought("hasDigit", "has");
+            if (piThought is not null && hasDigitLink is not null)
+                AddSequenceAndLink(piThought, hasDigitLink, piDigits);
+        }
 
         //put in letters
         GetOrAddThought("letter", "Abstract");
         List<Thought> theAlphabet = new();
         for (char c = 'A'; c <= 'Z'; c++)
         {
-            theAlphabet.Add(GetOrAddThought("l:"+c.ToString(), "Letter"));
+            Thought? letter = GetOrAddThought("l:" + c, "Letter");
+            if (letter is not null) theAlphabet.Add(letter);
         }
         GetOrAddThought("alphabet", "abstract");
-        AddSequenceAndLink("alphabet", "order", theAlphabet);
+        Thought? alphabetThought = GetOrAddThought("alphabet", "abstract");
+        Thought? orderLink2 = GetOrAddThought("order", "Comparison");
+        if (alphabetThought is not null && orderLink2 is not null)
+            AddSequenceAndLink(alphabetThought, orderLink2, theAlphabet);
 
         AddBrainSimConfigSectionIfNeeded();
     }

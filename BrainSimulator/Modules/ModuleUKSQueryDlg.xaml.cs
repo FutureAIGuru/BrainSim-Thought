@@ -218,7 +218,6 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         }
         SetStatus("OK");
 
-        float confidence = 0;
         var allResults = theUKS.SearchForClosestMatch(queryThought, ancestor);
 
         if (allResults.Count == 0)

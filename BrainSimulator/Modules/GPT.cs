@@ -118,9 +118,9 @@ namespace BrainSimulator.Modules
                 else
                     if (completionResult.error is not null) answerString = "ERROR: " + completionResult.error.message;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                throw ex;
+                throw;
             }
             
             // Deserialize the response body to a CompletionResult object

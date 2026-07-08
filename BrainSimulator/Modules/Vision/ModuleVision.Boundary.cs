@@ -525,8 +525,7 @@ public partial class ModuleVision
         while (x >= 0 && y >= 0 && x < imageArray.GetLength(0) && y < imageArray.GetLength(1))
         {
             Color c = imageArray[(int)x, (int)y];
-            if (c != null)
-                retVal.Add(c);
+            retVal.Add(c);
             x += dx;
             y += dy;
         }

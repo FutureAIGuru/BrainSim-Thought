@@ -221,6 +221,7 @@ public class ModuleAlgorithm : ModuleBase
         LastLinkWritten = null;
         CycleCount = 0;
         LastAction = "";
+        Thought.ClearRecentlyFiredQueue();
 
         if (theUKS == null) return false;
 
@@ -276,7 +277,11 @@ public class ModuleAlgorithm : ModuleBase
             Thought mainTaskThought = theUKS.Labeled(mainTaskName);
             if (mainTaskThought is not null)
             {
-                mainTaskThought.Fire();
+                SeqElement mainSteps = mainTaskThought.GetTargetOfFirstLinkOfType("steps") as SeqElement;
+                if (mainSteps is not null)
+                    mainSteps.Fire();
+                else
+                    mainTaskThought.Fire();
             }
         }
 
@@ -315,7 +320,7 @@ public class ModuleAlgorithm : ModuleBase
         while (HandleFiringNeurons()) { }
         ;
 
-        LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
+        LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten?.ToString()}";
         LastExecutedStep = null;
         return true;
     }

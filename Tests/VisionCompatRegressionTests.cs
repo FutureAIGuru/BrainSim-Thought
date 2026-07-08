@@ -12,7 +12,7 @@ public class VisionCompatRegressionTests
     [Fact]
     public void GetOrAddThing_alias_matches_GetOrAddThought()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new global::UKS.UKS(clear: true);
         uks.CreateInitialStructure();
         Thought t = uks.GetOrAddThing("VisionTest", "Object");
         Assert.Same(t, uks.Labeled("VisionTest"));
@@ -21,7 +21,7 @@ public class VisionCompatRegressionTests
     [Fact]
     public void SetAttribute_and_GetAttribute_round_trip()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new global::UKS.UKS(clear: true);
         uks.CreateInitialStructure();
         uks.AddStatement("Color", "is-a", "Attribute");
         Thought shape = uks.GetOrAddThought("shape1", "Object");
@@ -33,7 +33,7 @@ public class VisionCompatRegressionTests
     [Fact]
     public void SearchForClosestMatch_ref_returns_ranked_results()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new global::UKS.UKS(clear: true);
         uks.CreateInitialStructure();
         Thought root = uks.GetOrAddThought("Stored", "Object");
         Thought a = uks.GetOrAddThought("a", root);
@@ -43,10 +43,10 @@ public class VisionCompatRegressionTests
         uks.AddStatement(a, "is", b);
 
         float best = 0;
-        Thought? first = uks.SearchForClosestMatch(target, root, ref best);
+        Thought first = uks.SearchForClosestMatch(target, root, ref best);
         Assert.NotNull(first);
         float best2 = 0;
-        Thought? second = uks.GetNextClosestMatch(ref best2);
+        Thought second = uks.GetNextClosestMatch(ref best2);
         Assert.True(first is not null);
     }
 }
