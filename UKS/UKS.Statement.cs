@@ -44,36 +44,31 @@ public partial class UKS
 	{
 		if (source is null || linkType is null) return null;
 
-		Thought t = Labeled(label);
-		Link existing = t as Link;
-		Link lnk = null;
-		if (existing is null) existing = GetLink(source, linkType, target);
+		Link wired = GetLink(source, linkType, target);
+		Link labeledLink = string.IsNullOrEmpty(label) ? null : Labeled(label) as Link;
+		bool isUnwiredPlaceholder = labeledLink is not null && labeledLink.From is null;
 
-		if (existing is null)
-		{
-			//create the link but don't add it to the UKS
-			lnk = CreateTheLink(source, linkType, target);
-			existing = GetLink(lnk);
-		}
-		else
-		{
-			existing.LinkType = linkType;
-			existing.To = target;
-			existing.From = source;
-        }
-        source.Fire();
-        linkType.Fire();
-        target?.Fire();
+		source.Fire();
+		linkType.Fire();
+		target?.Fire();
 
-        //does this link already exist (without conditions)?
-        if (existing is not null)
+		if (wired is not null && !isUnwiredPlaceholder)
 		{
-			WeakenConflictingLinks(source, existing);
-			existing.Fire();
-			return existing;
+			WeakenConflictingLinks(source, wired);
+			wired.Fire();
+			return wired;
 		}
-		if (lnk?.From?.Label == "") lnk.From.AddDefaultLabel();
-		if (lnk?.To?.Label == "") lnk.To.AddDefaultLabel();
+
+		Link lnk = isUnwiredPlaceholder ? labeledLink : CreateTheLink(source, linkType, target);
+		if (isUnwiredPlaceholder)
+		{
+			lnk.From = source;
+			lnk.LinkType = linkType;
+			lnk.To = target;
+		}
+
+		if (lnk.From?.Label == "") lnk.From.AddDefaultLabel();
+		if (lnk.To?.Label == "") lnk.To.AddDefaultLabel();
 		if (!string.IsNullOrEmpty(label))
 			lnk.Label = label.Trim();
 

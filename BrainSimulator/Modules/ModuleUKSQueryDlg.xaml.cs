@@ -150,7 +150,8 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             resultText1.Text += result1.t.Label + "   " + result1.conf.ToString("0.00") + "\n";
         }
 
-        if (allResults.Count == 1 || allResults[0].conf > allResults[1].conf)
+        if (allResults.Count > 0 &&
+            (allResults.Count == 1 || allResults[0].conf > allResults[1].conf))
         {
             UpdateMostRecent(allResults[0].t);
         }

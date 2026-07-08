@@ -201,7 +201,21 @@ public partial class UKS
         }
         else
         {
-            throw new NotImplementedException();
+            SeqElement? predecessor = prevElementIn.FRST;
+            while (predecessor?.NXT is not null && predecessor.NXT != prevElementIn)
+                predecessor = predecessor.NXT;
+            if (predecessor is null || predecessor.NXT != prevElementIn)
+                throw new ArgumentException("prevElementIn is not in its FRST chain", nameof(prevElementIn));
+
+            SeqElement newNode = new()
+            {
+                Label = prevElementIn.Label + "*",
+                FRST = prevElementIn.FRST,
+                NXT = prevElementIn,
+            };
+            newNode.AddLink("VLU", value);
+            predecessor.NXT = newNode;
+            return prevElementIn.FRST ?? first;
         }
         return first;
     }
@@ -308,7 +322,7 @@ public partial class UKS
     }
     public SeqElement AddSequence(string label, List<Thought> targets, bool allowCompression = true)
     {
-        if (targets.Count < 1) return null;  //a sequence must have at least 2 elements
+        if (targets.Count < 2) return null;  //a sequence must have at least 2 elements
 
         List<Thought> resolvedTargets = new(targets);
 
@@ -370,7 +384,7 @@ public partial class UKS
     /// <returns>The first node of the created or reused sequence, or null if insufficient targets.</returns>
     public SeqElement AddSequenceAndLink(Thought source, Thought linkType, List<Thought> targets, float baseWeight = 1.0f)
     {
-        if (targets.Count < 1) return null;  //a sequence must have at least 2 elements
+        if (targets.Count < 2) return null;  //a sequence must have at least 2 elements
 
         //clear out any existing sequence links of this type
         source.RemoveLinks(linkType);  //TODO delete the sequence
@@ -414,7 +428,10 @@ public partial class UKS
     public List<(SeqElement seqNode, float confidence)> HasSequence(List<Thought> targets, Thought linkType,
         bool mustMatchFirst = false, bool mustMatchLast = false, bool circularSearch = false, bool allowOutOfOrder = false)
     {
-        //this function searches the UKS for sequences matching the specified pattern in targets. 
+        if (circularSearch || allowOutOfOrder)
+            throw new NotSupportedException("circularSearch and allowOutOfOrder are not yet implemented.");
+
+        //this function searches the UKS for sequences matching the specified pattern in targets.
 
         //If circularSearch is true, then the search will consider sequences that wrap around from end to start Thought.
         //If firstLastPriority is true, then matches that have the first and last elements matching will be given higher confidence
@@ -757,9 +774,13 @@ public partial class UKS
         if (visitedSequences.Contains(sequenceStart)) yield break; // Already visited this sequence, stop to prevent infinite recursion
         visitedSequences.Push(sequenceStart);
         var current = sequenceStart;
+        var visitedInMain = new HashSet<SeqElement>();
 
         while (current is not null)
         {
+            if (!visitedInMain.Add(current))
+                break;
+
             // Get the VLU Linkto find what this sequence node points to
             Thought valueRel = GetElementValue(current);
 
@@ -776,10 +797,6 @@ public partial class UKS
 
             // Move to next node via NXT Link
             current = GetNextElement(current);
-            if (current is null) break;
-
-            // Stop if we've circled back to the start
-            if (current == sequenceStart) break;  //BROKEN?
         }
         visitedSequences.Pop();
     }

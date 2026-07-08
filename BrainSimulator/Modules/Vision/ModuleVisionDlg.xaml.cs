@@ -13,7 +13,7 @@
 //
 // PROPRIETARY AND CONFIDENTIAL
 // Brain Simulator 3 v.1.0
-// © 2022 FutureAI, Inc., all rights reserved
+// ï¿½ 2022 FutureAI, Inc., all rights reserved
 //
 
 using System;
@@ -56,7 +56,7 @@ namespace BrainSimulator.Modules
                     "\r\nCorners: " + parent.corners?.Count +
                     "\r\nOutlines: " + parent.theUKS.Labeled("Outline")?.Children.Count;
             }
-            catch { return false; }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Vision dialog label update failed: {ex.Message}"); return false; }
 
             theCanvas.Children.Clear();
 
@@ -287,7 +287,7 @@ namespace BrainSimulator.Modules
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Vision dialog draw failed: {ex.Message}"); }
             return true;
         }
 

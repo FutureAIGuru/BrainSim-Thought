@@ -13,13 +13,14 @@
 //
 // PROPRIETARY AND CONFIDENTIAL
 // Brain Simulator 3 v.1.0
-// © 2022 FutureAI, Inc., all rights reserved
+// ï¿½ 2022 FutureAI, Inc., all rights reserved
 // 
 
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using BrainSimulator;
 using UKS;
 
 namespace BrainSimulator.Modules
@@ -99,7 +100,7 @@ namespace BrainSimulator.Modules
                             curPos += offset;
                             poly.Points.Add(curPos);
                         }
-                        catch { }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Mental model distance parse failed: {ex.Message}"); }
                     }
                 }
                 if (poly.Points.Count < 2) //there is no recenetly-refreshed data, use the stored shape

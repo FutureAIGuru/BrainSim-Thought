@@ -100,17 +100,16 @@ namespace BrainSimulator
                     if ((string)mi.Header == "View Dialog Source")
                         theModuleType += "Dlg.xaml";
 
-                    string cwd = System.IO.Directory.GetCurrentDirectory();
-                    if (cwd.Contains("bin\\"))
-                        cwd = cwd.ToLower().Substring(0, cwd.IndexOf("bin\\"));
-                    string fileName = cwd + @"modules\" + theModuleType + ".cs";
+                    string cwd = Directory.GetCurrentDirectory();
+                    string binSegment = "bin" + Path.DirectorySeparatorChar;
+                    int binIndex = cwd.IndexOf(binSegment, StringComparison.OrdinalIgnoreCase);
+                    if (binIndex >= 0)
+                        cwd = cwd.Substring(0, binIndex);
+                    string fileName = Path.Combine(cwd, "modules", theModuleType + ".cs");
+                    if (!File.Exists(fileName))
+                        fileName = Path.Combine(cwd, "BrainSim2modules", theModuleType + ".cs");
                     if (File.Exists(fileName))
                         OpenSource(fileName);
-                    else
-                    {
-                        fileName = cwd + @"BrainSim2modules\" + theModuleType + ".cs";
-                        OpenSource(fileName);
-                    }
                 }
                 if ((string)mi.Header == "Delete")
                 {
@@ -174,6 +173,21 @@ namespace BrainSimulator
             activeModules.Remove(mb);
             theUKS.Labeled(mb.Label)?.Delete();
 
+            ReloadActiveModulesSP();
+        }
+
+        public void DeactivateModule(string moduleLabel)
+        {
+            ModuleBase mb = activeModules.FindFirst(x => x.Label == moduleLabel);
+            if (mb is not null)
+            {
+                mb.CloseDlg();
+                mb.Closing();
+                activeModules.Remove(mb);
+            }
+            pythonModules.Remove(moduleLabel);
+            moduleHandler.pythonModules.Remove(moduleLabel);
+            moduleHandler.DeactivateModule(moduleLabel);
             ReloadActiveModulesSP();
         }
     }

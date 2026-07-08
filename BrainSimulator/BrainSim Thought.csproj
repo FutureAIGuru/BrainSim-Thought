@@ -25,9 +25,10 @@
     <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="archive\legacy\**" />
     <Compile Remove="GlobalSuppressions.cs" />
     <Compile Remove="ImgUtils.cs" />
-    <Compile Remove="MainWindowPythonModules.cs" />
+
     <Compile Remove="Modules\Module2DSim.cs" />
     <Compile Remove="Modules\Module2DSimDlg.xaml.cs" />
     <Compile Remove="Modules\Module2DVision.cs" />
@@ -49,7 +50,11 @@
     <Compile Remove="Sallie.cs" />
     <Compile Remove="Tools\Module.cs" />
     <Compile Remove="Tools\ModuleDlg.xaml.cs" />
-    <Compile Remove="XmlFile.cs" />
+
+    <!-- Vision folder has BrainSim3 stubs; canonical ModuleMentalModel lives in Modules\ -->
+    <Compile Remove="Modules\Vision\ModuleMentalModel.cs" />
+    <Compile Remove="Modules\Vision\ModuleMentalModelDlg.xaml.cs" />
+
   </ItemGroup>
   <ItemGroup>
     <None Remove="refresh-3104.png" />
@@ -74,6 +79,7 @@
     <Page Remove="Modules\ModulePremiseDlg.xaml" />
     <Page Remove="Modules\ModuleSequenceEditorDlg - Copy.xaml" />
     <Page Remove="Tools\ModuleDlg.xaml" />
+    <Page Remove="Modules\Vision\ModuleMentalModelDlg.xaml" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Iconsmall.ico">
@@ -124,6 +130,11 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\wordlist.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
     <None Include="..\PythonProj\utils.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -131,11 +142,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="Modules\Vision\**" />
-    <EmbeddedResource Remove="Modules\Vision\**" />
-    <None Remove="Modules\Vision\**" />
-    <Page Remove="Modules\Vision\**" />
-  </ItemGroup>
+
 
 </Project>

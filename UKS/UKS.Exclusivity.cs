@@ -56,10 +56,13 @@ public partial class UKS
         if (r2.HasProperty("isResult")) return false;
         if (r2.HasProperty("isCondition")) return false;
 
+        if (LinkTypesAreExclusive(r1, r2))
+            return true;
+
         if (r1.From == r2.From ||
             r1.From.AncestorsWithSelf.Contains(r2.From) ||
             r2.From.AncestorsWithSelf.Contains(r1.From) ||
-            FindCommonParents(r1.From, r1.From).Count() > 0)
+            FindCommonParents(r1.From, r2.From).Count > 0)
         {
 
             IReadOnlyList<Thought> r1LinkiProps = r1.LinkType.GetAttributes();
@@ -67,8 +70,7 @@ public partial class UKS
             //handle case with properties of the target
             if (r1.To is not null && r1.To == r2.To &&
                 (r1.To.AncestorsWithSelf.Contains(r2.To) ||
-                r2.To.AncestorsWithSelf.Contains(r1.To) ||
-                FindCommonParents(r1.To, r1.To).Count() > 0))
+                r2.To.AncestorsWithSelf.Contains(r1.To)))
             {
                 IReadOnlyList<Thought> r1TargetProps = r1.To.GetAttributes();
                 IReadOnlyList<Thought> r2TargetProps = r2.To.GetAttributes();

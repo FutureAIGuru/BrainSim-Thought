@@ -27,7 +27,7 @@ public partial class UKS
         isA.AddParent(linkType);
         GetOrAddThought("Unknown", "Thought");
         GetOrAddThought("VLU", "LinkType");
-        GetOrAddThought("NXE", "LinkType");
+        GetOrAddThought("NXT", "LinkType");
         GetOrAddThought("FRST", "LinkType");
     }
 

@@ -24,6 +24,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Xml;
 using System.Linq;
 using Pluralize.NET;
@@ -70,10 +71,11 @@ namespace BrainSimulator.Modules
 
             if (wordsToLookUp.Count > 0)
             {
-                string word = wordsToLookUp[0].Item1;
-                int mostUsed = wordsToLookUp.FindIndex(t => t.Item2 == wordsToLookUp.Max(t => t.Item2));
-                var x = wordsToLookUp[0];
-                wordsToLookUp.RemoveAt(0);
+                int maxUse = wordsToLookUp.Max(t => t.Item2);
+                int mostUsed = wordsToLookUp.FindIndex(t => t.Item2 == maxUse);
+                if (mostUsed < 0) mostUsed = 0;
+                var x = wordsToLookUp[mostUsed];
+                wordsToLookUp.RemoveAt(mostUsed);
                 ConceptNetLocal(x.Item1);
             }
 
@@ -473,29 +475,9 @@ namespace BrainSimulator.Modules
             URI = URI.Substring(URI.LastIndexOf("/") + 1);
         }
 
-        public async void GetConceptNetData(string text)
+        public void GetConceptNetData(string text)
         {
             ConceptNetLocal(text);
-            return;
-            var url = @"https://api.conceptnet.io/c/en/" + text;
-            var myClient = new HttpClient();
-            var responseURL = await myClient.GetAsync(url);
-            var propertyURL = await responseURL.Content.ReadAsStringAsync();
-            Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(propertyURL);
-            Output = "";
-            foreach (var edge in myDeserializedClass.edges)
-            {
-                if (edge.start.language != "en") continue;
-                if (edge.end.language != "en") continue;
-                string start = GetTailOfURL(edge.start.term);
-                string end = GetTailOfURL(edge.end.term);
-                string rel = edge.rel.label;
-                if (rel == "IsA")
-                    Output += start + "->is-a-> " + end + "   " + edge.surfaceText + " " + edge.weight.ToString("f3") + "\n";
-                else
-                    Output += start + "->" + rel + "-> " + end + "   " + edge.surfaceText + " " + edge.weight.ToString("f3") + "\n";
-            }
-            return;
         }
         string GetTailOfURL(string url)
         {
@@ -506,22 +488,45 @@ namespace BrainSimulator.Modules
 
         List<(string, string)> wordList2 = new();
         List<string> wordList = new List<string>();
+        private static string ResolveWordListPath()
+        {
+            var candidates = new List<string>();
+            string envPath = Environment.GetEnvironmentVariable("WORDLIST_PATH");
+            if (!string.IsNullOrWhiteSpace(envPath))
+                candidates.Add(envPath);
+            candidates.Add(Path.Combine(AppContext.BaseDirectory, "Resources", "wordlist.txt"));
+            candidates.Add(Path.Combine(Directory.GetCurrentDirectory(), "Resources", "wordlist.txt"));
+            candidates.Add(Path.Combine(Directory.GetCurrentDirectory(), "wordlist.txt"));
+
+            foreach (string path in candidates)
+            {
+                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                    return path;
+            }
+            return null;
+        }
+
         private void SetupWordList()
         {
             wordList = new();
+            string wordListPath = ResolveWordListPath();
+            if (wordListPath is null)
+            {
+                Debug.WriteLine("SetupWordList: no wordlist found. Set WORDLIST_PATH or deploy Resources/wordlist.txt");
+                return;
+            }
             try
             {
-
-                // also a possible resource Vocabulary.com
-
-                // common words.pdf
-                ///https://cehs.unl.edu/documents/secd/aac/vocablists/VLN1.pdf
-                string wordListPath = @"C:\Users\c_sim\source\wordlist.txt";
                 using (StreamReader reader = new StreamReader(wordListPath))
                 {
                     string line = reader.ReadLine();
                     while (line is not null)
                     {
+                        if (line.TrimStart().StartsWith("#"))
+                        {
+                            line = reader.ReadLine();
+                            continue;
+                        }
                         line = line.Replace("\t", " ");
                         string[] words = line.Split(" ");
                         foreach (string s in words)
@@ -601,7 +606,7 @@ namespace BrainSimulator.Modules
                             word = word.Replace(",", "");
                             word = word.Replace("\t", " ");
                             word = word.Replace("-", "");
-                            word = word.Replace("’", "");
+                            word = word.Replace("ï¿½", "");
                             word = word.ToLower();
                             word = RemoveParentheticals(word);
                             //word = Thought.TrimDigits(word.Trim());
@@ -649,20 +654,24 @@ namespace BrainSimulator.Modules
             }
         }
 
-        //TODO: properly handle phrases, related, similar...currently only picks up first instance
-
         public class KidsWord
         {
             public string word;
             public List<KidsDefinition> definitions = new();
-            public string related;
-            public string similar;
-            public string phrase;
+            public List<string> related = new();
+            public List<string> similar = new();
+            public List<string> phrases = new();
             public override string ToString()
             {
                 string retVal = word + "\n";
                 foreach (var def in definitions)
                     retVal += def.definition + "\n";
+                if (phrases.Count > 0)
+                    retVal += "phrases: " + string.Join(", ", phrases) + "\n";
+                if (similar.Count > 0)
+                    retVal += "similar: " + string.Join(", ", similar) + "\n";
+                if (related.Count > 0)
+                    retVal += "related: " + string.Join(", ", related) + "\n";
                 return retVal;
             }
         }
@@ -695,7 +704,7 @@ namespace BrainSimulator.Modules
             return;
         }
 
-        public async void GetKidsWordsmythNet(string text)
+        public async Task GetKidsWordsmythNet(string text)
         {
             var client = new HttpClient();
             var response = await client.GetAsync($"https://kids.wordsmyth.net/we/?ent={text}");
@@ -756,13 +765,10 @@ namespace BrainSimulator.Modules
             Thought incomingInfo = theUKS.GetOrAddThought("CurrentIncomingInfo", "Attention");
             incomingInfo.V = kidsdef;
 
+            CollectStringValues(htmlContent, "phrase:", kidsdef.phrases, posSearch, "<");
+            CollectStringValues(htmlContent, "similar words:", kidsdef.similar, posSearch, "<");
+            CollectStringValues(htmlContent, "related words:", kidsdef.related, posSearch, "<");
             int index = 0;
-            kidsdef.phrase = GetStringValue(htmlContent, "phrase:", ref index, posSearch, "<");
-            index = 0;
-            kidsdef.similar = GetStringValue(htmlContent, "similar words:", ref index, posSearch, "<");
-            index = 0;
-            kidsdef.related = GetStringValue(htmlContent, "related words:", ref index, posSearch, "<");
-            index = 0;
             string retString = "";
             index = 0;
             do
@@ -789,6 +795,31 @@ namespace BrainSimulator.Modules
             return retVal;
         }
 
+        private static void CollectStringValues(string content, string target, List<string> dest, string startTag, string endTag)
+        {
+            int index = 0;
+            string val;
+            while ((val = GetStringValueStatic(content, target, ref index, startTag, endTag)) != "")
+            {
+                if (!dest.Contains(val))
+                    dest.Add(val);
+            }
+        }
+
+        private static string GetStringValueStatic(string content, string target, ref int startIndex, string startTag, string endTag)
+        {
+            int i1 = content.IndexOf(target, startIndex);
+            if (i1 == -1) return "";
+            i1 = content.IndexOf(startTag, i1);
+            if (i1 == -1) return "";
+            i1 += startTag.Length;
+            int i2 = content.IndexOf(endTag, i1);
+            if (i2 == -1) return "";
+            string retVal = content.Substring(i1, i2 - i1);
+            startIndex = i2;
+            return retVal;
+        }
+
         public List<int> FindAllIndices(string str, string substr)
         {
             var indices = new List<int>();
@@ -803,7 +834,7 @@ namespace BrainSimulator.Modules
             return indices;
         }
 
-        public async void GetWiktionaryData(string textIn)
+        public async Task GetWiktionaryData(string textIn)
         {
             var word = textIn; // the word to look up
 
@@ -838,7 +869,7 @@ namespace BrainSimulator.Modules
         }
 
         public enum QueryType { general, isa, hasa, can, count, list, listCount, types, partsOf };
-        public async void GetChatGPTResult(string textIn, QueryType qtIn = QueryType.isa, string altLabel = "")
+        public async Task GetChatGPTResult(string textIn, QueryType qtIn = QueryType.isa, string altLabel = "")
         {
             try
             {
@@ -930,9 +961,10 @@ namespace BrainSimulator.Modules
         //This method rerieves the wikidata query number value from wikidata query
         // for the Thought item and passes that value to GetPropertiesFromURL along
         // with the property query named prop
-        public async void GetWikidataData(string item, string prop)
+        public async Task GetWikidataData(string item, string prop)
         {
             var itemLabel = item;
+            bool handedOff = false;
             try
             {
                 Network.httpClientBusy = true;
@@ -941,32 +973,45 @@ namespace BrainSimulator.Modules
                           "&language=en&format=xml";
                 var response = await Network.theHttpClient.GetAsync(url);
 
-                if (response is not null)
+                if (response is null || !response.IsSuccessStatusCode)
+                    return;
+
+                string xmlContent = await response.Content.ReadAsStringAsync();
+                XmlDocument xmlItemDoc = new XmlDocument();
+                xmlItemDoc.LoadXml(xmlContent);
+                var xmlItemDocValue = xmlItemDoc.GetElementsByTagName("entity");
+                if (xmlItemDocValue.Count == 0)
                 {
-                    var content = response.Content.ReadAsStringAsync();
-                    XmlDocument xmlItemDoc = new XmlDocument();
-                    xmlItemDoc.LoadXml(content.Result.ToString());
-                    var xmlItemDocValue = xmlItemDoc.GetElementsByTagName("entity");
-                    var xmlItemDocValueFirst = xmlItemDocValue[0];
-                    if (xmlItemDocValueFirst is not null)
-                    {
-                        var nameLabel = xmlItemDocValueFirst.Attributes[0];
-                        string itemID = nameLabel.InnerXml;
-                        Network.httpClientBusy = false;
-                        GetPropertiesFromURL(itemID, prop);///
-                    }
+                    Debug.WriteLine($"GetWikidataData: no entity for '{itemLabel}'.");
+                    return;
+                }
+                var xmlItemDocValueFirst = xmlItemDocValue[0];
+                if (xmlItemDocValueFirst?.Attributes?.Count > 0)
+                {
+                    var nameLabel = xmlItemDocValueFirst.Attributes[0];
+                    string itemID = nameLabel.InnerXml;
+                    handedOff = true;
+                    await GetPropertiesFromURL(itemID, prop);
                 }
             }
-            catch { }
-
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"GetWikidataData failed for '{itemLabel}': {ex.Message}");
+            }
+            finally
+            {
+                if (!handedOff)
+                    Network.httpClientBusy = false;
+            }
         }
         //This method gets all the properties or subproperties of a property propName from a Thought
         // with name propName and wikidata query number value numberOfName associated with propName
-        private async void GetPropertiesFromURL(string itemID, string propName)
+        private async Task GetPropertiesFromURL(string itemID, string propName)
         {
+            try
+            {
             Output = "";
             propName = propName.ToLower();
-            Network.httpClientBusy = true;
             var urlBegin = @"https://query.wikidata.org/sparql?query=";
             var url = @"SELECT ?wdLabel ?ps_Label ?wdpqLabel ?pq_Label " +
                       @"{VALUES(?company) { (wd:" + itemID + @")} " +
@@ -1094,6 +1139,15 @@ namespace BrainSimulator.Modules
                     }
                 }
             }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"GetPropertiesFromURL failed for '{itemID}': {ex.Message}");
+            }
+            finally
+            {
+                Network.httpClientBusy = false;
+            }
         }
 
 
@@ -1208,7 +1262,7 @@ namespace BrainSimulator.Modules
         }
 
 
-        public async void GetFreeDictionaryAPIData(string text)
+        public async Task GetFreeDictionaryAPIData(string text)
         {
             var url = @"https://api.dictionaryapi.dev/api/v2/entries/en/" + text;
             var myClient = new HttpClient();
@@ -1272,7 +1326,7 @@ namespace BrainSimulator.Modules
         }
 
 
-        public async void GetWebstersDictionaryAPIData(string text)
+        public async Task GetWebstersDictionaryAPIData(string text)
         {
             var url = @"https://dictionaryapi.com/api/v3/references/sd2/json/" + text + "?key=a22c5742-ad8e-44b4-b4c4-9f3f9ac7aedb";
             var myClient = new HttpClient();

@@ -58,9 +58,10 @@ public class Link : Thought
 /// A Thought is an atomic unit of thought. In the lexicon of graphs, a Thought is both a "node" and an Edge.  
 /// A Thought can represent anything, physical object, attribute, word, action, feeling, etc.
 /// </summary>
-public class Thought
+public partial class Thought
 {
-    private static Queue<Thought> recentlyFired = new();
+    private static readonly Queue<Thought> recentlyFired = new();
+    private static readonly object recentlyFiredLock = new();
 
     public static Thought IsA { get => ThoughtLabels.GetThought("is-a"); }  //this is a cache value shortcut for (Thought)"is-a"
     private readonly List<Link> _linksTo = new();   // links to "has", "is", is-a, many others
@@ -103,7 +104,7 @@ public class Thought
 
     public void Delete()
     {
-        if (LinksFrom.FindFirst(x=>x.LinkType.Label == "VLU") is not null)
+        if (LinksFrom.FindFirst(x => x.LinkType?.Label == "VLU") is not null)
         {
             //this Thought is the object of a sequence.  
         }
@@ -274,15 +275,16 @@ public class Thought
     {
         get
         {
-            List<Thought> retVal = Children.ToList();
-            for (int i = 0; i < retVal.Count; i++)
+            List<Thought> retVal = new();
+            HashSet<Thought> seen = new();
+            foreach (Thought child in Children)
             {
-                Thought t = retVal[i];
-                if (t.Label.StartsWith(this._label))
+                if (seen.Add(child))
+                    retVal.Add(child);
+                foreach (Thought descendant in child.Descendants)
                 {
-                    retVal.AddRange(t.Children);
-                    retVal.RemoveAt(i);
-                    i--;
+                    if (seen.Add(descendant))
+                        retVal.Add(descendant);
                 }
             }
             return retVal;
@@ -376,21 +378,30 @@ public class Thought
     private void AddToRecentlyFired()
     {
         int maxCount = 100;
-        recentlyFired.Enqueue(this);
-        while (recentlyFired.Count > maxCount) _ = recentlyFired.Dequeue();
+        lock (recentlyFiredLock)
+        {
+            recentlyFired.Enqueue(this);
+            while (recentlyFired.Count > maxCount) _ = recentlyFired.Dequeue();
+        }
     }
     public static void DeleteFromRecentlyFired(Thought t)
     {
-        //CAUTION NOT THREAD SAFE
-        var tempList = recentlyFired.Where(x => x != t).ToList();
-        recentlyFired = new Queue<Thought>(tempList);
+        lock (recentlyFiredLock)
+        {
+            var tempList = recentlyFired.Where(x => x != t).ToList();
+            recentlyFired.Clear();
+            foreach (var item in tempList)
+                recentlyFired.Enqueue(item);
+        }
     }
     public static IReadOnlyList<Thought> GetRecentlyFiredThoughts(TimeSpan recency)
     {
         //remove duplicates while preserving order (keeping the most recent occurrence of each Thought)
         DateTime cutoff = DateTime.MinValue;
         if (recency < DateTime.Now-DateTime.MinValue) cutoff =    DateTime.Now - recency;
-        var snapshot = recentlyFired.Where(x=>x.LastFiredTime > cutoff).ToArray();
+        Thought[] snapshot;
+        lock (recentlyFiredLock)
+            snapshot = recentlyFired.Where(x=>x.LastFiredTime > cutoff).ToArray();
         var seen = new HashSet<Thought>();
         var resultRev = new List<Thought>();
         foreach (var item in snapshot.Reverse())
@@ -403,17 +414,23 @@ public class Thought
     public static void FireAllRecentlyFiredThoughts(TimeSpan recency)
     {
         DateTime cutoff = DateTime.Now - recency;
-        var snapshot = recentlyFired.ToArray();
-        var seen = new HashSet<Thought>();
-        var resultRev = new List<Thought>();
-
-        foreach (var item in snapshot.Reverse())
+        List<Thought> resultRev;
+        lock (recentlyFiredLock)
         {
-            if (seen.Add(item))
-                resultRev.Add(item); // keep first time we see it from the back (i.e., the last occurrence)
+            var snapshot = recentlyFired.ToArray();
+            var seen = new HashSet<Thought>();
+            resultRev = new List<Thought>();
+
+            foreach (var item in snapshot.Reverse())
+            {
+                if (seen.Add(item))
+                    resultRev.Add(item);
+            }
+            resultRev.Reverse();
+            recentlyFired.Clear();
+            foreach (var item in resultRev)
+                recentlyFired.Enqueue(item);
         }
-        resultRev.Reverse();
-        recentlyFired = new(resultRev); // restore original ordering of the kept items
 
         foreach (Thought t in resultRev.Where(x => x.LastFiredTime > cutoff))
         {
@@ -422,7 +439,8 @@ public class Thought
     }
     public static void ClearRecentlyFiredQueue()
     {
-        recentlyFired.Clear();
+        lock (recentlyFiredLock)
+            recentlyFired.Clear();
     }
 
     private void UpdateTimeToLive()
@@ -520,6 +538,7 @@ public class Thought
         if (r.LinkType is null) return;
         if (r.From is null)
         {
+            if (r.To is null) return;
             lock (r.LinkType._linksFrom)
             {
                 lock (r.To._linksFrom)
@@ -561,6 +580,11 @@ public class Thought
     public Thought GetTargetOfFirstLinkOfType(Thought linkType)
     {
         return LinksTo.FindFirst(x => x.LinkType == linkType)?.To;
+    }
+
+    public Thought GetTargetOfFirstLinkOfType(string linkTypeLabel)
+    {
+        return LinksTo.FindFirst(x => x.LinkType?.Label == linkTypeLabel)?.To;
     }
     public  Link HasLink(Thought linkType, Thought to = null)
     {

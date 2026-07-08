@@ -13,7 +13,7 @@
 //
 // PROPRIETARY AND CONFIDENTIAL
 // Brain Simulator 3 v.1.0
-// © 2022 FutureAI, Inc., all rights reserved
+// ï¿½ 2022 FutureAI, Inc., all rights reserved
 //
 
 using System;
@@ -563,7 +563,7 @@ namespace BrainSimulator.Modules
                     Thing theColor = GetOrAddColor(theCenterColor);
                     currOutline.SetAttribute(theColor);
                 }
-                catch (Exception e) { }
+                catch (Exception e) { System.Diagnostics.Debug.WriteLine($"Centroid color read failed: {e.Message}"); }
 
                 //we now have an ordered, right-handed outline
                 //add it to UKS

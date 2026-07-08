@@ -119,7 +119,7 @@ public class ModuleLearnMelody : ModuleBase
         SeqElement seq2 = CreatePhraseFromNotes("temp*", entry.ResponsePhrase.Notes);
         foreach (Thought t in theUKS.Labeled("possibleAction").Children)
         {
-            SeqElement seq3 = GetTargetOfFirstLinkOfType(t, "soundAs");
+            SeqElement seq3 = t.GetTargetOfFirstLinkOfType("soundAs") as SeqElement;
             var val = theUKS.CompareSequences(seq2, seq3);
             if (val == 1)
             {
@@ -150,20 +150,6 @@ public class ModuleLearnMelody : ModuleBase
         responseTarget = null;
         return true;
     }
-
-    //TODO Move to UKS
-    public SeqElement GetTargetOfFirstLinkOfType(Thought thePhrase, string v)
-    {
-        foreach (var link in thePhrase.LinksTo)
-        {
-            if (link.LinkType.Label == v && link.To is SeqElement seq)
-            {
-                return seq;
-            }
-        }
-        return null;
-    }
-
 
     // Randomize the melody lines
     private void RandomizeMelodies()

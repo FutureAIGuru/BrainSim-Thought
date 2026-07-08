@@ -123,6 +123,8 @@ namespace BrainSimulator.Modules
         //this turns dotted names back into more english-language strings
         private static string GetStringFromThoughtLabel(string thoughtLabel)
         {
+            if (string.IsNullOrEmpty(thoughtLabel))
+                return "";
             string theString = thoughtLabel.ToLower();
             if (theString[0] == '.') theString = theString.Substring(1);
             string[] s = theString.Split('.');

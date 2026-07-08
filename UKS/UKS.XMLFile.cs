@@ -105,6 +105,7 @@ public partial class UKS
             {
                 index = UKSTemp.Count,
                 label = t.Label,
+                weight = t.Weight,
                 V = t.V,
             };
             if (t is Link lnk)
@@ -121,32 +122,9 @@ public partial class UKS
 
     private void FormatContentForSaving(Thought root)
     {
-        // TODO: Wipe transient data ...
-        //foreach (Thought t in AllThoughts)
         GetIndex(root);
         foreach (var t in root.EnumerateSubThoughts())
-        {
-            string label = t.Label;
-            if (string.IsNullOrWhiteSpace(label))  // Put the GUID into the label only when it's unlabeled
-                label = $"unl_{Guid.NewGuid().ToString("N")[..8]}";
-            int from = GetIndex((t as Link)?.From);
-            int sType = GetIndex((t as Link)?.LinkType);
-            int to = GetIndex((t as Link)?.To);
-            if (UKSTemp.Count >= 170)
-            { }
-
-            sThought st = new()
-            {
-                index = UKSTemp.Count,
-                label = label,
-                source = from,
-                linkType = sType,
-                target = to,
-                weight = t.Weight,
-                V = t.V,
-            };
-            UKSTemp.Add(st);
-        }
+            GetIndex(t);
         RemoveTempLabels(root);
     }
 
@@ -269,7 +247,8 @@ public partial class UKS
         AddThought("BrainSim", null);
         foreach (string s in contentToRestore)
         {
-            string[] strings = s.Split("->");
+            if (string.IsNullOrWhiteSpace(s)) continue;
+            ProcessSingleLine(s.Trim());
         }
     }
 
@@ -329,6 +308,8 @@ public partial class UKS
                 theLink.TimeToLive = TimeSpan.MaxValue;
                 Link newLink = theLink.From.AddLink(theLink.LinkType, theLink.To);
                 newLink.Weight = st.weight;
+                if (!AtomicThoughts.Contains(newLink))
+                    AtomicThoughts.Add(newLink);
                 if (linkType.Label == "VLU")
                     PromoteToSeqElement(theLink.From);
             }

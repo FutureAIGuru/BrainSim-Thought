@@ -138,11 +138,6 @@ class ViewUKSTree(ViewBase):
         self.tree_view.bind("<<TreeviewClose>>", self.handle_close_event)
         self.tree_view.bind("<Enter>", self.handle_mouse_enter)
         self.tree_view.bind("<Leave>", self.handle_mouse_leave)
-        
-        if sys.argv[0]  != "":
-            self.level.mainloop()
-            
-        
     
     ############
     ##  Fire  ##
@@ -183,5 +178,6 @@ def SetLabel(label):
 def Close():
     view.close()
 
-if sys.argv[0]  != "":
+if __name__ == "__main__":
     Init()
+    view.level.mainloop()

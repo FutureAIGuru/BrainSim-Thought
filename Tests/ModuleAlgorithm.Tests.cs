@@ -37,7 +37,7 @@ public class ModuleAlgorithmTests : IDisposable
 
 
         // Load algorithm.xml from UKSContent folder
-        string xmlPath = Path.Combine(brainSimRoot,"brainsimulator", "UKSContent", "algorithm.xml");
+        string xmlPath = Path.Combine(brainSimRoot, "BrainSimulator", "UKSContent", "algorithm.xml");
         if (!File.Exists(xmlPath))
         {
             // Try alternative path

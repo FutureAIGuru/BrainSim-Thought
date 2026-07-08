@@ -10,6 +10,7 @@
  *
  * See the LICENSE file in the project root for full license information.
  */
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -50,7 +51,10 @@ public partial class UKS
             }
         }
         catch (Exception ex)
-        { }
+        {
+            Debug.WriteLine($"ExportTextFile failed: {ex}");
+            throw;
+        }
         RemoveTempLabels(Root);
     }
 
@@ -147,27 +151,16 @@ public partial class UKS
             .Where(label => referencedLabels.Contains(label))
             .ToList();
 
-        // Now pre-allocate only the labels that are actually used as references
+        // Pre-allocate unwired Link placeholders only for forward references (label not yet defined)
         foreach (var label in labelsToPreAllocate)
         {
             Thought existing = Labeled(label);
-            if (existing is null)
-            {
-                Link placeholder = new Link();
-                placeholder.Label = label;
-                AtomicThoughts.Add(placeholder);
-            }
-            else if (existing is not Link)
-            {
-                // Existing Thought needs to become a Link
-                existing.Label = ""; // Release the label
-                Link replacement = new Link();
-                replacement.Label = label;
-                AtomicThoughts.Add(replacement);
-                
-                if (existing.LinksTo.Count == 0 && existing.LinksFrom.Count == 0)
-                    existing.Delete();
-            }
+            if (existing is not null)
+                continue;
+
+            Link placeholder = new Link();
+            placeholder.Label = label;
+            AtomicThoughts.Add(placeholder);
         }
 
         // THIRD PASS: Actually process the lines

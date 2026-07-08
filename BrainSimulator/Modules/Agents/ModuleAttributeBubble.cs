@@ -155,15 +155,16 @@ public class ModuleAttributeBubble : ModuleBase
             }
 
 
-            //calculate the new weight
-            //If there is an existing weight, it is increased/decreased by a small amound and removed if it drops below .5
-            //If there is no existing weight, it is assumed to start at 0.5.
-            //TODO, replace this hardcoded "lookup table" with a formula
+            // Weight delta ladder: maps (positiveWeight - negativeWeight) to a small adjustment.
+            // Thresholds tuned empirically; initial weight defaults to 0.5 when absent; links below 0.5 are removed.
             float targetWeight = 0;
             float deltaWeight = positiveWeight - negativeWeight;
-            if (deltaWeight < .8) targetWeight = -.1f;
-            else if (deltaWeight < 1.7) targetWeight = .01f;
-            else if (deltaWeight < 2.7) targetWeight = .2f;
+            const float weakDeltaThreshold = 0.8f;
+            const float moderateDeltaThreshold = 1.7f;
+            const float strongDeltaThreshold = 2.7f;
+            if (deltaWeight < weakDeltaThreshold) targetWeight = -.1f;
+            else if (deltaWeight < moderateDeltaThreshold) targetWeight = .01f;
+            else if (deltaWeight < strongDeltaThreshold) targetWeight = .2f;
             else targetWeight = .3f;
             if (currentWeight == 0) currentWeight = 0.5f;
             float newWeight = currentWeight + targetWeight;
