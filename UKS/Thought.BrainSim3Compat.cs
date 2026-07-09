@@ -50,7 +50,8 @@ public partial class Thought
     public Relationship? SetAttribute(Thought attribute)
     {
         if (attribute is null || UKS.theUKS is null) return null;
-        Thought hasAttribute = UKS.theUKS.GetOrAddThought("hasAttribute", "LinkType");
+        Thought? hasAttribute = UKS.theUKS.GetOrAddThought("hasAttribute", "LinkType");
+        if (hasAttribute is null) return null;
         foreach (Link existing in LinksTo.ToList())
         {
             if (existing.LinkType?.Label != "hasAttribute") continue;
@@ -60,22 +61,24 @@ public partial class Thought
             if (sameCategory)
                 RemoveLink(existing);
         }
-        Link link = UKS.theUKS.AddStatement(this, hasAttribute, attribute);
+        Link? link = UKS.theUKS.AddStatement(this, hasAttribute, attribute);
         return Relationship.FromLink(link);
     }
 
     public void AddRelationship(Thought target, string linkTypeLabel)
     {
         if (target is null || UKS.theUKS is null) return;
-        Thought linkType = UKS.theUKS.GetOrAddThought(linkTypeLabel, "LinkType");
-        UKS.theUKS.AddStatement(this, linkType, target);
+        Thought? linkType = UKS.theUKS.GetOrAddThought(linkTypeLabel, "LinkType");
+        if (linkType is not null)
+            UKS.theUKS.AddStatement(this, linkType, target);
     }
 
     public void AddRelationship(string targetLabel, string linkTypeLabel)
     {
         if (UKS.theUKS is null) return;
-        Thought target = UKS.theUKS.GetOrAddThought(targetLabel, "Object");
-        AddRelationship(target, linkTypeLabel);
+        Thought? target = UKS.theUKS.GetOrAddThought(targetLabel, "Object");
+        if (target is not null)
+            AddRelationship(target, linkTypeLabel);
     }
 
     public List<Relationship> GetRelationshipsWithAncestor(Thought ancestor)

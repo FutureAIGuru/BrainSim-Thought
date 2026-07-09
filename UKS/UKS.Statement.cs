@@ -27,25 +27,25 @@ public partial class UKS
 	/// <param name="sTarget">string or Thought (or null) for the target.</param>
 	/// <param name="label">Optional label for the created link Thought.</param>
 	/// <returns>The primary link which was created (others may be created for given attributes).</returns>
-	public Link AddStatement(string sSource, string sLinkType, string sTarget, string label = "")
+	public Link? AddStatement(string sSource, string sLinkType, string sTarget, string label = "")
 	{
-		Thought source = ThoughtFromObject(sSource);
-		Thought linkType = ThoughtFromObject(sLinkType, "LinkType", source);
-		Thought target = ThoughtFromObject(sTarget);
+		Thought? source = ThoughtFromObject(sSource);
+		Thought? linkType = ThoughtFromObject(sLinkType, "LinkType", source);
+		Thought? target = ThoughtFromObject(sTarget);
+		if (source is null || linkType is null) return null;
 
-		Link theLink = AddStatement(source, linkType, target, label);
-		return theLink;
+		return AddStatement(source, linkType, target, label);
 	}
 
 	/// <summary>
 	/// Adds a statement relating the specified source, link type, and target. No new Thoughts are created.
 	/// </summary>
-	public Link AddStatement(Thought source, Thought linkType, Thought target, string label = "")
+	public Link? AddStatement(Thought source, Thought linkType, Thought? target, string label = "")
 	{
 		if (source is null || linkType is null) return null;
 
-		Link wired = GetLink(source, linkType, target);
-		Link labeledLink = string.IsNullOrEmpty(label) ? null : Labeled(label) as Link;
+		Link? wired = GetLink(source, linkType, target);
+		Link? labeledLink = string.IsNullOrEmpty(label) ? null : Labeled(label) as Link;
 		bool isUnwiredPlaceholder = labeledLink is not null && labeledLink.From is null;
 
 		source.Fire();
@@ -59,7 +59,7 @@ public partial class UKS
 			return wired;
 		}
 
-		Link lnk = isUnwiredPlaceholder ? labeledLink : CreateTheLink(source, linkType, target);
+		Link lnk = isUnwiredPlaceholder ? labeledLink! : CreateTheLink(source, linkType, target);
 		if (isUnwiredPlaceholder)
 		{
 			lnk.From = source;
@@ -76,10 +76,13 @@ public partial class UKS
 
 		WriteTheLink(lnk);
 		lnk.Fire();
+		ApplyDefaultTimeToLive(lnk);
+		RaiseLinkAdded(lnk);
 		if (lnk.LinkType is not null && HasProperty(lnk.LinkType, "isCommutative"))
 		{
-			Link rReverse = new Link(lnk.To, lnk.LinkType, lnk.From);
+			Link rReverse = new Link(lnk.To!, lnk.LinkType!, lnk.From!);
 			WriteTheLink(rReverse);
+			RaiseLinkAdded(rReverse);
 		}
 
 		//if this is adding a child link, remove any Unknown parent
@@ -90,13 +93,13 @@ public partial class UKS
 		return lnk;
 	}
 
-	private Link CreateTheLink(Thought source, Thought linkType, Thought target)
+	private Link CreateTheLink(Thought source, Thought linkType, Thought? target)
 	{
-		Thought inverseType1 = CheckForInverse(linkType);
+		Thought? inverseType1 = CheckForInverse(linkType);
 		//if this link has an inverse, switcheroo so we are storing consistently in one direction
 		if (inverseType1 is not null)
 		{
-			(source, target) = (target, source);
+			(source, target) = (target!, source);
 			linkType = inverseType1;
 		}
 
@@ -109,9 +112,10 @@ public partial class UKS
 	{
 		if (newSource is null || newLink is null) return;
 
-		for (int i = 0; i < newSource.LinksTo.Count; i++)
+		List<Link> existingLinks = newSource.LinksTo.ToList();
+		for (int i = 0; i < existingLinks.Count; i++)
 		{
-			Link existingLink = newSource.LinksTo[i];
+			Link existingLink = existingLinks[i];
 			if (existingLink == newLink)
 			{
 				newLink.Weight += (1 - newLink.Weight) / 4.0f;
@@ -119,11 +123,11 @@ public partial class UKS
 			}
 			else if (LinksAreExclusive(newLink, existingLink))
 			{
-				if (newLink.LinkType?.Children.Contains(existingLink.LinkType) == true && HasAttribute(existingLink.LinkType, "not"))
+				if (existingLink.LinkType is not null && newLink.LinkType?.Children.Contains(existingLink.LinkType) == true && HasAttribute(existingLink.LinkType, "not"))
 				{
 					existingLink.From?.RemoveLink(existingLink);
 				}
-				else if (existingLink.LinkType?.Children.Contains(newLink.LinkType) == true && HasAttribute(newLink.LinkType, "not"))
+				else if (newLink.LinkType is not null && existingLink.LinkType?.Children.Contains(newLink.LinkType) == true && HasAttribute(newLink.LinkType, "not"))
 				{
 					existingLink.From?.RemoveLink(existingLink);
 				}
@@ -135,27 +139,25 @@ public partial class UKS
 					else
 						existingLink.Weight = Math.Clamp(existingLink.Weight - .2f, -1, 1);
 					if (existingLink.Weight <= 0)
-					{
 						newSource.RemoveLink(existingLink);
-						i--;
-					}
 				}
 			}
 		}
 	}
 
-	void ClearExtraneousParents(Thought t)
+	void ClearExtraneousParents(Thought? t)
 	{
 		if (t is null) return;
 
 		bool reconnectNeeded = t.HasAncestor("Thought");
-		if (t.Parents.Count > 1)
-			t.RemoveParent(ThoughtLabels.GetThought("Unknown"));
-		if (reconnectNeeded && !t.HasAncestor("Thought"))
-			t.AddParent(ThoughtLabels.GetThought("Unknown"));
+		Thought? unknown = ThoughtLabels.GetThought("Unknown");
+		if (t.Parents.Count > 1 && unknown is not null)
+			t.RemoveParent(unknown);
+		if (reconnectNeeded && !t.HasAncestor("Thought") && unknown is not null)
+			t.AddParent(unknown);
 	}
 
-	public Thought SubclassExists(Thought t, List<Thought> thoughtAttributes, ref Thought bestMatch, ref List<Thought> missingAttributes)
+	public Thought? SubclassExists(Thought t, List<Thought> thoughtAttributes, ref Thought? bestMatch, ref List<Thought> missingAttributes)
 	{
 		if (t is null) return null;
 
@@ -180,12 +182,12 @@ public partial class UKS
 		return null;
 	}
 
-	public Thought CreateInstanceOf(Thought t)
+	public Thought? CreateInstanceOf(Thought t)
 	{
 		return CreateSubclass(t, new List<Thought>());
 	}
 
-	private Thought CreateSubclass(Thought t, List<Thought> attributes)
+	private Thought? CreateSubclass(Thought t, List<Thought> attributes)
 	{
 		if (t is null) return null;
 
@@ -203,11 +205,10 @@ public partial class UKS
 		return retVal;
 	}
 
-	private Thought CheckForInverse(Thought linkType)
+	private Thought? CheckForInverse(Thought linkType)
 	{
 		if (linkType is null) return null;
-		Thought inverse = linkType.LinksTo.FindFirst(x => x.LinkType?.Label == "inverseOf")?.To;
-		return inverse;
+		return linkType.LinksTo.FindFirst(x => x.LinkType?.Label == "inverseOf")?.To;
 	}
 
 	private static List<Thought> FindCommonParents(Thought t, Thought t1)
@@ -217,6 +218,14 @@ public partial class UKS
 			if (t1.Parents.Contains(p))
 				commonParents.Add(p);
 		return commonParents;
+	}
+
+	/// <summary>Ch.5 stable vs ephemeral: short TTL for link types marked isEphemeral.</summary>
+	private void ApplyDefaultTimeToLive(Link lnk)
+	{
+		Thought? ephemeral = Labeled("isEphemeral");
+		if (ephemeral is not null && lnk.LinkType?.HasProperty(ephemeral) == true)
+			lnk.TimeToLive = TimeSpan.FromSeconds(30);
 	}
 
 	public static void WriteTheLink(Link lnk)

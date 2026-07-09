@@ -59,14 +59,15 @@ public partial class UKS
         if (LinkTypesAreExclusive(r1, r2))
             return true;
 
-        if (r1.From == r2.From ||
+        if (r1.From is not null && r2.From is not null &&
+            (r1.From == r2.From ||
             r1.From.AncestorsWithSelf.Contains(r2.From) ||
             r2.From.AncestorsWithSelf.Contains(r1.From) ||
-            FindCommonParents(r1.From, r2.From).Count > 0)
+            FindCommonParents(r1.From, r2.From).Count > 0))
         {
 
-            IReadOnlyList<Thought> r1LinkiProps = r1.LinkType.GetAttributes();
-            IReadOnlyList<Thought> r2LinkProps = r2.LinkType.GetAttributes();
+            IReadOnlyList<Thought> r1LinkiProps = r1.LinkType is { } r1LinkType ? r1LinkType.GetAttributes() : Array.Empty<Thought>();
+            IReadOnlyList<Thought> r2LinkProps = r2.LinkType is { } r2LinkType ? r2LinkType.GetAttributes() : Array.Empty<Thought>();
             //handle case with properties of the target
             if (r1.To is not null && r1.To == r2.To &&
                 (r1.To.AncestorsWithSelf.Contains(r2.To) ||
@@ -88,7 +89,7 @@ public partial class UKS
             //handle case with conflicting targets
             if (r1.To is not null && r2.To is not null)
             {
-                List<Thought> commonParents = FindCommonParents(r1.To, r2.To);
+                List<Thought> commonParents = FindCommonParents(r1.To!, r2.To!);
                 foreach (Thought t3 in commonParents)
                 {
                     if (HasProperty(t3, "isexclusive") || HasProperty(t3, "allowMultiple"))
@@ -118,9 +119,10 @@ public partial class UKS
                 return true;
 
             //if one of the linkypes contains negation and not the other
-            Thought r1Not = r1LinkiProps.FindFirst(x => x.Label.ToLower() == "not" || x.Label.ToLower() == "no");
-            Thought r2Not = r2LinkProps.FindFirst(x => x.Label.ToLower() == "not" || x.Label.ToLower() == "no");
-            if ((r1.From == r2.From || r1.From.Ancestors.Contains(r2.From) ||
+            Thought? r1Not = r1LinkiProps.FindFirst(x => x.Label.ToLower() == "not" || x.Label.ToLower() == "no");
+            Thought? r2Not = r2LinkProps.FindFirst(x => x.Label.ToLower() == "not" || x.Label.ToLower() == "no");
+            if (r1.From is not null && r2.From is not null &&
+                (r1.From == r2.From || r1.From.Ancestors.Contains(r2.From) ||
                 r2.From.Ancestors.Contains(r1.From)) &&
                 r1.To == r2.To &&
                 (r1Not is null && r2Not is not null || r1Not is not null && r2Not is null))
@@ -129,7 +131,7 @@ public partial class UKS
         else
         {
             //this appears to duplicate code at line 226
-            List<Thought> commonParents = FindCommonParents(r1.To, r2.To);
+            List<Thought> commonParents = FindCommonParents(r1.To!, r2.To!);
             foreach (Thought t3 in commonParents)
             {
                 if (HasProperty(t3, "isexclusive"))
@@ -144,10 +146,11 @@ public partial class UKS
 
     private bool LinkTypesAreExclusive(Link r1, Link r2)
     {
+        if (r1.LinkType is null || r2.LinkType is null) return false;
         IReadOnlyList<Thought> r1RelProps = r1.LinkType.GetAttributes();
         IReadOnlyList<Thought> r2RelProps = r2.LinkType.GetAttributes();
-        Thought r1Not = r1RelProps.FindFirst(x => x.Label == "not" || x.Label == "no");
-        Thought r2Not = r2RelProps.FindFirst(x => x.Label == "not" || x.Label == "no");
+        Thought? r1Not = r1RelProps.FindFirst(x => x.Label == "not" || x.Label == "no");
+        Thought? r2Not = r2RelProps.FindFirst(x => x.Label == "not" || x.Label == "no");
         if (r1.To == r2.To &&
             (r1Not is null && r2Not is not null || r1Not is not null && r2Not is null))
             return true;
@@ -159,19 +162,19 @@ public partial class UKS
         if (t is null) return false;
         foreach (Link r in t.LinksTo)
         {
-            if (r.LinkType is not null && r.LinkType.Label == "is" && r.To.Label == name)
+            if (r.LinkType is not null && r.LinkType.Label == "is" && r.To?.Label == name)
                 return true;
         }
         return false;
     }
 
-    private Thought ThoughtFromString(string label, string defaultParent, Thought source = null)
+    private Thought? ThoughtFromString(string label, string defaultParent, Thought? source = null)
     {
         GetOrAddThought("Thought"); //safety
         GetOrAddThought("Unknown", "Thought"); //safety
         if (string.IsNullOrEmpty(label)) return null;
         if (label == "") return null;
-        Thought t = Labeled(label);
+        Thought? t = Labeled(label);
 
         if (t is null)
         {
@@ -184,7 +187,7 @@ public partial class UKS
         return t;
     }
 
-    private Thought ThoughtFromObject(object o, string parentLabel = "", Thought source = null)
+    private Thought? ThoughtFromObject(object? o, string parentLabel = "", Thought? source = null)
     {
         if (parentLabel == "")
             parentLabel = "Unknown";

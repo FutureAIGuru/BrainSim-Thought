@@ -29,7 +29,6 @@ namespace BrainSimulator
     /// </summary>
     public partial class MainWindow : Window
     {
-        private static StackPanel loadedModulesSP;
         private bool LoadFile(string fileName)
         {
             SuspendEngine();

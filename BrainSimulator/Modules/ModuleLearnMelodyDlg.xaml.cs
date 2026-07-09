@@ -86,7 +86,7 @@ public partial class ModuleLearnMelodyDlg : ModuleBaseDlg
         Draw(false);
     }
 
-    private void SetStatus(string message, Color? color = null)
+    private new void SetStatus(string message, Color? color = null)
     {
         if (statusLabel != null)
         {

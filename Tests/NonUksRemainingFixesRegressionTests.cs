@@ -2,6 +2,7 @@
  * Regression tests for remaining P1 (#9-10) and P3 (#19-23) non-UKS fixes (2026-07-07).
  */
 
+using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using BrainSimulator;

@@ -18,10 +18,10 @@ public partial class UKS
         }
     }
 
-    public Thought GetOrAddThing(string label, object parent = null, Thought source = null) =>
+    public Thought? GetOrAddThing(string label, object? parent = null, Thought? source = null) =>
         GetOrAddThought(label, parent, source);
 
-    public Thought AddThing(string label, Thought parent) =>
+    public Thought? AddThing(string label, Thought parent) =>
         GetOrAddThought(label, parent);
 
     public void DeleteAllChildren(Thought t)
