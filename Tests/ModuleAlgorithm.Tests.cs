@@ -24,7 +24,54 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
 
     public ModuleAlgorithmTests(AlgorithmXmlFixture fixture)
     {
-        (uks, module) = fixture.CreateHarness();
+        uks = new UKS(clear: true);
+        uks.CreateInitialStructure();
+        UKS.theUKS = uks;
+        Thought.ClearRecentlyFiredQueue();
+
+        module = new ModuleAlgorithm();
+        module.theUKS = uks;
+        module.UKSInitializedNotification();
+
+        string xmlPath = FindAlgorithmXmlPath();
+        if (!File.Exists(xmlPath))
+        {
+            throw new FileNotFoundException($"Algorithm.xml not found at {xmlPath}");
+        }
+
+        uks.LoadUKSfromXMLFile(xmlPath);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        DirectoryInfo directory = new(AppContext.BaseDirectory);
+        while (directory is not null
+               && !File.Exists(Path.Combine(directory.FullName, "BrainSim Thought.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        return directory?.FullName
+            ?? throw new DirectoryNotFoundException("BrainSim Thought repository root not found.");
+    }
+
+    private static string FindAlgorithmXmlPath()
+    {
+        string contentDir = Path.Combine(FindRepositoryRoot(), "BrainSimulator", "UKSContent");
+        foreach (string name in new[] { "Algorithm.xml", "algorithm.xml" })
+        {
+            string candidate = Path.Combine(contentDir, name);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return Path.Combine(contentDir, "Algorithm.xml");
+    }
+    public void Dispose()
+    {
+        // Cleanup
     }
 
     [Fact]
