@@ -1,0 +1,1 @@
+global using Thing = UKS.Thought;

@@ -25,12 +25,10 @@ public class ThoughtLabels
 
     public static ConcurrentDictionary<string, Thought> LabelList { get => labelList;}
 
-    public static Thought GetThought(string label)
+    public static Thought? GetThought(string label)
     {
         if (label is null || label == "") return null;
-        Thought retVal = null;
-        if (labelList.TryGetValue(label.ToLower(), out retVal)) 
-        { }  //breakpoint?
+        labelList.TryGetValue(label.ToLower(), out Thought? retVal);
         return retVal;
     }
     public static int GetLabelCount()
@@ -56,7 +54,7 @@ public class ThoughtLabels
     {
         //sets a label and appends/increments trailing digits in the event of collisions
         if (newLabel == "") return newLabel; //don't index empty lables
-        labelList.TryRemove(t.Label.ToLower(), out Thought dummy);
+        labelList.TryRemove(t.Label.ToLower(), out Thought? _);
         int curDigits = -1;
         string baseString = newLabel;
         //This code allows you to put a * at the end of a label and it will auto-increment
@@ -89,7 +87,7 @@ public class ThoughtLabels
     public static void RemoveThoughtLabel(string existingLabel)
     {
         if (string.IsNullOrEmpty(existingLabel)) return;
-        labelList.Remove(existingLabel.ToLower(), out Thought oldThought);
+        labelList.Remove(existingLabel.ToLower(), out Thought? _);
     }
 
 }

@@ -34,16 +34,46 @@ public class ModuleAttributeBubble : ModuleBase
         UpdateDialog();
     }
 
-    public bool isEnabled { get; set; }
+    public new bool isEnabled { get; set; }
 
     private Timer timer;
-    //private UKS.UKS theUKS1;
+    private Timer? debounceTimer;
+    private readonly HashSet<Thought> pendingBubbleParents = new();
+    private readonly object debounceLock = new();
     public string debugString = "Initialized\n";
     private void Setup()
     {
         if (timer is null)
         {
             timer = new Timer(SameThreadCallback, null, 0, 10000);
+            debounceTimer = new Timer(FlushDebouncedBubbles, null, Timeout.Infinite, Timeout.Infinite);
+            theUKS.LinkAdded += OnLinkAdded;
+        }
+    }
+
+    private void OnLinkAdded(Link lnk)
+    {
+        if (!isEnabled || lnk.From is null) return;
+        lock (debounceLock)
+        {
+            foreach (Thought parent in lnk.From.Parents)
+                pendingBubbleParents.Add(parent);
+        }
+        debounceTimer?.Change(250, Timeout.Infinite);
+    }
+
+    private void FlushDebouncedBubbles(object? _)
+    {
+        HashSet<Thought> batch;
+        lock (debounceLock)
+        {
+            batch = new HashSet<Thought>(pendingBubbleParents);
+            pendingBubbleParents.Clear();
+        }
+        foreach (Thought parent in batch)
+        {
+            if (parent.HasAncestor("Object") || parent.HasAncestor("Unknown"))
+                BubbleChildAttributes(parent);
         }
     }
     private void SameThreadCallback(object state)
@@ -89,123 +119,8 @@ public class ModuleAttributeBubble : ModuleBase
     }
     void BubbleChildAttributes(Thought t)
     {
-        if (t.Children.Count == 0) return;
-        if (t.Label == "Unknown") return;
-
-        //build a List of all the Links which this thought's children have
-        List<LinkDest> itemCounts = new();
-        foreach (Thought t1 in t.ChildrenWithSubclasses)
-        {
-            foreach (Link r in t1.LinksTo)
-            {
-                if (r.LinkType == Thought.IsA) continue;
-                Thought useLinkType = GetInstanceType(r.LinkType);
-
-                LinkDest foundItem = itemCounts.FindFirst(x => x.linkType == useLinkType && x.target == r.To);
-                if (foundItem is null)
-                {
-                    foundItem = new LinkDest { linkType = useLinkType, target = r.To };
-                    itemCounts.Add(foundItem);
-                }
-                foundItem.links.Add(r);
-            }
-        }
-        if (itemCounts.Count == 0) return;
-        var sortedItems = itemCounts.OrderByDescending(x => x.links.Count).ToList();
-
-        List<string> excludeTypes = new List<string>() { "hasProperty", "isTransitive", "isCommutative", "inverseOf", "hasAttribute", "hasDigit" };
-        //bubble the links
-        for (int i = 0; i < sortedItems.Count; i++)
-        {
-            LinkDest rr = sortedItems[i];
-            if (excludeTypes.Contains(rr.linkType.Label, comparer: StringComparer.OrdinalIgnoreCase)) continue;
-
-            //find an existing link
-            Link r = theUKS.GetLink(t, rr.linkType, rr.target);
-            float currentWeight = (r is not null) ? r.Weight : 0f;
-
-            //We need 1) count for this Thought, 2) count for any conflicting, 3) count without a reference
-            float totalCount = t.Children.Count;
-            float positiveCount = rr.links.FindAll(x => x.Weight > .5f).Count;
-            float positiveWeight = rr.links.Sum(x => x.Weight);
-            float negativeCount = 0;
-            float negativeWeight = 0;
-            //are there any conflicting links
-            for (int j = 0; j < sortedItems.Count; j++)
-            {
-                if (j == i) continue;
-                if (LinksConflict(rr, sortedItems[j]))
-                {
-                    negativeCount += sortedItems[j].links.Count; //?  why not += 1
-                    negativeWeight += sortedItems[j].links.Sum(x => x.Weight);
-                }
-            }
-            float noInfoCount = totalCount - (positiveCount + negativeCount);
-            positiveWeight += currentWeight + noInfoCount * 0.51f;
-            if (noInfoCount < 0) noInfoCount = 0;
-
-            if (negativeCount >= positiveCount)
-            {
-                if (r is not null)
-                {
-                    t.RemoveLink(r);
-                    debugString += $"Removed {r} \n";
-                }
-                continue;
-            }
-
-
-            //calculate the new weight
-            //If there is an existing weight, it is increased/decreased by a small amound and removed if it drops below .5
-            //If there is no existing weight, it is assumed to start at 0.5.
-            //TODO, replace this hardcoded "lookup table" with a formula
-            float targetWeight = 0;
-            float deltaWeight = positiveWeight - negativeWeight;
-            if (deltaWeight < .8) targetWeight = -.1f;
-            else if (deltaWeight < 1.7) targetWeight = .01f;
-            else if (deltaWeight < 2.7) targetWeight = .2f;
-            else targetWeight = .3f;
-            if (currentWeight == 0) currentWeight = 0.5f;
-            float newWeight = currentWeight + targetWeight;
-            if (newWeight > 0.99f) newWeight = 0.99f;
-
-            if (positiveCount > totalCount / 2)
-                if (newWeight != currentWeight || r is null)
-                {
-                    if (newWeight < .5)
-                    {
-                        if (r is not null)
-                        {
-                            t.RemoveLink(r);
-                            debugString += $"Removed {r.ToString()} \n";
-                        }
-                    }
-                    else
-                    {
-                        //bubble the property
-                        r = t.AddLink(rr.linkType, rr.target);
-                        r.Weight = newWeight;
-                        r.Fire();
-                        debugString += $"Added  {r.ToString()}   {r.Weight.ToString(".0")} \n";
-
-                        foreach (Thought t1 in t.Children)
-                        {
-                            Thought rrr = t1.RemoveLink(rr.linkType,rr.target);
-                            debugString += $"Removed {rrr.ToString()} \n";
-                        }
-                        //if there is a conflicting link, delete it
-                        for (int j = 0; j < t.LinksTo.Count; j++)
-                        {
-                            if (LinksConflict(new LinkDest(r), new LinkDest(t.LinksTo[j])))
-                            {
-                                t.RemoveLink(t.LinksTo[j]);
-                                j--;
-                            }
-                        }
-                    }
-                }
-        }
-
+        if (theUKS.BubbleSharedAttributes(t))
+            debugString += $"Bubbled attributes on {t.Label}\n";
     }
 
 
@@ -280,19 +195,7 @@ public class ModuleAttributeBubble : ModuleBase
 
 
     //if the given thought is an instance of its parent, get the parent
-    public static Thought GetInstanceType(Thought t)
-    {
-        bool EndsInInteger(string input)
-        {
-            // Regular expression to check if the string ends with a sequence of digits
-            return Regex.IsMatch(input, @"\d+$");
-        }
-        Thought useLinkType = t;
-        while (useLinkType.Parents.Count > 0 && EndsInInteger(useLinkType.Label) && 
-            !t.Label.Contains(".") && useLinkType.Label.StartsWith(useLinkType.Parents[0].Label))
-            useLinkType = useLinkType.Parents[0];
-        return useLinkType;
-    }
+    public static Thought GetInstanceType(Thought t) => UKS.UKS.GetBubbleInstanceType(t);
 
     // Fill this method in with code which will execute once
     // when the module is added, when "initialize" is selected from the context menu,

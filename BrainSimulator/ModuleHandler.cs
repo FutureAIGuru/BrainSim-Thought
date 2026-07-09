@@ -69,14 +69,7 @@ public class ModuleHandler
     {
         Thought t = theUKS.Labeled(moduleLabel);
         if (t is null) return;
-        for (int i = 0; i < t.LinksTo.Count; i++)
-        {
-            Link r = t.LinksTo[i];
-            r.To.Delete();
-        }
         t.Delete();
-
-        return;
     }
 
 
@@ -141,7 +134,7 @@ public class ModuleHandler
                 {
                     theModuleEntry.Item2.Close();
                 }
-                catch { }
+                catch (Exception ex) { Debug.WriteLine($"Python Close failed for {theModuleEntry.Item1}: {ex.Message}"); }
             }
         }
     }
@@ -221,9 +214,10 @@ public class ModuleHandler
                 catch (Exception ex)
                 {
                     activePythonModules.Remove(theModuleEntry);
-                    DeactivateModule(moduleLabel);
 #if !CONSOLE_APP
-                    MainWindow.theWindow.ReloadActiveModulesSP();
+                    MainWindow.theWindow?.DeactivateModule(moduleLabel);
+#else
+                    DeactivateModule(moduleLabel);
 #endif
                     Console.WriteLine("Fire method call failed for module: " + moduleLabel + "   Reason: " + ex.Message);
                 }

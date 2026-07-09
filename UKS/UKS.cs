@@ -82,18 +82,14 @@ public partial class UKS
     /// </summary>
     /// <param name="label">Label to look up.</param>
     /// <returns>The Thought or null.</returns>
-    public Thought Labeled(string label)
-    {
-        Thought retVal = ThoughtLabels.GetThought(label);
-        return retVal;
-    }
+    public Thought? Labeled(string label) => ThoughtLabels.GetThought(label);
 
 
     private bool HasProperty(Thought t, string propertyName)
     {
         if (t is null) return false;
         var v = t.LinksTo;
-        if (v.FindFirst(x => x.To?.Label.ToLower() == propertyName.ToLower() && x.LinkType.Label == "hasProperty") is not null) return true;
+        if (v.FindFirst(x => x.To?.Label.ToLower() == propertyName.ToLower() && x.LinkType?.Label == "hasProperty") is not null) return true;
         return false;
     }
 
@@ -124,7 +120,7 @@ public partial class UKS
     /// <param name="linkType">Relationship type thought.</param>
     /// <param name="to">Target thought of the link.</param>
     /// <returns>The existing link Thought, or null if not found.</returns>
-    public Link GetLink(Thought from, Thought linkType, Thought to)
+    public Link? GetLink(Thought from, Thought linkType, Thought? to)
     {
         if (from is null) return null;
         //create a temporary link
@@ -138,9 +134,10 @@ public partial class UKS
     /// </summary>
     /// <param name="r">Link prototype (From, LinkType, To) to search for.</param>
     /// <returns>The existing link Thought, or null if not found.</returns>
-    public Link GetLink(Link r)
+    public Link? GetLink(Link r)
     {
-        foreach (Link r1 in r.From?.LinksTo)
+        if (r.From is null) return null;
+        foreach (Link r1 in r.From.LinksTo)
         {
             if (LinksAreEqual(r, r1)) return r1;
         }
@@ -155,10 +152,13 @@ public partial class UKS
     public List<Link> GetLinks(Link r)
     {
         List<Link> retVal = new();
-        foreach (Link r1 in r.From?.LinksTo)
+        if (r.From is not null)
         {
-            if (r.LinkType == r1.LinkType && r.To == r1.To)
-                retVal.Add(r1);
+            foreach (Link r1 in r.From.LinksTo)
+            {
+                if (r.LinkType == r1.LinkType && r.To == r1.To)
+                    retVal.Add(r1);
+            }
         }
         return retVal;
     }
@@ -193,14 +193,12 @@ public partial class UKS
     /// <param name="parent">Optional parent thought or label; defaults to "Unknown" if null.</param>
     /// <param name="source">Optional source thought used to probe existing numbered links.</param>
     /// <returns>The existing or newly created Thought.</returns>
-    public Thought GetOrAddThought(string label, object parent = null, Thought source = null)
+    public Thought? GetOrAddThought(string label, object? parent = null, Thought? source = null)
     {
-        Thought thoughtToReturn = null;
+        if (string.IsNullOrEmpty(label)) return null;
 
-        if (string.IsNullOrEmpty(label)) return thoughtToReturn;
-
-        thoughtToReturn = ThoughtLabels.GetThought(label);
-        Thought correctParent = null;
+        Thought? thoughtToReturn = ThoughtLabels.GetThought(label);
+        Thought? correctParent = null;
         if (parent is string s)
             correctParent = ThoughtLabels.GetThought(s);
         if (parent is Thought t)
@@ -215,7 +213,7 @@ public partial class UKS
                 thoughtToReturn.Label.ToLower() != "thought" &&
                 correctParent is not null)
                 thoughtToReturn.AddParent(correctParent);
-            if (correctParent.Label != "Unknown")
+            if (correctParent is not null && correctParent.Label != "Unknown")
             {
                 thoughtToReturn.RemoveParent("Unknown");
                 thoughtToReturn.AddParent(correctParent);
@@ -227,21 +225,22 @@ public partial class UKS
         if (label.Contains(".") && label != "." && !label.Contains(".py"))
         {
             string[] attribs = label.Split(".");
-            Thought baseThought = Labeled(attribs[0]);
-            if (baseThought is null) baseThought = AddThought(attribs[0], "Unknown");
-            Thought instanceThought = Labeled(label);
-            if (instanceThought is null)
+            Thought? baseThought = Labeled(attribs[0]) ?? AddThought(attribs[0], "Unknown");
+            Thought? instanceThought = Labeled(label) ?? AddThought(label, baseThought);
+            if (instanceThought is not null && baseThought?.Label.ToLower() == "not")
             {
-                instanceThought = AddThought(label, baseThought);
-                if (baseThought.Label.ToLower() == "not")
-                    instanceThought.AddParent(attribs[1]);
+                Thought? parentAttrib = ThoughtLabels.GetThought(attribs[1]);
+                if (parentAttrib is not null)
+                    instanceThought.AddParent(parentAttrib);
             }
-            for (int i = 1; i < attribs.Length; i++)
+            if (instanceThought is not null)
             {
-                Thought attrib = Labeled(attribs[i]);
-                if (attrib is null)
-                    attrib = AddThought(attribs[i], "Unknown");
-                instanceThought.AddLink("is", attrib);
+                for (int i = 1; i < attribs.Length; i++)
+                {
+                    Thought? attrib = Labeled(attribs[i]) ?? AddThought(attribs[i], "Unknown");
+                    if (attrib is not null)
+                        instanceThought.AddLink("is", attrib);
+                }
             }
             return instanceThought;
         }
@@ -253,13 +252,12 @@ public partial class UKS
         if (label.EndsWith("*"))
         {
             string baseLabel = label.Substring(0, label.Length - 1);
-            Thought newParent = ThoughtLabels.GetThought(baseLabel);
             //instead of creating a new label, see if the next label for this item already exists and can be reused
             if (source is not null)
             {
                 int digit = 0;
-                while (source.LinksTo.FindFirst(x => x.LinkType.Label == baseLabel + digit) is not null) digit++;
-                Thought labeled = ThoughtLabels.GetThought(baseLabel + digit);
+                while (source.LinksTo.FindFirst(x => x.LinkType?.Label == baseLabel + digit) is not null) digit++;
+                Thought? labeled = ThoughtLabels.GetThought(baseLabel + digit);
                 if (labeled is not null)
                     return labeled;
             }
@@ -279,7 +277,7 @@ public partial class UKS
     /// <param name="attributesFollow">True if attributes follow the base term; false if they precede it.</param>
     /// <param name="singularize">When true, singularizes non-capitalized words.</param>
     /// <returns>The created or retrieved Thought.</returns>
-    public Thought CreateThoughtFromMultipleAttributes(string label, bool attributesFollow, bool singularize = true)
+    public Thought? CreateThoughtFromMultipleAttributes(string label, bool attributesFollow, bool singularize = true)
     {
         if (label.StartsWith("^"))  //if it starts with an ^, it's a sequence
         {
@@ -289,18 +287,16 @@ public partial class UKS
             {
                 if (label1.Length == 1)
                 {
-                    Thought letterParent = theUKS.GetOrAddThought("letter", "Object");
-                    Thought t1 = theUKS.GetOrAddThought(label1.ToUpper(), letterParent);
-                    targets.Add(t1);
+                    Thought? letterParent = theUKS.GetOrAddThought("letter", "Object");
+                    Thought? t1 = theUKS.GetOrAddThought(label1.ToUpper(), letterParent!);
+                    if (t1 is not null) targets.Add(t1);
                 }
                 else
                 {
-                    Thought t1 = null;
-                    if (label1.StartsWith("w:"))
-                        t1 = theUKS.GetOrAddThought(label1,"word");
-                    else
-                        t1 = theUKS.GetOrAddThought(label1);
-                    targets.Add(t1);
+                    Thought? t1 = label1.StartsWith("w:")
+                        ? theUKS.GetOrAddThought(label1, "word")
+                        : theUKS.GetOrAddThought(label1);
+                    if (t1 is not null) targets.Add(t1);
                 }
             }
             string seqLabel = string.Join("", targetParts);
@@ -335,7 +331,6 @@ public partial class UKS
         }
 
         //find the base thing so we can assign the parent?  //this is handled in GetOrAddThought now, so we don't need to do it here
-        Thought t = GetOrAddThought(thoughtLabel);
-        return t;
+        return GetOrAddThought(thoughtLabel);
     }
 }

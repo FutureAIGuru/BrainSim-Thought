@@ -13,7 +13,7 @@
 //
 // PROPRIETARY AND CONFIDENTIAL
 // Brain Simulator 3 v.1.0
-// © 2022 FutureAI, Inc., all rights reserved
+// ï¿½ 2022 FutureAI, Inc., all rights reserved
 //
 
 using System;
@@ -56,7 +56,7 @@ namespace BrainSimulator.Modules
                     "\r\nCorners: " + parent.corners?.Count +
                     "\r\nOutlines: " + parent.theUKS.Labeled("Outline")?.Children.Count;
             }
-            catch { return false; }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Vision dialog label update failed: {ex.Message}"); return false; }
 
             theCanvas.Children.Clear();
 
@@ -78,23 +78,20 @@ namespace BrainSimulator.Modules
                             { }
                             pixel.A = 255;
 
-                            if (pixel != null)
+                            //pixel.luminance /= 2;
+                            SolidColorBrush b = new SolidColorBrush(pixel);
+                            float lum = new HSLColor(pixel).luminance;
+                            Rectangle e = new()
                             {
-                                //pixel.luminance /= 2;
-                                SolidColorBrush b = new SolidColorBrush(pixel);
-                                float lum = new HSLColor(pixel).luminance;
-                                Rectangle e = new()
-                                {
-                                    Height = pixelSize,
-                                    Width = pixelSize,
-                                    Stroke = b,
-                                    Fill = b,
-                                    ToolTip = new System.Windows.Controls.ToolTip { HorizontalOffset = 50, Content = $"({(int)x},{(int)y}) {lum.ToString("0.00")}" },
-                                };
-                                Canvas.SetLeft(e, x * scale - pixelSize / 2);
-                                Canvas.SetTop(e, y * scale - pixelSize / 2);
-                                theCanvas.Children.Add(e);
-                            }
+                                Height = pixelSize,
+                                Width = pixelSize,
+                                Stroke = b,
+                                Fill = b,
+                                ToolTip = new System.Windows.Controls.ToolTip { HorizontalOffset = 50, Content = $"({(int)x},{(int)y}) {lum.ToString("0.00")}" },
+                            };
+                            Canvas.SetLeft(e, x * scale - pixelSize / 2);
+                            Canvas.SetTop(e, y * scale - pixelSize / 2);
+                            theCanvas.Children.Add(e);
                         }
                 }
 
@@ -287,7 +284,7 @@ namespace BrainSimulator.Modules
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Vision dialog draw failed: {ex.Message}"); }
             return true;
         }
 
@@ -416,17 +413,17 @@ namespace BrainSimulator.Modules
             ResetTimer();
         }
 
-        private Point prevPoint;
+        private Point? prevPoint;
         private void ModuleBaseDlg_MouseMove(object sender, MouseEventArgs e)
         {
             Point pos = e.GetPosition(this);
             if (e.LeftButton == MouseButtonState.Pressed)
             {
                 if (prevPoint == null)
-                    prevPoint = new();
+                    prevPoint = pos;
                 else
                 {
-                    Point diff = pos - (Vector)prevPoint;
+                    Point diff = pos - (Vector)prevPoint.Value;
                     ModuleVision parent = (ModuleVision)base.ParentModule;
                     parent.offsetX += (int)diff.X / 5;
                     parent.offsetY += (int)diff.Y / 5;

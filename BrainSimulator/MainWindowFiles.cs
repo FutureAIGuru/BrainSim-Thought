@@ -29,7 +29,6 @@ namespace BrainSimulator
     /// </summary>
     public partial class MainWindow : Window
     {
-        private static StackPanel loadedModulesSP;
         private bool LoadFile(string fileName)
         {
             SuspendEngine();
@@ -63,10 +62,10 @@ namespace BrainSimulator
             ActiveModuleSP.Children.Clear();
 
             Thought activeModuleParent = theUKS.Labeled("ActiveModule");
+            if (activeModuleParent is null) { return; }
+
             //TODO: Remove
             activeModuleParent.AddParent("BrainSim");
-
-            if (activeModuleParent is null) { return; }
             var activeModules1 = activeModuleParent.Children;
             activeModules1 = activeModules1.OrderBy(x => x.Label).ToList();
 

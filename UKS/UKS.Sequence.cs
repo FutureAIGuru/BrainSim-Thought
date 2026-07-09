@@ -11,6 +11,8 @@
  * See the LICENSE file in the project root for full license information.
  */
 
+#nullable disable
+
 using Microsoft.VisualBasic;
 using System.Runtime.InteropServices;
 using static UKS.UKS;
@@ -23,11 +25,11 @@ public class SeqElement : Thought
     /// Default constructor for sequence element placeholder.
     /// </summary>
     public SeqElement() { }
-    public SeqElement? FRST
+    public SeqElement FRST
     {
         get
         {
-            Link? nxt = LinksToWriteable.FindFirst(x => x.LinkType?.Label == "FRST");
+            Link nxt = LinksToWriteable.FindFirst(x => x.LinkType?.Label == "FRST");
             return nxt?.To as SeqElement;
         }
         set
@@ -40,11 +42,11 @@ public class SeqElement : Thought
             AddLink(nxtType, value);
         }
     }
-    public SeqElement? NXT
+    public SeqElement NXT
     {
         get
         {
-            Link? nxt = LinksTo.FindFirst(x => x.LinkType?.Label == "NXT");
+            Link nxt = LinksTo.FindFirst(x => x.LinkType?.Label == "NXT");
             return nxt?.To as SeqElement;
         }
         set
@@ -57,11 +59,11 @@ public class SeqElement : Thought
             AddLink(nxtType, value);
         }
     }
-    public Thought? VLU
+    public Thought VLU
     {
         get
         {
-            Link? nxt = LinksTo.FindFirst(x => x.LinkType?.Label == "VLU");
+            Link nxt = LinksTo.FindFirst(x => x.LinkType?.Label == "VLU");
             return nxt?.To;
         }
         set
@@ -201,7 +203,21 @@ public partial class UKS
         }
         else
         {
-            throw new NotImplementedException();
+            SeqElement predecessor = prevElementIn.FRST;
+            while (predecessor?.NXT is not null && predecessor.NXT != prevElementIn)
+                predecessor = predecessor.NXT;
+            if (predecessor is null || predecessor.NXT != prevElementIn)
+                throw new ArgumentException("prevElementIn is not in its FRST chain", nameof(prevElementIn));
+
+            SeqElement newNode = new()
+            {
+                Label = prevElementIn.Label + "*",
+                FRST = prevElementIn.FRST,
+                NXT = prevElementIn,
+            };
+            newNode.AddLink("VLU", value);
+            predecessor.NXT = newNode;
+            return prevElementIn.FRST ?? first;
         }
         return first;
     }
@@ -308,7 +324,7 @@ public partial class UKS
     }
     public SeqElement AddSequence(string label, List<Thought> targets, bool allowCompression = true)
     {
-        if (targets.Count < 1) return null;  //a sequence must have at least 2 elements
+        if (targets.Count < 2) return null;  //a sequence must have at least 2 elements
 
         List<Thought> resolvedTargets = new(targets);
 
@@ -370,7 +386,7 @@ public partial class UKS
     /// <returns>The first node of the created or reused sequence, or null if insufficient targets.</returns>
     public SeqElement AddSequenceAndLink(Thought source, Thought linkType, List<Thought> targets, float baseWeight = 1.0f)
     {
-        if (targets.Count < 1) return null;  //a sequence must have at least 2 elements
+        if (targets.Count < 2) return null;  //a sequence must have at least 2 elements
 
         //clear out any existing sequence links of this type
         source.RemoveLinks(linkType);  //TODO delete the sequence
@@ -414,7 +430,10 @@ public partial class UKS
     public List<(SeqElement seqNode, float confidence)> HasSequence(List<Thought> targets, Thought linkType,
         bool mustMatchFirst = false, bool mustMatchLast = false, bool circularSearch = false, bool allowOutOfOrder = false)
     {
-        //this function searches the UKS for sequences matching the specified pattern in targets. 
+        if (circularSearch || allowOutOfOrder)
+            throw new NotSupportedException("circularSearch and allowOutOfOrder are not yet implemented.");
+
+        //this function searches the UKS for sequences matching the specified pattern in targets.
 
         //If circularSearch is true, then the search will consider sequences that wrap around from end to start Thought.
         //If firstLastPriority is true, then matches that have the first and last elements matching will be given higher confidence
@@ -449,7 +468,7 @@ public partial class UKS
         // These are potential starting points for matching sequences
 
         // When this returns, seqNode is the first matching node.  curPos.Current is the last
-        List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = RawSearchExact(targets);
+        List<(SeqElement seqNode, IEnumerator<SeqElement> curPos, int matchCount)> searchCandidates = RawSearchExact(targets);
         if (searchCandidates.Count == 0) return retVal;
 
         //Do we want to follow up the chain of referrers?
@@ -628,9 +647,9 @@ public partial class UKS
         float score = count / (Math.Max(seq.Count, targets.Count) - 1);
         return score;
     }
-    public List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> RawSearchExact(List<Thought> targets)
+    public List<(SeqElement seqNode, IEnumerator<SeqElement> curPos, int matchCount)> RawSearchExact(List<Thought> targets)
     {
-        List<(SeqElement seqNode, IEnumerator<SeqElement>? curPos, int matchCount)> searchCandidates = new();
+        List<(SeqElement seqNode, IEnumerator<SeqElement> curPos, int matchCount)> searchCandidates = new();
         if (targets is null || targets.Count < 2) return searchCandidates;
         //Step 1: initialize enuerators for each candidate sequence
         var candidateNodes = targets[0].LinksFrom
@@ -661,8 +680,7 @@ public partial class UKS
 
             for (int j = 0; j < searchCandidates.Count; j++)
             {
-                SeqElement? nextThought = null;
-                Thought theValue = null;
+                SeqElement nextThought = null;
                 //have we reached the end of the current subsequence?
                 if (!searchCandidates[j].curPos.MoveNext())
                 {
@@ -757,9 +775,13 @@ public partial class UKS
         if (visitedSequences.Contains(sequenceStart)) yield break; // Already visited this sequence, stop to prevent infinite recursion
         visitedSequences.Push(sequenceStart);
         var current = sequenceStart;
+        var visitedInMain = new HashSet<SeqElement>();
 
         while (current is not null)
         {
+            if (!visitedInMain.Add(current))
+                break;
+
             // Get the VLU Linkto find what this sequence node points to
             Thought valueRel = GetElementValue(current);
 
@@ -776,10 +798,6 @@ public partial class UKS
 
             // Move to next node via NXT Link
             current = GetNextElement(current);
-            if (current is null) break;
-
-            // Stop if we've circled back to the start
-            if (current == sequenceStart) break;  //BROKEN?
         }
         visitedSequences.Pop();
     }
@@ -1023,7 +1041,7 @@ public partial class UKS
             }
 
             activeElement.LastMatchElement = activeElement.CurPos;
-            activeElement.Confidence = activeElement.Confidence;  //do some arithmetic here to adjust confidence based on the match quality of this element (exact match vs wildcard, etc)
+            // TODO: adjust confidence based on match quality (exact match vs wildcard, etc.)
         }
 
         return activeElements;

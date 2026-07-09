@@ -13,7 +13,7 @@
 //
 // PROPRIETARY AND CONFIDENTIAL
 // Brain Simulator 3 v.1.0
-// © 2022 FutureAI, Inc., all rights reserved
+// ï¿½ 2022 FutureAI, Inc., all rights reserved
 //
 
 using System;
@@ -558,12 +558,10 @@ namespace BrainSimulator.Modules
                 //get the color (the centroid might be outside the image)
                 try
                 {
-                    //HSLColor theCenterColor = imageArray[(int)centroid.X, (int)centroid.Y];
                     Color theCenterColor = imageArray[(int)centroid.X, (int)centroid.Y];
-                    Thing theColor = GetOrAddColor(theCenterColor);
-                    currOutline.SetAttribute(theColor);
+                    ApplyDiscreteColorAttributes(currOutline, theCenterColor);
                 }
-                catch (Exception e) { }
+                catch (Exception e) { System.Diagnostics.Debug.WriteLine($"Centroid color read failed: {e.Message}"); }
 
                 //we now have an ordered, right-handed outline
                 //add it to UKS
@@ -585,6 +583,18 @@ namespace BrainSimulator.Modules
                     theUKS.AddStatement(currOutline, "has*", corner);
                 }
             }
+        }
+
+        /// <summary>Ch.4 Fig 4.2 â€” quantize centroid RGB to discrete level Thoughts + has links.</summary>
+        private void ApplyDiscreteColorAttributes(Thing outline, Color color)
+        {
+            DiscreteAttributeDecoder.DecodeAndApply(
+                outline,
+                color.R,
+                color.G,
+                color.B,
+                theUKS,
+                theUKS.CurrentTraversal);
         }
 
         Thing GetOrAddColor(Color color)

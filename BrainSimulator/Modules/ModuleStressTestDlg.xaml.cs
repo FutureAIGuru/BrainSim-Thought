@@ -59,7 +59,7 @@ namespace BrainSimulator.Modules
             txtOutput.Text = theText;
         }
 
-        private async void Button_Click(object sender, RoutedEventArgs e)
+        private void Button_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn)
             {
