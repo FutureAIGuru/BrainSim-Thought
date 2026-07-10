@@ -56,7 +56,7 @@ public partial class UKS
         ClearSequenceCache();
 
         //Bootstrapping is needed for is-a, Unknown, and the root: Thought
-        //because AddStatement and GetOrAddThing won't work without them
+        //because AddStatement and GetOrAddThought won't work without them (legacy GetOrAddThing alias removed)
         //Thought
         if (Labeled("Thought") is null) AddThought("Thought", null);
         Thought isA = Labeled("is-a");

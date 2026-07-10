@@ -51,10 +51,6 @@
     <Compile Remove="Tools\Module.cs" />
     <Compile Remove="Tools\ModuleDlg.xaml.cs" />
 
-    <!-- Vision folder has BrainSim3 stubs; canonical ModuleMentalModel lives in Modules\ -->
-    <Compile Remove="Modules\Vision\ModuleMentalModel.cs" />
-    <Compile Remove="Modules\Vision\ModuleMentalModelDlg.xaml.cs" />
-
   </ItemGroup>
   <ItemGroup>
     <None Remove="refresh-3104.png" />
@@ -79,7 +75,6 @@
     <Page Remove="Modules\ModulePremiseDlg.xaml" />
     <Page Remove="Modules\ModuleSequenceEditorDlg - Copy.xaml" />
     <Page Remove="Tools\ModuleDlg.xaml" />
-    <Page Remove="Modules\Vision\ModuleMentalModelDlg.xaml" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Iconsmall.ico">
