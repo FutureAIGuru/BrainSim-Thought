@@ -189,7 +189,7 @@ public class ModuleText : ModuleBase
     // Incremental file-load state
     private StreamReader _phraseReader;
     private string _phraseReaderPath;
-    public async Task<int> LoadTextFromFile(string filePath, int phrasesPerCall = 500)
+    public int LoadTextFromFile(string filePath, int phrasesPerCall = 500)
     {
         if (phrasesPerCall <= 0) phrasesPerCall = 1;
         if (!File.Exists(filePath))
@@ -472,78 +472,6 @@ public class ModuleText : ModuleBase
         ComputeUniversalPatternOverlap();
         CreateUniversalPatternClasses();
         //        FindPatterns();
-        return retVal;
-
-        var theUKS = MainWindow.theUKS;
-        //int retVal = 0;
-
-        // Ensure type + link types exist
-        theUKS.GetOrAddThought("trigram", "LanguageElement");
-        theUKS.GetOrAddThought("first", "LinkType");
-        theUKS.GetOrAddThought("second", "LinkType");
-        theUKS.GetOrAddThought("third", "LinkType");
-
-        // Iterate all existing bigram link-thoughts
-        foreach (Thought t in ((Thought)"bigram").Children)
-        {
-            if (t is not Link lnk) continue;
-            // Expect: t is a followedBy link from A -> B
-            Thought a = lnk.From;
-            Thought b = lnk.To;
-
-            if (a == null || b == null) continue;
-
-            // Find B --followedBy--> C (second bigram)
-            foreach (Link l in b.LinksTo.Where(x => x.LinkType.Label == "followedBy"))
-            {
-                Thought c = l.To;
-                if (c == null) continue;
-                if (a.Label == "w:the" && b.Label == "w:baby")
-                { }
-
-                // Optional: ensure A,B,C occurs somewhere in actual ingested sequences
-                // This prevents creating trigrams that never appeared.
-                var results = theUKS.HasSequence(new List<Thought> { a, b, c }, null);
-                if (results.Count == 0)
-                    continue;
-
-                // Build a deterministic trigram key (prefer IDs if stable)
-                string trigramKey = $"tg_{a.Label}_{b.Label}_{c.Label}";
-                if (trigramKey == "tg_the_baby_bird")
-                { }
-
-                Thought tg = theUKS.Labeled(trigramKey);
-                if (tg is null)
-                {
-                    tg = theUKS.GetOrAddThought(trigramKey, "trigram");
-
-                    // Link to components (idempotent if AddStatement de-dupes)
-                    theUKS.AddStatement(tg, "first", a);
-                    theUKS.AddStatement(tg, "second", b);
-                    theUKS.AddStatement(tg, "third", c);
-
-                    // Set / reinforce trigram weight (use avg or min; min is more conservative)
-                    float w = MathF.Min(t.Weight, l.Weight);     // conservative
-                                                                 //float w = 0.5f * (t.Weight + l.Weight);   // alternative
-
-                    tg.Weight = MathF.Min(tg.Weight, 0.10f * w); // start small but proportional
-                    tg.Weight = results.Count;
-                    retVal++;
-                }
-                //else
-                //{
-                //    // reinforce existing trigram
-                //    //tg.Weight = MathF.Min(1f, tg.Weight + 0.05f * (1f - tg.Weight));
-                //    tg.Weight += 1; // simple increment; could also use a weighted average of component weights
-                //}
-
-                tg.LastFiredTime = DateTime.Now; // swap for UKS ticks later if you add recency
-            }
-        }
-        Thought trigrams = theUKS.Labeled("trigram");
-        var topTrigrams = trigrams.Children.OrderByDescending(x => x.Weight).ToList();
-        for (int i = 50; i < topTrigrams.Count; i++)
-            topTrigrams[i].Delete();
         return retVal;
     }
     public static void FindPatterns()

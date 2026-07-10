@@ -35,14 +35,18 @@ public partial class UKS
         {
             Thought t = sources[i];
             foreach (Thought child in t.Children)
-                if (child.HasProperty("isInstance"))
+            {
+                Thought? isInstance = "isInstance";
+                if (isInstance is not null && child.HasProperty(isInstance))
                     sources.Add(child);
+            }
         }
 
+        var querySources = sources.ToList();
         var result1 = BuildSearchList(sources);
         result2 = GetAllLinksInternal(result1);
         if (result2.Count < 200)  //the conflict-remover is really slow on large numbers
-            RemoveConflictingResults(result2);
+            RemoveConflictingResults(result2, querySources);
         RemoveFalseConditionals(result2);
         SortLinks(ref result2);
         return result2;
@@ -56,12 +60,13 @@ public partial class UKS
     //This is used to store temporary content during queries
     private class ThoughtWithQueryParams
     {
-        public Thought thought;
+        public Thought thought = null!;
         public int hopCount;
         public int haveCount = 1;
         public int hitCount = 1;
         public float weight;
-        public Thought reachedWith = null;
+        public Thought? reachedWith;
+        public Thought? querySource;
         public bool corner = false;
         public override string ToString()
         {
@@ -70,54 +75,65 @@ public partial class UKS
         }
     }
 
-    //this follows "inheritable" links...should it follow transitive too?
+    // BFS along inheritable links (is-a chains, etc.) with a hop cap for transitive inheritance.
     private List<ThoughtWithQueryParams> BuildSearchList(List<Thought> q)
     {
+        const int maxHops = 8;
         List<ThoughtWithQueryParams> thoughtsToExamine = new();
-        int maxHops = 8;
-        int hopCount = 0;
+        HashSet<Thought> seen = new();
+
         foreach (Thought t in q)
+        {
+            if (t is null || !seen.Add(t)) continue;
             thoughtsToExamine.Add(new ThoughtWithQueryParams
             {
                 thought = t,
-                hopCount = hopCount,
+                hopCount = 0,
                 weight = 1,
-                reachedWith = null
+                reachedWith = null,
+                querySource = t
             });
-        hopCount++;
-        int currentEnd = thoughtsToExamine.Count;
+        }
+
         for (int i = 0; i < thoughtsToExamine.Count; i++)
         {
-            Thought t = thoughtsToExamine[i].thought;
-            float curWeight = thoughtsToExamine[i].weight;
-            int curCount = thoughtsToExamine[i].haveCount;
-            Thought reachedWith = thoughtsToExamine[i].reachedWith;
+            ThoughtWithQueryParams entry = thoughtsToExamine[i];
+            Thought t = entry.thought;
+            if (t is null) continue;
 
-            foreach (Link r in t.LinksTo)  //has-child et al
+            int nextHop = entry.hopCount + 1;
+            if (nextHop > maxHops) continue;
+
+            foreach (Link r in t.LinksTo)
             {
-                if (r.LinkType?.HasProperty("inheritable") == true)
+                Thought? inheritable = "inheritable";
+                if (inheritable is null || r.LinkType?.HasProperty(inheritable) != true || r.To is null)
+                    continue;
+
+                if (thoughtsToExamine.FindFirst(x => x.thought == r.To) is ThoughtWithQueryParams twgp)
                 {
-                    if (thoughtsToExamine.FindFirst(x => x.thought == r.To) is ThoughtWithQueryParams twgp)
-                        twgp.hitCount++;//thought is in the list, increment its count
-                    else
-                    {//thought is not in the list, add it
-                        bool corner = !ThoughtInTree(r.LinkType, thoughtsToExamine[i].reachedWith) &&
-                            thoughtsToExamine[i].reachedWith is not null;
-                        if (corner)
-                        { } //TODO: corners are the reasons in a logic progression
-                        thoughtsToExamine[i].corner |= corner;
-                        ThoughtWithQueryParams thoughtToAdd = new ThoughtWithQueryParams
-                        {
-                            thought = r.To,
-                            hopCount = hopCount,
-                            weight = curWeight * r.Weight,
-                            reachedWith = r.LinkType,
-                        };
-                        thoughtsToExamine.Add(thoughtToAdd);
-                        //JUST FOR FUN: if thoughts have counts, the counts are multiplied...  2hands * 5 fingers/hand = 10 fingers
-                        int val = GetCount(r.LinkType);
-                        thoughtToAdd.haveCount = curCount * val;
-                    }
+                    twgp.hitCount++;
+                    if (nextHop < twgp.hopCount)
+                        twgp.hopCount = nextHop;
+                }
+                else
+                {
+                    bool corner = entry.reachedWith is not null &&
+                        r.LinkType is not null &&
+                        !ThoughtInTree(r.LinkType, entry.reachedWith);
+                    entry.corner |= corner;
+                    ThoughtWithQueryParams thoughtToAdd = new()
+                    {
+                        thought = r.To,
+                        hopCount = nextHop,
+                        weight = entry.weight * r.Weight,
+                        reachedWith = r.LinkType,
+                        querySource = entry.querySource ?? entry.thought,
+                    };
+                    int val = GetCount(r.LinkType);
+                    thoughtToAdd.haveCount = entry.haveCount * val;
+                    thoughtsToExamine.Add(thoughtToAdd);
+                    seen.Add(r.To);
                 }
             }
         }
@@ -146,42 +162,59 @@ public partial class UKS
             Thought t = thoughtsToExamine[i].thought;
             if (t is null) continue; //safety
             int haveCount = thoughtsToExamine[i].haveCount;
+            int inheritanceDepth = thoughtsToExamine[i].hopCount;
+            Thought? querySource = thoughtsToExamine[i].querySource ?? t;
             foreach (Link r in t.LinksTo)
             {
                 if (r.LinkType == Thought.IsA) continue;
                 //only add the new relationship to the list if it is not already in the list
                 bool ignoreSource = thoughtsToExamine[i].hopCount > 1;
-                Link existing = result.FindFirst(x => LinksAreEqual(x, r, ignoreSource));
+                Link? existing = result.FindFirst(x => LinksAreEqual(x, r, ignoreSource));
                 if (existing is not null) continue;
 
-                if (haveCount > 1 && r.LinkType?.HasAncestor("has") is not null)
+                Thought? hasAncestor = "has";
+                if (haveCount > 1 && hasAncestor is not null && r.LinkType?.HasAncestor(hasAncestor) == true)
                 {
-                    Link r1 = new Link(r.From, r.LinkType, r.To)
+                    if (r.From is null || r.LinkType is null || r.To is null) continue;
+                    Link r1 = new Link(querySource, r.LinkType, r.To)
                     {
-                        Weight = r.Weight * thoughtsToExamine[i].weight
+                        Weight = r.Weight * thoughtsToExamine[i].weight,
+                        InheritanceDepth = inheritanceDepth,
+                        InheritedFromCategory = inheritanceDepth > 0 ? t : null
                     };
-                    Thought newCountType = GetOrAddThought((GetCount(r.LinkType) * haveCount).ToString(), "number");
+                    Thought? newCountType = GetOrAddThought((GetCount(r.LinkType) * haveCount).ToString(), "number");
 
                     //hack for numeric labels
-                    Thought rootThought = r1.LinkType;
+                    Thought? rootThought = r1.LinkType;
                     if (r.LinkType.Label.Contains("."))
                         rootThought = GetOrAddThought(r.LinkType.Label.Substring(0, r.LinkType.Label.IndexOf(".")));
-                    Thought bestMatch = r.LinkType;
+                    Thought? bestMatch = r.LinkType;
                     List<Thought> missingAttributes = new();
-                    Thought newLinkType = SubclassExists(rootThought, new List<Thought> { newCountType }, ref bestMatch, ref missingAttributes);
-                    if (newLinkType is null)
-                        newLinkType = CreateSubclass(rootThought, new List<Thought> { newCountType });
+                    Thought? newLinkType = null;
+                    if (rootThought is not null && newCountType is not null)
+                    {
+                        newLinkType = SubclassExists(rootThought, new List<Thought> { newCountType }, ref bestMatch, ref missingAttributes);
+                        if (newLinkType is null)
+                            newLinkType = CreateSubclass(rootThought, new List<Thought> { newCountType });
+                    }
+                    if (newLinkType is null) continue;
                     r1.LinkType = newLinkType;
                     result.Add(r1);
                 }
                 else
                 {
-                    Link r1 = new Link(r.From, r.LinkType, r.To)
+                    if (r.From is null || r.LinkType is null || r.To is null) continue;
+                    Link r1 = new Link(querySource, r.LinkType, r.To)
                     {
-                        Weight = r.Weight * thoughtsToExamine[i].weight
+                        Weight = r.Weight * thoughtsToExamine[i].weight,
+                        InheritanceDepth = inheritanceDepth,
+                        InheritedFromCategory = inheritanceDepth > 0 ? t : null
                     };
                     foreach (Link r3 in r.LinksTo.Where(x => x.LinkType?.Label != "is-a"))
-                        r1.AddLink(r3.LinkType, r3.To);
+                    {
+                        if (r3.LinkType is not null)
+                            r1.AddLink(r3.LinkType, r3.To);
+                    }
                     result.Add(r1);
                 }
             }
@@ -189,7 +222,9 @@ public partial class UKS
         return result;
     }
 
-    private void RemoveConflictingResults(List<Link> result)
+    // Ch.5 exception rule: more-specific (lower inheritance depth) wins over inherited defaults.
+    // Tie-break: link From on a query source, then higher Weight.
+    private void RemoveConflictingResults(List<Link> result, List<Thought> querySources)
     {
         for (int i = 0; i < result.Count; i++)
         {
@@ -205,21 +240,35 @@ public partial class UKS
             for (int j = i + 1; j < result.Count; j++)
             {
                 Link r2 = result[j];
-                //are the results the same?
-                if (r1.LinkType == r2.LinkType && r1.To == r2.To)
+                bool duplicate = r1.LinkType == r2.LinkType && r1.To == r2.To;
+                bool exclusive = LinksAreExclusive(r1, r2);
+                if (!duplicate && !exclusive) continue;
+
+                Link keep = PreferMoreSpecificLink(r1, r2, querySources);
+                Link drop = keep == r1 ? r2 : r1;
+                int dropIndex = drop == r1 ? i : j;
+                result.RemoveAt(dropIndex);
+                if (dropIndex == i)
                 {
-                    result.RemoveAt(j);
-                    j--;
+                    i--;
+                    break;
                 }
-                //if (r1.LinkType?.Label.Contains(".") == true && r2.LinkType?.Label.Contains(".") == true)
-                if (LinksAreExclusive(r1, r2))
-                {
-                    //if two links are in conflict, delete the 2nd one (First takes priority)
-                    result.RemoveAt(j);
-                    j--;
-                }
+                j--;
             }
         }
+    }
+
+    private static Link PreferMoreSpecificLink(Link r1, Link r2, List<Thought> querySources)
+    {
+        if (r1.InheritanceDepth != r2.InheritanceDepth)
+            return r1.InheritanceDepth < r2.InheritanceDepth ? r1 : r2;
+
+        bool r1OnSource = querySources.Contains(r1.From);
+        bool r2OnSource = querySources.Contains(r2.From);
+        if (r1OnSource != r2OnSource)
+            return r1OnSource ? r1 : r2;
+
+        return r1.Weight >= r2.Weight ? r1 : r2;
     }
 
     private void RemoveFalseConditionals(List<Link> result)
@@ -227,7 +276,8 @@ public partial class UKS
         for (int i = 0; i < result.Count; i++)
         {
             Link r1 = result[i];
-            if (!r1.HasProperty("isResult")) continue;
+            Thought? isResult = "isResult";
+            if (isResult is null || !r1.HasProperty(isResult)) continue;
             if (!ConditionsAreMet(r1))
             {
                 failedConditions.Add(r1);
@@ -281,12 +331,14 @@ public partial class UKS
 
     bool ConditionsAreMet(Link r)
     {
+        Thought? isResult = "isResult";
+        Thought? isCondition = "isCondition";
         foreach (Link r1 in r.LinksTo)
         {
-            if (r1.From?.HasProperty("isResult") != true) continue;
-            if (r1.To?.HasProperty("isCondition") != true) continue;
+            if (isResult is null || r1.From?.HasProperty(isResult) != true) continue;
+            if (isCondition is null || r1.To?.HasProperty(isCondition) != true) continue;
 
-            Link r2 = r1.To as Link;
+            Link? r2 = r1.To as Link;
             //is r1 true?
             if (GetUnconditionalLink(r2) is null)
                 return false;
@@ -294,14 +346,15 @@ public partial class UKS
         return true;
     }
 
-    Link GetUnconditionalLink(Link r)
+    Link? GetUnconditionalLink(Link? r)
     {
         if (r?.From is null) return null;
+        Thought? isCondition = "isCondition";
         foreach (Link r1 in r.From.LinksTo)
         {
             if (Equals(r, r1))
             {
-                if (!r1.HasProperty("isCondition"))
+                if (isCondition is null || !r1.HasProperty(isCondition))
                     return r1;
             }
         }
@@ -326,7 +379,7 @@ public partial class UKS
         return succeededConditions;
     }
 
-    Dictionary<Thought, float> searchCandidates;
+    Dictionary<Thought, float> searchCandidates = null!;
 
     /// <summary>
     /// Search for the Thought which most closely resembles the target Thought based on the attributes of the target.
@@ -350,13 +403,17 @@ public partial class UKS
             if (r.To is SeqElement s)
             {
                 var x = FlattenSequence(s);  //if this is a sequence fragment, try to get the whole sequence
+                if (r.LinkType is null) continue;
                 var y = HasSequence(x, r.LinkType);
                 foreach (var z in y)
                 {
                     foreach (var w in z.seqNode.LinksFrom.Where(x => x.From != target))
                     {
+                        if (w.From is null) continue;
                         var existing = thoughtsToSearch.FindFirst(x => x == w.From);
-                        if ((w.LinkType == r.LinkType || w.LinkType?.HasAncestor(r.LinkType) == true) && r.To == r.To && existing is null)
+                        if (r.LinkType is not null &&
+                            (w.LinkType == r.LinkType || w.LinkType?.HasAncestor(r.LinkType) == true) &&
+                            r.To == r.To && existing is null)
                         {
                             thoughtsToSearch.Add(w.From);
                             if (!searchCandidates.ContainsKey(w.From))
@@ -372,9 +429,10 @@ public partial class UKS
             }
             foreach (Link r1 in r.To?.LinksFrom ?? Enumerable.Empty<Link>())
             {
-                if (r1.From == target) continue;
+                if (r1.From == target || r1.From is null) continue;
                 var existing = thoughtsToSearch.FindFirst(x => x == r1.From);
-                if ((r1.LinkType == r.LinkType || r1.LinkType?.HasAncestor(r.LinkType) == true) &&
+                if (r.LinkType is not null &&
+                    (r1.LinkType == r.LinkType || r1.LinkType?.HasAncestor(r.LinkType) == true) &&
                     r1.From.HasAncestor(root) &&
                     r1.To == r.To && existing is null)
                 {
@@ -397,8 +455,9 @@ public partial class UKS
             alreadySearched.Add(t);
             foreach (Link r in t.LinksFrom)
             {
-                if (r.LinkType?.HasProperty("inheritable") != true) continue;
-                if (r.From == target) continue;
+                Thought? inheritable = "inheritable";
+                if (inheritable is null || r.LinkType?.HasProperty(inheritable) != true) continue;
+                if (r.From == target || r.From is null) continue;
                 AddToQueues(t, r.From);
                 //TODO fix this to handle isSimilarTo  (and transitive...?)
                 //var similarThoughts = GetListOfSimilarThoughts(r.source);
@@ -473,6 +532,7 @@ public partial class UKS
     private bool LinksAreSimilar(Link r1, Link r2)
     {
         if (r1.LinkType != r2.LinkType) return false;
+        if (r1.To is null || r2.To is null) return false;
         if (FindCommonParents(r1.To, r2.To).Count == 0) return false;
         return true;
     }
@@ -502,13 +562,13 @@ public partial class UKS
     public List<Link> SearchForRelationships(Link l)
     {
         List<Link> results = new List<Link>();
-        Thought from = l.From?.Label.Contains("??") is true ? null : l.From;
-        Thought linkType = l.LinkType?.Label.Contains("??") is true ? null : l.LinkType;
-        Thought to = l.To?.Label.Contains("??") is true ? null : l.To;
+        Thought? from = l.From?.Label.Contains("??") is true ? null : l.From;
+        Thought? linkType = l.LinkType?.Label.Contains("??") is true ? null : l.LinkType;
+        Thought? to = l.To?.Label.Contains("??") is true ? null : l.To;
         if (from is null && to is null && linkType is null) return results;
 
         // hack to handle is-a searches
-        if (linkType.Label == "is-a" && from is not null)
+        if (linkType is not null && linkType.Label == "is-a" && from is not null)
         {
             foreach (Thought child in from.Parents)
             {
@@ -517,25 +577,33 @@ public partial class UKS
             return results;
         }
            // If from is specified, start there for efficiency (most constrained search)
-        if (from != null)
+        if (from is not null)
         {
             var attribs = GetAllLinks(new List<Thought> { from });
             foreach (Link link in attribs)
             {
-                if ((linkType == null || link.LinkType.HasAncestor(linkType)) &&
-                    (to == null || link.To == to))
+                if ((linkType is null || link.LinkType?.HasAncestor(linkType) == true) &&
+                    (to is null || link.To == to))
                 {
 //                    results.Add(link);
-                    results.Add(new Link { From = from, LinkType = link.LinkType, To = link.To } );
+                    results.Add(new Link
+                    {
+                        From = from,
+                        LinkType = link.LinkType,
+                        To = link.To,
+                        Weight = link.Weight,
+                        InheritanceDepth = link.InheritanceDepth,
+                        InheritedFromCategory = link.InheritedFromCategory
+                    });
                 }
             }
         }
         // If from is null but to is specified, search backwards from to
-        else if (to != null)
+        else if (to is not null)
         {
             foreach (Link link in to.LinksFrom)
             {
-                if (linkType == null || link.LinkType == linkType)
+                if (linkType is null || link.LinkType == linkType)
                 {
                     results.Add(link);
                 }

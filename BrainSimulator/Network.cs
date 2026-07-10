@@ -23,7 +23,7 @@ using System.Net.Http;
 
 namespace BrainSimulator
 {
-    internal static class Network
+    public static class Network
     {
         static TcpListener server;
         static TcpClient tcpClient;

@@ -221,6 +221,7 @@ public class ModuleAlgorithm : ModuleBase
         LastLinkWritten = null;
         CycleCount = 0;
         LastAction = "";
+        Thought.ClearRecentlyFiredQueue();
 
         if (theUKS == null) return false;
 
@@ -276,7 +277,11 @@ public class ModuleAlgorithm : ModuleBase
             Thought mainTaskThought = theUKS.Labeled(mainTaskName);
             if (mainTaskThought is not null)
             {
-                mainTaskThought.Fire();
+                SeqElement mainSteps = mainTaskThought.GetTargetOfFirstLinkOfType("steps") as SeqElement;
+                if (mainSteps is not null)
+                    mainSteps.Fire();
+                else
+                    mainTaskThought.Fire();
             }
         }
 
@@ -311,11 +316,17 @@ public class ModuleAlgorithm : ModuleBase
 
     private bool ExecuteAllSteps()
     {
-        //Run the whole program
-        while (HandleFiringNeurons()) { }
-        ;
+        const int maxCycles = 50_000;
+        while (HandleFiringNeurons())
+        {
+            if (CycleCount > maxCycles)
+            {
+                LastAction = $"TASK ABORTED (>{maxCycles} cycles): possible interpreter loop";
+                return false;
+            }
+        }
 
-        LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten.ToString()}";
+        LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten?.ToString()}";
         LastExecutedStep = null;
         return true;
     }
@@ -337,48 +348,14 @@ public class ModuleAlgorithm : ModuleBase
 
     private Thought EvaluateContext(Thought contextRoot)
     {
-        Thought bestResponse = null;
-        float bestWeight = 0;
-        foreach (Thought t in contextRoot.Children)
-        {
-            float weight = 0;
-            foreach (Link l in t.LinksTo.Where(x => x.LinkType.Label == "has"))
-            {
-                Link test = (Link)l.To;
-                if (test.LinkType.HasAncestor("exist"))
-                {
-                    bool not = false;
-                    if (test.LinkType.HasAncestor("not")) not = true;
-                    //Thought testType = test.LinkType.GetTargetOfFirstLinkOfType("is");
-                    Thought testType = test.LinkType.LinksTo.FindFirst(x => x.LinkType.Label.ToLower() == "is" && x.To.Label != "EXIST")?.To;
-                    var src = HandleIndirection(test.From);
-                    if (src is null) continue;
-                    if (test.LinkType.HasAncestor("same") || test.LinkType.Label.ToLower().Contains("same")) //hack if ancestor not set properly
-                    {
-                        Thought target = HandleIndirection(test.To);
-                        if (!not && src == target) weight += l.Weight;
-                        if (not && src != target) weight += l.Weight;
-                    }
-                    else if (test.To.Label == "??")
-                    {
-                        if (!not && src.HasLink(testType) is not null) weight += l.Weight * test.Weight;
-                        if (not && src.HasLink(testType) is null) weight += l.Weight * test.Weight;
-                    }
-                    else
-                    {
-                        Thought target = HandleIndirection(test.To);
-                        if (!not && src.HasLink(testType, target) is not null) weight += l.Weight * test.Weight;
-                        if (not && src.HasLink(testType, target) is null) weight += l.Weight * test.Weight;
-                    }
-                }
-            }
-            Debug.WriteLine($"Case: {t.Label}  Weight: {weight}");
-            if (weight > bestWeight)
-            {
-                bestResponse = t.GetTargetOfFirstLinkOfType("response");
-                bestWeight = weight;
-            }
-        }
+        // Ch.4 AND-gate: activate context root + has relationship before attribute matching.
+        theUKS.CurrentTraversal.Activate(contextRoot);
+        Thought? hasType = theUKS.Labeled("has");
+        if (hasType is not null)
+            theUKS.CurrentTraversal.ActivateRelationship(hasType);
+
+        ContextCaseResult? selected = theUKS.SelectBestContextCase(contextRoot, HandleIndirection);
+        Thought bestResponse = selected?.Response;
 
         Debug.WriteLine($"Context: {contextRoot} returned {bestResponse}");
         bestResponse?.Fire();

@@ -71,8 +71,6 @@ namespace BrainSimulator.Modules
                 items.Add(i.ToString());
             }
 
-            int times = 0;
-
             // Add each item to the UKS.
 
             //for (int i = 0; i < items.Count; i++)

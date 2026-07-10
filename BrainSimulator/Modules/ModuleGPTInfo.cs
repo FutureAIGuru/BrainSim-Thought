@@ -643,7 +643,7 @@ is-part-of-speech, ";
             }
         }
 
-        public static async Task SolveDuplicates()
+        public static Task SolveDuplicates()
         {
             // Get the UKS.
             UKS.UKS theUKS = MainWindow.theUKS;
@@ -685,6 +685,7 @@ is-part-of-speech, ";
                 ModuleGPTInfoDlg.linkCount++;
             }
 
+            return Task.CompletedTask;
         }
 
     }

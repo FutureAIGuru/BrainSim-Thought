@@ -215,7 +215,7 @@ namespace BrainSimulator.Modules
                 if (word == words.Last())
                     await ModuleGPTInfo.GetChatGPTData(word.Trim());
                 if (word.Trim() != "")
-                    ModuleGPTInfo.GetChatGPTData(word.Trim());
+                    _ = ModuleGPTInfo.GetChatGPTData(word.Trim());
             }
 
             txtOutput.Text = $"Done running! Total word count: {words.Count}. Total link count: {linkCount}. Total error count (not accepted): {errorCount}.";
@@ -235,7 +235,7 @@ namespace BrainSimulator.Modules
                 if (word == words.Last())
                     await ModuleGPTInfo.DisambiguateTermsFile(word.Trim());
                 if (word.Trim() != "")
-                    ModuleGPTInfo.DisambiguateTermsFile(word.Trim());
+                    _ = ModuleGPTInfo.DisambiguateTermsFile(word.Trim());
             }
 
             txtOutput.Text = $"Done running! Total word count: {words.Count}. Total link count: {linkCount}. Total error count (not accepted): {errorCount}.";
@@ -254,7 +254,7 @@ namespace BrainSimulator.Modules
                 if (word == words.Last())
                     await ModuleGPTInfo.GetChatGPTParents(word.Trim());
                 if (word.Trim() != "")
-                    ModuleGPTInfo.GetChatGPTParents(word.Trim());
+                    _ = ModuleGPTInfo.GetChatGPTParents(word.Trim());
             }
 
             SetOutputText($"Done processing unknowns! Total word count: {words.Count}. Total link count: {linkCount}. Total error count (not accepted): {errorCount}.");
@@ -275,25 +275,26 @@ namespace BrainSimulator.Modules
                 if (t == mf.theUKS.AtomicThoughts.Last())
                     await VerifyAsync(t.Label);
                 else
-                    VerifyAsync(t.Label);
+                    _ = VerifyAsync(t.Label);
             }
             SetOutputText($"Done verifying is-a links for reasonableness. Checked {count} links.");
 
         }
-        public async Task VerifyAsync(string label)
+        public Task VerifyAsync(string label)
         {
             ModuleGPTInfo mf = (ModuleGPTInfo)base.ParentModule;
             if (!label.StartsWith(".")) label = "." + label;
             UKS.Thought t = mf.theUKS.Labeled(label);
-            if (t is null) return;
+            if (t is null) return Task.CompletedTask;
             foreach (Link r in t.LinksTo)
             {
                 //if (r.GPTVerified) continue;
                 if (r.LinkType.Label != "has-child") continue;
 
                 count++;
-                ModuleGPTInfo.GetChatGPTVerifyParentChild(r.To.Label, t.Label);
+                _ = ModuleGPTInfo.GetChatGPTVerifyParentChild(r.To.Label, t.Label);
             }
+            return Task.CompletedTask;
         }
 
         private void ClearButton_Click(object sender, RoutedEventArgs e)
@@ -358,7 +359,7 @@ namespace BrainSimulator.Modules
                 }
                 else if (b.Content.ToString().StartsWith("Verify All"))
                 {
-                    verifyAllAsync();
+                    _ = verifyAllAsync();
                 }
                 else if (b.Content.ToString().StartsWith("Add Clauses To All"))
                 {
@@ -384,7 +385,7 @@ namespace BrainSimulator.Modules
                         words.Add(thought.Label);
                     }
 
-                    ProcessParentsAsync(words);
+                    _ = ProcessParentsAsync(words);
                 }
             }
         }

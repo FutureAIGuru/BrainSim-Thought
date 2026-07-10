@@ -39,6 +39,12 @@ public class Link : Thought
     public Thought? LinkType { get; set; }
     public Thought? To { get; set; }
 
+    /// <summary>Query-time metadata: 0 = asserted on the query source; N = inherited via N is-a hops.</summary>
+    public int InheritanceDepth { get; set; }
+
+    /// <summary>Ch.5 provenance: category Thought where an inherited link was found (e.g. dog for Fido→fur).</summary>
+    public Thought? InheritedFromCategory { get; set; }
+
     /// <summary>
     /// Returns a formatted string for the link, showing sequence notation or From→Type→To.
     /// </summary>
@@ -63,7 +69,7 @@ public partial class Thought
     private static readonly Queue<Thought> recentlyFired = new();
     private static readonly object recentlyFiredLock = new();
 
-    public static Thought IsA { get => ThoughtLabels.GetThought("is-a"); }  //this is a cache value shortcut for (Thought)"is-a"
+    public static Thought IsA => ThoughtLabels.GetThought("is-a")!;  //this is a cache value shortcut for (Thought)"is-a"
     private readonly List<Link> _linksTo = new();   // links to "has", "is", is-a, many others
     private readonly List<Link> _linksFrom = new(); // links from
 
@@ -85,9 +91,9 @@ public partial class Thought
     /// 
     public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return new List<Link>(_linksFrom.AsReadOnly()); } } }
     /// <summary>Direct parents (targets of outgoing is-a links).</summary>
-    public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).ToList(); } }
+    public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).OfType<Thought>().ToList(); } }
     /// <summary>Direct children (sources of incoming is-a links).</summary>
-    public IReadOnlyList<Thought> Children { get { lock (_linksFrom) return _linksFrom.Where(x => x.LinkType?.Label == "is-a").Select(x => x.From).ToList(); } }
+    public IReadOnlyList<Thought> Children { get { lock (_linksFrom) return _linksFrom.Where(x => x.LinkType?.Label == "is-a").Select(x => x.From).OfType<Thought>().ToList(); } }
 
     private string _label = "";
     public string Label
@@ -110,7 +116,8 @@ public partial class Thought
         }
         foreach (Link r in _linksTo.Where(x => (x.To as SeqElement)?.FRST == x.To))
         {
-            UKS.theUKS.DeleteSequence((SeqElement)r.To);
+            if (r.To is SeqElement seq)
+                UKS.theUKS.DeleteSequence(seq);
         }
         for (int i = 0; i < _linksTo.Count; i++)
         {
@@ -122,7 +129,7 @@ public partial class Thought
         for (int i = 0; i < _linksFrom.Count; i++)
         {
             Link r = _linksFrom[i];
-            if (r.From.LinksTo.Count > 0)  //HACK: corrects for certain broken links
+            if (r.From?.LinksTo.Count > 0)  //HACK: corrects for certain broken links
             {
                 r.From.RemoveLink(r);
                 i--;
@@ -172,9 +179,9 @@ public partial class Thought
         }
     }
 
-    private object _value;
+    private object? _value;
     /// <summary>Any serializable object can be attached to a Thought. ONLY STRINGS are supported for save/restore to disk file.</summary>
-    public object V
+    public object? V
     {
         get => _value;
         set { _value = value; }
@@ -222,16 +229,12 @@ public partial class Thought
     /// <summary>
     /// Allows implicit conversion from a label string to an existing Thought (or null if not found).
     /// </summary>
-    public static implicit operator Thought(string label)
-    {
-        Thought t = ThoughtLabels.GetThought(label);
-        return t;
-    }
+    public static implicit operator Thought?(string label) => ThoughtLabels.GetThought(label);
 
     /// <summary>
     /// Equality by label; for Link, also compares endpoints and link type.
     /// </summary>
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (obj is Thought t)
         {
@@ -244,6 +247,13 @@ public partial class Thought
                 return true;
         }
         return false;
+    }
+
+    public override int GetHashCode()
+    {
+        if (this is Link link)
+            return HashCode.Combine(Label, link.From, link.LinkType, link.To);
+        return Label.GetHashCode(StringComparison.Ordinal);
     }
 
     public static bool operator ==(Thought? a, Thought? b)
@@ -354,8 +364,15 @@ public partial class Thought
     /// Determines whether this thought has the specified ancestor (self-inclusive).
     /// </summary>
     /// <param name="t">Ancestor to test.</param>
-    public bool HasAncestor(Thought t)
+    public bool HasAncestor(string label)
     {
+        Thought? t = ThoughtLabels.GetThought(label);
+        return t is not null && HasAncestor(t);
+    }
+
+    public bool HasAncestor(Thought? t)
+    {
+        if (t is null) return false;
         foreach (var ancestor in AncestorsWithSelf)
             if (ancestor == t) return true;
         return false;
@@ -466,11 +483,18 @@ public partial class Thought
     /// <param name="linkType">Relationship type thought.</param>
     /// <param name="to">Target thought.</param>
     /// <returns>The new or existing link.</returns>
-    public Link AddLink(Thought linkType, Thought to)
+    public Link? AddLink(string linkTypeLabel, Thought? to)
+    {
+        Thought? linkType = ThoughtLabels.GetThought(linkTypeLabel);
+        if (linkType is null) return null;
+        return AddLink(linkType, to);
+    }
+
+    public Link? AddLink(Thought linkType, Thought? to)
     {
         if (linkType is null) return null;
 
-        Link existing = HasLink(linkType, to);
+        Link? existing = HasLink(linkType, to);
         if (existing is not null)
             return existing;
 
@@ -577,28 +601,39 @@ public partial class Thought
         r.Delete();
     }
 
-    public Thought GetTargetOfFirstLinkOfType(Thought linkType)
+    public Thought? GetTargetOfFirstLinkOfType(Thought linkType)
     {
         return LinksTo.FindFirst(x => x.LinkType == linkType)?.To;
     }
 
-    public Thought GetTargetOfFirstLinkOfType(string linkTypeLabel)
+    public Thought? GetTargetOfFirstLinkOfType(string linkTypeLabel)
     {
-        return LinksTo.FindFirst(x => x.LinkType?.Label == linkTypeLabel)?.To;
+        return LinksTo.FindFirst(x =>
+            string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.To;
     }
-    public  Link HasLink(Thought linkType, Thought to = null)
+    private static bool LinkTypesMatch(Thought? a, Thought? b)
     {
-        foreach (Link r in _linksTo)
+        if (ReferenceEquals(a, b)) return true;
+        if (a is null || b is null) return false;
+        return string.Equals(a.Label, b.Label, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public Link? HasLink(Thought linkType, Thought? to = null)
+    {
+        lock (_linksTo)
         {
-            if (r.From == this && (r.To == to || to is null) && r.LinkType == linkType)
-                return r;
+            foreach (Link r in _linksTo)
+            {
+                if (r.From == this && (r.To == to || to is null) && LinkTypesMatch(r.LinkType, linkType))
+                    return r;
+            }
         }
         return null;
     }
     /// <summary>
     /// Finds a link matching the optional source/type/target criteria.
     /// </summary>
-    public Link HasLink(Thought from, Thought linkType, Thought to)
+    public Link? HasLink(Thought? from, Thought? linkType, Thought? to)
     {
         if (from is null && linkType is null && to is null) return null;
         foreach (Link r in LinksTo)
@@ -612,7 +647,7 @@ public partial class Thought
     /// Adds a parent link ("is-a") if not already present.
     /// </summary>
     /// <param name="newParent">Parent to add.</param>
-    public Link AddParent(Thought newParent)
+    public Link? AddParent(Thought newParent)
     {
         if (newParent is null) return null;
         if (!Parents.Contains(newParent))
@@ -624,8 +659,15 @@ public partial class Thought
     /// Remove a parent from a Thought.
     /// </summary>
     /// <param name="t">Parent thought to remove.</param>
-    public void RemoveParent(Thought t)
+    public void RemoveParent(string parentLabel)
     {
+        Thought? t = ThoughtLabels.GetThought(parentLabel);
+        if (t is not null) RemoveParent(t);
+    }
+
+    public void RemoveParent(Thought? t)
+    {
+        if (t is null) return;
         Link r = new() { From = this, LinkType = IsA, To = t };
         t.RemoveLink(r);
     }
@@ -649,7 +691,8 @@ public partial class Thought
         foreach (Link r in LinksTo)
         {
             if (r.LinkType?.Label != "hasAttribute" && r.LinkType?.Label != "is") continue;
-            retVal.Add(r.To);
+            if (r.To is not null)
+                retVal.Add(r.To);
         }
         return retVal;
     }
@@ -658,7 +701,13 @@ public partial class Thought
     /// Determines whether this thought has the specified property, considering inheritance.
     /// </summary>
     /// <param name="t">Property thought to test.</param>
-    public bool HasProperty(Thought t)  //with inheritance
+    public bool HasProperty(string label)
+    {
+        Thought? t = ThoughtLabels.GetThought(label);
+        return t is not null && HasProperty(t);
+    }
+
+    public bool HasProperty(Thought? t)  //with inheritance
     {
         if (t is null) return false;
         if (LinksTo.FindFirst(x => x.LinkType?.Label == "hasProperty" && x.To == t) is not null) return true;

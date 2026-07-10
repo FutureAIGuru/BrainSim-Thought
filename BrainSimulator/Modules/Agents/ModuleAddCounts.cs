@@ -33,7 +33,7 @@ public class ModuleAddCounts : ModuleBase
         UpdateDialog();
     }
 
-    public bool isEnabled { get; set; }
+    public new bool isEnabled { get; set; }
 
     private Timer timer;
     //private UKS.UKS theUKS1;
