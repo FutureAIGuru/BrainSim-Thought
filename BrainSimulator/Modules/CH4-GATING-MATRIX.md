@@ -8,6 +8,7 @@ Simon Ch.4: traversal requires **source thought AND relationship type** active t
 - Modules call `CurrentTraversal.Activate(thought)` and `ActivateRelationship(linkType)` before gated queries.
 - Activation marks thoughts in `TraversalContext` only — it does **not** call `Thought.Fire()` (that would re-enter `ModuleAlgorithm`'s interpreter queue).
 
+
 ## Module status (Phase B)
 
 | Module | Gating | Notes |
@@ -22,3 +23,4 @@ Simon Ch.4: traversal requires **source thought AND relationship type** active t
 
 - `GetGatedLinks(source, linkType, ctx?)` — inherited `has` links when both active; direct `is-a` when both active.
 - `Traverse(source, linkType, ctx?)` — gated target thoughts.
+

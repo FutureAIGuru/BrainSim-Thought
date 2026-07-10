@@ -35,7 +35,7 @@ public class ModuleMentelModelTests
 
         // assert: the object should now be bound to the rotated cell
         Thought expectedCell = module.GetCell(Angle.FromDegrees(20), Angle.FromDegrees(20));
-        Link? containsAfter = expectedCell.LinksTo
+        Link containsAfter = expectedCell.LinksTo
             .FirstOrDefault(l => l.LinkType?.Label == "_mm:contains" && l.To == obj);
 
         Assert.NotNull(containsAfter);

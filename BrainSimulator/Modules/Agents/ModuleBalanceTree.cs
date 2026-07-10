@@ -35,13 +35,12 @@ public class ModuleBalanceTree : ModuleBase
         UpdateDialog();
     }
 
-    public bool isEnabled { get; set; }
+    public new bool isEnabled { get; set; }
 
     private Timer timer;
     //private UKS.UKS theUKS1;
     public string debugString = "Initialized\n";
     private int maxChildren = 6;
-    private int minCommonAttributes = 3;
     public int MaxChildren { get => maxChildren; set => maxChildren = value; }
 
     private void Setup()

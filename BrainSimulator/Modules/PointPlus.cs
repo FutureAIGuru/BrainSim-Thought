@@ -122,7 +122,7 @@ namespace BrainSimulator.Modules
         }
         public override string ToString()
         {
-            //            string s = "R: " + R.ToString("F3") + ", Theta: " + Degrees.ToString("F3") + "° (" + X.ToString("F2") + "," + Y.ToString("F2") + ") Conf:" + Conf.ToString("F3");
+            //            string s = "R: " + R.ToString("F3") + ", Theta: " + Degrees.ToString("F3") + "ï¿½ (" + X.ToString("F2") + "," + Y.ToString("F2") + ") Conf:" + Conf.ToString("F3");
             string s = $"({X.ToString("0.0")}.{Y.ToString("0.0")})";
             return s;
         }
@@ -173,6 +173,11 @@ namespace BrainSimulator.Modules
 
             }
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(P.X, P.Y);
         }
     }
 
@@ -368,7 +373,7 @@ namespace BrainSimulator.Modules
         }
         public override string ToString()
         {
-            string s = "R: " + R.ToString("F3") + ", Theta: " + DegreesTheta.ToString("F3") + "°, Phi: " + DegreesPhi.ToString("F3") + "° (" +
+            string s = "R: " + R.ToString("F3") + ", Theta: " + DegreesTheta.ToString("F3") + "ï¿½, Phi: " + DegreesPhi.ToString("F3") + "ï¿½ (" +
                        X.ToString("F2") + "," + Y.ToString("F2") + "," + Z.ToString("F2") + ") Conf:" + Conf.ToString("F3");
             return s;
         }
@@ -442,7 +447,7 @@ namespace BrainSimulator.Modules
         public Angle rotation = 0;
         public override string ToString()
         {
-            string s = "R: " + R.ToString("F3") + ", Theta: " + Degrees.ToString("F3") + "° (" + X.ToString("F2") + "," + Y.ToString("F2") + ") Rot:" + rotation;
+            string s = "R: " + R.ToString("F3") + ", Theta: " + Degrees.ToString("F3") + "ï¿½ (" + X.ToString("F2") + "," + Y.ToString("F2") + ") Rot:" + rotation;
             return s;
         }
     }
@@ -461,7 +466,7 @@ namespace BrainSimulator.Modules
         }
         public override string ToString()
         {
-            string retVal = $"L: {(int)Length} ({P1.X.ToString("0.0")},{P1.Y.ToString("0.0")}) : ({P2.X.ToString("0.0")},{P2.Y.ToString("0.0")}) A: {Angle.Degrees.ToString("0.0")}°";
+            string retVal = $"L: {(int)Length} ({P1.X.ToString("0.0")},{P1.Y.ToString("0.0")}) : ({P2.X.ToString("0.0")},{P2.Y.ToString("0.0")}) A: {Angle.Degrees.ToString("0.0")}ï¿½";
             return retVal;
         }
 
@@ -476,6 +481,18 @@ namespace BrainSimulator.Modules
         public static bool operator !=(Segment s1, Segment s2)
         {
             return !(s1 == s2);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is Segment s)
+                return this == s;
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(P1?.GetHashCode() ?? 0, P2?.GetHashCode() ?? 0);
         }
 
         public Segment(PointPlus P1i, PointPlus P2i)
@@ -561,7 +578,7 @@ namespace BrainSimulator.Modules
         public override string ToString()
         {
             float degrees = theAngle * 180 / (float)PI;
-            string s = theAngle.ToString("0.00") + " " + degrees.ToString("0.0") + "°";
+            string s = theAngle.ToString("0.00") + " " + degrees.ToString("0.0") + "ï¿½";
             return s;
         }
         public int CompareTo(Angle a)

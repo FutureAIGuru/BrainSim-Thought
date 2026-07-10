@@ -29,7 +29,8 @@
                     <TextBox  x:Name="resultText"    TabIndex="5"   FontSize="18" Margin="78,180,36,10"  TextWrapping="Wrap" Grid.ColumnSpan="4"/>
 
                     <Button x:Name="BtnLinks" IsDefault="True" Content="Query" Height="32" VerticalAlignment="Top" FontSize="16" Margin="149,21,0,0" Click="BtnLinks_Click" HorizontalAlignment="Left" Width="120" Grid.Column="3"/>
-                    <CheckBox x:Name="fullCB" Content="Show Full Links" FontSize="16" HorizontalAlignment="Left" Height="22" Margin="149,81,0,0" VerticalAlignment="Top" Width="226" Grid.Column="3"/>
+                    <Button x:Name="BtnWhy" Content="Why?" Height="32" VerticalAlignment="Top" FontSize="16" Margin="149,61,0,0" Click="BtnWhy_Click" HorizontalAlignment="Left" Width="120" Grid.Column="3"/>
+                    <CheckBox x:Name="fullCB" Content="Show Full Links" FontSize="16" HorizontalAlignment="Left" Height="22" Margin="149,101,0,0" VerticalAlignment="Top" Width="226" Grid.Column="3"/>
                 </Grid>
             </TabItem>
             <TabItem Header="Search by Attribs" FontSize="18" Background="LightGray" >

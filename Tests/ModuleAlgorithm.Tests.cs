@@ -11,63 +11,63 @@
  * See the LICENSE file in the project root for full license information.
  */
 
-using System;
-using System.IO;
 using BrainSimulator.Modules;
 using UKS;
 using Xunit;
 
 namespace UKS.Tests;
 
-public class ModuleAlgorithmTests : IDisposable
+public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
 {
-    private UKS uks;
-    private ModuleAlgorithm module;
+    private readonly UKS uks;
+    private readonly ModuleAlgorithm module;
 
-    public ModuleAlgorithmTests()
+    public ModuleAlgorithmTests(AlgorithmXmlFixture fixture)
     {
-        uks = new UKS();
+        uks = new UKS(clear: true);
         uks.CreateInitialStructure();
-        
+        UKS.theUKS = uks;
+        Thought.ClearRecentlyFiredQueue();
+
         module = new ModuleAlgorithm();
         module.theUKS = uks;
+        module.UKSInitializedNotification();
 
-        string currentDir = Directory.GetCurrentDirectory();
-        string brainSimRoot = FindBrainSimRoot(currentDir);
-
-
-        // Load algorithm.xml from UKSContent folder
-        string xmlPath = Path.Combine(brainSimRoot, "BrainSimulator", "UKSContent", "algorithm.xml");
+        string xmlPath = FindAlgorithmXmlPath();
         if (!File.Exists(xmlPath))
         {
-            // Try alternative path
-            xmlPath = Path.Combine("UKSContent", "algorithm.xml");
+            throw new FileNotFoundException($"Algorithm.xml not found at {xmlPath}");
         }
-        
-        if (File.Exists(xmlPath))
-        {
-            uks.LoadUKSfromXMLFile(xmlPath);
-        }
-        else
-        {
-            throw new FileNotFoundException($"algorithm.xml not found. Searched paths.");
-        }
+
+        uks.LoadUKSfromXMLFile(xmlPath);
     }
-    private string FindBrainSimRoot(string startPath)
-    {
-        DirectoryInfo dir = new DirectoryInfo(startPath);
 
-        while (dir != null)
+    private static string FindRepositoryRoot()
+    {
+        DirectoryInfo directory = new(AppContext.BaseDirectory);
+        while (directory is not null
+               && !File.Exists(Path.Combine(directory.FullName, "BrainSim Thought.sln")))
         {
-            // Check if current directory name is "BrainSim Thought"
-            if (dir.Name.Equals("BrainSim Thought", StringComparison.OrdinalIgnoreCase))
-            {
-                return dir.FullName;
-            }
-            dir = dir.Parent;
+            directory = directory.Parent;
         }
 
-        return null;
+        return directory?.FullName
+            ?? throw new DirectoryNotFoundException("BrainSim Thought repository root not found.");
+    }
+
+    private static string FindAlgorithmXmlPath()
+    {
+        string contentDir = Path.Combine(FindRepositoryRoot(), "BrainSimulator", "UKSContent");
+        foreach (string name in new[] { "Algorithm.xml", "algorithm.xml" })
+        {
+            string candidate = Path.Combine(contentDir, name);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return Path.Combine(contentDir, "Algorithm.xml");
     }
     public void Dispose()
     {

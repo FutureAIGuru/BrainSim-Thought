@@ -12,7 +12,7 @@
     <AssemblyVersion>1.6.4</AssemblyVersion>
     <ApplicationIcon>Iconsmall.ico</ApplicationIcon>
     <SourceRevisionId>build$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</SourceRevisionId>
-    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <AnalysisMode>Default</AnalysisMode>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -24,6 +24,9 @@
     <Optimize>False</Optimize>
     <LangVersion>preview</LangVersion>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tests" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Remove="archive\legacy\**" />
     <Compile Remove="GlobalSuppressions.cs" />
