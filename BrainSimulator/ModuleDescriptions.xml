@@ -173,14 +173,6 @@ Works together with SpeechParser, PhraseRecognizer, QueryResolution and SpeechOu
     <description>This dialog creates a Link between two Relastionships connected by a Clause Type.  This can be used to create conditioinan links by using the clause type "if".  That is, enter Mary can play outside if weather is sunny.  This link will only be added to search results if the condition, weather is sunny, is true.</description>
   </ModuleDescription>
   <ModuleDescription>
-    <moduleName>ModuleVision</moduleName>
-    <description>This module iintended to provide input/test data for visual recognition. It performs generic CV algorithms  to locate corners in a simple visual input.</description>
-  </ModuleDescription>
-  <ModuleDescription>
-    <moduleName>ModuleShape</moduleName>
-    <description>This module allows the system to save shapes and retrieve them by content.</description>
-  </ModuleDescription>
-  <ModuleDescription>
     <moduleName>ModuleAttributeBubble</moduleName>
     <description>This Agent scans the UKS Object tree looking for object Children which have common attributes which can be "bubbled" up to the parent.
 

@@ -149,7 +149,7 @@ namespace BrainSimulator.Modules
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 { }
                 Debug.WriteLine($"{count.ToString("N0")} entries with {countEN.ToString("N0")} in english");
             }
@@ -186,6 +186,10 @@ namespace BrainSimulator.Modules
                 if (obj is Result r)
                     return this == r;
                 return false;
+            }
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(rel, sourceURI, targetURI, fWeight);
             }
         }
 
@@ -323,7 +327,7 @@ namespace BrainSimulator.Modules
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 { }
             }
 
@@ -427,7 +431,7 @@ namespace BrainSimulator.Modules
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             { }
             foreach (var w in wordList2)
             {
@@ -624,7 +628,7 @@ namespace BrainSimulator.Modules
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             { }
             wordList2 = wordList2.OrderBy(x => x.Item1).ToList();
             GetUKS();
@@ -875,10 +879,6 @@ namespace BrainSimulator.Modules
             {
                 QueryType qType = qtIn;
                 if (altLabel == "") altLabel = textIn;
-                string prompt;
-                string apiKey = ConfigurationManager.AppSettings["APIKey"];
-                var client = new HttpClient();
-                var url = "https://api.openai.com/v1/chat/completions";
                 string queryText = textIn;
                 textIn = textIn.ToLower();
 
@@ -931,7 +931,7 @@ namespace BrainSimulator.Modules
                 else
                     Output = answerString;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
 
             }
@@ -1020,7 +1020,7 @@ namespace BrainSimulator.Modules
                       @"?ps.OPTIONAL{?statement ?pq ?pq_. ?wdpq wikibase:qualifier " +
                       @"?pq .} SERVICE wikibase:label { bd:serviceParam wikibase:language ""en"" }} " +
                       @"ORDER BY ?wd ?statement ?ps_";
-            url = urlBegin + Uri.EscapeUriString(url);
+            url = urlBegin + Uri.EscapeDataString(url);
             var myClient = new HttpClient();
             myClient.DefaultRequestHeaders.Add("User-Agent", "c# program");
             var responseURL = await myClient.GetAsync(url);
@@ -1074,7 +1074,6 @@ namespace BrainSimulator.Modules
                     }
                     docCount++;
                 }
-                string propString = "";
                 //TextBoxWiki.Text = "";
                 for (int i = 0; i < docPropertyValues.Count; i++)
                 {
@@ -1098,7 +1097,6 @@ namespace BrainSimulator.Modules
                 int docCount = 0;
                 foreach (XmlElement xn in docPropertyValues)
                 {
-                    bool found = false;
                     string[] fn = new string[xn.ChildNodes.Count];
                     //Thought prop = new Thought();
                     for (int i = 0; i < xn.ChildNodes.Count; i++)
@@ -1122,7 +1120,6 @@ namespace BrainSimulator.Modules
                     docCount++;
                 }
 
-                string propString = "";
                 //TextBoxWiki.Text = "";
                 for (int i = 0; i < docPropertyValues.Count; i++)
                 {

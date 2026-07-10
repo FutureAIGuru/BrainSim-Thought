@@ -20,6 +20,39 @@ The project is supported by the non‑profit **Future AI Society**, which hosts 
 
 ---
 
+## Atomic Thoughts alignment (Ch.1–5)
+
+This codebase implements the **software UKS layer** described in Charles Simon's *Atomic Thoughts: How Brains Build Understanding—and AI Could Too* (Future AI Society, 2026). The book argues for a different center of gravity than today's dominant pattern:
+
+| Mainstream pattern | Simon's alternative |
+|--------------------|---------------------|
+| Frozen LLM + context window + tool/agent orchestration | Persistent graph of **Atomic Thoughts** and weighted relationships |
+| Fluency from next-token prediction | **Grounded understanding** from sensory-linked structure |
+| Memory and world model as external add-ons ("AI Christmas tree") | Native structure: same unit for objects, attributes, words, and links |
+
+**Ch.1 — Prediction is not understanding:** statistical language models simulate likely text; they do not substitute for a grounded world model. Brain Simulator Thought targets the substrate LLM-centric stacks typically bolt on around the model.
+
+**Ch.2 — The brain is not a giant matrix calculator:** biological cognition is sparse, local, and continuous-learning. The UKS supports few-hop traversal, relationship-gated activation (Ch.4), and incremental link learning rather than global retraining.
+
+**Ch.3 — What is an Atomic Thought?** Everything in the UKS is one reusable unit: objects, attributes, relationship types, relationship instances, and words (`w:label → means → concept`). See `Tests/SubstrateCh3RegressionTests.cs` for locked substrate contracts.
+
+### Implementation status (UKS software layer)
+
+| Phase | Chapter | Theme | Status |
+|-------|---------|-------|--------|
+| A | Ch.3 | Substrate regression tests | ✅ `SubstrateCh3RegressionTests` |
+| B | Ch.4 | `TraversalContext` + gated traverse | ✅ `GatedTraversalCh4RegressionTests` |
+| C | Ch.4 | Discrete sensory ingress | ✅ `DiscreteAttributeCh4RegressionTests` |
+| D | Ch.5 | Inheritance remainder (context, shortcuts, TTL) | ✅ `InheritanceCh5PhaseDRegressionTests` |
+| E | Ch.5 | Bubble on learn + explainability + Fido demo | ✅ `InheritanceCh5PhaseERegressionTests` |
+| F | Ch.1–2 | README framing (this section) | ✅ |
+
+**Out of scope here:** spiking-neuron clusters and population-code biology (Brain Simulator II). Ch.6+ features land as book chapters release.
+
+**Regression suites:** `dotnet test UKS.Tests/UKS.Tests.csproj` (Linux/macOS/Windows, UKS-only); `dotnet test Tests/Tests.csproj` (Windows, full app + modules).
+
+---
+
 ## Project Status
 
 The initial upload of this project is in progress. Documentation for installation, execution, and development may be functional

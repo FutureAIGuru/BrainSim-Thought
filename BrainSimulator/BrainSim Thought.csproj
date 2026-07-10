@@ -12,7 +12,7 @@
     <AssemblyVersion>1.6.4</AssemblyVersion>
     <ApplicationIcon>Iconsmall.ico</ApplicationIcon>
     <SourceRevisionId>build$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</SourceRevisionId>
-    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <AnalysisMode>Default</AnalysisMode>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -24,6 +24,9 @@
     <Optimize>False</Optimize>
     <LangVersion>preview</LangVersion>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tests" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Remove="archive\legacy\**" />
     <Compile Remove="GlobalSuppressions.cs" />
@@ -51,10 +54,6 @@
     <Compile Remove="Tools\Module.cs" />
     <Compile Remove="Tools\ModuleDlg.xaml.cs" />
 
-    <!-- Vision folder has BrainSim3 stubs; canonical ModuleMentalModel lives in Modules\ -->
-    <Compile Remove="Modules\Vision\ModuleMentalModel.cs" />
-    <Compile Remove="Modules\Vision\ModuleMentalModelDlg.xaml.cs" />
-
   </ItemGroup>
   <ItemGroup>
     <None Remove="refresh-3104.png" />
@@ -79,7 +78,6 @@
     <Page Remove="Modules\ModulePremiseDlg.xaml" />
     <Page Remove="Modules\ModuleSequenceEditorDlg - Copy.xaml" />
     <Page Remove="Tools\ModuleDlg.xaml" />
-    <Page Remove="Modules\Vision\ModuleMentalModelDlg.xaml" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Iconsmall.ico">

@@ -21,9 +21,10 @@ public class UKSFixesRegressionTests
         uks.AddStatement("cat", "is-a", "animal");
         uks.AddStatement("legs", "is-a", "Object");
         uks.AddStatement("has.4", "is-a", "has");
+        uks.AddStatement("has.3", "is-a", "has");
 
         var dogLegs = uks.GetLink(uks.AddStatement("dog", "has.4", "legs"));
-        var catLegs = uks.GetLink(uks.AddStatement("cat", "has.4", "legs"));
+        var catLegs = uks.GetLink(uks.AddStatement("cat", "has.3", "legs"));
 
         Assert.NotNull(dogLegs);
         Assert.NotNull(catLegs);

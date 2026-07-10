@@ -28,8 +28,6 @@ namespace BrainSimulator.Modules;
 public class ModuleBaseDlg : Window
 {
     public ModuleBase ParentModule;
-    private DateTime dt;
-    private DispatcherTimer timer;
     public int UpdateMS = 100;
     public Label statusLabel;
     private bool initializedLayout = false;
@@ -45,7 +43,7 @@ public class ModuleBaseDlg : Window
         initializedLayout = true;
 
         // capture original content
-        UIElement? originalContent = this.Content as UIElement;
+        UIElement originalContent = this.Content as UIElement;
 
         // create outer grid (single row) and overlay bottom bar at the bottom
         Grid shell = new()
@@ -128,7 +126,7 @@ public class ModuleBaseDlg : Window
     /// Searches for a file with the given name (no path) in the specified root directory
     /// and all its subdirectories.
     /// </summary>
-    public static string? FindFile(string rootPath, string fileName)
+    public static string FindFile(string rootPath, string fileName)
     {
         if (!Directory.Exists(rootPath))
             throw new DirectoryNotFoundException($"Root path not found: {rootPath}");
@@ -186,24 +184,6 @@ public class ModuleBaseDlg : Window
     {
         if (!checkDrawTimer) return true;
         return true;
-    }
-
-    public void Timer_Tick(object sender, EventArgs e)
-    {
-        timer.Stop();
-        if (Application.Current is null) return;
-        if (this is not null)
-            Draw(false);
-
-    }
-
-    //this picks up a final draw after 1/4 second 
-    public void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
-    {
-        timer.Stop();
-        if (Application.Current is null) return;
-        if (this is not null)
-            Draw(false);
     }
 
     /// <summary>

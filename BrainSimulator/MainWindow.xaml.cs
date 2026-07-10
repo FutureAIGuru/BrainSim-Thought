@@ -51,40 +51,6 @@ namespace BrainSimulator
 
             //setup the python support
             pythonPath = (string)Environment.GetEnvironmentVariable("PythonPath", EnvironmentVariableTarget.User);
-            if (false)
-            //if (string.IsNullOrEmpty(pythonPath))
-            {
-                var result1 = MessageBox.Show("Do you want to use Python Modules?", "Python?", MessageBoxButton.YesNo);
-                if (result1 == MessageBoxResult.Yes)
-                {
-                    string likeliPath = (string)Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                    likeliPath += @"\Programs\Python";
-                    System.Windows.Forms.OpenFileDialog openFileDialog = new()
-                    {
-                        Title = "SELECT path to Python .dll (or cancel for no Python support)",
-                        InitialDirectory = likeliPath,
-                    };
-
-                    // Show the file Dialog.  
-                    System.Windows.Forms.DialogResult result = openFileDialog.ShowDialog();
-                    // If the user clicked OK in the dialog and  
-                    if (result == System.Windows.Forms.DialogResult.OK)
-                    {
-                        pythonPath = openFileDialog.FileName;
-                        Environment.SetEnvironmentVariable("PythonPath", pythonPath, EnvironmentVariableTarget.User);
-                    }
-                    else
-                    {
-                        Environment.SetEnvironmentVariable("PythonPath", "", EnvironmentVariableTarget.User);
-                    }
-                    openFileDialog.Dispose();
-                }
-                else
-                {
-                    pythonPath = "no";
-                    Environment.SetEnvironmentVariable("PythonPath", pythonPath, EnvironmentVariableTarget.User);
-                }
-            }
             moduleHandler.PythonPath = pythonPath;
             if (pythonPath != "no")
             {
@@ -112,7 +78,7 @@ namespace BrainSimulator
                     CreateEmptyUKS();
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 System.Windows.MessageBox.Show("UKS Content not loaded");
             }
@@ -327,8 +293,9 @@ namespace BrainSimulator
         }
 
         //THIS IS THE MAIN ENGINE LOOP
-        private void Dt_Tick(object? sender, EventArgs e)
+        private void Dt_Tick(object sender, EventArgs e)
         {
+            theUKS.BeginTraversalCycle();
             Thought activeModuleParent = theUKS.Labeled("ActiveModule");
             if (activeModuleParent is null) return;
             foreach (Thought module in activeModuleParent.Children)

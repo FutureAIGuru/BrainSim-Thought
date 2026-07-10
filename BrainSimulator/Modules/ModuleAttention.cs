@@ -33,7 +33,6 @@ public class ModuleAttention : ModuleBase
     private Thought _queueRoot;
     private Thought _predRoot;
     private Thought _ltQueued;
-    private Thought _ltQueueFor;
     private Thought _ltPredItem;
     private Thought _ltPredFrom;
     private Thought _ltPredTo;
@@ -226,9 +225,6 @@ public class ModuleAttention : ModuleBase
     private void TouchQueueItem(Thought focus)
     {
         return;
-        var item = FindQueueItemFor(focus);
-        if (item is null) return;
-        item.LastFiredTime = DateTime.Now;
     }
 
     private IEnumerable<(Thought item, Thought target)> EnumerateQueueItems()
@@ -263,68 +259,26 @@ public class ModuleAttention : ModuleBase
     private float ComputeSalience(Thought t, ModuleMentalModel mm, double surprise, int seenCount, DateTime lastSeen)
     {
         return .5f;
-        if (t is null || mm is null) return 0;
-        double novelty = 1.0 / (1.0 + t.UseCount);
-        double activation = ComputeActivation(t);
-        double proximity = mm.ComputeProximity(t);
-        double habituation = seenCount <= 0 ? 0 : seenCount / (seenCount + HabituationDenominator);
-        double recencyPenalty = (DateTime.Now - lastSeen).TotalSeconds / AttentionStaleSeconds;
-        recencyPenalty = Math.Max(0, recencyPenalty);
-
-        double sal = wNovelty * novelty
-                   + wActivation * activation
-                   + wSurprise * surprise
-                   + wProximity * proximity
-                   - wHabituation * habituation
-                   - 0.05 * recencyPenalty;
-        return (float)Math.Max(0, sal);
     }
 
     private static float ComputeActivation(Thought t)
     {
         return 0.5f;
-        double seconds = Math.Max(0, (DateTime.Now - t.LastFiredTime).TotalSeconds);
-        return (float)Math.Exp(-seconds / ActivationHalfLifeSeconds);
     }
 
     private void BoostActivation(Thought t)
     {
         return;
-        float boosted = t.Weight + ActivationBoost;
-        t.Weight = (float)Math.Min(boosted, ActivationBoostMax);
     }
 
     private void ActivateRelated(Thought focus)
     {
         return;
-        foreach (var link in focus.LinksTo.Where(x =>
-                     x.LinkType?.Label is "is-a" or "hasAttribute" or "is" or "part-of" or "means"))
-            link.To?.Fire();
-
-        foreach (var link in focus.LinksFrom.Where(x =>
-                     x.LinkType?.Label is "is-a" or "part-of" or "means"))
-            link.From?.Fire();
     }
 
     private void BuildPredictions(Thought focus)
     {
         return;
-        EnsureLinkTypes();
-        ClearPredictions();
-
-        foreach (var link in focus.LinksFrom.Where(x => x.LinkType?.Label == "VLU"))
-        {
-            if (link.From is not SeqElement elem) continue;
-            SeqElement nxt = elem.NXT;
-            Thought nextValue = nxt?.VLU;
-            if (nextValue is null) continue;
-
-            Thought predItem = theUKS.GetOrAddThought("_attn:pred:*", "attention");
-            _predRoot.AddLink(_ltPredItem, predItem);
-            predItem.AddLink(_ltPredFrom, elem);
-            predItem.AddLink(_ltPredTo, nextValue);
-            predItem.TimeToLive = TimeSpan.FromSeconds(5);
-        }
     }
 
     private IEnumerable<(SeqElement source, Thought next)> FindPredictionsFor(Thought focus)
@@ -354,23 +308,11 @@ public class ModuleAttention : ModuleBase
     private void ClearPredictions()
     {
         return;
-        EnsureLinkTypes();
-        foreach (var link in _predRoot.LinksTo.Where(x => x.LinkType == _ltPredItem).ToList())
-        {
-            Thought pred = link.To;
-            _predRoot.RemoveLink(link);
-            pred?.Delete();
-        }
     }
 
     private static void ReinforcePrediction((SeqElement source, Thought next) pred)
     {
         return;
-        pred.source.Fire();
-        var nxtLink = pred.source.LinksToWriteable.FindFirst(x => x.LinkType?.Label == "NXT");
-        nxtLink?.Fire();
-        pred.source.NXT?.Fire();
-        pred.next.Fire();
     }
 
     private ModuleMentalModel GetMentalModel()

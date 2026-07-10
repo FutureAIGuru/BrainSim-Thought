@@ -11,67 +11,20 @@
  * See the LICENSE file in the project root for full license information.
  */
 
-using System;
-using System.IO;
 using BrainSimulator.Modules;
 using UKS;
 using Xunit;
 
 namespace UKS.Tests;
 
-public class ModuleAlgorithmTests : IDisposable
+public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
 {
-    private UKS uks;
-    private ModuleAlgorithm module;
+    private readonly UKS uks;
+    private readonly ModuleAlgorithm module;
 
-    public ModuleAlgorithmTests()
+    public ModuleAlgorithmTests(AlgorithmXmlFixture fixture)
     {
-        uks = new UKS();
-        uks.CreateInitialStructure();
-        
-        module = new ModuleAlgorithm();
-        module.theUKS = uks;
-
-        string currentDir = Directory.GetCurrentDirectory();
-        string brainSimRoot = FindBrainSimRoot(currentDir);
-
-
-        // Load algorithm.xml from UKSContent folder
-        string xmlPath = Path.Combine(brainSimRoot, "BrainSimulator", "UKSContent", "algorithm.xml");
-        if (!File.Exists(xmlPath))
-        {
-            // Try alternative path
-            xmlPath = Path.Combine("UKSContent", "algorithm.xml");
-        }
-        
-        if (File.Exists(xmlPath))
-        {
-            uks.LoadUKSfromXMLFile(xmlPath);
-        }
-        else
-        {
-            throw new FileNotFoundException($"algorithm.xml not found. Searched paths.");
-        }
-    }
-    private string FindBrainSimRoot(string startPath)
-    {
-        DirectoryInfo dir = new DirectoryInfo(startPath);
-
-        while (dir != null)
-        {
-            // Check if current directory name is "BrainSim Thought"
-            if (dir.Name.Equals("BrainSim Thought", StringComparison.OrdinalIgnoreCase))
-            {
-                return dir.FullName;
-            }
-            dir = dir.Parent;
-        }
-
-        return null;
-    }
-    public void Dispose()
-    {
-        // Cleanup
+        (uks, module) = fixture.CreateHarness();
     }
 
     [Fact]

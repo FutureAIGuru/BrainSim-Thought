@@ -1,0 +1,266 @@
+  Determining projects to restore...
+  Restored C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\BrainSimulator\BrainSim Thought.csproj (in 264 ms).
+  Restored C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\Tests.csproj (in 265 ms).
+  Restored C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\UKS\UKS.csproj (in 262 ms).
+C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\UKS\UKS.Query.cs(130,40): warning CS8604: Possible null reference argument for parameter 't' in 'int UKS.GetCount(Thought t)'. [C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\UKS\UKS.csproj]
+C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\UKS\UKS.Query.cs(260,49): warning CS8604: Possible null reference argument for parameter 'item' in 'bool List<Thought>.Contains(Thought item)'. [C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\UKS\UKS.csproj]
+C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\UKS\UKS.Query.cs(261,49): warning CS8604: Possible null reference argument for parameter 'item' in 'bool List<Thought>.Contains(Thought item)'. [C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\UKS\UKS.csproj]
+  UKS -> C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\UKS\bin\Debug\net8.0\UKS.dll
+  BrainSim Thought -> C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\BrainSimulator\bin\Debug\net8.0-windows\BrainSim Thought.dll
+  Tests -> C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\bin\Debug\net8.0-windows\Tests.dll
+Test run for C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\bin\Debug\net8.0-windows\Tests.dll (.NETCoreApp,Version=v8.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:05.87]     UKS.Tests.ModuleAlgorithmTests.Test08_SeqLength_PuppyVsDog_Greater [FAIL]
+  Failed UKS.Tests.ModuleAlgorithmTests.Test08_SeqLength_PuppyVsDog_Greater [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+[xUnit.net 00:00:05.89]     UKS.Tests.ModuleAlgorithmTests.Test02_BoolNot_FalseInput [FAIL]
+[xUnit.net 00:00:05.89]     UKS.Tests.ModuleAlgorithmTests.Test17_CompareLetters_MAfterC_Greater [FAIL]
+[xUnit.net 00:00:05.90]     UKS.Tests.ModuleAlgorithmTests.Test06_SeqLength_DogVsCat_Equal [FAIL]
+[xUnit.net 00:00:05.91]     UKS.Tests.ModuleAlgorithmTests.Test27_Alphabetize_CaseSensitive [FAIL]
+[xUnit.net 00:00:05.92]     UKS.Tests.ModuleAlgorithmTests.Test26_Alphabetize_NewWordsCreated [FAIL]
+[xUnit.net 00:00:05.92]     UKS.Tests.ModuleAlgorithmTests.Test14_CompareLetters_BAfterA_Greater [FAIL]
+[xUnit.net 00:00:05.93]     UKS.Tests.ModuleAlgorithmTests.Test28_Alphabetize_TaskExists [FAIL]
+[xUnit.net 00:00:05.93]     UKS.Tests.ModuleAlgorithmTests.Test24_Alphabetize_SecondGreater [FAIL]
+[xUnit.net 00:00:05.94]     UKS.Tests.ModuleAlgorithmTests.Test21_CompareLetters_TaskExists [FAIL]
+  Failed UKS.Tests.ModuleAlgorithmTests.Test02_BoolNot_FalseInput [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test17_CompareLetters_MAfterC_Greater [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test06_SeqLength_DogVsCat_Equal [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test27_Alphabetize_CaseSensitive [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test26_Alphabetize_NewWordsCreated [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test14_CompareLetters_BAfterA_Greater [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test28_Alphabetize_TaskExists [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test24_Alphabetize_SecondGreater [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test21_CompareLetters_TaskExists [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+[xUnit.net 00:00:05.95]     UKS.Tests.ModuleAlgorithmTests.Test07_SeqLength_DogVsPuppy_Less [FAIL]
+[xUnit.net 00:00:05.95]     UKS.Tests.ModuleAlgorithmTests.Test05_TaskExists [FAIL]
+[xUnit.net 00:00:05.96]     UKS.Tests.ModuleAlgorithmTests.Test09_SeqLength_KittenVsPuppy_Greater [FAIL]
+[xUnit.net 00:00:05.97]     UKS.Tests.ModuleAlgorithmTests.Test18_CompareLetters_CBeforeM_Reversed [FAIL]
+[xUnit.net 00:00:05.97]     UKS.Tests.ModuleAlgorithmTests.Test22_Alphabetize_EqualWords [FAIL]
+[xUnit.net 00:00:05.98]     UKS.Tests.ModuleAlgorithmTests.Test23_Alphabetize_FirstGreater [FAIL]
+[xUnit.net 00:00:05.99]     UKS.Tests.ModuleAlgorithmTests.Test01_BoolNot_TrueInput [FAIL]
+[xUnit.net 00:00:05.99]     UKS.Tests.ModuleAlgorithmTests.Test19_CompareLetters_VerifyLinkInUKS [FAIL]
+[xUnit.net 00:00:06.00]     UKS.Tests.ModuleAlgorithmTests.Test04_SequentialExecution [FAIL]
+  Failed UKS.Tests.ModuleAlgorithmTests.Test07_SeqLength_DogVsPuppy_Less [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test05_TaskExists [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test09_SeqLength_KittenVsPuppy_Greater [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test18_CompareLetters_CBeforeM_Reversed [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test22_Alphabetize_EqualWords [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test23_Alphabetize_FirstGreater [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test01_BoolNot_TrueInput [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test19_CompareLetters_VerifyLinkInUKS [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test04_SequentialExecution [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+[xUnit.net 00:00:06.00]     UKS.Tests.ModuleAlgorithmTests.Test16_CompareLetters_ZAfterA_Greater [FAIL]
+[xUnit.net 00:00:06.01]     UKS.Tests.ModuleAlgorithmTests.Test13_CompareLetters_SameLetter_Equal [FAIL]
+[xUnit.net 00:00:06.02]     UKS.Tests.ModuleAlgorithmTests.Test25_Alphabetize_DifferingLength [FAIL]
+[xUnit.net 00:00:06.02]     UKS.Tests.ModuleAlgorithmTests.Test15_CompareLetters_ABeforeB_Reversed [FAIL]
+[xUnit.net 00:00:06.03]     UKS.Tests.ModuleAlgorithmTests.Test03_VerifyLinkPersistence [FAIL]
+[xUnit.net 00:00:06.04]     UKS.Tests.ModuleAlgorithmTests.Test10_SeqLength_CatVsKitten_Less [FAIL]
+[xUnit.net 00:00:06.04]     UKS.Tests.ModuleAlgorithmTests.Test11_SeqLength_VerifyLinkInUKS [FAIL]
+[xUnit.net 00:00:06.05]     UKS.Tests.ModuleAlgorithmTests.Test20_CompareLetters_Sequential [FAIL]
+[xUnit.net 00:00:06.06]     UKS.Tests.ModuleAlgorithmTests.Test12_SeqLength_TaskExists [FAIL]
+  Failed UKS.Tests.ModuleAlgorithmTests.Test16_CompareLetters_ZAfterA_Greater [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test13_CompareLetters_SameLetter_Equal [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test25_Alphabetize_DifferingLength [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test15_CompareLetters_ABeforeB_Reversed [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test03_VerifyLinkPersistence [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test10_SeqLength_CatVsKitten_Less [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test11_SeqLength_VerifyLinkInUKS [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test20_CompareLetters_Sequential [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+  Failed UKS.Tests.ModuleAlgorithmTests.Test12_SeqLength_TaskExists [1 ms]
+  Error Message:
+   System.ArgumentNullException : Value cannot be null. (Parameter 'path1')
+  Stack Trace:
+     at System.ArgumentNullException.Throw(String paramName)
+   at System.IO.Path.Combine(String path1, String path2, String path3, String path4)
+   at UKS.Tests.ModuleAlgorithmTests..ctor() in C:\Users\Moorelife\Desktop\GitHub\BrainSim-Thought\Tests\ModuleAlgorithm.Tests.cs:line 43
+   at System.RuntimeType.CreateInstanceDefaultCtor(Boolean publicOnly, Boolean wrapExceptions)
+
+Failed!  - Failed:    28, Passed:    93, Skipped:     0, Total:   121, Duration: 2 s - Tests.dll (net8.0)

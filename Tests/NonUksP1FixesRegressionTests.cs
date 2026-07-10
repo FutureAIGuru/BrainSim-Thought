@@ -20,7 +20,7 @@ public class NonUksP1FixesRegressionTests
     [Fact]
     public void DeactivateModule_preserves_shared_link_targets()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new global::UKS.UKS(clear: true);
         uks.CreateInitialStructure();
         var handler = new ModuleHandler();
 
