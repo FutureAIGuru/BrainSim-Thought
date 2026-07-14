@@ -31,6 +31,6 @@
     <Compile Include="..\Tests\UKSSequenceTests.cs" Link="UKSSequenceTests.cs" />
     <Compile Include="..\Tests\NatureAnimalsXmlTests.cs" Link="NatureAnimalsXmlTests.cs" />
     <Compile Include="..\Tests\NonUksP2FixesRegressionTests.cs" Link="NonUksP2FixesRegressionTests.cs" />
-    <Compile Include="..\Tests\VisionCompatRegressionTests.cs" Link="VisionCompatRegressionTests.cs" />
+    <!-- VisionCompatRegressionTests.cs removed with legacy Vision 2026-07-10 (d1229cc); do not re-add -->
   </ItemGroup>
 </Project>
