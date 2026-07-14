@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 import uuid
+import argparse
 from pathlib import Path
 
 OUTPUT = Path(__file__).resolve().parents[1] / "BrainSimulator" / "UKSContent" / "NatureAnimals.xml"
@@ -10,6 +11,56 @@ OUTPUT = Path(__file__).resolve().parents[1] / "BrainSimulator" / "UKSContent" /
 nodes: list[str] = []
 links: list[tuple[int, int, int, float | None]] = []
 index_by_label: dict[str, int] = {}
+
+# Minimal module sThoughts for a complete BrainSimThought project (from Demo1.xml patterns + Initialize)
+# These make the XML loadable as a full project with modules active.
+MODULE_NODES = [
+    "BrainSim",
+    "AvailableModule",
+    "ActiveModule",
+    "DlgAttrib",
+    "ModuleAction",
+    "ModuleAddCounts",
+    "ModuleAddToMentalModel",
+    "ModuleAlgorithm",
+    "ModuleAttention",
+    "ModuleAttentionS",
+    "ModuleAttributeBubble",
+    "ModuleBalanceTree",
+    "ModuleClassCreate",
+    "ModuleEmpty",
+    "ModuleGPTInfo",
+    "ModuleLearnMelody",
+    "ModuleMentalModel",
+    "ModuleOnlineInfo",
+    "ModuleRemoveRedundancy",
+    "ModuleSequenceEditor",
+    "ModuleShowGraph",
+    "ModuleSoundIn",
+    "ModuleSoundOut",
+    "ModuleStressTest",
+    "ModuleText",
+    "ModuleTextIn",
+    "ModuleUKS",
+    "ModuleUKSQuery",
+    "ModuleUKSStatement",
+    "ModuleWellBeing",
+    "ModuleWord",
+]
+
+def add_module_bootstrap(ISA: str):
+    """Add the system module scaffolding so NatureAnimals can run with modules."""
+    for m in MODULE_NODES:
+        add_node(m)
+    # Link modules under AvailableModule / Active (simplified)
+    if "AvailableModule" in index_by_label and "BrainSim" in index_by_label:
+        add_link("AvailableModule", ISA, "BrainSim")
+    if "ActiveModule" in index_by_label and "BrainSim" in index_by_label:
+        add_link("ActiveModule", ISA, "BrainSim")
+    # Link all Module* to AvailableModule (full list from working ExampleFile)
+    for m in MODULE_NODES:
+        if m.startswith("Module") and m in index_by_label and "AvailableModule" in index_by_label:
+            add_link(m, ISA, "AvailableModule")
 
 
 def unl() -> str:
@@ -33,7 +84,7 @@ def add_link(source: str, link_type: str, target: str, weight: float | None = No
 def build() -> None:
     # --- Bootstrap ontology (required for UKS loader) ---
     for label in (
-        "Thought", "Unknown", "LinkType", "Object", "Property", "Comparison",
+        "Thought", "LinkType", "Object", "Property", "Comparison",
         "bodyPart", "habitat", "sound", "Action",
     ):
         add_node(label)
@@ -41,9 +92,9 @@ def build() -> None:
     for label in (
         "is-a", "has", "has-child", "is", "can", "hasProperty",
         "isSimilarTo", "differsFrom", "predatorOf", "preyOf", "livesIn", "eats",
-        "has.4", "has.3", "has.2", "has.6", "has.8", "has.0",
+        "has.4", "has.3", "has.2", "has.6", "has.8", "has.no", "has.many",
         "warmBlooded", "coldBlooded", "givesLiveBirth", "laysEggs", "vertebrate",
-        "NOT", "not",
+        "NOT", "not", "lays", "egg", "owns", "Abstract", "color", "number", "digit", "many", "some", "none", "isExclusive", "isTransitive", "inheritable",
     ):
         add_node(label)
 
@@ -73,8 +124,12 @@ def build() -> None:
     CAN = "can"
     HP = "hasProperty"
 
+    # Module bootstrap for complete project (if flagged)
+    import builtins
+    if getattr(builtins, "_NATURE_COMPLETE", False):
+        add_module_bootstrap(ISA)
+
     # Ontology structure
-    add_link("Unknown", ISA, "Thought")
     add_link("LinkType", ISA, "Thought")
     add_link("Object", ISA, "Thought")
     add_link("Property", ISA, "Thought")
@@ -100,8 +155,20 @@ def build() -> None:
     add_link("livesIn", ISA, "LinkType")
     add_link("eats", ISA, "LinkType")
 
-    for n in ("has.4", "has.3", "has.2", "has.6", "has.8", "has.0"):
+    for n in ("has.4", "has.3", "has.2", "has.6", "has.8", "has.no", "has.many"):
         add_link(n, ISA, HAS)
+
+    # Numeric grounding per Simon feedback: has.N is N (the number Thought)
+    for val in ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "many", "no", "some"):
+        add_node(val)
+        add_link(val, ISA, "number")
+    add_link("has.4", "is", "4")
+    add_link("has.3", "is", "3")
+    add_link("has.2", "is", "2")
+    add_link("has.6", "is", "6")
+    add_link("has.8", "is", "8")
+    add_link("has.no", "is", "no")
+    add_link("has.many", "is", "many")  # will add has.many node usage below
 
     for n in ("warmBlooded", "coldBlooded", "givesLiveBirth", "laysEggs", "vertebrate"):
         add_link(n, ISA, "Property")
@@ -115,6 +182,8 @@ def build() -> None:
     add_link("animal", ISA, "livingThing")
     add_link("plant", ISA, "livingThing")
     add_link("tree", ISA, "plant")
+    # nature hierarchy fix (was rogue with no children)
+    add_link("livingThing", ISA, "nature")
 
     add_link("mammal", ISA, "animal")
     add_link("bird", ISA, "animal")
@@ -147,23 +216,35 @@ def build() -> None:
     for h in ("forest", "ocean", "sky", "grassland", "antarctica", "river"):
         add_link(h, ISA, "habitat")
 
-    # Class-level properties (inheritance)
-    add_link("mammal", HP, "warmBlooded")
-    add_link("mammal", HP, "givesLiveBirth")
-    add_link("mammal", HP, "vertebrate")
-    add_link("bird", HP, "warmBlooded")
-    add_link("bird", HP, "laysEggs")
-    add_link("bird", HP, "vertebrate")
-    add_link("reptile", HP, "coldBlooded")
-    add_link("reptile", HP, "laysEggs")
-    add_link("reptile", HP, "vertebrate")
-    add_link("fish", HP, "coldBlooded")
-    add_link("fish", HP, "laysEggs")
-    add_link("fish", HP, "vertebrate")
-    add_link("amphibian", HP, "coldBlooded")
-    add_link("amphibian", HP, "laysEggs")
-    add_link("insect", HP, "coldBlooded")
-    add_link("animal", HP, "vertebrate")
+    # Colors with parent (per Simon: all thoughts except Thought have parent)
+    add_link("color", ISA, "Abstract")
+    add_link("color", HP, "isExclusive")  # meta use of hasProperty OK
+    for c in ("brown", "black", "golden", "green", "gray"):
+        add_link(c, ISA, "color")
+
+    # Class-level facts - use is-a / has per Simon feedback (hasProperty is for traversal meta only)
+    # vertebrate as class
+    add_link("vertebrate", ISA, "Object")
+    add_link("mammal", ISA, "vertebrate")
+    add_link("bird", ISA, "vertebrate")
+    add_link("reptile", ISA, "vertebrate")
+    add_link("fish", ISA, "vertebrate")
+    add_link("amphibian", ISA, "vertebrate")
+    # blood and birth as properties or has (use has for consistency with contains)
+    add_link("mammal", HAS, "warmBlooded")
+    add_link("mammal", HAS, "givesLiveBirth")
+    add_link("bird", HAS, "warmBlooded")
+    add_link("reptile", HAS, "coldBlooded")
+    add_link("fish", HAS, "coldBlooded")
+    add_link("amphibian", HAS, "coldBlooded")
+    add_link("insect", HAS, "coldBlooded")
+    # lays -> egg (action style)
+    add_link("lays", ISA, "Action")
+    add_link("egg", ISA, "bodyPart")
+    add_link("bird", "lays", "egg")
+    add_link("reptile", "lays", "egg")
+    add_link("fish", "lays", "egg")
+    add_link("amphibian", "lays", "egg")
 
     # Class-level anatomy (inherited by instances)
     add_link("dog", HAS, "tail")
@@ -178,7 +259,7 @@ def build() -> None:
     add_link("horse", "has.4", "leg")
     add_link("horse", CAN, "neigh(horse)")
     add_link("whale", HAS, "fin")
-    add_link("whale", "has.0", "leg")  # exception: no legs
+    add_link("whale", "has.no", "leg")  # exception: no legs
     add_link("bat", HAS, "wing")
     add_link("bat", "has.4", "leg")
     add_link("mouse", "has.4", "leg")
@@ -189,10 +270,10 @@ def build() -> None:
     add_link("deer", "has.4", "leg")
     add_link("deer", HAS, "tail")
     add_link("dolphin", HAS, "fin")
-    add_link("dolphin", "has.0", "leg")
+    add_link("dolphin", "has.no", "leg")
 
     add_link("bird", HAS, "wing")
-    add_link("bird", HAS, "feather")
+    add_link("bird", "has.many", "feather")
     add_link("bird", "has.2", "leg")
     add_link("bird", HAS, "beak")
     add_link("eagle", "has.2", "wing")
@@ -201,7 +282,7 @@ def build() -> None:
     add_link("owl", "has.2", "wing")
 
     add_link("reptile", HAS, "scale")
-    add_link("snake", "has.0", "leg")
+    add_link("snake", "has.no", "leg")
     add_link("snake", HAS, "scale")
     add_link("turtle", "has.4", "leg")
     add_link("turtle", HAS, "scale")
@@ -213,7 +294,7 @@ def build() -> None:
     add_link("fish", HAS, "scale")
     add_link("salmon", HAS, "fin")
     add_link("shark", HAS, "fin")
-    add_link("shark", "has.0", "leg")
+    add_link("shark", "has.no", "leg")
 
     add_link("frog", "has.4", "leg")
     add_link("bee", HAS, "wing")
@@ -274,13 +355,13 @@ def build() -> None:
     add_link("shark", "eats", "salmon")
 
     # --- Named instances (Fido pattern) ---
+    # Fido inherits has.4 leg from dog class (clean inheritance)
     add_link("Fido", ISA, "dog")
     add_link("Fido", IS, "brown")
-    add_link("Fido", "has.4", "leg")
     add_link("Fido", "livesIn", "grassland")
 
     add_link("Tripper", ISA, "dog")
-    add_link("Tripper", "has.3", "leg")  # README exception: 3 legs overrides inherited 4
+    add_link("Tripper", "has.3", "leg")  # exception overriding inherited 4 (per Simon feedback)
 
     add_link("Whiskers", ISA, "cat")
     add_link("Whiskers", IS, "black")
@@ -328,7 +409,9 @@ def render_xml() -> str:
         ])
     base = len(nodes)
     for j, (src, lt, tgt, weight) in enumerate(links):
-        idx = base + j
+        # Adjusted indexing: set link's <index> to the source node's index
+        # This matches the pattern in working ExampleFile.xml (duplicates for registration links)
+        idx = src
         lines.extend([
             "  <sThought>",
             f"    <index>{idx}</index>",
@@ -345,14 +428,32 @@ def render_xml() -> str:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate NatureAnimals UKS XML for BrainSim-Thought (proper project format)")
+    parser.add_argument("--complete", action="store_true", help="Emit full project XML with module sThoughts (BrainSim + AvailableModule etc.)")
+    parser.add_argument("--output", type=str, default=None, help="Override output path")
+    args = parser.parse_args()
+
+    # Minimal fix: pre-add module nodes so they get indices 0+ when --complete
+    # (BrainSim scaffolding must come first in the XML for the loader, like Demo1.xml)
+    if args.complete:
+        for m in MODULE_NODES:
+            add_node(m)
+
+    # Pass complete flag via a simple global for bootstrap timing (after constants)
+    import builtins
+    builtins._NATURE_COMPLETE = args.complete
+
     build()
     xml = render_xml()
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(xml, encoding="utf-8")
-    print(f"Wrote {OUTPUT}")
+    out_path = Path(args.output) if args.output else OUTPUT
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(xml, encoding="utf-8")
+    print(f"Wrote {out_path}")
     print(f"  nodes: {len(nodes)}")
     print(f"  links: {len(links)}")
     print(f"  total sThought entries: {len(nodes) + len(links)}")
+    if args.complete:
+        print("  (complete project with modules)")
 
 
 if __name__ == "__main__":
