@@ -404,7 +404,18 @@ public partial class UKS
             {
                 var x = FlattenSequence(s);  //if this is a sequence fragment, try to get the whole sequence
                 if (r.LinkType is null) continue;
-                var y = HasSequence(x, r.LinkType);
+
+                // Use FindSequencesByActivation instead of HasSequence
+                Thought searchOptions = Labeled("ExactSequenceSearch");
+                var y = FindSequencesByActivation(x, searchOptions);
+                // Filter by the linkType from the link
+                if (r.LinkType is not null)
+                {
+                    y = y.Where(result => 
+                        result.seqNode.LinksFrom.Any(link => link.LinkType == r.LinkType))
+                        .ToList();
+                }
+
                 foreach (var z in y)
                 {
                     foreach (var w in z.seqNode.LinksFrom.Where(x => x.From != target))

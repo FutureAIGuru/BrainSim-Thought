@@ -71,7 +71,15 @@ public class ModuleWord : ModuleBase
             letters.Add(letter);
         }
         string retVal = word;
-        var suggestions = theUKS.HasSequence(letters,"spelled",true);
+
+        // Use FindSequencesByActivation instead of HasSequence
+        Thought searchOptions = theUKS.CreateSearchOptions(mustMatchFirst: true);
+        var suggestions = theUKS.FindSequencesByActivation(letters, searchOptions);
+        // Filter by linkType "spelled"
+        suggestions = suggestions
+            .Where(r => r.seqNode.LinksFrom.Any(l => l.LinkType?.Label == "spelled"))
+            .ToList();
+
         if (suggestions.Count > 0)
         {
             var suggestionList = theUKS.FlattenSequence(suggestions[0].seqNode);

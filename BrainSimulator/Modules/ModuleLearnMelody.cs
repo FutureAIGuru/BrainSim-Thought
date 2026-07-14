@@ -225,7 +225,15 @@ public class ModuleLearnMelody : ModuleBase
         List<Thought> targets = new();
         foreach (var note in notes)
             targets .Add(theUKS.GetOrAddThought("pitch:" + note.Pitch));
-        var existing = theUKS.RawSearchExact(targets);
+
+        // Use FindSequencesByActivation instead of RawSearchExact
+        Thought searchOptions = theUKS.Labeled("ExactSequenceSearch");
+        var existingResults = theUKS.FindSequencesByActivation(targets, searchOptions);
+        var existing = existingResults
+            .Where(r => r.confidence >= 1.0f) // Only exact matches
+            .Select(r => (seqNode: r.seqNode, curPos: (IEnumerator<SeqElement>)null, matchCount: targets.Count))
+            .ToList();
+
         if (existing.Count > 0)
         {
             //check to make sure the durations match too

@@ -95,11 +95,10 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         }
         else //search for unattached Thoughts
         {
-            for (
-                int i = 0; i < theUKS.AtomicThoughts.Count; i++)
+            for (int i = 0; i < theUKS.AtomicThoughts.Count; i++)
             {
                 Thought t1 = theUKS.AtomicThoughts[i];
-                if (t1.Parents.Count == 0)
+                if (t1.Parents.Count == 0 && t1 is not Link)
                 {
                     TreeViewItem tvi = new() { Header = t1.Label };
                     tvi.ContextMenu = GetContextMenu(t1, tvi);

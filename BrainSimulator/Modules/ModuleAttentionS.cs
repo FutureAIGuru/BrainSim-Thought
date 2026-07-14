@@ -73,10 +73,18 @@ public class ModuleAttentionS : ModuleBase
           DateTime.Now - _lastEventTime >= TimeSpan.FromSeconds(2) && currentSeq is not null)
         {
             var theFlattenedSequence = theUKS.FlattenSequence(currentSeq.FRST);
-            //does this sequence already exist? (note, it always findes the currentSeq PLUS any others)
+            //does this sequence already exist? (note, it always finds the currentSeq PLUS any others)
             Thought existing = null;
             bool completeMatch = false;
-            var existing1 = theUKS.HasSequence(theFlattenedSequence, "soundAs", true);
+
+            // Use FindSequencesByActivation instead of HasSequence
+            Thought searchOptions = theUKS.CreateSearchOptions(mustMatchFirst: true);
+            var existing1 = theUKS.FindSequencesByActivation(theFlattenedSequence, searchOptions);
+            // Filter by linkType "soundAs"
+            existing1 = existing1
+                .Where(r => r.seqNode.LinksFrom.Any(l => l.LinkType?.Label == "soundAs"))
+                .ToList();
+
             if (existing1.Count > 0)
             {
                 var existing2 = theUKS.GetReferringThoughts(existing1[0].seqNode, "soundAs");
@@ -180,7 +188,15 @@ public class ModuleAttentionS : ModuleBase
 
         // Find all known phrases that start with the current sequence
         Thought predicted = null;
-        var foundSequences = theUKS.HasSequence(played, "soundAs");
+
+        // Use FindSequencesByActivation instead of HasSequence
+        Thought searchOptions = theUKS.Labeled("ExactSequenceSearch");
+        var foundSequences = theUKS.FindSequencesByActivation(played, searchOptions);
+        // Filter by linkType "soundAs"
+        foundSequences = foundSequences
+            .Where(r => r.seqNode.LinksFrom.Any(l => l.LinkType?.Label == "soundAs"))
+            .ToList();
+
         if (foundSequences.Count > 0)
         {
             foreach (var foundSequence in foundSequences)

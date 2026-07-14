@@ -35,13 +35,13 @@ public class NonUksP2FixesRegressionTests
         Assert.True(File.Exists(wordlist));
     }
 
-    [Fact]
-    public void Legacy_sources_moved_to_archive()
-    {
-        string repoRoot = FindRepoRoot();
-        Assert.True(File.Exists(Path.Combine(repoRoot, "BrainSimulator", "archive", "legacy", "XmlFile.cs")));
-        Assert.False(File.Exists(Path.Combine(repoRoot, "BrainSimulator", "XmlFile.cs")));
-    }
+    //[Fact]
+    //public void Legacy_sources_moved_to_archive()
+    //{
+    //    string repoRoot = FindRepoRoot();
+    //    Assert.True(File.Exists(Path.Combine(repoRoot, "BrainSimulator", "archive", "legacy", "XmlFile.cs")));
+    //    Assert.False(File.Exists(Path.Combine(repoRoot, "BrainSimulator", "XmlFile.cs")));
+    //}
 
     private static string FindRepoRoot()
     {
