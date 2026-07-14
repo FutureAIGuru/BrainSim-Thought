@@ -12,6 +12,7 @@
  */
 
 using BrainSimulator.Modules;
+using System.IO;
 using UKS;
 using Xunit;
 

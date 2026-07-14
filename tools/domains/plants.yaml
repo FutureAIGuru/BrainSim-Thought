@@ -1,0 +1,68 @@
+# Phase 6 — plants domain (5yo). Requires livingThing/plant from animals or animals_core.
+name: plants
+requires: []
+
+nodes:
+  - label: plant
+    is_a: [livingThing]
+  - label: tree
+    is_a: [plant]
+  - label: flower
+    is_a: [plant]
+  - label: grass
+    is_a: [plant]
+  - label: bush
+    is_a: [plant]
+  - label: oak
+    is_a: [tree]
+  - label: pine
+    is_a: [tree]
+  - label: rose
+    is_a: [flower]
+  - label: daisy
+    is_a: [flower]
+  - label: leaf
+    is_a: [bodyPart]
+  - label: root
+    is_a: [bodyPart]
+  - label: petal
+    is_a: [bodyPart]
+  - label: seed
+    is_a: [Object]
+  - label: fruit
+    is_a: [Object]
+  - label: grow
+    is_a: [Action]
+
+links:
+  # class anatomy / habitat
+  - [tree, has, leaf]
+  - [tree, has, root]
+  - [flower, has, petal]
+  - [flower, has, root]
+  - [grass, has, root]
+  - [plant, livesIn, forest]
+  - [tree, livesIn, forest]
+  - [oak, is, green]
+  - [pine, is, green]
+  - [rose, is, red]
+  - [daisy, is, yellow]
+  - [tree, can, grow]
+  - [flower, can, grow]
+  # grow as action-ish link type auto-registered
+  - [plant, has, seed]
+
+instances:
+  - label: GrandmaOak
+    is_a: [oak]
+    links:
+      - [GrandmaOak, livesIn, forest]
+      - [GrandmaOak, is, green]
+  - label: GardenRose
+    is_a: [rose]
+    links:
+      - [GardenRose, is, red]
+  - label: LawnGrass
+    is_a: [grass]
+    links:
+      - [LawnGrass, livesIn, grassland]
