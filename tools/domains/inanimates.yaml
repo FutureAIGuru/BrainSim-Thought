@@ -1,0 +1,72 @@
+# Phase 6 — inanimate things (5yo). Requires Object from bootstrap.
+name: inanimates
+requires: []
+
+nodes:
+  - label: thing
+    is_a: [Object]
+  - label: rock
+    is_a: [thing]
+  - label: water
+    is_a: [thing]
+  - label: sun
+    is_a: [thing]
+  - label: moon
+    is_a: [thing]
+  - label: car
+    is_a: [thing]
+  - label: house
+    is_a: [thing]
+  - label: ball
+    is_a: [thing]
+  - label: book
+    is_a: [thing]
+  - label: wheel
+    is_a: [bodyPart]
+  - label: door
+    is_a: [bodyPart]
+  - label: window
+    is_a: [bodyPart]
+  - label: town
+    is_a: [habitat]
+  - label: hot
+    is_a: [Object]
+  - label: cold
+    is_a: [Object]
+  - label: hard
+    is_a: [Object]
+  - label: soft
+    is_a: [Object]
+
+links:
+  - [sun, is, hot]
+  - [sun, is, yellow]
+  - [moon, is, white]
+  - [rock, is, hard]
+  - [water, is, cold]
+  - [car, has, wheel]
+  - [house, has, door]
+  - [house, has, window]
+  - [house, livesIn, town]
+  - [ball, is, soft]
+  - [book, is, hard]
+
+instances:
+  - label: MyHouse
+    is_a: [house]
+    links:
+      - [MyHouse, livesIn, town]
+  - label: RedCar
+    is_a: [car]
+    links:
+      - [RedCar, is, red]
+      - [RedCar, has, wheel]
+  - label: BlueBall
+    is_a: [ball]
+    links:
+      - [BlueBall, is, blue]
+  - label: GardenRock
+    is_a: [rock]
+    links:
+      - [GardenRock, is, hard]
+      - [GardenRock, livesIn, grassland]
