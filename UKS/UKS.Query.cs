@@ -57,7 +57,7 @@ public partial class UKS
         result2 = result2.OrderByDescending(x => x.Weight).ToList();
     }
 
-    //This is used to store temporary content during queries
+    //This is used to store temporary activation during queries
     private class ThoughtWithQueryParams
     {
         public Thought thought = null!;

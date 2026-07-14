@@ -28,7 +28,6 @@
     <InternalsVisibleTo Include="Tests" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Remove="archive\legacy\**" />
     <Compile Remove="GlobalSuppressions.cs" />
     <Compile Remove="ImgUtils.cs" />
 

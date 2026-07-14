@@ -82,7 +82,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             theTreeView.FontSize = fontSize;
 
         //if the root is null, display the roots instead of the contetn
-        if (!string.IsNullOrEmpty(root))
+        if (!string.IsNullOrEmpty(root?.Trim()))
         {
             totalItemCount = 0;
             TreeViewItem tvi = new() { Header = Root.ToString() };
@@ -93,7 +93,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             AddLinks(Root, tvi, 1, "");
             AddChildren(Root, tvi, 0, Root.Label);
         }
-        else if (string.IsNullOrEmpty(root)) //search for unattached Thoughts
+        else //search for unattached Thoughts
         {
             for (
                 int i = 0; i < theUKS.AtomicThoughts.Count; i++)

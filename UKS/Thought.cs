@@ -194,6 +194,13 @@ public partial class Thought
         get => _weight;
         set => _weight = value;
     }
+    private float _maxWeight = 1;
+    /// <summary>maxWeight of this Thought (for links, applies to the link).</summary>
+    public float maxWeight
+    {
+        get => _maxWeight;
+        set => _maxWeight = value;
+    }
 
     /// <summary>
     /// Default constructor.

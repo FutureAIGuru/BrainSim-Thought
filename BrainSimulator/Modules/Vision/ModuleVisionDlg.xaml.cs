@@ -1,38 +1,28 @@
-/*
- * Brain Simulator Through
- *
- * Copyright (c) 2026 Charles Simon
- *
- * This file is part of Brain Simulator Through and is licensed under
- * the MIT License. You may use, copy, modify, merge, publish, distribute,
- * sublicense, and/or sell copies of this software under the terms of
- * the MIT License.
- *
- * See the LICENSE file in the project root for full license information.
- */
-//
+﻿//
 // PROPRIETARY AND CONFIDENTIAL
 // Brain Simulator 3 v.1.0
-// � 2022 FutureAI, Inc., all rights reserved
+// © 2022 FutureAI, Inc., all rights reserved
 //
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Shapes;
+using UKS;
 using static System.Math;
-using System.Windows.Threading;
-using Microsoft.VisualBasic;
-using static BrainSimulator.Modules.ModuleVision;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
 
 
 namespace BrainSimulator.Modules
 {
     public partial class ModuleVisionDlg : ModuleBaseDlg
     {
+        int pixelSize = 1;
         // Constructor of the ModuleUKSStatement dialog
         public ModuleVisionDlg()
         {
@@ -46,22 +36,22 @@ namespace BrainSimulator.Modules
             if (!base.Draw(checkDrawTimer)) return false;
 
             ModuleVision parent = (ModuleVision)base.ParentModule;
+            var theUKS = parent.theUKS;
+
+            if (Mouse.RightButton == MouseButtonState.Pressed) return false;
 
             if (parent.imageArray == null) return false;
             try
             {
                 labelProperties.Content = "Image: " + parent.imageArray.GetLength(0) + "x" + parent.imageArray.GetLength(1) +
-                //    "\r\nBit Depth: " + parent.bitmap.Format.BitsPerPixel +
-                    "\r\nSegments: " + parent.segments?.Count +
-                    "\r\nCorners: " + parent.corners?.Count +
                     "\r\nOutlines: " + parent.theUKS.Labeled("Outline")?.Children.Count;
             }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Vision dialog label update failed: {ex.Message}"); return false; }
+            catch { return false; }
 
             theCanvas.Children.Clear();
 
-            scale = (int)(theCanvas.ActualHeight / parent.imageArray.GetLength(1));
-            int pixelSize = scale - 2;
+            scale = (int)(theCanvas.ActualHeight / (parent.imageArray.GetLength(1) + 1));
+            pixelSize = scale - 2;
             if (pixelSize < 2) pixelSize = 2;
 
             try
@@ -78,216 +68,424 @@ namespace BrainSimulator.Modules
                             { }
                             pixel.A = 255;
 
-                            //pixel.luminance /= 2;
-                            SolidColorBrush b = new SolidColorBrush(pixel);
-                            float lum = new HSLColor(pixel).luminance;
+                            if (pixel != null)
+                            {
+                                //pixel.luminance /= 2;
+                                SolidColorBrush b = new SolidColorBrush(pixel);
+                                float lum = new HSLColor(pixel).luminance;
+                                Rectangle e = new()
+                                {
+                                    Height = pixelSize,
+                                    Width = pixelSize,
+                                    Stroke = b,
+                                    Fill = b,
+                                    ToolTip = new System.Windows.Controls.ToolTip
+                                    { HorizontalOffset = 100, Content = $"({(int)x},{(int)y}) {lum.ToString("0.00")}" },
+                                };
+                                Canvas.SetLeft(e, x * scale + pixelSize / 2);
+                                Canvas.SetTop(e, y * scale + pixelSize / 2);
+                                theCanvas.Children.Add(e);
+                            }
+                        }
+                }
+
+                //new showBoundaries (old version below)
+                if (cbShowBoundaries.IsChecked == true && parent.boundaryArray != null)
+                {
+                    for (int x = 0; x < parent.boundaryArray.GetLength(0); x++)
+                        for (int y = 0; y < parent.boundaryArray.GetLength(1); y++)
+                        {
+                            var pixel = parent.boundaryArray[x, y];
+
+                            if (pixel == true)
+                            {
+                                SolidColorBrush b = new SolidColorBrush(Colors.Gray);
+                                string toolTipString = $"({(int)x},{(int)y}) ";
+                                Rectangle e = new()
+                                {
+                                    Height = pixelSize,
+                                    Width = pixelSize,
+                                    Stroke = b,
+                                    Fill = b,
+                                    ToolTip = new System.Windows.Controls.ToolTip
+                                    { HorizontalOffset = 100, Content = toolTipString },
+                                };
+                                Canvas.SetLeft(e, x * scale + pixelSize / 2);
+                                Canvas.SetTop(e, y * scale + pixelSize / 2);
+                                e.Tag = toolTipString;
+                                e.MouseRightButtonDown += E_MouseRightButtonDown;
+                                theCanvas.Children.Add(e);
+                            }
+                        }
+                }
+
+
+                //draw the patch centers
+                if (cbShowCenterPts.IsChecked == true && parent.boundaryArray != null)
+                {
+                    List<Thing> patchesRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.StartsWith("patch") &&
+                        x.LastFiredTime != new DateTime(0)); //> DateTime.Now - TimeSpan.FromSeconds(10));
+
+                    for (int x = 2; x < parent.boundaryArray.GetLength(0) - 2; x++)
+                        for (int y = 2; y < parent.boundaryArray.GetLength(1) - 2; y++)
+                        {
+                            SolidColorBrush b = new SolidColorBrush(Colors.Yellow);
+                            string toolTipString = $"patch_{x:d2}_{y:d2}_0";
                             Rectangle e = new()
                             {
-                                Height = pixelSize,
-                                Width = pixelSize,
+                                Height = pixelSize * .5,
+                                Width = pixelSize * .5,
                                 Stroke = b,
-                                Fill = b,
-                                ToolTip = new System.Windows.Controls.ToolTip { HorizontalOffset = 50, Content = $"({(int)x},{(int)y}) {lum.ToString("0.00")}" },
+                                StrokeThickness = 12,
+                                //Fill = new SolidColorBrush(Colors.Transparent),
+                                ToolTip = new System.Windows.Controls.ToolTip
+                                { HorizontalOffset = 100, Content = toolTipString },
                             };
-                            Canvas.SetLeft(e, x * scale - pixelSize / 2);
-                            Canvas.SetTop(e, y * scale - pixelSize / 2);
+                            Canvas.SetLeft(e, (x + .75f) * scale);
+                            Canvas.SetTop(e, (y + .75f) * scale);
                             theCanvas.Children.Add(e);
+                            e.MouseRightButtonDown += E_MouseRightButtonDown;
+                            e.Tag = toolTipString;
                         }
-                }
-
-                //draw the strokes
-                if (cbShowSrokes.IsChecked == true && parent.strokePoints != null)
-                {
-                    foreach (var pt in parent.strokePoints)
+                    foreach (Thing t in patchesRecentlyFired)
                     {
+                        string[] parts = t.Label.Split('_');
+                        if (parts.Length < 4) continue;
+                        int x = int.Parse(parts[1]);
+                        int y = int.Parse(parts[2]);
+                        SolidColorBrush b = new SolidColorBrush(Colors.Pink);
+                        string toolTipString = t.Label + " c:" + t.Weight;
                         Rectangle e = new()
                         {
-                            Height = pixelSize / 2,
-                            Width = pixelSize / 2,
-                            Stroke = Brushes.DarkGreen,
-                            Fill = Brushes.DarkGreen,
-                            ToolTip = new System.Windows.Controls.ToolTip
-                            {
-                                HorizontalOffset = 100,
-                                Content = $"({pt.X.ToString("0.0")},{pt.Y.ToString("0.0")})"
-                            },
-                        };
-                        Canvas.SetLeft(e, pt.X * scale - pixelSize / 4);
-                        Canvas.SetTop(e, pt.Y * scale - pixelSize / 4);
-                        theCanvas.Children.Add(e);
-                    }
-                }
-                //draw the strokes
-                if (cbShowBoundaries.IsChecked == true && parent.boundaryPoints != null)
-                {
-                    foreach (var pt in parent.boundaryPoints)
-                    {
-                        Rectangle e = new()
-                        {
-                            Height = pixelSize / 2,
-                            Width = pixelSize / 2,
-                            Stroke = Brushes.Blue,
-                            Fill = Brushes.Blue,
-                            ToolTip = new System.Windows.Controls.ToolTip
-                            {
-                                HorizontalOffset = 70,
-                                Content = $"({pt.X.ToString("0.0")},{pt.Y.ToString("0.0")})"
-                            },
-                        };
-                        Canvas.SetLeft(e, pt.X * scale - pixelSize / 4);
-                        Canvas.SetTop(e, pt.Y * scale - pixelSize / 4);
-                        theCanvas.Children.Add(e);
-                    }
-                }
-
-
-                //draw the segments
-                if (cbShowSegments.IsChecked == true && parent.segments is not null & parent.segments?.Count > 0)
-                {
-                    for (int i = 0; i < parent.segments.Count; i++)
-                    {
-                        Segment segment = parent.segments[i];
-                        Line l = new Line()
-                        {
-                            X1 = segment.P1.X * scale,
-                            X2 = segment.P2.X * scale,
-                            Y1 = segment.P1.Y * scale,
-                            Y2 = segment.P2.Y * scale,
-                            Stroke = Brushes.Red,
-                            StrokeThickness = 8,
-                            Opacity = .5,
-                            ToolTip = new System.Windows.Controls.ToolTip
-                            {
-                                Content = $"{segment.debugIndex}:({segment.P1.X.ToString("0.0")},{segment.P1.Y.ToString("0.0")}) - " +
-                                $"-({segment.P2.X.ToString("0.0")},{segment.P2.Y.ToString("0,0")})"
-                            },
-                        };
-                        theCanvas.Children.Add(l);
-                    }
-                }
-
-                //draw the corners
-                if (cbShowCorners.IsChecked == true && parent.corners != null && parent.corners.Count > 0)
-                {
-                    for (int i = 0; i < parent.corners.Count; i++)
-                    {
-                        var corner = parent.corners[i];
-                        float size = 15;
-                        Brush b = Brushes.LightBlue;
-                        if (Abs(corner.angle.Degrees - 180) < .1 ||
-                            Abs(corner.angle.Degrees - -180) < .1)
-                            b = Brushes.Pink;
-                        Ellipse e = new Ellipse()
-                        {
-                            Height = size,
-                            Width = size,
+                            Height = pixelSize * .5,
+                            Width = pixelSize * .5,
                             Stroke = b,
-                            Fill = b,
-                            ToolTip = new System.Windows.Controls.ToolTip { HorizontalOffset = 100, Content = $"{i}", },
+                            StrokeThickness = 12,
+                            //Fill = new SolidColorBrush(Colors.Transparent),
+                            ToolTip = new System.Windows.Controls.ToolTip
+                            { HorizontalOffset = 100, Content = toolTipString },
                         };
-                        Canvas.SetTop(e, corner.pt.Y * scale - size / 2);
-                        Canvas.SetLeft(e, corner.pt.X * scale - size / 2);
+                        Canvas.SetLeft(e, (x + .75f) * scale);
+                        Canvas.SetTop(e, (y + .75f) * scale);
                         theCanvas.Children.Add(e);
+                        e.MouseRightButtonDown += E_MouseRightButtonDown;
+                        e.Tag = toolTipString;
+                    }
+                }
+                //draw the patches & contents
+                if (cbShowPatches.IsChecked == true && parent.boundaryArray != null)
+                {
+                    List<Thing> thingsRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.ToLower().StartsWith("patch") &&
+                        x.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(3));
+                    foreach (Thing t in thingsRecentlyFired)
+                        DrawAPatch(t);
+                }
+                //draw the corner content
+                if (cbShowCorners.IsChecked == true && parent.boundaryArray != null)
+                {
+                    List<Thing> cornersRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.StartsWith("corner") &&
+                        x.LastFiredTime != new DateTime(0)); //> DateTime.Now - TimeSpan.FromSeconds(10));
 
-                        //test out drawing little lines to represent the angle (then an elliptical arc, soon)
-                        int i1 = 3;
-                        PointPlus delta = corner.prevPt - corner.pt;
-                        delta.R = i1;
-                        PointPlus pt1 = corner.pt + delta;
-
-                        if (!corner.curve)
+                    foreach (Thing t in cornersRecentlyFired)
+                    {
+                        string[] parts = t.Label.Split('_');
+                        int x = int.Parse(parts[1]);
+                        int y = int.Parse(parts[2]);
+                        SolidColorBrush b = new SolidColorBrush(Colors.Green);
+                        string toolTipString = t.Label + " c:" + t.Weight;
+                        Rectangle e = new()
                         {
-                            Line l = new Line()
-                            {
-                                X1 = corner.pt.X * scale,
-                                Y1 = corner.pt.Y * scale,
-                                X2 = corner.prevPt.X * scale,
-                                Y2 = corner.prevPt.Y * scale,
-                                Stroke = Brushes.DarkGray,
-                                StrokeThickness = 2,
-                            };
-                            theCanvas.Children.Add(l);
-
-                            delta = corner.nextPt - corner.pt;
-                            delta.R = i1;
-                            PointPlus pt2 = corner.pt + delta;
-
-                            l = new Line()
-                            {
-                                X1 = corner.pt.X * scale,
-                                Y1 = corner.pt.Y * scale,
-                                X2 = corner.nextPt.X * scale,
-                                Y2 = corner.nextPt.Y * scale,
-                                Stroke = Brushes.DarkGray,
-                                StrokeThickness = 2,
-                            };
-                            theCanvas.Children.Add(l);
-                        }
-                        if (corner is ModuleVision.Arc a)
-                        {
-                            Corner alreadyInList = parent.corners.FindFirst(x =>
-                                x != corner && x.curve && 
-                                ((x.nextPt - corner.nextPt).R < 3.5 ||
-                                 (x.prevPt - corner.nextPt).R < 3.5));
-                            if (alreadyInList == null)
-                            {
-                                e = new Ellipse()
-                                {
-                                    Height = size,
-                                    Width = size,
-                                    Stroke = b,
-                                    Fill = Brushes.Pink,
-                                };
-                                Canvas.SetTop(e, corner.nextPt.Y * scale - size / 2);
-                                Canvas.SetLeft(e, corner.nextPt.X * scale - size / 2);
-                                theCanvas.Children.Add(e);
-                            }
-                            alreadyInList = parent.corners.FindFirst(x =>
-                                x != corner && x.curve &&
-                                ((x.nextPt - corner.prevPt).R < 3.5 ||
-                                 (x.prevPt - corner.prevPt).R < 3.5));
-                            if (alreadyInList == null)
-                            {
-                                e = new Ellipse()
-                                {
-                                    Height = size,
-                                    Width = size,
-                                    Stroke = b,
-                                    Fill = Brushes.Pink,
-                                    ToolTip = new System.Windows.Controls.ToolTip { HorizontalOffset = 100, Content = $"{i}", },
-                                };
-                                Canvas.SetTop(e, corner.prevPt.Y * scale - size / 2);
-                                Canvas.SetLeft(e, corner.prevPt.X * scale - size / 2);
-                                theCanvas.Children.Add(e);
-                            }
-
-                            var cir = a.GetCircleFromThreePoints(corner.pt * scale, corner.nextPt * scale, corner.prevPt * scale);
-                            Angle startAngle = (corner.prevPt * scale - cir.center).Theta.Normalize();
-                            Angle midAngle = (corner.pt * scale - cir.center).Theta.Normalize();
-                            Angle endAngle = (corner.nextPt * scale - cir.center).Theta.Normalize();
-                            if ((startAngle < midAngle && endAngle < midAngle) ||
-                                (startAngle > midAngle && endAngle > midAngle))
-                            {
-                                if (endAngle < startAngle)
-                                    endAngle += 2 * PI;
-                                else
-                                    (endAngle, startAngle) = (startAngle, endAngle);
-                            }
-                            else if (endAngle < startAngle)
-                            {
-                                (startAngle, endAngle) = (endAngle, startAngle);
-                            }
-                            var path1 = DrawArc(cir.center, cir.radius, startAngle, endAngle);
-                            if (path1 != null)
-                                theCanvas.Children.Add(path1);
-                        }
+                            Height = pixelSize * .25,
+                            Width = pixelSize * .25,
+                            Stroke = b,
+                            StrokeThickness = 12,
+                            //Fill = new SolidColorBrush(Colors.Transparent),
+                            ToolTip = new System.Windows.Controls.ToolTip
+                            { HorizontalOffset = 100, Content = toolTipString },
+                        };
+                        Canvas.SetLeft(e, (x + .875f) * scale);
+                        Canvas.SetTop(e, (y + .875f) * scale);
+                        theCanvas.Children.Add(e);
+                        e.MouseRightButtonDown += E_MouseRightButtonDown;
+                        e.Tag = toolTipString;
                     }
                 }
             }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Vision dialog draw failed: {ex.Message}"); }
+            catch { }
             return true;
         }
 
+        private void DrawAPatch(Thing t)
+        {
+            ModuleVision parent = (ModuleVision)base.ParentModule;
+            string[] parts = t.Label.Split('_');
+            int x = int.Parse(parts[1]);
+            int y = int.Parse(parts[2]);
+            SolidColorBrush b = new SolidColorBrush(Colors.Pink);
+            string toolTipString = t.Label + " c:" + t.Weight;
+            Rectangle e = new()
+            {
+                Height = pixelSize * (parent.patchSize - .3),
+                Width = pixelSize * (parent.patchSize - .3),
+                Stroke = b,
+                StrokeThickness = 12,                //Fill = new SolidColorBrush(Colors.Transparent),
+                ToolTip = new System.Windows.Controls.ToolTip
+                { HorizontalOffset = 100, Content = toolTipString },
+            };
+            Canvas.SetLeft(e, (x + .65f - parent.patchSize / 2) * scale);
+            Canvas.SetTop(e, (y + .65f - parent.patchSize / 2) * scale);
+            theCanvas.Children.Add(e);
+            e.MouseRightButtonDown += E_MouseRightButtonDown;
+            e.Tag = toolTipString;
+
+
+            foreach (Link pt in t.LinksFrom.Where(x => x.LinkType.Label == "hasBoundary"))
+            {
+                parts = pt.To.Label.Split('_');
+                x = int.Parse(parts[1]);
+                y = int.Parse(parts[2]);
+                float theWeight = pt.Weight;
+                b = new SolidColorBrush(RainbowColorFromValue(theWeight));
+                toolTipString = $"({(int)x},{(int)y}) w: {theWeight:F2}  max: {pt.maxWeight:F2}  ";
+                e = new()
+                {
+                    Height = pixelSize / 2,
+                    Width = pixelSize / 2,
+                    Stroke = b,
+                    Fill = b,
+                    ToolTip = new System.Windows.Controls.ToolTip
+                    { HorizontalOffset = 100, Content = toolTipString },
+                };
+                Canvas.SetLeft(e, x * scale + 3 * pixelSize / 4);
+                Canvas.SetTop(e, y * scale + 3 * pixelSize / 4);
+                theCanvas.Children.Add(e);
+                e.MouseRightButtonDown += E_MouseRightButtonDown;
+                e.Tag = toolTipString;
+            }
+            foreach (Link pt in t.LinksFrom.Where(x => x.LinkType.Label == "collinearWith"))
+            {
+                if (pt.Weight < .2f) continue;
+                if (cbShowCorners.IsChecked != true) continue;
+                parts = pt.To.Label.Split('_');
+                x = int.Parse(parts[1]);
+                y = int.Parse(parts[2]);
+                float theWeight = pt.Weight;
+                b = new SolidColorBrush(Colors.Red);
+                toolTipString = $"({(int)x},{(int)y}) w: {theWeight:F2}  max: {pt.maxWeight:F2}  ";
+                e = new()
+                {
+                    Height = pixelSize / 2,
+                    Width = pixelSize / 2,
+                    Stroke = b,
+                    Fill = b,
+                    ToolTip = new System.Windows.Controls.ToolTip
+                    { HorizontalOffset = 100, Content = toolTipString },
+                };
+                Canvas.SetLeft(e, x * scale + 3 * pixelSize / 4);
+                Canvas.SetTop(e, y * scale + 3 * pixelSize / 4);
+                theCanvas.Children.Add(e);
+                e.MouseRightButtonDown += E_MouseRightButtonDown;
+                e.Tag = toolTipString;
+            }
+            //draw a segmentwhich indicates the patch orientation based on the weights
+            //the arrow will point in the direction of the strongest weight sum and go through the center of the patch
+            DrawPatchOrientation(t);
+        }
+        private void DrawPatchRelative(Thing t, PointPlus center, int patchSize)
+        {
+            float tScale = scale * .75f;
+            string[] parts = t.Label.Split('_');
+            int patchX = int.Parse(parts[1]);
+            int patchY = int.Parse(parts[2]);
+            SolidColorBrush b = new SolidColorBrush(Colors.Orange);
+            Rectangle e = new()
+            {
+                Height = pixelSize * (patchSize - .9),
+                Width = pixelSize * (patchSize - .9),
+                Stroke = b,
+                StrokeThickness = 6,
+            };
+            Canvas.SetLeft(e, (center.X + .65f - patchSize / 2) * tScale);
+            Canvas.SetTop(e, (center.Y + .65f - patchSize / 2) * tScale);
+            theCanvas.Children.Add(e);
+
+            float offset = 3 * pixelSize / 4;
+            foreach (Link pt in t.LinksFrom.Where(x => x.LinkType.Label == "hasBoundary"))
+            {
+                parts = pt.To.Label.Split('_');
+                float x = int.Parse(parts[1]);
+                x = center.X - (patchX - x);
+                float y = int.Parse(parts[2]);
+                y = center.Y - (patchY - y);
+                float theWeight = pt.Weight;
+                b = new SolidColorBrush(RainbowColorFromValue(theWeight));
+                e = new()
+                {
+                    Height = pixelSize / 2,
+                    Width = pixelSize / 2,
+                    Stroke = b,
+                    Fill = b,
+                };
+                Canvas.SetLeft(e, x * tScale + offset);
+                Canvas.SetTop(e, y * tScale + offset);
+                theCanvas.Children.Add(e);
+            }
+            float val = GetPatchConfidence(t);
+            Label tb = new() { Content = $"{val:F2}", FontSize = 10, };
+            Canvas.SetLeft(tb, (center.X + 2 + .65f - patchSize / 2) * tScale);
+            Canvas.SetTop(tb, (center.Y + 2 + .65f - patchSize / 2) * tScale);
+            theCanvas.Children.Add(tb);
+            PointPlus drawCenter = new PointPlus(center.X*.76f, center.Y*.76f);
+            DrawPatchOrientation(t, drawCenter);
+        }
+
+        float GetPatchConfidence(Thing t)
+        {
+            if (!t.Label.StartsWith("patch")) return -1;
+            float val = 0;
+
+            foreach (Link r in t.LinksFrom.Where(x => x.LinkType.Label == "hasBoundary"))
+            {
+                ModuleVision parent = (ModuleVision)base.ParentModule;
+                string[] parts = r.To.Label.Split('_');
+                int x = int.Parse(parts[1]);
+                int y = int.Parse(parts[2]);
+                if (parent.boundaryArray[x, y])
+                    val += r.Weight;
+            }
+
+            return val;
+        }
+        void DrawPatchOrientation(Thing patch, PointPlus drawCenter = null)
+        {
+            if (cbShowSrokes.IsChecked == false) return;
+            // 1. accumulate weighted direction
+            Thing centerT = patch.LinksFrom.FindFirst(x => x.Weight == 1 && x.LinkType.Label == "hasBoundary").To;
+            string[] parts = centerT.Label.Split('_');
+
+            PointPlus center = new PointPlus(int.Parse(parts[1]), (float)int.Parse(parts[2]));
+            if (drawCenter == null)
+                drawCenter = center;
+
+            float Sxx = 0f, Syy = 0f, Sxy = 0f;
+
+            foreach (var rel in patch.LinksFrom.Where(x => x.LinkType.Label == "hasBoundary"))
+            {
+                string[] p = rel.To.Label.Split('_');
+                float px = int.Parse(p[1]);
+                float py = int.Parse(p[2]);
+
+                float dx = px - center.X;
+                float dy = (py - center.Y);  // correct Y orientation
+
+                float w = rel.Weight;
+
+                Sxx += w * dx * dx;
+                Syy += w * dy * dy;
+                Sxy += w * dx * dy;
+            }
+
+            // orientation axis angle
+            float theta = 0.5f * (float)Math.Atan2(2 * Sxy, Sxx - Syy);
+
+            int half = 2;
+            float L = half; // length of line
+
+            float dx2 = (float)Math.Cos(theta);
+            float dy2 = (float)Math.Sin(theta);
+
+            //var p1 = new Point(center.X - dx2 * L, center.Y - dy2 * L);
+            //var p2 = new Point(center.X + dx2 * L, center.Y + dy2 * L);
+            var p1 = new Point(drawCenter.X - dx2 * L, drawCenter.Y - dy2 * L);
+            var p2 = new Point(drawCenter.X + dx2 * L, drawCenter.Y + dy2 * L);
+
+            // 4. draw main line
+            Brush b = new SolidColorBrush(Colors.Black);
+            Line e = new()
+            {
+                X1 = p1.X * scale + 3 * pixelSize / 4,
+                Y1 = p1.Y * scale + 3 * pixelSize / 4,
+                X2 = p2.X * scale + 3 * pixelSize / 4,
+                Y2 = p2.Y * scale + 3 * pixelSize / 4,
+                Stroke = b,
+                StrokeThickness = 6,
+            };
+            theCanvas.Children.Add(e);
+        }
+
+
+        private void E_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Rectangle r && r.Tag != null)
+            {
+                SetStatus(r.Tag.ToString());
+                statusLabel.MouseRightButtonDown += StatusLabel_MouseRightButtonDown;
+                if (r.Tag.ToString().StartsWith("patch"))
+                {
+                    ModuleVision parent = (ModuleVision)base.ParentModule;
+                    var theUKS = parent.theUKS;
+                    var patchName = r.Tag.ToString().Split(' ')[0];
+                    var t = theUKS.Labeled(patchName);
+                    if (t != null)
+                    {
+                        //t.SetFired();
+                        DrawAPatch(t);
+                        GetNearestOrder(t);
+
+                        string[] parts = t.Label.Split('_');
+                        int patchX = int.Parse(parts[1]);
+                        int patchY = int.Parse(parts[2]);
+
+                        for (int i = 0; i < 8; i++)
+                        {
+                            string thingLabel = $"patch_{parts[1]}_{parts[2]}_{i}";
+                            Thing t1 = theUKS.Labeled(thingLabel);
+                            if (t1 != null)
+                                DrawPatchRelative(t1, new PointPlus(22 + 6 * (i / 4), (float)(1 + 5.5 * (i % 4))), 5);
+                        }
+                    }
+                }
+                StatusLabel_MouseRightButtonDown(null, null); //this makes the selected element appear in the UKS dialog too
+            }
+        }
+
+        void GetNearestOrder(Thing t)
+        {
+            List<Thing> orderList = new();
+            Thing currentThing = t;
+            orderList.Add(t);
+            while (currentThing != null)
+            {
+                bool found = false;
+                foreach (Link r in currentThing.LinksFrom.Where(x => x.LinkType.Label == "nearlyCollinearWith"))
+                {
+                    if (orderList.Contains(r.To)) continue;
+                    orderList.Add(r.To);
+                    currentThing = r.To;
+                    found = true;
+                    break;
+                }
+                if (found == false) currentThing = null;
+            }
+
+            string output = labelProperties.Content.ToString();
+            int i = output.IndexOf("Order");
+            if (i >= 0)
+                output = output.Substring(0, i);
+            output += "\nOrder:  ";
+            foreach (Thing t1 in orderList)
+                output += t1.Label[^2..] + ", ";
+            labelProperties.Content = output;
+        }
+
+        private void StatusLabel_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            string s = statusLabel.Content.ToString().Split(' ')[0];
+
+            //set the root of the UKS dieplsy
+            var mod = MainWindow.theWindow.GetModuleByLabel("ModuleUKS0");
+            mod.SetSavedDlgAttribute("Root", s);
+        }
 
         public Polyline DrawArc(PointPlus center, float radius, Angle startAngle, Angle endAngle)
         {
@@ -345,7 +543,7 @@ namespace BrainSimulator.Modules
                     curPath = openFileDialog1.FileName;
                 }
                 //parent.previousFilePath = "";
-                parent.currentFilePath = curPath;
+                parent.CurrentFilePath = curPath;
                 //parent.SetParameters(fileList, curPath, (bool)cbAutoCycle.IsChecked, (bool)cbNameIsDescription.IsChecked);
             }
         }
@@ -370,21 +568,55 @@ namespace BrainSimulator.Modules
                 ModuleVision parent = (ModuleVision)base.ParentModule;
                 if (parent == null) return;
                 bool cbState = cb.IsChecked == true;
-                switch (cb.Content)
-                {
-                    case "Horiz": parent.horizScan = cbState; parent.previousFilePath = ""; break;
-                    case "Vert": parent.vertScan = cbState; parent.previousFilePath = ""; break;
-                    case "45": parent.fortyFiveScan = cbState; parent.previousFilePath = ""; break;
-                    case "-45": parent.minusFortyFiveScan = cbState; parent.previousFilePath = ""; break;
-                }
+                //switch (cb.Content)
+                //{
+                //    case "Horiz": parent.horizScan = cbState; parent.previousFilePath = ""; break;
+                //    case "Vert": parent.vertScan = cbState; parent.previousFilePath = ""; break;
+                //    case "45": parent.fortyFiveScan = cbState; parent.previousFilePath = ""; break;
+                //    case "-45": parent.minusFortyFiveScan = cbState; parent.previousFilePath = ""; break;
+                //}
             }
             Draw(false);
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            ModuleVision parent = (ModuleVision)base.ParentModule;
-            parent.previousFilePath = "";
+            if (sender is Button b)
+            {
+                ModuleVision parent = (ModuleVision)base.ParentModule;
+                if (b.Content.ToString() == "Test")
+                {
+                    parent.SingteTestPattern();
+                }
+                if (b.Content.ToString() == "100")
+                {
+                    //this doesn't work because everybody uses the same boundary array
+                    //System.Threading.Tasks.Parallel.For(0, 1000, i => parent.SingteTestPattern());
+
+                    //spawn the following as a separate thread so the UI can update
+                    Task backgroundTask = Task.Run(() =>
+                    {
+                        for (int i = 0; i < 10000; i++)
+                            parent.SingteTestPattern();
+                    });
+                }
+                if (b.Content.ToString() == "Refresh")
+                {
+                    parent.Refresh();
+                }
+                if (b.Content.ToString() == "Show")
+                {
+                    parent.Show();
+                }
+                if (b.Content.ToString() == "Init")
+                {
+                    parent.InitArray();
+                }
+                if (b.Content.ToString() == "Clear")
+                {
+                    parent.ClearBoundaryArray();
+                }
+            }
         }
 
         private void ModuleBaseDlg_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -398,61 +630,68 @@ namespace BrainSimulator.Modules
                 Button_Click(null, null);
         }
 
-        private void ModuleBaseDlg_MouseWheel(object sender, MouseWheelEventArgs e)
+
+
+
+        //helper to make rainbow colors
+        // Map a value to a rainbow color.
+        public static Color RainbowColorFromValue(float value) //value has a range -1,1
         {
-            //TODO, make bitmapsize a variable here
-            //TODO, at max scale, do not change offsetX,Y
-            ModuleVision parent = (ModuleVision)base.ParentModule;
-            parent.scale *= 1 + e.Delta / 1000f;
+            // Convert into a value between 0 and 1023.
+            int int_value = (int)(1023 * value);
 
-            parent.offsetX = +25 + (int)((parent.offsetX - 25) * (1 + e.Delta / 1000f));
-            parent.offsetY = +25 + (int)((parent.offsetY - 25) * (1 + e.Delta / 1000f));
-            if (parent.scale < 1) parent.scale = 1;
-            parent.LoadImageFileToPixelArray(parent.currentFilePath);
-
-            ResetTimer();
-        }
-
-        private Point? prevPoint;
-        private void ModuleBaseDlg_MouseMove(object sender, MouseEventArgs e)
-        {
-            Point pos = e.GetPosition(this);
-            if (e.LeftButton == MouseButtonState.Pressed)
+            if (int_value < -1022) //fully negative
             {
-                if (prevPoint == null)
-                    prevPoint = pos;
-                else
-                {
-                    Point diff = pos - (Vector)prevPoint.Value;
-                    ModuleVision parent = (ModuleVision)base.ParentModule;
-                    parent.offsetX += (int)diff.X / 5;
-                    parent.offsetY += (int)diff.Y / 5;
-
-                    parent.LoadImageFileToPixelArray(parent.currentFilePath);
-                    ResetTimer();
-                }
+                return Colors.Black;
             }
-            prevPoint = pos;
-        }
-
-        private DispatcherTimer refreshTimer = null;
-        private void ResetTimer()
-        {
-            if (refreshTimer == null)
+            else if (int_value >= 1023) //fully positive
             {
-                refreshTimer = new DispatcherTimer();
-                refreshTimer.Tick += RefreshTimer_Tick;
-                refreshTimer.Interval = TimeSpan.FromMilliseconds(500);
+                return Colors.White;
             }
-            refreshTimer.Stop();
-            refreshTimer.Start();
-        }
-        private void RefreshTimer_Tick(object sender, EventArgs e)
-        {
-            refreshTimer.Stop();
-            ModuleVision parent = (ModuleVision)base.ParentModule;
-            parent.previousFilePath = "";
+            else if (int_value == 0) //0 (blue)
+            {
+                return Colors.Blue;
+            }
+            else if (int_value < 0) // -1,0 graysacle
+            {
+                int_value = (1024 - (Math.Abs(int_value) / 2) + 512) / 4;
+                return Color.FromRgb((byte)int_value, (byte)int_value, (byte)int_value);
+            }
+
+            int_value = 1023 - int_value;
+            // Map different color bands.
+            if (int_value < 256)
+            {
+                // Red to yellow. (255, 0, 0) to (255, 255, 0).
+                return Color.FromRgb(255, (byte)int_value, 0);
+            }
+            else if (int_value < 512)
+            {
+                // Yellow to green. (255, 255, 0) to (0, 255, 0).
+                int_value -= 256;
+                return Color.FromRgb((byte)(255 - int_value), 255, 0);
+            }
+            else if (int_value < 768)
+            {
+                // Green to aqua. (0, 255, 0) to (0, 255, 255).
+                int_value -= 512;
+                return Color.FromRgb(0, 255, (byte)int_value);
+            }
+            else
+            {
+                // Aqua to blue. (0, 255, 255) to (0, 0, 255).
+                int_value -= 768;
+                return Color.FromRgb(0, (byte)(255 - int_value), 255);
+            }
         }
 
+        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox cb)
+            {
+                ModuleVision parent = (ModuleVision)base.ParentModule;
+                parent.testMethod = cb.SelectedIndex;
+            }
+        }
     }
 }
