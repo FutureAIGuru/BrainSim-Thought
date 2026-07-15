@@ -1,0 +1,6 @@
+# Phase 1 seed spheres (filename or Grey center)
+Seven Sphere_e5617f08.json
+UNIPHICS.json
+BrainSim3.json
+Thought_95716229.json
+ALGORITHM.json

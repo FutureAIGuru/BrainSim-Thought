@@ -1,0 +1,12 @@
+# Auto-generated skip inventory (informational)
+Operation_7c370d95.json	all_empty_aspects
+Thing_7c370d95.json	all_empty_aspects
+Thinking_316874ed.json	parse_error	Extra data: line 1 column 175 (char 174)
+state_port_14285.json	empty_grey
+state_port_14286.json	empty_grey
+state_port_14287.json	empty_grey
+state_port_14288.json	empty_grey
+state_port_14289.json	empty_grey
+state_port_14290.json	empty_grey
+state_view_0.json	empty_grey
+untitled_7c370d95.json	empty_grey

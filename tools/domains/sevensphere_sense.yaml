@@ -1,0 +1,70 @@
+# Phase 3 — hand-reviewed sense layer for SevenSphere → UKS cloud.
+# Geometric aspect links come from JSON import; these triples add Simon-style
+# domain facts ONLY where human-reviewed. Never invent center is-a aspect.
+#
+# Requires: generate_sevensphere_cloud.py --domain sense (or --with-sense)
+# Parents should already exist from seed/curated geometric import.
+
+name: sevensphere_sense
+requires: []
+
+nodes:
+  # Ensure high-value centers/aspects exist even if geometric import order varies
+  - label: BrainSim3
+    is_a: [sphereCenter]
+  - label: UKS
+    is_a: [sphereCenter]
+  - label: Algorithm
+    is_a: [sphereCenter]
+  - label: Atomic Thought
+    is_a: [sphereCenter]
+  - label: Modules
+    is_a: [sphereAspect]
+  - label: Neurons
+    is_a: [sphereAspect]
+  - label: Sensors
+    is_a: [sphereAspect]
+  - label: Actuators
+    is_a: [sphereAspect]
+  - label: Processing
+    is_a: [sphereAspect]
+  - label: Input
+    is_a: [sphereAspect]
+  - label: Output
+    is_a: [sphereAspect]
+  - label: Termination
+    is_a: [sphereAspect]
+  - label: Operations
+    is_a: [sphereAspect]
+  - label: Variables
+    is_a: [sphereAspect]
+  - label: Control Structures
+    is_a: [sphereAspect]
+  - label: Relationship
+    is_a: [sphereAspect]
+  - label: Attribute
+    is_a: [sphereAspect]
+  - label: Grounding
+    is_a: [sphereAspect]
+
+links:
+  # BrainSim3 instrument (from BrainSim3.json geometry, reinforced as has)
+  - [BrainSim3, has, UKS]
+  - [BrainSim3, has, Modules]
+  - [BrainSim3, has, Neurons]
+  - [BrainSim3, has, Sensors]
+  - [BrainSim3, has, Actuators]
+  - [BrainSim3, has, Processing]
+  # Algorithm structure (stable/dynamic aspects as has parts)
+  - [Algorithm, has, Input]
+  - [Algorithm, has, Output]
+  - [Algorithm, has, Termination]
+  - [Algorithm, has, Operations]
+  - [Algorithm, has, Variables]
+  - [Algorithm, has, Control Structures]
+  # Simon Ch.3 lens (Atomic Thought sphere if present)
+  - [Atomic Thought, has, Relationship]
+  - [Atomic Thought, has, Attribute]
+  - [Atomic Thought, has, Grounding]
+
+instances: []

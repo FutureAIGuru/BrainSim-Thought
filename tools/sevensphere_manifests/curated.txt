@@ -1,0 +1,68 @@
+# Phase 2 curated cognition / BrainSim-adjacent spheres
+AGI Program Code.json
+AGI.json
+AGING.json
+ALGORITHM.json
+ARTIFICIAL_INTELLIGENCE.json
+ATTENTION.json
+Agent_c8aaaaec.json
+Artificial General Intelligence.json
+Atomic Thought_0f3eef26.json
+BAD_IDEA.json
+BRAIN.json
+BRAINWASH.json
+Brain Cell.json
+BrainSim3.json
+CONCEPT.json
+CONSCIOUSNESS.json
+CONSCIOUSNESS2.json
+FOUNDATION_MODEL.json
+GROUNDING.json
+HIVE_MIND.json
+IDEAL.json
+IDEALISM.json
+IDEAS.json
+IMAGINATION.json
+INTELLIGENCE.json
+KNOWLEDGE.json
+KNOW_MIND.json
+LANGUAGE.json
+LEARNING.json
+LEARNING1.json
+LEARNING2.json
+MAGIC.json
+MEMORY.json
+MIND.json
+MIND2.json
+MINDFOOL.json
+MINDSET.json
+MIND_MAP.json
+MIND_OVER_MATTER.json
+NETWORK.json
+NEURONS.json
+NEVERMIND.json
+NO_MIND.json
+ONE_MIND.json
+OPENMINDED.json
+OPEN_MIND.json
+OPEN_YOUR_MIND.json
+Perception_d72d4aa8.json
+REASON.json
+RELATIONSHIP.json
+SENSORY_DEPRIVATION.json
+SUBCONSCIOUS.json
+SYMBOL.json
+SYMBOL7.json
+Sensors Taf Base Functional_f329c055.json
+Sensors Taf Base Technical_b7a2e5e4.json
+Sensors_38db655d.json
+Seven Sphere_e5617f08.json
+THE_MAGIC_INFINITY.json
+THOUGHTS.json
+THOUGHTS2.json
+Thought_95716229.json
+UKS Persistence_32f0691c.json
+UKS_190850aa.json
+UNIPHICS.json
+WEBMINDS.json
+WebMind_681f5476.json
