@@ -990,19 +990,23 @@ public partial class UKS
 
     private bool SequenceElementMatches(Thought patternElement, Thought sequenceElementValue, Thought searchOptions)
     {
-        //if (patternElement is null || sequenceElementValue is null || searchOptions is null) return false;
-        //if (ReferenceEquals(patternElement, sequenceElementValue)) return true;
-
-        //return IsWildcardPatternElement(sequenceElementValue, searchOptions);
-
-        if (patternElement is null ||sequenceElementValue is null ||searchOptions is null)return false;
+        if (patternElement is null || sequenceElementValue is null || searchOptions is null) return false;
 
         if (ReferenceEquals(patternElement, sequenceElementValue)) return true;
 
         if (!searchOptions.HasProperty("allowWildcards")) return false;
 
-        return patternElement.HasAncestor("Wildcard") ||
-               sequenceElementValue.HasAncestor("Wildcard");
+        // Check if patternElement is a wildcard with the "isWildcard" property
+        if (patternElement.HasProperty("isWildcard"))
+        {
+            // Check if sequenceElementValue has any of the wildcard's parents as an ancestor
+            foreach (var parent in patternElement.Parents)
+            {
+                if (sequenceElementValue.HasAncestor(parent))
+                    return true;
+            }
+        }
+        return false;
     }
 
     private bool IsWildcardPatternElement(Thought patternElement, Thought searchOptions)
@@ -1010,7 +1014,10 @@ public partial class UKS
         if (patternElement is null) return false;
         if (searchOptions is null) return false;
         if (!searchOptions.HasProperty("allowWildcards")) return false;
-        return patternElement.HasAncestor("Wildcard");
+
+        // Check for new-style wildcard with "isWildcard" property
+        if (patternElement.HasProperty("isWildcard")) return true;
+        return false;
     }
 
     private List<(SeqElement seqNode, float confidence)> CollectSequenceSearchResults(

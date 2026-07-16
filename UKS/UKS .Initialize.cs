@@ -91,6 +91,7 @@ public partial class UKS
         AddStatement("isExclusive", "is-a", "Property");
         AddStatement("isTransitive", "is-a", "Property");
         AddStatement("isInstance", "is-a", "Property");
+        AddStatement("isWildcard", "is-a", "Property");
         AddStatement("isCommutative", "is-a", "Property");
         AddStatement("allowMultiple", "is-a", "Property");
         AddStatement("inheritable", "is-a", "Property");

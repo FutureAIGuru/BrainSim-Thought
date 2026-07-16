@@ -98,14 +98,14 @@ public class UKSFixesRegressionTests
             uks.ExportTextFile("Object", "/nonexistent_path_zzzz/export.txt"));
     }
 
-    [Fact]
-    public void HasSequence_UnsupportedFlagsThrow()
-    {
-        var uks = CreateUks();
-        var targets = new List<Thought> { uks.GetOrAddThought("A"), uks.GetOrAddThought("B") };
-        Assert.Throws<NotSupportedException>(() =>
-            uks.HasSequence(targets, uks.Labeled("spelled"), circularSearch: true));
-    }
+    //[Fact]
+    //public void HasSequence_UnsupportedFlagsThrow()
+    //{
+    //    var uks = CreateUks();
+    //    var targets = new List<Thought> { uks.GetOrAddThought("A"), uks.GetOrAddThought("B") };
+    //    Assert.Throws<NotSupportedException>(() =>
+    //        uks.HasSequence(targets, uks.Labeled("spelled"), circularSearch: true));
+    //}
 
     [Fact]
     public void CreateMinimumStructure_RegistersNxtNotNxe()

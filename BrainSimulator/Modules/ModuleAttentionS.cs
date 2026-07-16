@@ -28,7 +28,7 @@ public class ModuleAttentionS : ModuleBase
     {
         Init();
 
-        foreach (Link l in ((Thought)"activeThought").LinksFrom.Where(x=>x.LinkType.Label== "is-a"))
+        foreach (Link l in ((Thought)"activeThought")?.LinksFrom?.Where(x=>x?.LinkType?.Label== "is-a"))
         {
             if (l.HasLink(l,"handled", null) is not null) continue; //only handle this event once
             l.AddLink("handled", null);

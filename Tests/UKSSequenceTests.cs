@@ -165,6 +165,8 @@ public class UKSSequenceTests
         var uks = CreateUKS();
         var searchOptions = uks.Labeled("TemplateSequenceSearch");
         var wildcard = uks.Labeled("??");
+        wildcard.AddLink("hasProperty", "isWildcard");
+        wildcard.AddParent("Thought");
 
         var cat = uks.AddSequenceAndLink(uks.GetOrAddThought("CAT"), "spelled", new List<Thought> { "C", "A", "T" });
         var cot = uks.AddSequenceAndLink(uks.GetOrAddThought("COT"), "spelled", new List<Thought> { "C", "O", "T" });
@@ -193,6 +195,99 @@ public class UKSSequenceTests
         Assert.Contains(multipleWildcards, m => ReferenceEquals(m.seqNode, cot) && m.confidence >= 1.0f);
         Assert.Contains(multipleWildcards, m => ReferenceEquals(m.seqNode, dog) && m.confidence >= 1.0f);
         Assert.DoesNotContain(multipleWildcards, m => ReferenceEquals(m.seqNode, cat));
+    }
+
+    [Fact]
+    public void FindSequencesByActivation_MatchesClassBasedWildcards()
+    {
+        var uks = CreateUKS();
+        var searchOptions = uks.GetOrAddThought("ClassWildcardSearch", "SequenceSearchOptions");
+        searchOptions.AddLink("hasProperty", "allowWildcards");
+
+        // Create word classes
+        var verb = uks.GetOrAddThought("Verb", "WordClass");
+        var noun = uks.GetOrAddThought("Noun", "WordClass");
+
+        // Create specific words as instances of classes
+        var run = uks.GetOrAddThought("run", "Word");
+        run.AddParent(verb);
+
+        var jump = uks.GetOrAddThought("jump", "Word");
+        jump.AddParent(verb);
+
+        var dog = uks.GetOrAddThought("dog", "Word");
+        dog.AddParent(noun);
+
+        var cat = uks.GetOrAddThought("cat", "Word");
+        cat.AddParent(noun);
+
+        // Create class-based wildcards with isWildcard property
+        var verbWildcard = uks.GetOrAddThought("??verb", "Wildcard");
+        verbWildcard.AddLink("hasProperty", "isWildcard");
+        verbWildcard.AddParent(verb);
+
+        var nounWildcard = uks.GetOrAddThought("??noun", "Wildcard");
+        nounWildcard.AddLink("hasProperty", "isWildcard");
+        nounWildcard.AddParent(noun);
+
+        // Create test sequences: "the dog runs", "the cat jumps", "the dog sleeps"
+        var the = uks.GetOrAddThought("the", "Word");
+        var runs = uks.GetOrAddThought("runs", "Word");
+        runs.AddParent(verb);
+
+        var jumps = uks.GetOrAddThought("jumps", "Word");
+        jumps.AddParent(verb);
+
+        var sleeps = uks.GetOrAddThought("sleeps", "Word");
+        sleeps.AddParent(verb);
+
+        var seq1 = uks.AddSequenceAndLink(uks.GetOrAddThought("sentence1"), "words", 
+            new List<Thought> { the, dog, runs });
+        var seq2 = uks.AddSequenceAndLink(uks.GetOrAddThought("sentence2"), "words", 
+            new List<Thought> { the, cat, jumps });
+        var seq3 = uks.AddSequenceAndLink(uks.GetOrAddThought("sentence3"), "words", 
+            new List<Thought> { the, dog, sleeps });
+
+        // Test: Pattern "the <noun> <verb>" should match all three sentences
+        var nounVerbPattern = uks.FindSequencesByActivation(
+            new List<Thought> { the, nounWildcard, verbWildcard }, searchOptions);
+
+        Assert.Contains(nounVerbPattern, m => ReferenceEquals(m.seqNode, seq1) && m.confidence >= 1.0f);
+        Assert.Contains(nounVerbPattern, m => ReferenceEquals(m.seqNode, seq2) && m.confidence >= 1.0f);
+        Assert.Contains(nounVerbPattern, m => ReferenceEquals(m.seqNode, seq3) && m.confidence >= 1.0f);
+
+        // Test: Pattern "the dog <verb>" should match sentences with "dog"
+        var dogVerbPattern = uks.FindSequencesByActivation(
+            new List<Thought> { the, dog, verbWildcard }, searchOptions);
+
+        Assert.Contains(dogVerbPattern, m => ReferenceEquals(m.seqNode, seq1) && m.confidence >= 1.0f);
+        Assert.DoesNotContain(dogVerbPattern, m => ReferenceEquals(m.seqNode, seq2)); // has cat, not dog
+        Assert.Contains(dogVerbPattern, m => ReferenceEquals(m.seqNode, seq3) && m.confidence >= 1.0f);
+
+        // Test: Pattern "the <noun> runs" should only match seq1
+        var nounRunsPattern = uks.FindSequencesByActivation(
+            new List<Thought> { the, nounWildcard, runs }, searchOptions);
+
+        Assert.Contains(nounRunsPattern, m => ReferenceEquals(m.seqNode, seq1) && m.confidence >= 1.0f);
+        Assert.DoesNotContain(nounRunsPattern, m => ReferenceEquals(m.seqNode, seq2)); // has jumps, not runs
+        Assert.DoesNotContain(nounRunsPattern, m => ReferenceEquals(m.seqNode, seq3)); // has sleeps, not runs
+
+        // Test: Pattern "the cat <verb>" should only match seq2
+        var catVerbPattern = uks.FindSequencesByActivation(
+            new List<Thought> { the, cat, verbWildcard }, searchOptions);
+
+        Assert.DoesNotContain(catVerbPattern, m => ReferenceEquals(m.seqNode, seq1)); // has dog, not cat
+        Assert.Contains(catVerbPattern, m => ReferenceEquals(m.seqNode, seq2) && m.confidence >= 1.0f);
+        Assert.DoesNotContain(catVerbPattern, m => ReferenceEquals(m.seqNode, seq3)); // has dog, not cat
+
+        // Test: Pattern "the cat <noun>" should match NOTHING (no sequence has cat + noun)
+        var catNounPattern = uks.FindSequencesByActivation(
+            new List<Thought> { the, cat, nounWildcard }, searchOptions);
+
+        Assert.DoesNotContain(catNounPattern, m => ReferenceEquals(m.seqNode, seq1)); // has dog, not cat
+        Assert.DoesNotContain(catNounPattern, m => ReferenceEquals(m.seqNode, seq2)); // has cat, but jumps is a verb
+        Assert.DoesNotContain(catNounPattern, m => ReferenceEquals(m.seqNode, seq3)); // has dog, not cat
+        Assert.Empty(catNounPattern); // Verify no matches at all
     }
 
     [Fact]
