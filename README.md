@@ -5,6 +5,7 @@
 Brain Simulator Thought is a cognitive architecture designed to model **meaning, understanding, and common sense** rather than pattern matching alone. It builds on years of development in Brain Simulator III, introducing a refined and more powerful internal model centered on **atomic Thoughts**, **Links**, and dynamically constructed **ThoughtFields**.
 
 At its core, Brain Simulator Thought provides a substrate in which knowledge is not stored as static facts, but emerges from interconnected, competing, and evolving structures—much closer to how biological cognition operates.
+
 | [API](https://futureaisociety.org/Documentation/html/) | [Books](https://futureaisociety.org/resources/books/) | [Linux Installation](https://futureaisociety.org/wp-content/uploads/2026/07/windows-11-vm.pdf) | [Website](https://futureaisociety.org/) | [Youtube](https://www.youtube.com/@FutureAISociety) |
 
 ---
