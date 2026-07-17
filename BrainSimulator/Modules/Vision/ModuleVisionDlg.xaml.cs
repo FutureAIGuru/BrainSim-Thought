@@ -123,7 +123,7 @@ namespace BrainSimulator.Modules
                 //draw the patch centers
                 if (cbShowCenterPts.IsChecked == true && parent.boundaryArray != null)
                 {
-                    List<Thing> patchesRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.StartsWith("patch") &&
+                    List<Thought> patchesRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.StartsWith("patch") &&
                         x.LastFiredTime != new DateTime(0)); //> DateTime.Now - TimeSpan.FromSeconds(10));
 
                     for (int x = 2; x < parent.boundaryArray.GetLength(0) - 2; x++)
@@ -147,7 +147,7 @@ namespace BrainSimulator.Modules
                             e.MouseRightButtonDown += E_MouseRightButtonDown;
                             e.Tag = toolTipString;
                         }
-                    foreach (Thing t in patchesRecentlyFired)
+                    foreach (Thought t in patchesRecentlyFired)
                     {
                         string[] parts = t.Label.Split('_');
                         if (parts.Length < 4) continue;
@@ -175,18 +175,18 @@ namespace BrainSimulator.Modules
                 //draw the patches & contents
                 if (cbShowPatches.IsChecked == true && parent.boundaryArray != null)
                 {
-                    List<Thing> thingsRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.ToLower().StartsWith("patch") &&
+                    List<Thought> thingsRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.ToLower().StartsWith("patch") &&
                         x.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(3));
-                    foreach (Thing t in thingsRecentlyFired)
+                    foreach (Thought t in thingsRecentlyFired)
                         DrawAPatch(t);
                 }
                 //draw the corner content
                 if (cbShowCorners.IsChecked == true && parent.boundaryArray != null)
                 {
-                    List<Thing> cornersRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.StartsWith("corner") &&
+                    List<Thought> cornersRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.StartsWith("corner") &&
                         x.LastFiredTime != new DateTime(0)); //> DateTime.Now - TimeSpan.FromSeconds(10));
 
-                    foreach (Thing t in cornersRecentlyFired)
+                    foreach (Thought t in cornersRecentlyFired)
                     {
                         string[] parts = t.Label.Split('_');
                         int x = int.Parse(parts[1]);
@@ -215,7 +215,7 @@ namespace BrainSimulator.Modules
             return true;
         }
 
-        private void DrawAPatch(Thing t)
+        private void DrawAPatch(Thought  t)
         {
             ModuleVision parent = (ModuleVision)base.ParentModule;
             string[] parts = t.Label.Split('_');
@@ -291,7 +291,7 @@ namespace BrainSimulator.Modules
             //the arrow will point in the direction of the strongest weight sum and go through the center of the patch
             DrawPatchOrientation(t);
         }
-        private void DrawPatchRelative(Thing t, PointPlus center, int patchSize)
+        private void DrawPatchRelative(Thought t, PointPlus center, int patchSize)
         {
             float tScale = scale * .75f;
             string[] parts = t.Label.Split('_');
@@ -339,7 +339,7 @@ namespace BrainSimulator.Modules
             DrawPatchOrientation(t, drawCenter);
         }
 
-        float GetPatchConfidence(Thing t)
+        float GetPatchConfidence(Thought t)
         {
             if (!t.Label.StartsWith("patch")) return -1;
             float val = 0;
@@ -356,11 +356,11 @@ namespace BrainSimulator.Modules
 
             return val;
         }
-        void DrawPatchOrientation(Thing patch, PointPlus drawCenter = null)
+        void DrawPatchOrientation(Thought patch, PointPlus drawCenter = null)
         {
             if (cbShowSrokes.IsChecked == false) return;
             // 1. accumulate weighted direction
-            Thing centerT = patch.LinksFrom.FindFirst(x => x.Weight == 1 && x.LinkType.Label == "hasBoundary")?.To;
+            Thought centerT = patch.LinksFrom.FindFirst(x => x.Weight == 1 && x.LinkType.Label == "hasBoundary")?.To;
             if (centerT is null) return;
             string[] parts = centerT.Label.Split('_');
 
@@ -440,7 +440,7 @@ namespace BrainSimulator.Modules
                         for (int i = 0; i < 8; i++)
                         {
                             string thingLabel = $"patch_{parts[1]}_{parts[2]}_{i}";
-                            Thing t1 = theUKS.Labeled(thingLabel);
+                            Thought t1 = theUKS.Labeled(thingLabel);
                             if (t1 != null)
                                 DrawPatchRelative(t1, new PointPlus(22 + 6 * (i / 4), (float)(1 + 5.5 * (i % 4))), 5);
                         }
@@ -450,10 +450,10 @@ namespace BrainSimulator.Modules
             }
         }
 
-        void GetNearestOrder(Thing t)
+        void GetNearestOrder(Thought t)
         {
-            List<Thing> orderList = new();
-            Thing currentThing = t;
+            List<Thought> orderList = new();
+            Thought currentThing = t;
             orderList.Add(t);
             while (currentThing != null)
             {
@@ -474,7 +474,7 @@ namespace BrainSimulator.Modules
             if (i >= 0)
                 output = output.Substring(0, i);
             output += "\nOrder:  ";
-            foreach (Thing t1 in orderList)
+            foreach (Thought t1 in orderList)
                 output += t1.Label[^2..] + ", ";
             labelProperties.Content = output;
         }

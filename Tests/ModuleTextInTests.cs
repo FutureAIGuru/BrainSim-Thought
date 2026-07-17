@@ -35,7 +35,7 @@ public class ModuleTextInTests
         uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
         var module = new ModuleTextIn { theUKS = uks };
 
-        string answer = module.SubmitText("What is fido").ToLower();
+        string answer = module.SubmitText("What is fido")?.ToLower();
 
         Assert.Equal("fido is a dog", answer);
     }

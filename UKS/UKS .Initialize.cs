@@ -100,8 +100,10 @@ public partial class UKS
 
         //sequence search options
         AddStatement("Wildcard", "is-a", "Thought");
-        AddStatement("??", "is-a", "Wildcard");
-        AddStatement("w:??", "is-a", "Wildcard");
+        AddStatement("??", "is-a", "Wildcard").AddParent("Thought");
+        AddStatement("??", "hasProperty", "isWildcard");
+        AddStatement("w:??", "is-a", "Wildcard").AddParent("Thought");  //SHOULD be WORD
+        AddStatement("w:??", "hasProperty", "isWildcard");
         AddStatement("SearchOption", "is-a", "Property");
         AddStatement("SequenceSearchOption", "is-a", "SearchOption");
         AddStatement("mustMatchFirst", "is-a", "SequenceSearchOption");
