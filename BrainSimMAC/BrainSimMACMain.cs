@@ -5,12 +5,13 @@
  *
  * This file is part of Brain Simulator Thought and is licensed under
  * the MIT License. You may use, copy, modify, merge, publish, distribute,
- * sublicense, and/or sell copies of this software under the terms of
+ * sublicense, and/or sell copies of the software under the terms of
  * the MIT License.
  *
  * See the LICENSE file in the project root for full license information.
  */
 using BrainSimulator;
+using System.Diagnostics;
 using UKS;
 
 
@@ -67,15 +68,22 @@ if (activeModulesRoot is not null)
 //force the MainWindow to always be activated
 moduleHandler.ActivateModule("MainWindow.py");
 
+const int loopDelayMs = 50;
 
 while (true)
 {
+    activeModulesRoot = moduleHandler.theUKS.Labeled("ActiveModule");
+    if (activeModulesRoot is null)
+    {
+        Thread.Sleep(loopDelayMs);
+        continue;
+    }
+
     foreach (var module in activeModulesRoot.Children)
     {
         if (module.Label.Contains(".py"))
             moduleHandler.RunScript(module.Label);
     }
-    activeModulesRoot = moduleHandler.theUKS.Labeled("ActiveModule");
 
     for (int i = 0; i < moduleHandler.activePythonModules.Count; i++)
     {
@@ -88,7 +96,12 @@ while (true)
                 moduleHandler.activePythonModules.RemoveAt(i);
                 i--;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BrainSimMAC: Close failed for {module.Item1}: {ex.Message}");
+            }
         }
     }
+
+    Thread.Sleep(loopDelayMs);
 }

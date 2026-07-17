@@ -16,6 +16,7 @@ class MainWindow(ViewBase):
         title: str = titleBase
         super(MainWindow, self).__init__(
             title=title, level=level, module_type=os.path.basename(__file__))
+        self._closed = False
         self.setupUKS()
         self.build()
 
@@ -36,9 +37,6 @@ class MainWindow(ViewBase):
         self.saveAsButton.pack(side='right',padx=50)
         self.saveButton.pack(side='top',pady=20)
         self.setupcontent()
-
-        if sys.argv[0] != "":
-            self.level.mainloop()
         
     def setupcontent(self):
         self.moduleList.delete(0,'end')
@@ -147,12 +145,21 @@ class MainWindow(ViewBase):
 
             
     def onClosing(self):
-        print ("MainWindow closing")    
-        os._exit(0)
+        print("MainWindow closing")
+        self._closed = True
+        try:
+            self.level.destroy()
+        except tk.TclError:
+            pass
             
     def fire(self):
-        #Put your functional code HERE
-        #This function is called repeateldly so you may wish to do things only on a timer like this:
+        if self._closed:
+            return False
+        try:
+            if not self.level.winfo_exists():
+                return False
+        except tk.TclError:
+            return False
         curr_time: float = time.time()
         try:
             if curr_time > (self.prev_time + TIMEDELAY): 
@@ -163,8 +170,10 @@ class MainWindow(ViewBase):
         #you always nee this:
         self.setupcontent()
         self.level.update()
-        #don't ever close this module while the program is running
         return True
+
+    def close(self):
+        self.onClosing()
 
 
 ######################
@@ -185,6 +194,7 @@ def GetHWND() -> int:
 def SetLabel(label):
     view.setLabel(label)
 
-if sys.argv[0]  != "":
+if __name__ == "__main__":
     Init()
+    view.level.mainloop()
 

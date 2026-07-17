@@ -27,7 +27,7 @@ public partial class UKS
         isA.AddParent(linkType);
         GetOrAddThought("Unknown", "Thought");
         GetOrAddThought("VLU", "LinkType");
-        GetOrAddThought("NXE", "LinkType");
+        GetOrAddThought("NXT", "LinkType");
         GetOrAddThought("FRST", "LinkType");
     }
 
@@ -59,13 +59,11 @@ public partial class UKS
         //because AddStatement and GetOrAddThing won't work without them
         //Thought
         if (Labeled("Thought") is null) AddThought("Thought", null);
-        Thought isA = Labeled("is-a");
-        if (isA is null) isA = AddThought("is-a", null);
-        Thought hasChild = Labeled("has-child");
-        if (hasChild is null) hasChild = AddThought("has-child", null);
+        Thought? isA = Labeled("is-a") ?? AddThought("is-a", null);
+        Thought? hasChild = Labeled("has-child") ?? AddThought("has-child", null);
         Thought linkType = AddThought("LinkType", "Thought");
-        isA.AddParent(linkType);
-        hasChild.AddParent(linkType);
+        isA?.AddParent(linkType);
+        hasChild?.AddParent(linkType);
         GetOrAddThought("Unknown", "Thought");
 
         GetOrAddThought("Abstract", "Thought");
@@ -73,7 +71,6 @@ public partial class UKS
         GetOrAddThought("Action", "Thought");
         GetOrAddThought("Link", "Thought");
         GetOrAddThought("LinkType", "Thought");
-        GetOrAddThought("Thought", "Thought");
         GetOrAddThought("is-a", "LinkType");
         GetOrAddThought("inverseOf", "LinkType");
         GetOrAddThought("hasProperty", "LinkType");
@@ -93,11 +90,44 @@ public partial class UKS
         AddStatement("isExclusive", "is-a", "Property");
         AddStatement("isTransitive", "is-a", "Property");
         AddStatement("isInstance", "is-a", "Property");
+        AddStatement("isWildcard", "is-a", "Property");
         AddStatement("isCommutative", "is-a", "Property");
         AddStatement("allowMultiple", "is-a", "Property");
         AddStatement("inheritable", "is-a", "Property");
+        AddStatement("isEphemeral", "is-a", "Property");
         AddStatement("isCondition", "is-a", "Property");
         AddStatement("isResult", "is-a", "Property");
+
+        //sequence search options
+        AddStatement("Wildcard", "is-a", "Thought");
+        AddStatement("??", "is-a", "Wildcard").AddParent("Thought");
+        AddStatement("??", "hasProperty", "isWildcard");
+        AddStatement("w:??", "is-a", "Wildcard").AddParent("Thought");  //SHOULD be WORD
+        AddStatement("w:??", "hasProperty", "isWildcard");
+        AddStatement("SearchOption", "is-a", "Property");
+        AddStatement("SequenceSearchOption", "is-a", "SearchOption");
+        AddStatement("mustMatchFirst", "is-a", "SequenceSearchOption");
+        AddStatement("mustMatchLast", "is-a", "SequenceSearchOption");
+        AddStatement("allowWildcards", "is-a", "SequenceSearchOption");
+        AddStatement("allowNestedSequences", "is-a", "SequenceSearchOption");
+        AddStatement("allowCircularSearch", "is-a", "SequenceSearchOption");
+        AddStatement("allowOutOfOrder", "is-a", "SequenceSearchOption");
+        AddStatement("preferFirstLast", "is-a", "SequenceSearchOption");
+        AddStatement("allowPartialMatch", "is-a", "SequenceSearchOption");
+        AddStatement("SequenceSearchOptions", "is-a", "Thought");
+        AddStatement("ExactSequenceSearch", "is-a", "SequenceSearchOptions");
+        AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
+        AddStatement("MelodySearchOptions", "is-a", "SequenceSearchOptions");
+        AddStatement("OrderSearchOptions", "is-a", "SequenceSearchOptions");
+        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
+        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
+        AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");
+        AddStatement("TemplateSequenceSearch", "hasProperty", "allowWildcards");
+        AddStatement("MelodySearchOptions", "hasProperty", "allowNestedSequences");
+        AddStatement("MelodySearchOptions", "hasProperty", "preferFirstLast");
+        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchFirst");
+        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchLast");
+        AddStatement("OrderSearchOptions", "hasProperty", "allowNestedSequences");
 
         //colors
         AddStatement("color", "is-a", "Abstract");
@@ -114,11 +144,36 @@ public partial class UKS
         AddStatement("white", "is-a", "color");
         AddStatement("gray", "is-a", "color");
 
+        // Ch.4 Fig 4.2 — discrete RGBI level Thoughts (analog→symbolic decode target)
+        AddStatement("isDiscreteLevel", "is-a", "Property");
+        AddStatement("discrete-channel", "is-a", "Abstract");
+        AddStatement("red-channel", "is-a", "discrete-channel");
+        AddStatement("green-channel", "is-a", "discrete-channel");
+        AddStatement("blue-channel", "is-a", "discrete-channel");
+        AddStatement("brightness-channel", "is-a", "discrete-channel");
+        for (int level = 1; level <= 8; level++)
+        {
+            AddStatement($"red-level-{level}", "is-a", "red-channel");
+            AddStatement($"red-level-{level}", "hasProperty", "isDiscreteLevel");
+            AddStatement($"green-level-{level}", "is-a", "green-channel");
+            AddStatement($"green-level-{level}", "hasProperty", "isDiscreteLevel");
+            AddStatement($"blue-level-{level}", "is-a", "blue-channel");
+            AddStatement($"blue-level-{level}", "hasProperty", "isDiscreteLevel");
+            AddStatement($"brightness-level-{level}", "is-a", "brightness-channel");
+            AddStatement($"brightness-level-{level}", "hasProperty", "isDiscreteLevel");
+        }
+        AddStatement("low-brightness", "is-a", "brightness-channel");
+        AddStatement("low-brightness", "hasProperty", "isDiscreteLevel");
+
         //underlying properties
         AddStatement("is-a", "hasProperty", "isTransitive");
         AddStatement("is-a", "hasProperty", "inheritable");
         AddStatement("has", "hasProperty", "isTransitive");
         AddStatement("has", "hasProperty", "inheritable");
+        AddStatement("located-in", "is-a", "LinkType");
+        AddStatement("located-in", "hasProperty", "isEphemeral");
+        AddStatement("attention-focus", "is-a", "LinkType");
+        AddStatement("attention-focus", "hasProperty", "isEphemeral");
 
         //Clauses
         AddStatement("ClauseType", "is-a", "LinkType");
@@ -150,9 +205,7 @@ public partial class UKS
         AddStatement("hasDigit", "is-a", "has");
 
 
-        //put in letters
-
-        //put in digits
+       //put in digits
         GetOrAddThought("some", "number");
         GetOrAddThought("many", "number");
         GetOrAddThought("none", "number");
@@ -162,22 +215,47 @@ public partial class UKS
             GetOrAddThought(i.ToString(), "digit");
         for (int i = 9; i > 0; i--)
             AddStatement(i.ToString(), "greaterThan", (i - 1).ToString());
-        AddSequenceAndLink("digit", "order", new List<Thought> { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" });
+        {
+            List<Thought> digits = new();
+            for (int i = 0; i < 10; i++)
+            {
+                Thought? digit = GetOrAddThought(i.ToString(), "digit");
+                if (digit is not null) digits.Add(digit);
+            }
+            Thought? digitType = GetOrAddThought("digit", "number");
+            Thought? orderLink = GetOrAddThought("order", "Comparison");
+            if (digitType is not null && orderLink is not null)
+                AddSequenceAndLink(digitType, orderLink, digits);
+        }
 
         //demo to add PI to the structure
         AddStatement("pi", "is-a", "number");
-        AddSequenceAndLink("pi", "hasDigit", new List<Thought> { "3", ".", "1", "4", "1", "5", "9" });
+        {
+            List<Thought> piDigits = new();
+            foreach (string d in new[] { "3", ".", "1", "4", "1", "5", "9" })
+            {
+                Thought? digit = GetOrAddThought(d, "digit");
+                if (digit is not null) piDigits.Add(digit);
+            }
+            Thought? piThought = Labeled("pi");
+            Thought? hasDigitLink = GetOrAddThought("hasDigit", "has");
+            if (piThought is not null && hasDigitLink is not null)
+                AddSequenceAndLink(piThought, hasDigitLink, piDigits);
+        }
 
         //put in letters
         GetOrAddThought("letter", "Abstract");
         List<Thought> theAlphabet = new();
         for (char c = 'A'; c <= 'Z'; c++)
         {
-            theAlphabet.Add(GetOrAddThought(c.ToString(), "Letter"));
+            Thought? letter = GetOrAddThought("l:" + c, "Letter");
+            if (letter is not null) theAlphabet.Add(letter);
         }
         GetOrAddThought("alphabet", "abstract");
-        AddSequenceAndLink("alphabet", "order", theAlphabet);
-
+        Thought? alphabetThought = GetOrAddThought("alphabet", "abstract");
+        Thought? orderLink2 = GetOrAddThought("order", "Comparison");
+        if (alphabetThought is not null && orderLink2 is not null)
+            AddSequenceAndLink(alphabetThought, orderLink2, theAlphabet);
 
         AddBrainSimConfigSectionIfNeeded();
     }

@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Tests" />
+    <InternalsVisibleTo Include="UKS.Tests" />
   </ItemGroup>
 
 </Project>

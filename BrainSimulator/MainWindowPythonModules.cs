@@ -53,9 +53,9 @@ public partial class MainWindow : Window
     {
         bool firstTime = false;
         //get the ModuleType
-        Thing tModule = theUKS.Labeled(moduleLabel);
+        Thought tModule = theUKS.Labeled(moduleLabel);
         if (tModule == null) { return; }
-        Thing tModuleType = tModule.Parents.FindFirst(x => x.HasAncestorLabeled("AvailableModule"));
+        Thought tModuleType = tModule.Parents.FindFirst(x => x.HasAncestor("AvailableModule"));
         if (tModuleType == null) return;
         string moduleType = tModuleType.Label;
         moduleType = moduleType.Replace(".py", "");

@@ -1,0 +1,58 @@
+[plantPart->is-a->Unknown] 1.00
+[sound->is-a->Unknown] 1.00
+[soundProperty->is-a->Unknown] 1.00
+[action->is-a->Unknown] 1.00
+
+[w:bark->is-a->noun] 1.00
+[w:bark->is-a->verb] 1.00
+[w:bark->means->bark(tree)] 1.00
+[w:bark->means->bark(dog)] 0.60
+
+[w:tree->is-a->noun] 1.00
+[w:tree->means->tree] 1.00
+
+[w:plant->is-a->noun] 1.00
+[w:plant->is-a->verb] 1.00
+[w:plant->means->plant] 1.00
+[w:plant->means->plant(action)] 0.55
+
+[w:branch->is-a->noun] 1.00
+[w:branch->means->branch] 1.00
+
+[w:leaf->is-a->noun] 1.00
+[w:leaf->means->leaf] 1.00
+
+[w:leaves->is-a->noun] 1.00
+[w:leaves->is-a->plural] 1.00
+[w:leaves->means->leaf] 1.00
+
+[w:sound->is-a->noun] 1.00
+[w:sound->means->sound] 1.00
+
+[w:loud->is-a->adjective] 1.00
+[w:loud->means->loud] 1.00
+
+[tree->is-a->plant] 1.00
+[plant(action)->is-a->action] 1.00
+
+[branch->is-a->plantPart] 1.00
+[leaf->is-a->plantPart] 1.00
+[bark(tree)->is-a->plantPart] 1.00
+[bark(dog)->is-a->sound] 1.00
+[loud->is-a->soundAttribute] 1.00
+
+[tree->has->bark(tree)] 1.00
+[tree->has->branch] 1.00
+[tree->has->leaf] 1.00
+
+[dog->can->bark(dog)] 1.00
+[bark(dog)->is->loud] 0.40
+
+[bark(dog)->is-a->sound] 1.00
+[loud->relatesTo->sound] 0.50
+
+[w:big->is-a->adjective] 1.00
+[w:big->means->large] 1.00
+
+[w:little->is-a->adjective] 1.00
+[w:little->means->small] 1.00

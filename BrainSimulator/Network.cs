@@ -23,7 +23,7 @@ using System.Net.Http;
 
 namespace BrainSimulator
 {
-    internal static class Network
+    public static class Network
     {
         static TcpListener server;
         static TcpClient tcpClient;
@@ -112,12 +112,15 @@ namespace BrainSimulator
         public static void Broadcast(string message)
         {
             //Debug.WriteLine("Broadcast: " + message);
-            if (broadcastAddress is null) SetBroadcastAddress();
+            if (broadcastAddress is null && !SetBroadcastAddress())
+                return;
+            if (broadcastAddress is null)
+                return;
             byte[] datagram = Encoding.UTF8.GetBytes(message);
             IPEndPoint ipEnd = new(broadcastAddress, UDPSendPort);
 
             UDPBroadcast.SendAsync(datagram, datagram.Length, ipEnd);
-        }        
+        }
         public static bool UDP_Send(string message,IPAddress ipToSend, int udpPort)
         {
             if (ipToSend is null) return false;
@@ -187,7 +190,7 @@ namespace BrainSimulator
             return true;
         }
 
-        public static void SetBroadcastAddress()
+        public static bool SetBroadcastAddress()
         {
             var host = Dns.GetHostEntry(Dns.GetHostName());
             foreach (var ip in host.AddressList)
@@ -198,10 +201,11 @@ namespace BrainSimulator
                     string[] ipComps = ipStr.Split(".");
 
                     broadcastAddress = IPAddress.Parse(ipComps[0] + "." + ipComps[1] + "." + ipComps[2] + ".255");
-                    return;
+                    return true;
                 }
             }
-            throw new Exception("No network adapters with an IPv4 address in the system!");
+            Debug.WriteLine("SetBroadcastAddress: no IPv4 adapter; UDP broadcast disabled.");
+            return false;
         }
 
         public static void SendStringToPodTCP(string msg)

@@ -1,725 +1,960 @@
-/*
- * Brain Simulator Through
- *
- * Copyright (c) 2026 Charles Simon
- *
- * This file is part of Brain Simulator Through and is licensed under
- * the MIT License. You may use, copy, modify, merge, publish, distribute,
- * sublicense, and/or sell copies of this software under the terms of
- * the MIT License.
- *
- * See the LICENSE file in the project root for full license information.
- */
-//
+﻿//
 // PROPRIETARY AND CONFIDENTIAL
 // Brain Simulator 3 v.1.0
-// � 2022 FutureAI, Inc., all rights reserved
+// © 2025 Charles Simon, all rights reserved
 //
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.Eventing.Reader;
 using System.Linq;
+using System.Windows;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using UKS;
-using System.Windows.Media;
-using System.Windows;
 using static System.Math;
 
-namespace BrainSimulator.Modules
+namespace BrainSimulator.Modules;
+
+public partial class ModuleVision : ModuleBase
 {
-    public partial class ModuleVision : ModuleBase
+    private string currentFilePath = "";
+    public string previousFilePath = null;
+
+    //to read in image files and detect boundary points
+    public BitmapImage bitmap = null;
+    public Color[,] imageArray;
+    public List<PointPlus> strokePoints = new(); //boundary detector fills this in 
+    public List<PointPlus> boundaryPoints = new();
+
+    //to hold the detected boundary points
+    public bool[,] boundaryArray;
+    public int hSize = 15;
+    public int vSize = 15;
+    public int patchSize = 5;
+    public int stride = 1;
+    public int counter = 0;
+    // Original value: 4
+    public int patchesPerPixel = 4;
+    // Original Weights: etaOn = 0.06f, etaOff = 0.03f, tpOff = -0.05f, tpOnWeight = 1
+    public float etaOn = 0.06f;
+    public float etaOff = 0.03f;
+    public float tpOff = -0.05f;
+    public float tpOnWeight = 1;
+
+
+
+    public string CurrentFilePath
     {
-        public string currentFilePath = "";
-        public string previousFilePath = "";
-        public BitmapImage bitmap = null;
-        public List<Corner> corners;
-        public List<Segment> segments;
-        public Color[,] imageArray;
-        //public HoughTransform segmentFinder;
-        public List<PointPlus> strokePoints = new();
-        public List<PointPlus> boundaryPoints = new();
-
-        public class Corner
+        get { return currentFilePath; }
+        set
         {
-            public PointPlus pt;
-            public virtual Angle angle
+            if (currentFilePath != value)
             {
-                get
-                {
-                    Segment s1 = new Segment(prevPt, pt);
-                    Segment s2 = new Segment(pt, nextPt);
-                    Angle a = s2.Angle - s1.Angle;
-                    while (a.Degrees > 180)
-                        a = a - Angle.FromDegrees(180);
-                    while (a.Degrees < -180)
-                        a = a + Angle.FromDegrees(180);
-                    return a;
-                }
-            }
-            public bool curve = false;
-            public PointPlus prevPt;
-            public PointPlus nextPt;
-            public override string ToString()
-            {
-                return $"[x,y:({pt.X.ToString("0.0")},{pt.Y.ToString("0.0")}) " +//A: {angle}] " +
-                    $"prevPt:[({prevPt.X.ToString("0.0")},{prevPt.Y.ToString("0.0")})] " +
-                    $"nextPt:[({nextPt.X.ToString("0.0")},{nextPt.Y.ToString("0.0")})]";
+                currentFilePath = value;
             }
         }
-        public class Arc : Corner
-        {
-            //an arc is defined by three (non-collinear) points
-            //prevPt and nextPt are the endpoints of the arc and pt is any thirde point somewhere on the arc
-            public Arc()
+    }
+
+    public ModuleVision()
+    {
+    }
+
+    //fill this method in with code which will execute
+    //once for each cycle of the engine
+    public override void Fire()
+    {
+        Init();  //be sure to leave this here
+
+        UpdateDialog();
+
+        if (CurrentFilePath == previousFilePath) return;
+        previousFilePath = CurrentFilePath;
+
+        if (imageArray == null)
+            imageArray = new Color[hSize, vSize];
+
+        if (boundaryArray == null) return;
+
+        LoadImageFileToPixelArray(CurrentFilePath);
+        FindBoundaries(imageArray);
+        SetBoundaryArrayFromImage();
+    }
+
+    Random rand = new();
+
+    public void Refresh()
+    {
+        //ClearBoundaryArray();
+        //DrawLine(p1, p2);
+        SearchAndLearn();
+    }
+
+    public void InitArray()
+    {
+        theUKS.GetOrAddThought("hasBoundary", "LinkType");
+
+        boundaryArray = new bool[hSize, vSize];
+        string prevLayerName = "Pt";
+        theUKS.GetOrAddThought(prevLayerName);
+
+        //initialize the boundary array
+        for (int x = 0; x < boundaryArray.GetLength(0); x++)
+            for (int y = 0; y < boundaryArray.GetLength(1); y++)
             {
-                curve = true;
-            }
-            public override Angle angle
-            {
-                get
-                {
-                    var cir = GetCircleFromThreePoints(pt, nextPt, prevPt);
-                    Angle startAngle = (prevPt  - cir.center).Theta.Normalize();
-                    Angle midAngle = (pt  - cir.center).Theta.Normalize();
-                    Angle endAngle = (nextPt - cir.center).Theta.Normalize();
-
-                    Angle a = Abs(startAngle - endAngle);
-                    //if the midAngle is not between start and end angles, go the other way areound the arc
-                    //TODO: handle other cases
-                    if (midAngle > startAngle && midAngle > endAngle)
-                        a = 2 * PI - a;
-                                                              
-                    return a;
-                }
-            }
-            // Function to calculate the center and radius of the circle through three points
-            public (PointPlus center, float radius) GetCircleFromThreePoints(PointPlus p1, PointPlus p2, PointPlus p3)
-            {
-                float x1 = p1.X, y1 = p1.Y;
-                float x2 = p2.X, y2 = p2.Y;
-                float x3 = p3.X, y3 = p3.Y;
-
-                // Calculate the perpendicular bisectors of two segments
-                float ma = (y2 - y1) / (x2 - x1);
-                float mb = (y3 - y2) / (x3 - x2);
-
-                // Calculate the center of the circle (intersection of the bisectors)
-                float cx = (ma * mb * (y1 - y3) + mb * (x1 + x2) - ma * (x2 + x3)) / (2 * (mb - ma));
-                float cy = -1 * (cx - (x1 + x2) / 2) / ma + (y1 + y2) / 2;
-
-                PointPlus center = new PointPlus(cx, cy);
-
-                // Calculate the radius of the circle
-                float radius = (center - p1).R;
-
-                return (center, radius);
-            }
-
-
-        }
-        public ModuleVision()
-        {
-        }
-
-        //fill this method in with code which will execute
-        //once for each cycle of the engine
-        public override void Fire()
-        {
-            Init();  //be sure to leave this here
-
-            if (currentFilePath == previousFilePath) return;
-            previousFilePath = currentFilePath;
-
-            LoadImageFileToPixelArray(currentFilePath);
-
-            FindBackgroundColor();
-
-            FindBoundaries(imageArray);
-
-            //strokePoints = FindStrokeeCentersFromBoundaryPoints(boundaryPoints);
-
-            segments = new();
-            corners = new();
-            if (strokePoints.Count > boundaryPoints.Count / 4)
-            {
-                FindArcsAndSegments(strokePoints);
-                FindCorners(ref segments);
-                SaveSymbolToUKS();
-            }
-            else
-            {
-                segments = FindSegments(boundaryPoints);
-                FindCorners(ref segments);
-                FindOutlines();
+                string attrName = $"{prevLayerName}_{x:D2}_{y:D2}";
+                theUKS.GetOrAddThought(attrName, prevLayerName);
             }
 
-            WriteBitmapToMentalModel();
+        //initialiize the patch array 
+        //create a Thought for each possible patch based on patchSize and stride
+        //set all the weights so that the center has the highest weight and weights decrease radially from the center
+        int numPatchesX = (hSize - patchSize) / stride + 1;
+        int numPatchesY = (vSize - patchSize) / stride + 1;
+        //patchesPerPixel = patchSize * 2 - 2;
 
-            UpdateDialog();
-        }
+        int half = patchSize / 2;
 
-        private void SaveSymbolToUKS()
-        {
-            int maxExtent = (int)strokePoints.Max(x => Math.Max(x.X, x.Y));
-            Thing shapesParent = theUKS.GetOrAddThing("CurrentSymbol", "Visual");
-            theUKS.DeleteAllChildren(shapesParent);
-            Thing shapeParent = theUKS.GetOrAddThing("Symbol*", shapesParent);
-            theUKS.GetOrAddThing("arc", "Visual");
-            theUKS.GetOrAddThing("corner", "Visual");
-            theUKS.GetOrAddThing("segment", "Visual");
-            foreach (var corner in corners)
+        string layerName = "patch";
+
+        InitializeLayer(prevLayerName, numPatchesX, numPatchesY, patchesPerPixel, half, layerName);
+        InitializeLayer("patch", numPatchesX, numPatchesY, 16, 1, "corner");
+        InitCornerPoints();
+    }
+    void InitCornerPoints()
+    {
+        theUKS.GetOrAddThought("corner");
+        for (int x = 0; x < boundaryArray.GetLength(0); x++)
+            for (int y = 0; y < boundaryArray.GetLength(1); y++)
             {
-                Thing item = theUKS.AddThing("Item*", shapeParent);
-                if (corner is Arc a)
-                {
-                    item.AddRelationship("arc", "is");
-                    int degrees = (int)a.angle.Degrees;
-                    degrees = ((degrees + 5 * Math.Sign(degrees)) / 10) * 10;
-                    item.AddRelationship(theUKS.GetOrAddThing("angle" + degrees,"Rotation"), "is");
-
-                }
-                else
-                {
-                    item.AddRelationship("corner", "is");
-                    Segment s1 = new Segment(corner.prevPt, corner.pt);
-                    Segment s2 = new Segment(corner.pt, corner.nextPt);
-                    Thing item1 = theUKS.AddThing("Item*", shapeParent);
-                    item1.AddRelationship("segment", "is");
-                    //int degrees = (int)s1.Angle.Degrees;
-                    //degrees = ((degrees + 5 * Math.Sign(degrees)) / 10) * 10;
-                    //item1.AddRelationship("angle" + degrees, "is");
-                    int length = (int)(s1.Length * 10 + 5) / maxExtent;
-                    item1.AddRelationship("distance." + length, "is");
-
-                    //Thing item2 = theUKS.AddThing("Item*", shapeParent);
-                    //item2.AddRelationship("segment", "is");
-                }
+                string attrName = $"corner_{x:D2}_{y:D2}";
+                theUKS.GetOrAddThought(attrName, "corner");
             }
+    }
+    void TestCounterPatch()
+    {
+        int half = 1;
+        Point center = new PointPlus(1, 1f);
+        Thought parent = theUKS.GetOrAddThought("counter");
+        Thought relType = theUKS.GetOrAddThought("count", "LinkType");
+        Thought notype = theUKS.GetOrAddThought("not", "LinkType");
+
+        //connections from lower levels
+        for (int i = 0; i < 8; i++)
+        {
+            Thought counter = theUKS.GetOrAddThought($"counter_{center.X:F0}_{center.Y:F0}_{i}", parent);
+            for (int x = -half; x < half + 1; x++)
+                for (int y = -half; y < half + 1; y++)
+                {
+                    float weight = (i == 0) ? 0 : .1f / (float)i;
+                    float centerWeight = (i == 0) ? 1.0f : .9f;
+                    if (x == 0 && y == 0) weight = centerWeight;
+                    string targetName = $"pt_{(int)(center.X + x):D2}_{((int)center.Y + y):D2}";
+                    Thought pt = theUKS.Labeled(targetName);
+                    if (pt == null) continue;
+                    Link r = counter.AddLink(pt, relType);
+                    r.Weight = weight;
+                }
         }
 
-        public float scale = 1;
-        public int offsetX = 0;
-        public int offsetY = 0;
-
-        public void LoadImageFileToPixelArray(string filePath)
-        {
-            using (System.Drawing.Bitmap bitmap2 = new(currentFilePath))
+        //mutual suppression
+        for (int i = 7; i >= 0; i--)
+            for (int j = i - 1; j >= 0; j--)
             {
-                System.Drawing.Bitmap theBitmap = bitmap2;
-
-                int bitmapSizeX = theBitmap.Width;
-                int bitmapSizeY = theBitmap.Height;
-
-                float max = int.Max(bitmapSizeX, bitmapSizeY);
-                if (max > 50)
-                {
-                    bitmapSizeX = (int)(bitmapSizeX * 50f / max);
-                    bitmapSizeY = (int)(bitmapSizeY * 50f / max);
-                }
-
-                //do not expand an image if it is smaller than the bitmap...it can introduce problems
-                if (theBitmap.Width < bitmapSizeX) scale = (float)theBitmap.Width / bitmapSizeX;
-                if (scale > theBitmap.Width / bitmapSizeX) scale = theBitmap.Width / bitmapSizeX;
-                //limit the x&y offsets so the picture will be displayed
-                float maxOffset = bitmapSizeX * scale - bitmapSizeX;
-                if (offsetX > 0) offsetX = 0;
-                if (offsetX < -maxOffset) offsetX = -(int)maxOffset;
-                if (offsetY > 0) offsetY = 0;
-                if (offsetY < -maxOffset) offsetY = -(int)maxOffset;
-                System.Drawing.Bitmap resizedImage = new(bitmapSizeX, bitmapSizeY);
-                using (System.Drawing.Graphics graphics = System.Drawing.Graphics.FromImage(resizedImage))
-                {
-                    graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                    //graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-
-                    graphics.DrawImage(bitmap2, offsetX, offsetY, bitmapSizeX * scale, bitmapSizeY * scale);
-                }
-
-                imageArray = new Color[resizedImage.Width, resizedImage.Height];
-
-                for (int i = 0; i < resizedImage.Width; i++)
-                    for (int j = 0; j < resizedImage.Height; j++)
-                    {
-                        var c = resizedImage.GetPixel(i, j);
-                        imageArray[i, j] = new Color() { A = 0xff, R = c.R, G = c.G, B = c.B };
-                    }
+                if (i == j) continue;
+                string srcName = $"counter_{center.X:F0}_{center.Y:F0}_{i}";
+                string trgName = $"counter_{center.X:F0}_{center.Y:F0}_{j}";
+                Link r = theUKS.Labeled(srcName).AddLink(trgName, notype);
+                r.Weight = -1.0f;
             }
-            dlg.Draw(false);
-        }
-        private void WriteBitmapToMentalModel()
-        {
-            Thing mentalModel = theUKS.GetOrAddThing("MentalModel", "Thing");
-            Thing mentalModelArray = theUKS.GetOrAddThing("MentalModelArray", "MentalModel");
-            mentalModel.SetFired();
-            //TODO Make angular
-            //TODO Make 0 center
-            for (int x = 0; x < 25; x++)
-                for (int y = 0; y < 25; y++)
+    }
+
+    private void InitializeLayer(string prevLayerName, int numPatchesX, int numPatchesY, int numPatchesPerPixel, int half, string layerName)
+    {
+        // allocate all the nodes            
+        theUKS.GetOrAddThought(layerName);
+        for (int i = 0; i < numPatchesPerPixel; i++)
+            for (int patchX = 0; patchX < numPatchesX; patchX++)
+                for (int patchY = 0; patchY < numPatchesY; patchY++)
                 {
-                    string name = $"mm{x},{y}";
-                    Thing theEntry = theUKS.GetOrAddThing(name, mentalModelArray);
-                    theEntry.V = GetAverageColor(x * 4, y * 4);
+
+                    int patchCenterX = patchX * stride + half;
+                    int patchCenterY = patchY * stride + half;
+                    string patchName = $"{layerName}_{patchCenterX:D2}_{patchCenterY:D2}_{i}";
+                    var grandParent = theUKS.GetOrAddThought($"{layerName}_{patchCenterX:D2}", layerName);
+                    var parent = theUKS.GetOrAddThought($"{layerName}_{patchCenterX:D2}_{patchCenterY:D2}", grandParent);
+                    Thought patchThought = theUKS.GetOrAddThought(patchName, parent);
                 }
-        }
-        private Color GetAverageColor(int x, int y)
-        {
-            Color retVal = Color.FromArgb(1, 0, 0, 0);
-            int size = 2;
-            for (int i = -size; i <= size; i++)
-                for (int j = -size; j <= size; j++)
+
+        // add the connections from the previous layer
+        float minWeight = 0.1f;
+        float maxRadius = (float)Math.Sqrt(half * half + half * half);
+        for (int i = 0; i < numPatchesPerPixel; i++)
+            for (int patchX = 0; patchX < numPatchesX; patchX++)
+                for (int patchY = 0; patchY < numPatchesY; patchY++)
                 {
-                    if (x + i < 0) continue;
-                    if (y + j < 0) continue;
-                    if (x + i >= imageArray.GetLength(0)) continue;
-                    if (y + j >= imageArray.GetLength(1)) continue;
-                    retVal.R += imageArray[x + i, y + j].R;
-                    retVal.G += imageArray[x + i, y + j].G;
-                    retVal.B += imageArray[x + i, y + j].B;
-                }
-            retVal.R /= 25;
-            retVal.R /= 25;
-            retVal.R /= 25;
-            return retVal;
-        }
+                    int patchCenterX = patchX * stride + half;
+                    int patchCenterY = patchY * stride + half;
+                    string patchName = $"{layerName}_{patchCenterX:D2}_{patchCenterY:D2}_{i}";
+                    Thought patchThought = theUKS.GetOrAddThought(patchName);
 
+                    // this is the maximum weight at the center for this patch index i
+                    //float centerMaxWeight = (float)(patchSize - i * 0.1);
+                    float centerMaxWeight = 1f;
 
-        private Color[,] GetImageArrayFromBitmapImage()
-        {
-            int height = (int)bitmap.Height;
-            int width = (int)bitmap.Width;
-            if (height > bitmap.PixelHeight) height = (int)bitmap.PixelHeight;
-            if (width > bitmap.PixelWidth) width = (int)bitmap.PixelWidth;
-            imageArray = new Color[width, height];
-            int stride = (bitmap.PixelWidth * bitmap.Format.BitsPerPixel + 7) / 8;
-            byte[] pixelBuffer = new byte[stride * bitmap.PixelHeight];
-            bitmap.CopyPixels(pixelBuffer, stride, 0);
-            for (int i = 0; i < imageArray.GetLength(0); i++)
-            {
-                for (int j = 0; j < imageArray.GetLength(1); j++)
-                {
-                    //upper for jpeg, lower for png
-                    int index = j * stride + i * 4; // Assuming 32 bits per pixel (4 bytes: BGRA)
-                    if (bitmap.Format.BitsPerPixel == 8)
-                        index = j * stride * 3 + i * 3;
-                    if (index >= pixelBuffer.Length) continue;
-
-                    if (bitmap.Format.BitsPerPixel != 8 && index < pixelBuffer.Length - 3)
-                    {
-                        byte blue = pixelBuffer[index];
-                        byte green = pixelBuffer[index + 1];
-                        byte red = pixelBuffer[index + 2];
-                        byte alpha = pixelBuffer[index + 3];
-                        Color pixelColor = Color.FromArgb(1, red, green, blue);
-                        imageArray[i, j] = pixelColor;
-                    }
-                    else
-                    {
-                        byte red, green, blue, alpha;
-                        if (bitmap.Palette != null)
+                    for (int x = -half; x < half + 1; x++)
+                        for (int y = -half; y < half + 1; y++)
                         {
-                            var c = bitmap.Palette.Colors[pixelBuffer[index]];
-                            blue = c.B;
-                            red = c.R;
-                            green = c.G;
-                        }
-                        else
-                        {
-                            blue = pixelBuffer[index];
-                            if (bitmap.Format.BitsPerPixel > 8)
+                            int imgX = patchCenterX + x;
+                            int imgY = patchCenterY + y;
+                            // distance from center
+                            float dx = x;
+                            float dy = y;
+                            float r = (float)Math.Sqrt(dx * dx + dy * dy);
+
+                            // radial factor: 1 at center, ~0 at farthest corner
+                            float radial = (maxRadius > 0f) ? 1f - (r / maxRadius) : 1f;
+                            if (radial < 0f) radial = 0f;
+
+                            // interpolate between minWeight and centerMaxWeight based on distance
+                            float maxWeight = minWeight + (centerMaxWeight - minWeight) * radial;
+                            maxWeight *= .75f;  //reduces extraneous hits
+
+                            //float maxWeight = minWeight + (1.5f - minWeight) * radial;
+                            float initialWeight = maxWeight / 2;
+                            if (x == 0 && y == 0) initialWeight = centerMaxWeight;
+                            if (x == 0 && y == 0) maxWeight = centerMaxWeight;
+
+
+
+                            string attrName = $"{prevLayerName}_{imgX:D2}_{imgY:D2}";
+                            Thought t = theUKS.Labeled(attrName);
+                            if (t != null && t.Children.Count > 0)
                             {
-                                green = pixelBuffer[index + 1];
-                                red = pixelBuffer[index + 2];
-                                alpha = pixelBuffer[index + 3];
+                                foreach (Thought child in t.Children)
+                                {
+                                    theUKS.GetLink(patchThought, "hasBoundary", child);
+                                    var rRel1 = patchThought.AddLink(child, "hasBoundary");
+                                    rRel1.Weight = initialWeight;
+                                    if (rRel1.To == null)
+                                    {
+                                        // handle missing target if needed
+                                    }
+                                    rRel1.maxWeight = maxWeight;
+                                }
+                                continue; ;
                             }
-                            else
-                            {
-                                red = blue;
-                                green = blue;
 
+                            attrName = $"{prevLayerName}_{imgX:D2}_{imgY:D2}";
+                            if (theUKS.Labeled(attrName) == null) continue;
+
+                            var rRel = patchThought.AddLink(attrName, "hasBoundary");
+                            rRel.Weight = initialWeight;
+                            if (rRel.To == null)
+                            {
+                                // handle missing target if needed
+                            }
+                            rRel.maxWeight = maxWeight;
+                        }
+                }
+
+        //add connections to nearest-neighbor patches which can be strengthened later to represent linear features
+        theUKS.GetOrAddThought("collinearWith", "LinkType");
+        for (int i = 0; i < numPatchesPerPixel; i++)
+            for (int patchX = 0; patchX < numPatchesX; patchX++)
+                for (int patchY = 0; patchY < numPatchesY; patchY++)
+                {
+                    int patchCenterX = patchX * stride + half;
+                    int patchCenterY = patchY * stride + half;
+                    string patchName = $"{layerName}_{patchCenterX:D2}_{patchCenterY:D2}_{i}";
+                    if (theUKS.Labeled(patchName) == null) continue;
+                    Thought patchThought = theUKS.GetOrAddThought(patchName);
+                    for (int x = -1; x < 2; x++)
+                        for (int y = -1; y < 2; y++)
+                        {
+                            if (x == 0 && y == 0) continue;
+                            int nnX = patchCenterX + x;
+                            int nnY = patchCenterY + y;
+                            if (nnX < 0 || nnY < 0 || nnX >= hSize || nnY >= vSize) continue;
+                            for (int j = 0; j < numPatchesPerPixel; j++)
+                            {
+                                string nnPatchName = $"{layerName}_{nnX:D2}_{nnY:D2}_{j}";
+                                if (theUKS.Labeled(nnPatchName) == null) continue;
+                                Thought nnPatchThought = theUKS.GetOrAddThought(nnPatchName);
+                                if (nnPatchThought != null)
+                                {
+                                    var link = patchThought.AddLink(nnPatchThought, "collinearWith");
+                                    link.Weight = 0.1f;
+                                }
                             }
                         }
-                        Color pixelColor = Color.FromArgb(1, red, green, blue);
-                        imageArray[i, j] = pixelColor;
-
-                    }
                 }
-            }
 
-            return imageArray;
-        }
+        //add Links for nearly-collinear patches
+        theUKS.GetOrAddThought("nearlyCollinearWith", "LinkType");
+        for (int patchX = 2; patchX < numPatchesX+2; patchX++)
+            for (int patchY = 2; patchY < numPatchesY+2; patchY++)
+                for (int i = 0; i < numPatchesPerPixel; i++)
+                    for (int j = 0; j < numPatchesPerPixel; j++)
+                    {
+                        if (j == i) continue;
+                        string patchName1 = $"{layerName}_{patchX:D2}_{patchY:D2}_{i}";
+                        string patchName2 = $"{layerName}_{patchX:D2}_{patchY:D2}_{j}";
+                        Thought source = theUKS.Labeled(patchName1);
+                        if (source == null) continue;
+                        Thought target = theUKS.Labeled(patchName2);
+                        if (target == null) continue;
+                        source.AddLink(target, "nearlyCollinearWith");
+                    }
+    }
 
+    public int testMethod = 1;
+    public void SingteTestPattern()
+    {
+        PointPlus p1, p2, p3;
+        ClearBoundaryArray();
 
-        float PixelDifference(Color c1, Color c2)
+        if (testMethod == 0)  //fixed little segment
         {
-            float retVal = 0;
-            retVal += c1.R - c2.R;
-            retVal += c1.G - c2.G;
-            retVal += c1.B - c2.B;
-            return retVal;
+            p1 = new PointPlus(4, 3f);
+            p2 = new PointPlus(4, 7f);
+            DrawLine(p1, p2);
+            p1 = new PointPlus(9, 7f);
+            p2 = new PointPlus(4, 7f);
+            DrawLine(p1, p2);
         }
-
-        private class taggedSegment { public Segment s; public bool pt1Used; public bool pt2Used; }
-        private void FindCorners(ref List<Segment> segmentsIn)
+        else if (testMethod == 1) //random line
         {
-            MergeSegments(segmentsIn);
-
-            List<taggedSegment> taggedSegments = new();
-            foreach (Segment s in segmentsIn)
-                taggedSegments.Add(new taggedSegment() { s = s, pt1Used = false, pt2Used = false });
-
-
-            //build a table of distances between each point and each other
-            List<(int i, int j, float p1p1, float p1p2, float p2p1, float p2p2, float closest)> distances = new();
-            for (int i = 0; i < taggedSegments.Count - 1; i++)
+            Point RandomBorderPoint()
             {
-                var s1 = taggedSegments[i];
-                for (int j = i + 1; j < taggedSegments.Count; j++)
-                {
-                    if (i == j) continue;
-                    var s2 = taggedSegments[j];
-                    float p1p1 = (s1.s.P1 - s2.s.P1).R;
-                    float p1p2 = (s1.s.P1 - s2.s.P2).R;
-                    float p2p1 = (s1.s.P2 - s2.s.P1).R;
-                    float p2p2 = (s1.s.P2 - s2.s.P2).R;
-                    float closest = (float)new List<float> { p1p1, p1p2, p2p1, p2p2 }.Min();
-                    distances.Add((i, j, p1p1, p1p2, p2p1, p2p2, closest));
-                }
-            }
-            distances = distances.OrderBy(x => x.closest).ToList();
+                int perimeter = 2 * (hSize + vSize) - 4; // all edge points
+                int r = rand.Next(perimeter);
 
-            foreach (var distance in distances)
-            {
-                if (distance.closest > 4.2) break; //give up when the distance is large
-                var s1 = taggedSegments[distance.i];
-                var s2 = taggedSegments[distance.j];
-                if (distance.closest == distance.p1p1 && !s1.pt1Used && !s2.pt1Used)
-                {
-                    bool segmentsIntersect = Utils.LinesIntersect(s1.s, s2.s, out PointPlus intersection);
-                    if (segmentsIntersect)
-                    {
-                        AddCornerToList(intersection, s1.s.P2, s2.s.P2);
-                        UpdateCornerPoint(s1.s.P1, intersection);
-                        UpdateCornerPoint(s2.s.P1, intersection);
-                        s1.pt1Used = true;
-                        s2.pt1Used = true;
-                    }
-                }
-                if (distance.closest == distance.p1p2 && !s1.pt1Used && !s2.pt2Used)
-                {
-                    bool segmentsIntersect = Utils.LinesIntersect(s1.s, s2.s, out PointPlus intersection);
-                    if (segmentsIntersect)
-                    {
-                        AddCornerToList(intersection, s1.s.P2, s2.s.P1);
-                        UpdateCornerPoint(s1.s.P1, intersection);
-                        UpdateCornerPoint(s2.s.P2, intersection);
-                        s1.pt1Used = true;
-                        s2.pt2Used = true;
-                    }
-                }
-                if (distance.closest == distance.p2p1 && !s1.pt2Used && !s2.pt1Used)
-                {
-                    bool segmentsIntersect = Utils.LinesIntersect(s1.s, s2.s, out PointPlus intersection);
-                    if (segmentsIntersect)
-                    {
-                        AddCornerToList(intersection, s1.s.P1, s2.s.P2);
-                        UpdateCornerPoint(s1.s.P2, intersection);
-                        UpdateCornerPoint(s2.s.P1, intersection);
-                        s1.pt2Used = true;
-                        s2.pt1Used = true;
-                    }
-                }
-                if (distance.closest == distance.p2p2 && !s1.pt2Used && !s2.pt2Used)
-                {
-                    bool segmentsIntersect = Utils.LinesIntersect(s1.s, s2.s, out PointPlus intersection);
-                    if (segmentsIntersect)
-                    {
-                        AddCornerToList(intersection, s1.s.P1, s2.s.P1);
-                        UpdateCornerPoint(s1.s.P2, intersection);
-                        UpdateCornerPoint(s2.s.P2, intersection);
-                        s1.pt2Used = true;
-                        s2.pt2Used = true;
-                    }
-                }
+                if (r < hSize)                     // top edge (x = 0..hSize-1, y = 0)
+                    return new Point(r, 0);
+
+                r -= hSize;
+                if (r < vSize - 1)                 // right edge (x = hSize-1, y = 1..vSize-1)
+                    return new Point(hSize - 1, r + 1);
+
+                r -= (vSize - 1);
+                if (r < hSize - 1)                 // bottom edge (x = hSize-2..0, y = vSize-1)
+                    return new Point(hSize - 2 - r, vSize - 1);
+
+                r -= (hSize - 1);                  // left edge (x = 0, y = vSize-2..1)
+                return new Point(0, vSize - 2 - r);
             }
-            //find any orphans
-            foreach (var segment in taggedSegments)
+
+            do
             {
-                if (!segment.pt2Used)
-                    AddCornerToList(segment.s.P2, segment.s.P1, segment.s.P1);
-                if (!segment.pt1Used)
-                    AddCornerToList(segment.s.P1, segment.s.P2, segment.s.P2);
+                p1 = RandomBorderPoint();
+                p2 = RandomBorderPoint();
+            } while (p1 == p2);
+            DrawLine(p1, p2);
+        }
+        else if (testMethod == 2) //random corner
+        {
+            p1 = new Point((int)(rand.NextDouble() * (hSize - 4) + 2), (int)(rand.NextDouble() * (vSize - 4) + 2));
+
+            do
+            {
+                p2 = new Point((int)(rand.NextDouble() * (hSize - 4) + 2), (int)(rand.NextDouble() * (vSize - 4) + 2));
+            } while ((p2 - p1).R < 5);
+
+            var selector = rand.NextDouble();
+            //if (selector > .4)  //random mix with lines
+            {
+                Angle a;
+                do
+                {
+                    p3 = new Point((int)(rand.NextDouble() * hSize), (int)(rand.NextDouble() * vSize));
+                    a = Abs((p3 - p2).Theta - (p2 - p1).Theta);
+                } while ((a < Angle.FromDegrees(40) || a > Angle.FromDegrees(140)) && (p3 - p2).R < 5);
+                DrawLine(p2, p3);
             }
+            DrawLine(p1, p2);
+        }
+        else if (testMethod == 3) //random counter-test
+        {
+            int numPts = (int)(rand.NextDouble() * 9);
+            //int numPts = 2;
+
+            boundaryArray[1, 1] = true;
+
+            for (int i = 0; i < numPts; i++)
+            {
+                int x, y;
+                do
+                {
+                    x = (int)(rand.NextDouble() * 3);
+                    y = (int)(rand.NextDouble() * 3);
+                    if (x == 1 && y == 1)
+                    { }
+                } while (boundaryArray[x, y] || (x == 1 && y == 1));
+                boundaryArray[x, y] = true;
+            }
+        }
+        SearchAndLearn();
+        UpdateDialog();
+    }
+
+    void DrawLine(Point p1, Point p2)
+    {
+        if (boundaryArray == null) {
             return;
         }
 
-        private void UpdateCornerPoint(PointPlus oldValue, PointPlus newValue)
+        //create a line between p1 and pt in imageArray
+        int x0 = (int)p1.X;
+        int y0 = (int)p1.Y;
+        int x1 = (int)p2.X;
+        int y1 = (int)p2.Y;
+        int dx = Abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        int dy = -Abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        int err = dx + dy, e2; /* error value e_xy */
+        while (true)
         {
-            for (int i = 0; i < corners.Count; i++)
+            if (x0 >= 0 && x0 < boundaryArray.GetLength(0) && y0 >= 0 && y0 < boundaryArray.GetLength(1))
+                boundaryArray[x0, y0] = true;
+            if (x0 == x1 && y0 == y1) break;
+            e2 = 2 * err;
+            if (e2 >= dy)
             {
-                //if (corners[i].pt == oldValue) corners[i].pt = newValue; 
-                if (corners[i].nextPt == oldValue) corners[i].nextPt = newValue;
-                if (corners[i].prevPt == oldValue) corners[i].prevPt = newValue;
-            }
+                err += dy;
+                x0 += sx;
+            } /* e_xy+e_x > 0 */
+            if (e2 <= dx)
+            {
+                err += dx;
+                y0 += sy;
+            } /* e_xy+e_y < 0 */
         }
-        private void AddCornerToList(PointPlus intersection, PointPlus prevPt, PointPlus nextPt)
+    }
+
+    public void ClearBoundaryArray()
+    {
+        //hide any currently-displayed patches
+        bool dontClearBoundaryImage = false;
+        foreach (var t in theUKS.AtomicThoughts) if (t.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10)) dontClearBoundaryImage = true;
+
+        foreach (var t in theUKS.AtomicThoughts) t.Weight = 0;
+        foreach (var t in theUKS.AtomicThoughts) t.LastFiredTime = new DateTime(0);
+
+        if (dontClearBoundaryImage || boundaryArray == null)
+            return;
+
+        // Debug.WriteLine("Boundary Array: " + boundaryArray);
+
+        for (int x = 0; x < boundaryArray.GetLength(0); x++)
+            for (int y = 0; y < boundaryArray.GetLength(1); y++)
+                boundaryArray[x, y] = false;
+
+    }
+
+    void SetBoundaryArrayFromImage()
+    {
+        ClearBoundaryArray();
+        foreach (var pt in boundaryPoints)
         {
-            //allow things to be offset by a few pixels
-            //Is this corner already in the list?
-            Corner alreadyInList = corners.FindFirst(x =>
-                (x.pt - intersection).R < 2 &&
-                (((x.prevPt - prevPt).R < 2 && (x.nextPt - nextPt).R < 2) ||
-                ((x.prevPt - nextPt).R < 2 && (x.nextPt - prevPt).R < 2)));
-            if (alreadyInList == null && prevPt == nextPt)
-            {
-                //is it an endpoint of a curve?
-                alreadyInList = corners.FindFirst(x =>
-                    x.curve &&
-                    ((x.nextPt - intersection).R < 2 ||
-                    (x.prevPt - intersection).R < 2));
-            }
-            if (alreadyInList == null)
-                corners.Add(new Corner { pt = intersection, prevPt = prevPt, nextPt = nextPt });
-            else { }
+            int x = (int)pt.X;
+            int y = (int)pt.Y;
+            if (x < 0 || y < 0) continue;
+            if (x >= boundaryArray.GetLength(0)) continue;
+            if (y >= boundaryArray.GetLength(1)) continue;
+            boundaryArray[x, y] = true;
+        }
+    }
+
+    private void SearchAndLearn(Thought parent = null)
+    {
+        // Check if boundary array exists to prevent errors.
+        if (boundaryArray == null)
+        {
+            return;
         }
 
+        //Build the queryThought from the boundaryPoints Array
 
-        //trace around the outlines to get the order of corners and relative distances
-        private void FindOutlines()
+
+        Thought queryThought = new Thought() { Label = "theQuery" };
+        for (int x = 0; x < boundaryArray.GetLength(0); x++)
         {
-            //set up the UKS structure for outlines
-            GetUKS();
-            if (theUKS == null) return;
-            theUKS.GetOrAddThing("Sense", "Thing");
-            theUKS.GetOrAddThing("Visual", "Sense");
-            Thing outlines = theUKS.GetOrAddThing("Outline", "Visual");
-            Thing tCorners = theUKS.GetOrAddThing("Corner", "Visual");
-            theUKS.DeleteAllChildren(outlines);
-            theUKS.DeleteAllChildren(tCorners);
-
-            if (corners.Count == 0) return;
-
-            //for convenience in debugging
-            corners = corners.OrderBy(x => x.pt.X).OrderBy(x => x.pt.Y).ToList();
-
-            //perhaps there are multiple shapes?
-            List<Corner> cornerAvailable = new List<Corner>();
-            for (int i = 0; i < corners.Count; i++)
-                cornerAvailable.Add(corners[i]);
-
-            while (cornerAvailable.Count > 0)
+            for (int y = 0; y < boundaryArray.GetLength(1); y++)
             {
-                Corner curr = cornerAvailable[0];
-                List<Corner> outline = new();
-                bool outlineClosed = false;
-                Corner start = curr;
-                outline.Add(curr);
-                cornerAvailable.Remove(curr);
-                while (!outlineClosed)
+                if (boundaryArray[x, y]) //is this a boundary point?
                 {
-                    for (int i = 0; i < cornerAvailable.Count; i++)
+                    string attrName = $"Pt_{x:D2}_{y:D2}";
+                    queryThought.AddLink(attrName, "hasBoundary");
+                    //queryThought.AddLink(attrName, "count");
+                }
+            }
+        }
+
+        var resultl = LearnConnections(queryThought);
+        //theUKS.DeleteThought(queryThought);
+        queryThought.Delete();
+        //queryThought = new Thought() { Label = "theQuery" };
+
+        //foreach (var v in resultl)
+        //{
+        //    Link r = queryThought.AddLink(v.t, "hasBoundary");
+        //    r.Weight = v.conf;
+        //}
+        //var result2 = LearnConnections(queryThought);
+        //theUKS.DeleteThought(queryThought);
+    }
+
+    private List<(Thought t, float conf)> LearnConnections(Thought queryThought)
+    {
+        List<(Thought t, float conf)> matchOrig = new();
+        List<(Thought t, float conf)> match = new();
+        if (queryThought.LinksFrom.Count > 0)
+        {
+            matchOrig = theUKS.SearchForClosestMatch(queryThought, "Thought");
+
+
+            matchOrig.RemoveAll(x => x.t.Label.StartsWith("theQuery"));
+            matchOrig.RemoveAll(x => x.conf < 1.3);  //TODO this const changes with patch size  (patch 5 = 1.3f)
+            //match.RemoveAll(x => x.conf < .9999f);  //TODO this const changes with patch size  (patch 5 = 1.3f)
+
+            if (matchOrig.Count == 0)
+            {
+                queryThought.Delete();
+                return matchOrig;
+            }
+
+            match = new(matchOrig);
+
+            //mutual suppression
+            for (int i = 0; i < match.Count; i++)
+            {
+                string s = match[i].t.Label;
+                var label0 = s.Contains('_') ? s[..s.LastIndexOf('_')] : s;
+                for (int j = i + 1; j < match.Count; j++)
+                {
+                    s = match[j].t.Label;
+                    var label1 = s.Contains('_') ? s[..s.LastIndexOf('_')] : s;
+                    if (label1 == label0)
                     {
-                        Corner next = cornerAvailable[i];
-                        if (next.angle == 0) continue;
-                        if (outline.Contains(next))
-                            continue; //should never happen
-                        if (curr.nextPt.Near(next.pt, 2) || curr.prevPt.Near(next.pt, 2))
+                        match.RemoveAt(j);
+                        j--;
+                    }
+                }
+            }
+
+            //adjust weights between layers
+            foreach (var item in match)
+            {
+                AdjustWeights(item.t, queryThought);
+                item.t.Fire();
+            }
+
+            float etaPlus = 0.1f;    // LTP rate (co-active)
+            float etaMinus = 0.1f;
+            //adjust weights within layers
+            foreach (var item in match)
+            {
+                foreach (Link r in item.t.LinksFrom.Where(x => x.LinkType.Label == "collinearWith"))
+                {
+
+                    if (match.Any(x => x.t == r.To))
+                    {
+                        r.Weight += etaPlus * (1f - r.Weight);
+                        if (r.Weight > 1)
+                            r.Weight = 1;
+                    }
+                    else
+                    {
+                        r.Weight += -etaMinus * r.Weight;
+                        if (r.Weight < 0.001f)
+                            r.From.RemoveLink(r);
+                    }
+                    r.Fire();
+                }
+            }
+
+            //check for corners
+            foreach (var item in match)
+            {
+                int targetFiredCount = 0;
+                int lastX = -1; int lastY = -1;
+                foreach (Link r in item.t.LinksFrom.OrderBy(x=>x.To.Label).Where(x => x.LinkType.Label == "collinearWith"))
+                {
+                    string[] parts = r.To.Label.Split("_");
+                    int curX = int.Parse(parts[1]);
+                    int curY = int.Parse(parts[2]);
+                    if (curX == lastX && curY == lastY) continue;  //do not cuplicate count on the same point
+                    // if (r.target.lastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10))
+                    if (matchOrig.FindAll(x=>x.t == r.To).Count > 0)
+                    {
+                        targetFiredCount++;
+                        lastX = curX;
+                        lastY = curY;
+                    }
+                }
+                if (item.t.Label.Contains("03_04")) //BREAKPOINT
+                { }
+                if (targetFiredCount < 2)
+                {
+                    string[] parts = item.t.Label.Split("_");
+                    string cornerLabel = $"corner_{parts[1]}_{parts[2]}";
+                    Thought corner = theUKS.GetOrAddThought(cornerLabel);
+                    corner.Fire();
+                }
+            }
+
+            //set up nearlyCollinearWith Links
+            //foreach primary value (in match) get a list of all the others in matchOrig
+            foreach (var item in match)
+            {
+                List<(Thought t, float conf)> patchesAtThisPixel = matchOrig.Where(x =>
+                {
+                    string[] parts1 = item.t.Label.Split("_");
+                    string[] parts2 = x.t.Label.Split("_");
+                    return parts1[1] == parts2[1] && parts1[2] == parts2[2];
+                }).Select(x => (x.t, x.conf)).ToList();
+
+                //in this list, the primary patch is [0], while [1] and [2] are candidate for nearlyColinearWith
+                //this must be modified to work with 0, 1, or 2 results without indexing error
+                if (patchesAtThisPixel.Count < 2) continue;
+                Thought candidate1 = patchesAtThisPixel[1].t;
+                float value1 = patchesAtThisPixel[1].conf;
+                Thought candidate2 = null;
+                float value2 = -1; //dummy value
+                if (patchesAtThisPixel.Count > 2)
+                {
+                    candidate2 = patchesAtThisPixel[2].t;
+                    value2 = patchesAtThisPixel[2].conf;
+                }
+                Thought primary = item.t;
+                float primaryValue = item.conf;
+                foreach (Link r in primary.LinksFrom.Where(x => x.LinkType.Label == "nearlyCollinearWith"))
+                {
+                    //increase weight to candidate1 if it is sufficiently lower in value than primary
+                    if (r.To == candidate1)
+                    {
+                        //but not if the weights are nearly the same
+                        if (primaryValue - value1 / primaryValue > 0.15f) //far enough in value
                         {
-                            outline.Add(next);
-                            cornerAvailable.Remove(next);
-                            curr = next;
-                            goto pointAdded;
+                            float deltaWeight = (primaryValue - value1) / primaryValue;
+                            r.Weight += deltaWeight * 0.1f;
                         }
                     }
-                    outlineClosed = true; //no more points to add 
-                pointAdded: continue;
-                }
-
-                //make this a right-handed list of points  
-                double sum = 0;
-                int cnt = outline.Count;
-                for (int i = 0; i < outline.Count; i++)
-                {
-                    Corner p1 = outline[i];
-                    Corner p2 = outline[(i + 1) % cnt];
-                    sum += (p2.pt.X - p1.pt.X) *
-                        (p2.pt.Y + p1.pt.Y);
-                }
-                if (sum > 0)
-                    outline.Reverse();
-
-                //find the color at the center of the polygon
-                List<Point> thePoints = new();
-                foreach (Corner c in outline)
-                    thePoints.Add(c.pt);
-                Point centroid = Utils.GetCentroid(thePoints);
-
-                Thing currOutline = theUKS.GetOrAddThing("Outline*", "Outlines");
-
-                //get the color (the centroid might be outside the image)
-                try
-                {
-                    //HSLColor theCenterColor = imageArray[(int)centroid.X, (int)centroid.Y];
-                    Color theCenterColor = imageArray[(int)centroid.X, (int)centroid.Y];
-                    Thing theColor = GetOrAddColor(theCenterColor);
-                    currOutline.SetAttribute(theColor);
-                }
-                catch (Exception e) { }
-
-                //we now have an ordered, right-handed outline
-                //add it to UKS
-                for (int i = 1; i < outline.Count + 1; i++)
-                {
-                    Corner c = outline[i % outline.Count];
-
-                    //let's update the angle
-                    //PointPlus prev = outline[(i - 1) % outline.Count].pt;
-                    //PointPlus next = outline[(i + 1) % outline.Count].pt;
-                    //                   c.nextPt = next;
-                    //                   c.prevPt = prev;
-
-
-                    //TODO: modify to reuse existing (shared) points
-                    //let's add it to the UKS
-                    Thing corner = theUKS.GetOrAddThing("corner*", tCorners);
-                    corner.V = c;
-                    theUKS.AddStatement(currOutline, "has*", corner);
-                }
-            }
-        }
-
-        Thing GetOrAddColor(Color color)
-        {
-            Thing colorParent = theUKS.GetOrAddThing("Color", "Attribute");
-            foreach (Thing t in colorParent.Children)
-            {
-                if (t.V is Color c && c.Equals(color))
-                    return t;
-            }
-            Thing theColor = theUKS.GetOrAddThing("color*", "Color");
-            theColor.V = color;
-            return theColor;
-        }
-
-
-        // fill this method in with code which will execute once
-        // when the module is added, when "initialize" is selected from the context menu,
-        // or when the engine restart button is pressed
-        public override void Initialize()
-        {
-        }
-
-        // the following can be used to massage public data to be different in the xml file
-        // delete if not needed
-        public override void SetUpBeforeSave()
-        {
-            Thing t = theUKS.Labeled("currentShape");
-            if (t != null) { theUKS.DeleteAllChildren(t); }
-            t = theUKS.Labeled("corner");
-            if (t != null) { theUKS.DeleteAllChildren(t); }
-            t = theUKS.Labeled("Outline");
-            if (t != null) { theUKS.DeleteAllChildren(t); }
-            t = theUKS.Labeled("MentalModel");
-            if (t != null) { theUKS.DeleteAllChildren(t); }
-        }
-
-
-        public override void SetUpAfterLoad()
-        {
-            SetUpUKSEntries();
-
-            //here we parse
-            //objects out of the Xml stream
-            foreach (Thing t in theUKS.UKSList)
-            {
-                if (t.V is System.Xml.XmlNode[] nodes)
-                {
-                    if (nodes[0].Value == "Color")
+                    else if (r.To == candidate2)
                     {
-                        byte A = byte.Parse(nodes[1].InnerText);
-                        byte R = byte.Parse(nodes[2].InnerText);
-                        byte G = byte.Parse(nodes[3].InnerText);
-                        byte B = byte.Parse(nodes[4].InnerText);
-                        Color theColor = new() {A=A,R=R,G=G,B=B, };
-                        t.V = theColor;
+                        if (primaryValue - value1 / primaryValue > 0.15f) //far enough in value
+                        {
+                            float deltaWeight = (primaryValue - value1) / primaryValue;
+                            r.Weight += deltaWeight * 0.1f;
+                        }
                     }
-                    if (nodes[0].Value == "HSLColor")
+                    else //lower the weight to other nearlyCollinearWith patches
                     {
-                        float hue = float.Parse(nodes[1].InnerText);
-                        float saturation = float.Parse(nodes[2].InnerText);
-                        float luminance = float.Parse(nodes[3].InnerText);
-                        HSLColor theColor = new(hue, saturation, luminance);
-                        t.V = theColor;
+                        float deltaWeight = -0.005f;
+                        r.Weight += deltaWeight;
                     }
-                    if (nodes[0].Value == "Corner")
+                    //remove existing nearlyCollinearWith low weight Links
+                    if (r.Weight < 0.05f)
                     {
-                        Corner c = new();
-                        //get a pointplus node
-                        float x = float.Parse(nodes[1].FirstChild.InnerText);
-                        float y = float.Parse(nodes[1].FirstChild.NextSibling.InnerText);
-                        float conf = float.Parse(nodes[1].FirstChild.NextSibling.NextSibling.InnerText);
-                        c.pt = new PointPlus { X = x, Y = y, Conf = conf, };
-                        //get the angle node
-                        float theta = float.Parse(nodes[2].FirstChild.InnerText);
-                        //get the orientation node
-                        float theta1 = float.Parse(nodes[3].FirstChild.InnerText);
-                        //c.orientation = Angle.FromDegrees(theta1);
-                        t.V = c;
+                        r.From.RemoveLink(r);
                     }
                 }
             }
 
-        }
-
-        private void SetUpUKSEntries()
-        {
-            theUKS.AddStatement("Attribute", "is-a", "Thing");
-            theUKS.AddStatement("Color", "is-a", "Attribute");
-            theUKS.AddStatement("Size", "is-a", "Attribute");
-            theUKS.AddStatement("Position", "is-a", "Attribute");
-            theUKS.AddStatement("Rotation", "is-a", "Attribute");
-            theUKS.AddStatement("Shape", "is-a", "Attribute");
-            theUKS.AddStatement("Offset", "is-a", "Attribute");
-            theUKS.AddStatement("Distance", "is-a", "Attribute");
-
-            //Set up angles and distances so they are near each other
-            Relationship r2 = null;
-            r2 = theUKS.AddStatement("isSimilarTo", "is-a", "relationshipType");
-            r2 = theUKS.AddStatement("isSimilarTo", "hasProperty", "isCommutative");
-            r2 = theUKS.AddStatement("isSimilarTo", "hasProperty", "isTransitive");
-
-            for (int i = 1; i < 10; i++)
+            void AdjustWeights(Thought patch, Thought inputPattern)
             {
-                theUKS.AddStatement("distance." + i, "is-a", "distance");
-                if (i < 9)
-                    r2 = theUKS.AddStatement("distance." + i, "isSimilarTo", "distance." + (i + 1));
-                r2.Weight = 0.8f;
-            }
-            theUKS.AddStatement("distance1.0", "is-a", "distance");
-            r2 = theUKS.AddStatement("distance1.0", "isSimilarTo", "distance.9");
-            r2.Weight = 0.8f;
+                string[] nameFields = patch.Label.Split("_");
+                int x = int.Parse(nameFields[1]);
+                int y = int.Parse(nameFields[2]);
+                string centerPtLabel = $"Pt_{x:D2}_{y:D2}";
 
-            for (int i = -17; i < 18; i++)
+                //we are adjusting weights of an already-set patch
+                foreach (Link r in patch.LinksFrom)
+                {
+                    //only adjust hasBoundary Links
+                    if (r.LinkType.Label != "hasBoundary") continue;
+                    //do not adjust the center point
+                    if (r.To.Label == centerPtLabel) continue;
+
+                    //did the input point fire?
+                    Link rFound = inputPattern.LinksFrom.FindFirst(x => x.To == r.To);
+
+                    // targets: ON -> +1, OFF -> -0.5
+                    //float tp = (rFound != null) ? r.maxWeight : -r.maxWeight / 2f;
+                    float tp = (rFound != null) ? r.maxWeight * tpOnWeight : tpOff;
+                    float eta = (rFound != null) ? etaOn : etaOff; // example: smaller step for OFF
+                    r.Weight += eta * (tp - r.Weight);
+
+                    // clamp to keep Thoughts well-behaved
+                    if (r.Weight > r.maxWeight) r.Weight = r.maxWeight;
+                    if (r.Weight < -1f) r.Weight = -1f;
+                    //if (r.Weight < 0.0) r.source.RemoveLink(r);
+                    if (r.Weight < 0.0) r.Weight = 0;
+                }
+            }
+        }
+
+        return match;
+    }
+
+    int count = 0;
+    public void Show()
+    {
+        if (boundaryArray == null)
+        {
+            return;
+        }
+        ClearBoundaryArray();
+        Thought t = theUKS.GetOrAddThought("patch");
+        var patches = t.Descendants.ToList();
+        if (count >= patches.Count)
+            count = 0;
+
+        while (patches[count].LinksFrom.Count < patchSize * patchSize)
+        {
+            count++;
+            if (count >= patches.Count) count = 0;
+        }
+        patches[count].Fire();
+        count++;
+
+        //this will form the "prune" function when implemented
+        ////for now, only Thoughts without children are pruneable
+        //for (int i = 0; i < theUKS.UKSList.Count; i++)
+        //{
+        //    Thought t = theUKS.UKSList[i];
+        //    if (t.Children.Count > 0) continue;
+        //    if (!t.HasAncestor("UnknownObject")) continue;
+        //    if (t.useCount == 1)
+        //    {
+        //        theUKS.DeleteThought(t);
+        //        i--;
+        //    }
+        //}
+    }
+
+    //interpolate the luminance in the image array givine a real-valued point
+    float GetLuminanceAtPoint(PointPlus pt)
+    {
+        if (pt.X < 0 || pt.Y < 0) return 0;
+        if ((int)pt.X > imageArray.GetLength(0) - 2) return 0;
+        if ((int)pt.Y > imageArray.GetLength(1) - 2) return 0;
+
+        int x0 = (int)Math.Floor(pt.X);
+        int y0 = (int)Math.Floor(pt.Y);
+
+        float a = GetLuminanceFromColor(imageArray[(int)pt.X, (int)pt.Y]);
+        float b = GetLuminanceFromColor(imageArray[(int)pt.X + 1, (int)pt.Y]);
+        float c = GetLuminanceFromColor(imageArray[(int)pt.X, (int)pt.Y + 1]);
+        float d = GetLuminanceFromColor(imageArray[(int)pt.X + 1, (int)pt.Y + 1]);
+
+        float top = a + (pt.X - x0) * (b - a);
+        float bottom = c + (pt.X - x0) * (d - c);
+
+        float result = top + (pt.Y - y0) * (bottom - top);
+
+        return result;
+
+    }
+    float GetLuminanceFromColor(Color c)
+    {
+        HSLColor hSLColor = new(c);
+        return hSLColor.luminance;
+    }
+
+    bool IsSegmentCenteredBySum(
+    PointPlus A, PointPlus B,
+    IReadOnlyList<PointPlus> boundary,
+    out double balance                 // 0..1; 1 = perfectly balanced
+)
+    {
+        balance = 0;
+        if (boundary == null || boundary.Count == 0) return false;
+
+        // Sampling
+        double weightL = 0, weightR = 0;
+
+        Segment s = new(A, B);
+        foreach (PointPlus pt in boundary)
+        {
+            float dist = PerpendicularDistancePointToSegment(s, pt);
+            if (Abs(dist) > 2) continue;
+            if (dist >= 0)
+                weightL += dist;
+            else
+                weightR += Abs(dist);
+        }
+        double denom = Math.Max(weightL, weightR);
+        if (denom == 0) return false;
+        balance = denom > 0 ? 1.0 - Math.Abs(weightL - weightR) / denom : 0.0;
+        return true;
+    }
+
+    //Move this to Utils
+    float PerpendicularDistancePointToSegment(Segment ABin, PointPlus pt)
+    {
+        var AP = pt - ABin.P1;
+        var AB = ABin.P2 - ABin.P1;
+        float magnituesAB = AB.R * AB.R;
+        float ABAProduct = (float)Vector.Multiply(AP.V, AB.V);
+        float distance = ABAProduct / magnituesAB;
+        if (distance >= 0 && distance <= 1) //does the projections fall along the segment?
+        {
+            PointPlus closestOnSegment = ABin.P1 + AB * distance;
+            int sign = 0;
+            if (closestOnSegment.Y - pt.Y > .1)
+                sign = 1;
+            else if (closestOnSegment.Y - pt.Y < -.1)
+                sign = -1;
+            else if (closestOnSegment.X > pt.X)
+                sign = -1;
+            else
+                sign = 1;
+            return sign * (closestOnSegment - pt).R;
+        }
+        return 0;
+    }
+
+    public float scale = 1;
+    public int offsetX = 0;
+    public int offsetY = 0;
+
+    public void LoadImageFileToPixelArray(string filePath)
+    {
+        if (string.IsNullOrEmpty(filePath))
+        {
+            imageArray = new Color[hSize, vSize];
+            return;
+        }
+        using (System.Drawing.Bitmap bitmap2 = new(CurrentFilePath))
+        {
+            System.Drawing.Bitmap theBitmap = bitmap2;
+
+            int bitmapSizeX = theBitmap.Width;
+            int bitmapSizeY = theBitmap.Height;
+
+            float max = int.Max(bitmapSizeX, bitmapSizeY);
+            if (max > 50)
             {
-                theUKS.AddStatement("angle" + (i * 10), "is-a", "Rotation");
-                r2 = theUKS.AddStatement("angle" + (i * 10), "isSimilarTo", "angle" + ((i + 1) * 10));
-                r2.Weight = 0.8f;
+                bitmapSizeX = (int)(bitmapSizeX * 50f / max);
+                bitmapSizeY = (int)(bitmapSizeY * 50f / max);
             }
-            r2 = theUKS.AddStatement("angle180", "is-a", "rotation");
-            r2 = theUKS.AddStatement("angle180", "isSimilarTo", "angle-170");
-            r2.Weight = 0.8f;
-        }
 
-        // called whenever the size of the module rectangle changes
-        // for example, you may choose to reinitialize whenever size changes
-        // delete if not needed
-        public override void SizeChanged()
-        {
+            //do not expand an image if it is smaller than the bitmap...it can introduce problems
+            if (theBitmap.Width < bitmapSizeX) scale = (float)theBitmap.Width / bitmapSizeX;
+            if (scale > theBitmap.Width / bitmapSizeX) scale = theBitmap.Width / bitmapSizeX;
+            //limit the x&y offsets so the picture will be displayed
+            float maxOffset = bitmapSizeX * scale - bitmapSizeX;
+            if (offsetX > 0) offsetX = 0;
+            if (offsetX < -maxOffset) offsetX = -(int)maxOffset;
+            if (offsetY > 0) offsetY = 0;
+            if (offsetY < -maxOffset) offsetY = -(int)maxOffset;
+            System.Drawing.Bitmap resizedImage = new(bitmapSizeX, bitmapSizeY);
+            using (System.Drawing.Graphics graphics = System.Drawing.Graphics.FromImage(resizedImage))
+            {
+                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                //graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
 
+                graphics.DrawImage(bitmap2, offsetX, offsetY, bitmapSizeX * scale, bitmapSizeY * scale);
+            }
+
+            imageArray = new Color[resizedImage.Width, resizedImage.Height];
+
+            for (int i = 0; i < resizedImage.Width; i++)
+                for (int j = 0; j < resizedImage.Height; j++)
+                {
+                    var c = resizedImage.GetPixel(i, j);
+                    imageArray[i, j] = new Color() { A = 0xff, R = c.R, G = c.G, B = c.B };
+                }
         }
-        public override void UKSInitializedNotification()
+        dlg.Draw(false);
+    }
+
+
+    // fill this method in with code which will execute once
+    // when the module is added, when "initialize" is selected from the context menu,
+    // or when the engine restart button is pressed
+    public override void Initialize()
+    {
+    }
+
+    // the following can be used to massage public data to be different in the xml file
+    // delete if not needed
+    public override void SetUpBeforeSave()
+    {
+        Thought t = theUKS.Labeled("currentShape");
+        if (t != null) { theUKS.DeleteAllChildrenAndLinks(t); }
+        t = theUKS.Labeled("corner");
+        if (t != null) { theUKS.DeleteAllChildrenAndLinks(t); }
+        t = theUKS.Labeled("Outline");
+        if (t != null) { theUKS.DeleteAllChildrenAndLinks(t); }
+        t = theUKS.Labeled("MentalModel");
+        if (t != null) { theUKS.DeleteAllChildrenAndLinks(t); }
+    }
+
+
+    public override void SetUpAfterLoad()
+    {
+        SetUpUKSEntries();
+
+        //here we parse
+        //objects out of the Xml stream
+        foreach (Thought t in theUKS.AtomicThoughts)
         {
-            SetUpUKSEntries();
+            if (t.V is System.Xml.XmlNode[] nodes)
+            {
+                if (nodes[0].Value == "Color")
+                {
+                    byte A = byte.Parse(nodes[1].InnerText);
+                    byte R = byte.Parse(nodes[2].InnerText);
+                    byte G = byte.Parse(nodes[3].InnerText);
+                    byte B = byte.Parse(nodes[4].InnerText);
+                    Color theColor = new() { A = A, R = R, G = G, B = B, };
+                    t.V = theColor;
+                }
+                if (nodes[0].Value == "HSLColor")
+                {
+                    float hue = float.Parse(nodes[1].InnerText);
+                    float saturation = float.Parse(nodes[2].InnerText);
+                    float luminance = float.Parse(nodes[3].InnerText);
+                    HSLColor theColor = new(hue, saturation, luminance);
+                    t.V = theColor;
+                }
+                //if (nodes[0].Value == "Corner")
+                //{
+                //    Corner c = new();
+                //    //get a pointplus node
+                //    float x = float.Parse(nodes[1].FirstChild.InnerText);
+                //    float y = float.Parse(nodes[1].FirstChild.NextSibling.InnerText);
+                //    float conf = float.Parse(nodes[1].FirstChild.NextSibling.NextSibling.InnerText);
+                //    c.pt = new PointPlus { X = x, Y = y, Conf = conf, };
+                //    //get the angle node
+                //    float theta = float.Parse(nodes[2].FirstChild.InnerText);
+                //    //get the orientation node
+                //    float theta1 = float.Parse(nodes[3].FirstChild.InnerText);
+                //    //c.orientation = Angle.FromDegrees(theta1);
+                //    t.V = c;
+                //}
+            }
         }
 
     }
+
+    private void SetUpUKSEntries()
+    {
+    }
+
+    // called whenever the size of the module rectangle changes
+    // for example, you may choose to reinitialize whenever size changes
+    // delete if not needed
+    public override void SizeChanged()
+    {
+
+    }
+    public override void UKSInitializedNotification()
+    {
+        SetUpUKSEntries();
+    }
 }
+

@@ -29,9 +29,7 @@ public class ModuleSoundOut : ModuleBase
 {
 
     DateTime lastFiredTime = DateTime.Now;
-    DateTime? lastNotePressed = null;
     DateTime lastCadenceTime = DateTime.Now;
-    List<Thought> tuneToSearch = null;
 
     private readonly HashSet<int> _pressedNotes = new();
     private readonly Dictionary<int, Thought> _pitchs = new();
@@ -43,13 +41,11 @@ public class ModuleSoundOut : ModuleBase
     private const int MidiPatch = 0; // Acoustic Grand Piano
 
 
-    IEnumerator<SeqElement> enumerator = null;  //we'll needc multiple enumerators soon
-
     // Add these properties to the ModuleSound class
     public int Cadence { get; set; } = 100;
     public int PitchOffset { get; set; } = 0;
 
-    public static MidiOut? midi;
+    public static MidiOut midi;
     public static MidiOut Midi => midi ??= InitMidi();
 
     private static MidiOut InitMidi()
@@ -205,7 +201,7 @@ public class ModuleSoundOut : ModuleBase
         Midi.Send(MidiMessage.StopNote(g, 0, channel).RawData);
     }
 
-    public async void PlayNote(int midiNote, bool AddToMentalModel = false, int timetonextMs = 250)
+    public void PlayNote(int midiNote, bool AddToMentalModel = false, int timetonextMs = 250)
     {
         //Debug.WriteLine($"PlayNote: {midiNote}  {timetonextMs}");
         var listener = MainWindow.theWindow?.activeModules.OfType<ModuleSoundIn>().FirstOrDefault();

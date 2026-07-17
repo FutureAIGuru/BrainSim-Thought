@@ -119,7 +119,7 @@ public class ModuleLearnMelody : ModuleBase
         SeqElement seq2 = CreatePhraseFromNotes("temp*", entry.ResponsePhrase.Notes);
         foreach (Thought t in theUKS.Labeled("possibleAction").Children)
         {
-            SeqElement seq3 = GetTargetOfFirstLinkOfType(t, "soundAs");
+            SeqElement seq3 = t.GetTargetOfFirstLinkOfType("soundAs") as SeqElement;
             var val = theUKS.CompareSequences(seq2, seq3);
             if (val == 1)
             {
@@ -150,20 +150,6 @@ public class ModuleLearnMelody : ModuleBase
         responseTarget = null;
         return true;
     }
-
-    //TODO Move to UKS
-    public SeqElement GetTargetOfFirstLinkOfType(Thought thePhrase, string v)
-    {
-        foreach (var link in thePhrase.LinksTo)
-        {
-            if (link.LinkType.Label == v && link.To is SeqElement seq)
-            {
-                return seq;
-            }
-        }
-        return null;
-    }
-
 
     // Randomize the melody lines
     private void RandomizeMelodies()
@@ -239,7 +225,15 @@ public class ModuleLearnMelody : ModuleBase
         List<Thought> targets = new();
         foreach (var note in notes)
             targets .Add(theUKS.GetOrAddThought("pitch:" + note.Pitch));
-        var existing = theUKS.RawSearchExact(targets);
+
+        // Use FindSequencesByActivation instead of RawSearchExact
+        Thought searchOptions = theUKS.Labeled("ExactSequenceSearch");
+        var existingResults = theUKS.FindSequencesByActivation(targets, searchOptions);
+        var existing = existingResults
+            .Where(r => r.confidence >= 1.0f) // Only exact matches
+            .Select(r => (seqNode: r.seqNode, curPos: (IEnumerator<SeqElement>)null, matchCount: targets.Count))
+            .ToList();
+
         if (existing.Count > 0)
         {
             //check to make sure the durations match too

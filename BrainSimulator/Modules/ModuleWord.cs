@@ -57,7 +57,6 @@ public class ModuleWord : ModuleBase
     }
     public override void UKSInitializedNotification()
     {
-        theUKS.GetOrAddThought("EnglishWord", "Object");
         theUKS.GetOrAddThought("letter", "Object");
     }
 
@@ -72,7 +71,15 @@ public class ModuleWord : ModuleBase
             letters.Add(letter);
         }
         string retVal = word;
-        var suggestions = theUKS.HasSequence(letters,"spelled",true);
+
+        // Use FindSequencesByActivation instead of HasSequence
+        Thought searchOptions = theUKS.CreateSearchOptions(mustMatchFirst: true);
+        var suggestions = theUKS.FindSequencesByActivation(letters, searchOptions);
+        // Filter by linkType "spelled"
+        suggestions = suggestions
+            .Where(r => r.seqNode.LinksFrom.Any(l => l.LinkType?.Label == "spelled"))
+            .ToList();
+
         if (suggestions.Count > 0)
         {
             var suggestionList = theUKS.FlattenSequence(suggestions[0].seqNode);
@@ -96,7 +103,7 @@ public class ModuleWord : ModuleBase
             return null;
 
         // Get or create the word thought
-        Thought wordThought = theUKS.GetOrAddThought("w:" + word, "EnglishWord");
+        Thought wordThought = theUKS.GetOrAddThought("w:" + word, "Word");
         if (wordThought.LinksTo.FindFirst(x => x.LinkType.Label == "spelled") is not null)
         {
             wordThought.Fire();
@@ -115,7 +122,7 @@ public class ModuleWord : ModuleBase
 
         // Add the sequence
         var t = theUKS.AddSequenceAndLink(wordThought, spelledLinkType, letters);
-        wordThought.TimeToLive = TimeSpan.FromSeconds(10);
+        //wordThought.TimeToLive = TimeSpan.FromSeconds(10);
 
         return wordThought;
     }

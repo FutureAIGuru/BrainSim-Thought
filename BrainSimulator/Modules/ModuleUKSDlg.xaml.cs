@@ -82,7 +82,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             theTreeView.FontSize = fontSize;
 
         //if the root is null, display the roots instead of the contetn
-        if (!string.IsNullOrEmpty(root))
+        if (!string.IsNullOrEmpty(root?.Trim()))
         {
             totalItemCount = 0;
             TreeViewItem tvi = new() { Header = Root.ToString() };
@@ -93,13 +93,12 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             AddLinks(Root, tvi, 1, "");
             AddChildren(Root, tvi, 0, Root.Label);
         }
-        else if (string.IsNullOrEmpty(root)) //search for unattached Thoughts
+        else //search for unattached Thoughts
         {
-            for (
-                int i = 0; i < theUKS.AtomicThoughts.Count; i++)
+            for (int i = 0; i < theUKS.AtomicThoughts.Count; i++)
             {
                 Thought t1 = theUKS.AtomicThoughts[i];
-                if (t1.Parents.Count == 0)
+                if (t1.Parents.Count == 0 && t1 is not Link)
                 {
                     TreeViewItem tvi = new() { Header = t1.Label };
                     tvi.ContextMenu = GetContextMenu(t1, tvi);
@@ -464,7 +463,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             {
                 t.Label = tb.Text;
                 //clear any time-to-live on this new image
-                t.LinksFrom.FindFirst(x => x.LinkType.Label == "is-a")?.TimeToLive = TimeSpan.MaxValue;
+                if (t.LinksFrom.FindFirst(x => x.LinkType.Label == "is-a") is Link isALink)
+                    isALink.TimeToLive = TimeSpan.MaxValue;
                 cm.IsOpen = false;
             }
             if (e.Key == Key.Escape)
@@ -600,7 +600,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void UpdateStatusLabel()
     {
-        statusLabel.Content = ThoughtLabels.GetLabelCount() + " Thoughts  " + ThoughtLabels.GetLinksCount() + " Links.";
+        uksStatusLabel.Content = ThoughtLabels.GetLabelCount() + " Thoughts  " + ThoughtLabels.GetLinksCount() + " Links.";
         Title = "The Universal Knowledgs Store (UKS)  --  File: " + Path.GetFileNameWithoutExtension(theUKS.FileName);
     }
 
@@ -698,7 +698,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         if (!mouseInWindow)
             Draw(true);
-        RefreshButton?.Visibility = Visibility.Hidden;
+        if (RefreshButton is not null)
+            RefreshButton.Visibility = Visibility.Hidden;
     }
 
     private void CheckBoxAuto_Unchecked(object sender, RoutedEventArgs e)
@@ -933,7 +934,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private static bool IsDarkMode()
     {
         const string personalize = @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
-        object? value = Registry.GetValue(personalize, "AppsUseLightTheme", 1);
+        object value = Registry.GetValue(personalize, "AppsUseLightTheme", 1);
         return value is int i && i == 0;
     }
 

@@ -29,9 +29,7 @@ public class ModuleSoundIn : ModuleBase
 {
 
     DateTime lastFiredTime = DateTime.Now;
-    DateTime? lastNotePressed = null;
     DateTime lastCadenceTime = DateTime.Now;
-    List<Thought> tuneToSearch = null;
 
     private readonly Dictionary<int, Thought> _pitchs = new();
     private const int MinNote = 60; // C4
@@ -42,7 +40,7 @@ public class ModuleSoundIn : ModuleBase
     private const int MidiPatch = 0; // Acoustic Grand Piano
 
 
-    public static MidiOut? midi;
+    public static MidiOut midi;
     public static MidiOut Midi => midi ??= InitMidi();
 
     private static MidiOut InitMidi()

@@ -39,6 +39,12 @@ public class Link : Thought
     public Thought? LinkType { get; set; }
     public Thought? To { get; set; }
 
+    /// <summary>Query-time metadata: 0 = asserted on the query source; N = inherited via N is-a hops.</summary>
+    public int InheritanceDepth { get; set; }
+
+    /// <summary>Ch.5 provenance: category Thought where an inherited link was found (e.g. dog for Fido→fur).</summary>
+    public Thought? InheritedFromCategory { get; set; }
+
     /// <summary>
     /// Returns a formatted string for the link, showing sequence notation or From→Type→To.
     /// </summary>
@@ -58,11 +64,12 @@ public class Link : Thought
 /// A Thought is an atomic unit of thought. In the lexicon of graphs, a Thought is both a "node" and an Edge.  
 /// A Thought can represent anything, physical object, attribute, word, action, feeling, etc.
 /// </summary>
-public class Thought
+public partial class Thought
 {
-    private static Queue<Thought> recentlyFired = new();
+    private static readonly Queue<Thought> recentlyFired = new();
+    private static readonly object recentlyFiredLock = new();
 
-    public static Thought IsA { get => ThoughtLabels.GetThought("is-a"); }  //this is a cache value shortcut for (Thought)"is-a"
+    public static Thought IsA => ThoughtLabels.GetThought("is-a")!;  //this is a cache value shortcut for (Thought)"is-a"
     private readonly List<Link> _linksTo = new();   // links to "has", "is", is-a, many others
     private readonly List<Link> _linksFrom = new(); // links from
 
@@ -84,9 +91,9 @@ public class Thought
     /// 
     public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return new List<Link>(_linksFrom.AsReadOnly()); } } }
     /// <summary>Direct parents (targets of outgoing is-a links).</summary>
-    public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).ToList(); } }
+    public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).OfType<Thought>().ToList(); } }
     /// <summary>Direct children (sources of incoming is-a links).</summary>
-    public IReadOnlyList<Thought> Children { get { lock (_linksFrom) return _linksFrom.Where(x => x.LinkType?.Label == "is-a").Select(x => x.From).ToList(); } }
+    public IReadOnlyList<Thought> Children { get { lock (_linksFrom) return _linksFrom.Where(x => x.LinkType?.Label == "is-a").Select(x => x.From).OfType<Thought>().ToList(); } }
 
     private string _label = "";
     public string Label
@@ -103,13 +110,14 @@ public class Thought
 
     public void Delete()
     {
-        if (LinksFrom.FindFirst(x=>x.LinkType.Label == "VLU") is not null)
+        if (LinksFrom.FindFirst(x => x.LinkType?.Label == "VLU") is not null)
         {
             //this Thought is the object of a sequence.  
         }
         foreach (Link r in _linksTo.Where(x => (x.To as SeqElement)?.FRST == x.To))
         {
-            UKS.theUKS.DeleteSequence((SeqElement)r.To);
+            if (r.To is SeqElement seq)
+                UKS.theUKS.DeleteSequence(seq);
         }
         for (int i = 0; i < _linksTo.Count; i++)
         {
@@ -121,7 +129,7 @@ public class Thought
         for (int i = 0; i < _linksFrom.Count; i++)
         {
             Link r = _linksFrom[i];
-            if (r.From.LinksTo.Count > 0)  //HACK: corrects for certain broken links
+            if (r.From?.LinksTo.Count > 0)  //HACK: corrects for certain broken links
             {
                 r.From.RemoveLink(r);
                 i--;
@@ -171,9 +179,9 @@ public class Thought
         }
     }
 
-    private object _value;
+    private object? _value;
     /// <summary>Any serializable object can be attached to a Thought. ONLY STRINGS are supported for save/restore to disk file.</summary>
-    public object V
+    public object? V
     {
         get => _value;
         set { _value = value; }
@@ -185,6 +193,13 @@ public class Thought
     {
         get => _weight;
         set => _weight = value;
+    }
+    private float _maxWeight = 1;
+    /// <summary>maxWeight of this Thought (for links, applies to the link).</summary>
+    public float maxWeight
+    {
+        get => _maxWeight;
+        set => _maxWeight = value;
     }
 
     /// <summary>
@@ -221,16 +236,12 @@ public class Thought
     /// <summary>
     /// Allows implicit conversion from a label string to an existing Thought (or null if not found).
     /// </summary>
-    public static implicit operator Thought(string label)
-    {
-        Thought t = ThoughtLabels.GetThought(label);
-        return t;
-    }
+    public static implicit operator Thought?(string label) => ThoughtLabels.GetThought(label);
 
     /// <summary>
     /// Equality by label; for Link, also compares endpoints and link type.
     /// </summary>
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (obj is Thought t)
         {
@@ -243,6 +254,13 @@ public class Thought
                 return true;
         }
         return false;
+    }
+
+    public override int GetHashCode()
+    {
+        if (this is Link link)
+            return HashCode.Combine(Label, link.From, link.LinkType, link.To);
+        return Label.GetHashCode(StringComparison.Ordinal);
     }
 
     public static bool operator ==(Thought? a, Thought? b)
@@ -274,15 +292,16 @@ public class Thought
     {
         get
         {
-            List<Thought> retVal = Children.ToList();
-            for (int i = 0; i < retVal.Count; i++)
+            List<Thought> retVal = new();
+            HashSet<Thought> seen = new();
+            foreach (Thought child in Children)
             {
-                Thought t = retVal[i];
-                if (t.Label.StartsWith(this._label))
+                if (seen.Add(child))
+                    retVal.Add(child);
+                foreach (Thought descendant in child.Descendants)
                 {
-                    retVal.AddRange(t.Children);
-                    retVal.RemoveAt(i);
-                    i--;
+                    if (seen.Add(descendant))
+                        retVal.Add(descendant);
                 }
             }
             return retVal;
@@ -352,8 +371,15 @@ public class Thought
     /// Determines whether this thought has the specified ancestor (self-inclusive).
     /// </summary>
     /// <param name="t">Ancestor to test.</param>
-    public bool HasAncestor(Thought t)
+    public bool HasAncestor(string label)
     {
+        Thought? t = ThoughtLabels.GetThought(label);
+        return t is not null && HasAncestor(t);
+    }
+
+    public bool HasAncestor(Thought? t)
+    {
+        if (t is null) return false;
         foreach (var ancestor in AncestorsWithSelf)
             if (ancestor == t) return true;
         return false;
@@ -376,21 +402,30 @@ public class Thought
     private void AddToRecentlyFired()
     {
         int maxCount = 100;
-        recentlyFired.Enqueue(this);
-        while (recentlyFired.Count > maxCount) _ = recentlyFired.Dequeue();
+        lock (recentlyFiredLock)
+        {
+            recentlyFired.Enqueue(this);
+            while (recentlyFired.Count > maxCount) _ = recentlyFired.Dequeue();
+        }
     }
     public static void DeleteFromRecentlyFired(Thought t)
     {
-        //CAUTION NOT THREAD SAFE
-        var tempList = recentlyFired.Where(x => x != t).ToList();
-        recentlyFired = new Queue<Thought>(tempList);
+        lock (recentlyFiredLock)
+        {
+            var tempList = recentlyFired.Where(x => x != t).ToList();
+            recentlyFired.Clear();
+            foreach (var item in tempList)
+                recentlyFired.Enqueue(item);
+        }
     }
     public static IReadOnlyList<Thought> GetRecentlyFiredThoughts(TimeSpan recency)
     {
         //remove duplicates while preserving order (keeping the most recent occurrence of each Thought)
         DateTime cutoff = DateTime.MinValue;
         if (recency < DateTime.Now-DateTime.MinValue) cutoff =    DateTime.Now - recency;
-        var snapshot = recentlyFired.Where(x=>x.LastFiredTime > cutoff).ToArray();
+        Thought[] snapshot;
+        lock (recentlyFiredLock)
+            snapshot = recentlyFired.Where(x=>x.LastFiredTime > cutoff).ToArray();
         var seen = new HashSet<Thought>();
         var resultRev = new List<Thought>();
         foreach (var item in snapshot.Reverse())
@@ -403,17 +438,23 @@ public class Thought
     public static void FireAllRecentlyFiredThoughts(TimeSpan recency)
     {
         DateTime cutoff = DateTime.Now - recency;
-        var snapshot = recentlyFired.ToArray();
-        var seen = new HashSet<Thought>();
-        var resultRev = new List<Thought>();
-
-        foreach (var item in snapshot.Reverse())
+        List<Thought> resultRev;
+        lock (recentlyFiredLock)
         {
-            if (seen.Add(item))
-                resultRev.Add(item); // keep first time we see it from the back (i.e., the last occurrence)
+            var snapshot = recentlyFired.ToArray();
+            var seen = new HashSet<Thought>();
+            resultRev = new List<Thought>();
+
+            foreach (var item in snapshot.Reverse())
+            {
+                if (seen.Add(item))
+                    resultRev.Add(item);
+            }
+            resultRev.Reverse();
+            recentlyFired.Clear();
+            foreach (var item in resultRev)
+                recentlyFired.Enqueue(item);
         }
-        resultRev.Reverse();
-        recentlyFired = new(resultRev); // restore original ordering of the kept items
 
         foreach (Thought t in resultRev.Where(x => x.LastFiredTime > cutoff))
         {
@@ -422,7 +463,8 @@ public class Thought
     }
     public static void ClearRecentlyFiredQueue()
     {
-        recentlyFired.Clear();
+        lock (recentlyFiredLock)
+            recentlyFired.Clear();
     }
 
     private void UpdateTimeToLive()
@@ -448,11 +490,18 @@ public class Thought
     /// <param name="linkType">Relationship type thought.</param>
     /// <param name="to">Target thought.</param>
     /// <returns>The new or existing link.</returns>
-    public Link AddLink(Thought linkType, Thought to)
+    public Link? AddLink(string linkTypeLabel, Thought? to)
+    {
+        Thought? linkType = ThoughtLabels.GetThought(linkTypeLabel);
+        if (linkType is null) return null;
+        return AddLink(linkType, to);
+    }
+
+    public Link? AddLink(Thought linkType, Thought? to)
     {
         if (linkType is null) return null;
 
-        Link existing = HasLink(linkType, to);
+        Link? existing = HasLink(linkType, to);
         if (existing is not null)
             return existing;
 
@@ -520,6 +569,7 @@ public class Thought
         if (r.LinkType is null) return;
         if (r.From is null)
         {
+            if (r.To is null) return;
             lock (r.LinkType._linksFrom)
             {
                 lock (r.To._linksFrom)
@@ -558,23 +608,39 @@ public class Thought
         r.Delete();
     }
 
-    public Thought GetTargetOfFirstLinkOfType(Thought linkType)
+    public Thought? GetTargetOfFirstLinkOfType(Thought linkType)
     {
         return LinksTo.FindFirst(x => x.LinkType == linkType)?.To;
     }
-    public  Link HasLink(Thought linkType, Thought to = null)
+
+    public Thought? GetTargetOfFirstLinkOfType(string linkTypeLabel)
     {
-        foreach (Link r in _linksTo)
+        return LinksTo.FindFirst(x =>
+            string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.To;
+    }
+    private static bool LinkTypesMatch(Thought? a, Thought? b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a is null || b is null) return false;
+        return string.Equals(a.Label, b.Label, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public Link? HasLink(Thought linkType, Thought? to = null)
+    {
+        lock (_linksTo)
         {
-            if (r.From == this && (r.To == to || to is null) && r.LinkType == linkType)
-                return r;
+            foreach (Link r in _linksTo)
+            {
+                if (r.From == this && (r.To == to || to is null) && LinkTypesMatch(r.LinkType, linkType))
+                    return r;
+            }
         }
         return null;
     }
     /// <summary>
     /// Finds a link matching the optional source/type/target criteria.
     /// </summary>
-    public Link HasLink(Thought from, Thought linkType, Thought to)
+    public Link? HasLink(Thought? from, Thought? linkType, Thought? to)
     {
         if (from is null && linkType is null && to is null) return null;
         foreach (Link r in LinksTo)
@@ -588,7 +654,7 @@ public class Thought
     /// Adds a parent link ("is-a") if not already present.
     /// </summary>
     /// <param name="newParent">Parent to add.</param>
-    public Link AddParent(Thought newParent)
+    public Link? AddParent(Thought newParent)
     {
         if (newParent is null) return null;
         if (!Parents.Contains(newParent))
@@ -600,8 +666,15 @@ public class Thought
     /// Remove a parent from a Thought.
     /// </summary>
     /// <param name="t">Parent thought to remove.</param>
-    public void RemoveParent(Thought t)
+    public void RemoveParent(string parentLabel)
     {
+        Thought? t = ThoughtLabels.GetThought(parentLabel);
+        if (t is not null) RemoveParent(t);
+    }
+
+    public void RemoveParent(Thought? t)
+    {
+        if (t is null) return;
         Link r = new() { From = this, LinkType = IsA, To = t };
         t.RemoveLink(r);
     }
@@ -625,7 +698,8 @@ public class Thought
         foreach (Link r in LinksTo)
         {
             if (r.LinkType?.Label != "hasAttribute" && r.LinkType?.Label != "is") continue;
-            retVal.Add(r.To);
+            if (r.To is not null)
+                retVal.Add(r.To);
         }
         return retVal;
     }
@@ -634,7 +708,13 @@ public class Thought
     /// Determines whether this thought has the specified property, considering inheritance.
     /// </summary>
     /// <param name="t">Property thought to test.</param>
-    public bool HasProperty(Thought t)  //with inheritance
+    public bool HasProperty(string label)
+    {
+        Thought? t = ThoughtLabels.GetThought(label);
+        return t is not null && HasProperty(t);
+    }
+
+    public bool HasProperty(Thought? t)  //with inheritance
     {
         if (t is null) return false;
         if (LinksTo.FindFirst(x => x.LinkType?.Label == "hasProperty" && x.To == t) is not null) return true;

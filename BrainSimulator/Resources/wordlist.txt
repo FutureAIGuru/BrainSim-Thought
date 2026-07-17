@@ -1,0 +1,30 @@
+# Minimal word list for ModuleOnlineInfo.SetupWordList (one word per line).
+# Replace or set WORDLIST_PATH to a full dictionary file.
+the
+be
+to
+of
+and
+a
+in
+that
+have
+it
+for
+not
+on
+with
+he
+as
+you
+do
+at
+dog
+cat
+bird
+fish
+horse
+tree
+water
+sun
+moon

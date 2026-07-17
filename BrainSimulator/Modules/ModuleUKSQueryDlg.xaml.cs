@@ -56,6 +56,36 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         return true;
     }
 
+    private void BtnWhy_Click(object sender, RoutedEventArgs e)
+    {
+        ModuleUKSQuery UKSQuery = (ModuleUKSQuery)ParentModule;
+        UKS.UKS theUKS = UKSQuery.theUKS;
+        Thought? source = theUKS.Labeled(sourceText.Text);
+        if (source is null)
+        {
+            resultText.Text = "Why? — source not found";
+            return;
+        }
+
+        List<Link> links = theUKS.GetAllLinks(new List<Thought> { source });
+        Link? match = null;
+        if (!string.IsNullOrWhiteSpace(targetText.Text))
+            match = links.FirstOrDefault(l => l.To?.Label == targetText.Text);
+        if (match is null && !string.IsNullOrWhiteSpace(typeText.Text))
+            match = links.FirstOrDefault(l =>
+                string.Equals(l.LinkType?.Label, typeText.Text, StringComparison.OrdinalIgnoreCase));
+        match ??= links.FirstOrDefault(l => l.InheritanceDepth > 0);
+
+        if (match is null)
+        {
+            resultText.Text = "Why? — no explainable inherited link";
+            return;
+        }
+
+        List<Thought> trace = theUKS.ExplainLink(match, source);
+        resultText.Text = "Why? " + string.Join(" → ", trace.Select(t => t.Label));
+    }
+
     private void BtnLinks_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button b)
@@ -150,7 +180,8 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             resultText1.Text += result1.t.Label + "   " + result1.conf.ToString("0.00") + "\n";
         }
 
-        if (allResults.Count == 1 || allResults[0].conf > allResults[1].conf)
+        if (allResults.Count > 0 &&
+            (allResults.Count == 1 || allResults[0].conf > allResults[1].conf))
         {
             UpdateMostRecent(allResults[0].t);
         }
@@ -217,7 +248,6 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         }
         SetStatus("OK");
 
-        float confidence = 0;
         var allResults = theUKS.SearchForClosestMatch(queryThought, ancestor);
 
         if (allResults.Count == 0)

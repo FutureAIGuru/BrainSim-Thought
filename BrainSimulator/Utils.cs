@@ -24,6 +24,7 @@ using System.Windows.Input;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Media.Media3D;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection.Metadata;
 
@@ -111,7 +112,7 @@ namespace BrainSimulator
                 saturation = values["Sat+"];
                 luminance = values["Lum+"];
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine($"HSLColor dictionary parse failed: {ex.Message}"); }
         }
         public HSLColor(byte a, byte r, byte g, byte b)
         {
@@ -194,13 +195,12 @@ namespace BrainSimulator
 
             Color c;
 
-            if (000 <= hue && hue < 060) c = Color.FromArgb(255, (byte)((C + m) * 255), (byte)((X + m) * 255), (byte)((0 + m) * 255));
-            if (060 <= hue && hue < 120) c = Color.FromArgb(255, (byte)((X + m) * 255), (byte)((C + m) * 255), (byte)((0 + m) * 255));
-            if (120 <= hue && hue < 180) c = Color.FromArgb(255, (byte)((0 + m) * 255), (byte)((C + m) * 255), (byte)((X + m) * 255));
-            if (180 <= hue && hue < 240) c = Color.FromArgb(255, (byte)((0 + m) * 255), (byte)((X + m) * 255), (byte)((C + m) * 255));
-            if (240 <= hue && hue < 300) c = Color.FromArgb(255, (byte)((X + m) * 255), (byte)((0 + m) * 255), (byte)((C + m) * 255));
-            if (300 <= hue && hue < 345) c = Color.FromArgb(255, (byte)((C + m) * 255), (byte)((0 + m) * 255), (byte)((C + m) * 255));
-            if (hue > 345) c = Color.FromArgb(255, (byte)((C + m) * 255), (byte)((X + m) * 255), (byte)((0 + m) * 255));
+            if (hue < 60) c = Color.FromArgb(255, (byte)((C + m) * 255), (byte)((X + m) * 255), (byte)((0 + m) * 255));
+            else if (hue < 120) c = Color.FromArgb(255, (byte)((X + m) * 255), (byte)((C + m) * 255), (byte)((0 + m) * 255));
+            else if (hue < 180) c = Color.FromArgb(255, (byte)((0 + m) * 255), (byte)((C + m) * 255), (byte)((X + m) * 255));
+            else if (hue < 240) c = Color.FromArgb(255, (byte)((0 + m) * 255), (byte)((X + m) * 255), (byte)((C + m) * 255));
+            else if (hue < 300) c = Color.FromArgb(255, (byte)((X + m) * 255), (byte)((0 + m) * 255), (byte)((C + m) * 255));
+            else c = Color.FromArgb(255, (byte)((C + m) * 255), (byte)((0 + m) * 255), (byte)((X + m) * 255));
 
             return c;
         }
@@ -228,9 +228,8 @@ namespace BrainSimulator
                 if (c1.luminance > .95) return true;
             }
             float absHueDiff = Abs(hue - c1.hue);
-            if (absHueDiff < 5 || absHueDiff > 355)
-                return true;
-            return false;
+            float circularHueDiff = Min(absHueDiff, 360f - absHueDiff);
+            return circularHueDiff < 5;
         }
     }
 
@@ -272,7 +271,7 @@ namespace BrainSimulator
                         if (c2 is not null)
                             return c2;
                     }
-                    catch { }
+                    catch (Exception ex) { Debug.WriteLine($"FindByName walk failed for '{name}': {ex.Message}"); }
                 }
             }
             return null;

@@ -26,7 +26,7 @@
               Margin="361,169,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
         <Button x:Name="btnLoad" Content="Load" Click="btnLoad_Click"  Width="75" Height="24"
               Margin="441,169,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-        <Button x:Name="btnTrigram" Content="Trigrams" Click="btnTrigram_Click"  Width="75" Height="24"
-              Margin="441,105,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        <Button x:Name="btnTrigram" Content="Process" Click="btnTrigram_Click"  Width="74" Height="24"
+              Margin="404,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"/>
     </Grid>
 </local:ModuleBaseDlg>
