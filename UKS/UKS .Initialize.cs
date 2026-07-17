@@ -71,7 +71,6 @@ public partial class UKS
         GetOrAddThought("Action", "Thought");
         GetOrAddThought("Link", "Thought");
         GetOrAddThought("LinkType", "Thought");
-        GetOrAddThought("Thought", "Thought");
         GetOrAddThought("is-a", "LinkType");
         GetOrAddThought("inverseOf", "LinkType");
         GetOrAddThought("hasProperty", "LinkType");

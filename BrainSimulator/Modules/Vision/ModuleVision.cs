@@ -119,7 +119,7 @@ public partial class ModuleVision : ModuleBase
         string layerName = "patch";
 
         InitializeLayer(prevLayerName, numPatchesX, numPatchesY, patchesPerPixel, half, layerName);
-        //InitializeLayer("patch", numPatchesX, numPatchesY, 16, 1, "corner");
+        InitializeLayer("patch", numPatchesX, numPatchesY, 16, 1, "corner");
         InitCornerPoints();
     }
     void InitCornerPoints()
@@ -436,10 +436,10 @@ public partial class ModuleVision : ModuleBase
     {
         //hide any currently-displayed patches
         bool dontClearBoundaryImage = false;
-        //foreach (var t in theUKS.UKSList) if (t.lastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10)) dontClearBoundaryImage = true;
+        foreach (var t in theUKS.AtomicThoughts) if (t.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10)) dontClearBoundaryImage = true;
 
-        //foreach (var t in theUKS.UKSList) t.confidence = 0;
-        //foreach (var t in theUKS.UKSList) t.lastFiredTime = new DateTime(0);
+        foreach (var t in theUKS.AtomicThoughts) t.Weight = 0;
+        foreach (var t in theUKS.AtomicThoughts) t.LastFiredTime = new DateTime(0);
 
         if (dontClearBoundaryImage || boundaryArray == null)
             return;

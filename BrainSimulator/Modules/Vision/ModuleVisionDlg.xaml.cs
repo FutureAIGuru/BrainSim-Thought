@@ -360,7 +360,8 @@ namespace BrainSimulator.Modules
         {
             if (cbShowSrokes.IsChecked == false) return;
             // 1. accumulate weighted direction
-            Thing centerT = patch.LinksFrom.FindFirst(x => x.Weight == 1 && x.LinkType.Label == "hasBoundary").To;
+            Thing centerT = patch.LinksFrom.FindFirst(x => x.Weight == 1 && x.LinkType.Label == "hasBoundary")?.To;
+            if (centerT is null) return;
             string[] parts = centerT.Label.Split('_');
 
             PointPlus center = new PointPlus(int.Parse(parts[1]), (float)int.Parse(parts[2]));
@@ -596,7 +597,7 @@ namespace BrainSimulator.Modules
                     //spawn the following as a separate thread so the UI can update
                     Task backgroundTask = Task.Run(() =>
                     {
-                        for (int i = 0; i < 10000; i++)
+                        for (int i = 0; i < 1000; i++)
                             parent.SingteTestPattern();
                     });
                 }
