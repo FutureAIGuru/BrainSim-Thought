@@ -315,7 +315,8 @@ public class ModuleTextIn : ModuleBase
                 if (bestMeaning is not null)
                     meaning.RemoveAll(x => x != bestMeaning);
             }
-            attributes.AddRange(theUKS.GetAllLinks(meaning));
+            if (meaning.Count > 0)
+                attributes.AddRange(theUKS.GetAttributes(meaning[0]));
         }
         if (meanings.Count == 3)
         {

@@ -1,4 +1,4 @@
-/*
+ï»¿/*
  * Brain Simulator Through
  *
  * Copyright (c) 2026 Charles Simon
@@ -46,7 +46,7 @@ goes = implies location in target
 can = implies action possibility
 
 Every item can have subclasses with attributes.
-In source and target, attributes precede the class, in type, attributes follow the class. “red hat” “big brown dog” “can play”  “has 5”
+In source and target, attributes precede the class, in type, attributes follow the class. â€œred hatâ€ â€œbig brown dogâ€ â€œcan playâ€  â€œhas 5â€
 When adding:
 Hand has 5 fingers creates subclass of has with the attribute of 5 [has->has-child->has.5  has.5->is->5, hand->has.5->fingers
 Every subclass will match the search of its parents (searching for has fingers)
@@ -73,16 +73,24 @@ Follow has ONLY if called out in type
      */
 
     //this is called from the GetAttribs tab
+    // Backward-compatible overload
     public List<(Thought r, float confidence)> GetAttributes(string sourceIn, string linkTypeIn, string targetIn,
             out List<Thought> thoughtResult, out List<Link> links)
+    {
+        return GetAttributes(sourceIn, linkTypeIn, targetIn, "", out thoughtResult, out links);
+    }
+
+    public List<(Thought r, float confidence)> GetAttributes(string sourceIn, string linkTypeIn, string targetIn,
+            string filterIn, out List<Thought> thoughtResult, out List<Link> links)
     {
         thoughtResult = new();
         links = new();
         GetUKS();
         if (theUKS is null) return null;
-        string source = sourceIn.Trim();
-        string linkType = linkTypeIn.Trim();
-        string target = targetIn.Trim();
+        string source = (sourceIn ?? "").Trim();
+        string linkType = (linkTypeIn ?? "").Trim();
+        string target = (targetIn ?? "").Trim();
+        string filter = (filterIn ?? "").Trim();
 
         bool reverse = false;
         //if (source == "" && target == "") return;
@@ -101,6 +109,7 @@ Follow has ONLY if called out in type
         //if (sourceList.Count == 0) return;
         List<Thought> linkTypeList = ModuleUKSStatement.ThoughtListFromString(linkType);
         List<Thought> targetList = ModuleUKSStatement.ThoughtListFromString(target);
+        List<Thought> filterThoughts = ModuleUKSStatement.ThoughtListFromString(filter);
 
 
         //Handle is-a queries as a special case
@@ -119,7 +128,15 @@ Follow has ONLY if called out in type
             return null;
         }
 
-        links = theUKS.GetAllLinks(sourceList);
+        if (sourceList.Count == 0) return null;
+
+        Link filterLink = null;
+        if (filterThoughts.Count == 1)
+            filterLink = new Link { To = filterThoughts[0] };
+        else if (filterThoughts.Count > 1)
+            filterLink = new Link { LinkType = filterThoughts[0] };
+
+        links = theUKS.GetAttributes(sourceList[0], filterLink);
 
         //unreverse the source and target
         if (reverse)
@@ -132,31 +149,7 @@ Follow has ONLY if called out in type
         if (linkTypeList.Count > 0)
             linkType = linkTypeList[0].Label;
 
-        //filter the links
-        for (int i = 0; i < links.Count; i++)
-        {
-            Link r = links[i];
-            if (targetList.Count > 0 && target != "" && !r.To.HasAncestor(targetList[0]))
-            { links.RemoveAt(i); i--; continue; }
-            if (r.LinkType is not null && linkType != "" && !r.LinkType.HasAncestor(linkType))
-            { links.RemoveAt(i); i--; continue; }
-        }
-
-        //if (filter != "")
-        //{
-        //    List<Thought> filterThoughts = ModuleUKSStatement.ThoughtListFromString(filter);
-        //    links = theUKS.FilterResults(links, filterThoughts).ToList();
-        //}
-
-        //if (paramCount == 2)
-        //{
-        //    foreach (Thought r in links)
-        //    {
-        //        if (sourceIn == "") thoughtResult.Add(r.source);
-        //        if (targetIn == "") thoughtResult.Add(r.target);
-        //        if (linkTypeIn == "") thoughtResult.Add(r.linkType);
-        //    }
-        //}
         return null;
     }
 }
+

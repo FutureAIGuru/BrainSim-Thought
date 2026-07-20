@@ -54,7 +54,7 @@ public class InheritanceCh5PhaseDRegressionTests
         uks.AddStatement("physical-object", "has", "tangible");
         uks.AddStatement("Fido", "is-a", "dog");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("Fido") });
+        var links = uks.GetAttributes(uks.Labeled("Fido"));
         Assert.True(HasLink(links, "has", "tangible", uks));
     }
 
@@ -68,7 +68,7 @@ public class InheritanceCh5PhaseDRegressionTests
         uks.AddStatement("Fido", "is-a", "dog");
 
         Thought fido = uks.Labeled("Fido");
-        var links = uks.GetAllLinks(new List<Thought> { fido });
+        var links = uks.GetAttributes(fido);
         Link inherited = links.First(l => l.To == uks.Labeled("fur"));
 
         Assert.Equal("dog", inherited.InheritedFromCategory?.Label);
@@ -91,7 +91,7 @@ public class InheritanceCh5PhaseDRegressionTests
         uks.AddStatement("Fido", "is-a", "dog");
         uks.AddStatement("Fido", "is-a", "pet");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("Fido") });
+        var links = uks.GetAttributes(uks.Labeled("Fido"));
         Assert.True(HasLink(links, "has", "fur", uks));
         Assert.True(HasLink(links, "has", "owner", uks));
     }
@@ -109,7 +109,7 @@ public class InheritanceCh5PhaseDRegressionTests
         uks.AddStatement("mammal", "has", "warm-blooded");
         uks.AddStatement("Fido", "is-a", "dog");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("Fido") });
+        var links = uks.GetAttributes(uks.Labeled("Fido"));
         Assert.True(HasLink(links, "has", "warm-blooded", uks));
     }
 
@@ -187,7 +187,7 @@ public class InheritanceCh5PhaseDRegressionTests
         dogWrap.Weight = 1;
         petWrap.Weight = 2;
 
-        var all = uks.GetAllLinks(new List<Thought> { fido });
+        var all = uks.GetAttributes(fido);
         Assert.True(HasLink(all, "has", "loud", uks));
         Assert.True(HasLink(all, "has", "calm", uks));
 

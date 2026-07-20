@@ -136,7 +136,7 @@ public partial class ModuleTextInDlg : ModuleBaseDlg
 
         IPluralize pluralizer = new Pluralizer();
 
-        var attributes = ParentModule.theUKS.GetAllLinks(new List<Thought> { t });
+        var attributes = ParentModule.theUKS.GetAttributes(t);
         foreach (Link l in attributes)
         {
             string theType = l.LinkType.Label;

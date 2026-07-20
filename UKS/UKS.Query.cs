@@ -22,33 +22,40 @@ public partial class UKS
     List<Link> succeededConditions = new();
 
     /// <summary>
-    /// Gets all links to a group of Thoughts including inherited links.
+    /// Gets all links to a single Thought including inherited links.
     /// </summary>
-    /// <param name="sources">Thoughts that seed the search for related links.</param>
+    /// <param name="source">Thought that seeds the search for related links.</param>
+    /// <param name="filter">Optional partially populated link filter. When set, LinkType and To each require the corresponding result component to have that ancestor, self-inclusive.</param>
+    /// <param name="maxResults">Optional maximum number of results to return (0 = no limit).</param>
     /// <returns>List of matching links.</returns>
-    public List<Link> GetAllLinks(List<Thought> sources) //with inheritance, conflicts, etc
+    public List<Link> GetAttributes(Thought source, Link? filter = null, int maxResults = 0) //with inheritance, conflicts, etc
     {
         List<Link> result2 = new();
-        if (sources.Count == 0) return result2;
-        //expand search list to include instances of given objects  WHY??
-        for (int i = 0; i < sources.Count; i++)
-        {
-            Thought t = sources[i];
-            foreach (Thought child in t.Children)
-            {
-                Thought? isInstance = "isInstance";
-                if (isInstance is not null && child.HasProperty(isInstance))
-                    sources.Add(child);
-            }
-        }
+        if (source is null) return result2;
+
+        List<Thought> sources = new() { source };
 
         var querySources = sources.ToList();
         var result1 = BuildSearchList(sources);
         result2 = GetAllLinksInternal(result1);
+
+        // Apply either populated filter component independently, or both together.
+        if (filter is not null)
+        {
+            result2 = result2.Where(link =>
+                (filter.LinkType is null || link.LinkType?.HasAncestor(filter.LinkType) == true) &&
+                (filter.To is null || link.To?.HasAncestor(filter.To) == true)).ToList();
+        }
+
         if (result2.Count < 200)  //the conflict-remover is really slow on large numbers
             RemoveConflictingResults(result2, querySources);
         RemoveFalseConditionals(result2);
         SortLinks(ref result2);
+
+        // Apply max results limit if specified
+        if (maxResults > 0 && result2.Count > maxResults)
+            result2 = result2.Take(maxResults).ToList();
+
         return result2;
     }
 
@@ -138,20 +145,6 @@ public partial class UKS
             }
         }
         return thoughtsToExamine;
-    }
-
-    private List<Link> GetLinksBetween(Thought t1, Thought t2)
-    {
-        List<Link> retVal = new();
-        foreach (Link r in t1.LinksTo)
-            if (r.To == t2) retVal.Add(r);
-        foreach (Link r in t1.LinksFrom)
-            if (r.To == t2) retVal.Add(r);
-        foreach (Link r in t2.LinksTo)
-            if (r.To == t1) retVal.Add(r);
-        foreach (Link r in t2.LinksFrom)
-            if (r.To == t1) retVal.Add(r);
-        return retVal;
     }
 
     private List<Link> GetAllLinksInternal(List<ThoughtWithQueryParams> thoughtsToExamine)
@@ -276,8 +269,9 @@ public partial class UKS
         for (int i = 0; i < result.Count; i++)
         {
             Link r1 = result[i];
-            Thought? isResult = "isResult";
-            if (isResult is null || !r1.HasProperty(isResult)) continue;
+            bool isConditional = IsConditionalLinkType(r1.LinkType);
+            bool isLegacyResult = r1.HasProperty("isResult");
+            if (!isConditional && !isLegacyResult) continue;
             if (!ConditionsAreMet(r1))
             {
                 failedConditions.Add(r1);
@@ -287,8 +281,30 @@ public partial class UKS
             else
             {
                 succeededConditions.Add(r1);
+                if (isConditional && r1.LinkType is not null)
+                    r1.LinkType = GetAssertionLinkType(r1.LinkType);
             }
         }
+    }
+
+    private Thought GetAssertionLinkType(Thought conditionalLinkType)
+    {
+        string assertionLabel = string.Join(".",
+            conditionalLinkType.Label.Split('.').Where(component => component != "?"));
+
+        if (assertionLabel == conditionalLinkType.Label)
+            return conditionalLinkType;
+
+        return Labeled(assertionLabel)
+            ?? GetOrAddThought(assertionLabel, "LinkType")
+            ?? conditionalLinkType;
+    }
+
+    private static bool IsConditionalLinkType(Thought? linkType)
+    {
+        if (linkType is null) return false;
+        return linkType.HasProperty("conditional") ||
+            linkType.Label.Split('.').Contains("?");
     }
 
     /// <summary>
@@ -331,19 +347,73 @@ public partial class UKS
 
     bool ConditionsAreMet(Link r)
     {
-        Thought? isResult = "isResult";
-        Thought? isCondition = "isCondition";
+        bool foundIf = false;
         foreach (Link r1 in r.LinksTo)
         {
-            if (isResult is null || r1.From?.HasProperty(isResult) != true) continue;
-            if (isCondition is null || r1.To?.HasProperty(isCondition) != true) continue;
+            if (r1.LinkType?.Label != "IF") continue;
+            foundIf = true;
 
-            Link? r2 = r1.To as Link;
-            //is r1 true?
-            if (GetUnconditionalLink(r2) is null)
+            if (r1.To is not Link condition || !ConditionIsMet(condition))
                 return false;
         }
-        return true;
+        return foundIf;
+
+        bool ConditionIsMet(Link condition)
+        {
+            if (condition.LinkType?.Label == "AND")
+            {
+                if (condition.From is not Link left || condition.To is not Link right)
+                    return false;
+
+                return ConditionIsMet(left) && ConditionIsMet(right);
+            }
+
+            if (condition.From is null || condition.LinkType is null)
+                return false;
+
+            Thought? conditionalCategory = "?";
+            Thought? semanticBase = condition.LinkType.Parents
+                .FirstOrDefault(parent => parent != conditionalCategory);
+            if (semanticBase is null)
+                return false;
+
+            List<Thought> requiredAttributes = condition.LinkType.GetAttributes()
+                .Where(attribute => attribute.Label != "?")
+                .ToList();
+            foreach (Link candidate in condition.From.LinksTo)
+            {
+                if (candidate.LinkType is null || candidate.To != condition.To) continue;
+                if (IsConditionalLinkType(candidate.LinkType)) continue;
+                if (!candidate.LinkType.HasAncestor(semanticBase)) continue;
+
+                List<Thought> candidateAttributes = candidate.LinkType.GetAttributes();
+                bool conditionIsNegative = IsNegativeLinkType(condition.LinkType, requiredAttributes);
+                bool candidateIsNegative = IsNegativeLinkType(candidate.LinkType, candidateAttributes);
+                if (conditionIsNegative != candidateIsNegative) continue;
+
+                bool isSuperseded = condition.From.LinksTo.Any(other =>
+                    other != candidate &&
+                    !IsConditionalLinkType(other.LinkType) &&
+                    other.Weight > candidate.Weight &&
+                    LinksAreExclusive(candidate, other));
+                if (isSuperseded) continue;
+
+                bool hasRequiredAttributes = requiredAttributes.All(required =>
+                    candidateAttributes.Any(actual => actual == required || actual.HasAncestor(required)));
+                if (hasRequiredAttributes)
+                    return true;
+            }
+
+            return false;
+
+            static bool IsNegativeLinkType(Thought linkType, List<Thought> attributes) =>
+                attributes.Any(attribute => IsNegativeComponent(attribute.Label)) ||
+                linkType.Label.Split('.').Any(IsNegativeComponent);
+
+            static bool IsNegativeComponent(string component) =>
+                component.Equals("not", StringComparison.OrdinalIgnoreCase) ||
+                component.Equals("no", StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     Link? GetUnconditionalLink(Link? r)
@@ -388,7 +458,7 @@ public partial class UKS
     /// <param name="root">All searching is done within the descendants of this Thought.</param>
     /// <param name="confidence">Unused output parameter reserved for match quality (not currently assigned).</param>
     /// <returns>Ordered list of candidate thoughts with confidence scores.</returns>
-    public List<(Thought t, float conf)> SearchForClosestMatch(Thought target, Thought root)
+    public List<(Thought t, float conf)> SearchByAttributes(Thought target, Thought root)
     {
         List<(Thought t, float conf)> retVal = new();
         if (target.LinksTo.Count == 0) return retVal;
@@ -590,7 +660,7 @@ public partial class UKS
            // If from is specified, start there for efficiency (most constrained search)
         if (from is not null)
         {
-            var attribs = GetAllLinks(new List<Thought> { from });
+            var attribs = GetAttributes(from);
             foreach (Link link in attribs)
             {
                 if ((linkType is null || link.LinkType?.HasAncestor(linkType) == true) &&

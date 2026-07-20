@@ -218,6 +218,8 @@ public partial class UKS
                 thoughtToReturn.RemoveParent("Unknown");
                 thoughtToReturn.AddParent(correctParent);
             }
+            if (label.Split('.').Contains("?") && Labeled("?") is Thought conditionalType)
+                thoughtToReturn.AddParent(conditionalType);
 
             return thoughtToReturn;
         }
@@ -237,6 +239,13 @@ public partial class UKS
             {
                 for (int i = 1; i < attribs.Length; i++)
                 {
+                    if (attribs[i] == "?")
+                    {
+                        Thought? conditionalType = Labeled("?") ?? AddThought("?", Labeled("LinkType"));
+                        if (conditionalType is not null)
+                            instanceThought.AddParent(conditionalType);
+                        continue;
+                    }
                     Thought? attrib = Labeled(attribs[i]) ?? AddThought(attribs[i], "Unknown");
                     if (attrib is not null)
                         instanceThought.AddLink("is", attrib);

@@ -68,7 +68,7 @@ public class ModuleRemoveRedundancy : ModuleBase
     {
         foreach (Thought parent in t.Parents) //usually only a single parent
         {
-            List<Link> linksWithInheritance = theUKS.GetAllLinks(new List<Thought> { parent });
+            List<Link> linksWithInheritance = theUKS.GetAttributes(parent);
             for (int i = 0; i < t.LinksTo.Count; i++)
             {
                 Link r = t.LinksTo[i];

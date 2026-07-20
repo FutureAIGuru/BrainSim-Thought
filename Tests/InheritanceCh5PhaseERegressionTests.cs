@@ -29,7 +29,7 @@ public class InheritanceCh5PhaseERegressionTests
         if (File.Exists(fromTest)) return Path.GetFullPath(fromTest);
         return Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
-            "..", "..", "..", "..", "..",
+            "..", "..", "..", "..",// "..",
             "BrainSimulator", "UKSContent", "Ch4Ch5-FidoDemo.txt"));
     }
 
@@ -105,7 +105,7 @@ public class InheritanceCh5PhaseERegressionTests
         uks.AddStatement("Fido", "is-a", "dog");
 
         Thought fido = uks.Labeled("Fido");
-        Link inherited = uks.GetAllLinks(new List<Thought> { fido })
+        Link inherited = uks.GetAttributes(fido)
             .First(l => l.To == uks.Labeled("fur"));
 
         var trace = uks.ExplainLink(inherited, fido);
@@ -141,6 +141,7 @@ public class InheritanceCh5PhaseERegressionTests
     {
         var uks = CreateUks();
         string path = DemoPath();
+        //"C:\Users\C_SIM\source\repos\BrainSim Thought\BrainSimulator\UKSContent\ch4-ch5FidoDemo.txt"
         Assert.True(File.Exists(path), $"Demo not found at {path}");
         uks.ImportTextFile(path);
 
@@ -150,11 +151,11 @@ public class InheritanceCh5PhaseERegressionTests
         Assert.NotNull(fido);
         Assert.NotNull(tripper);
 
-        var fidoLinks = uks.GetAllLinks(new List<Thought> { fido });
+        var fidoLinks = uks.GetAttributes(fido);
         Assert.Contains(fidoLinks, l => l.LinkType == has && l.To == uks.Labeled("fur"));
         Assert.Contains(fidoLinks, l => l.To == uks.Labeled("owner"));
 
-        var tripperLinks = uks.GetAllLinks(new List<Thought> { tripper });
+        var tripperLinks = uks.GetAttributes(tripper);
         Assert.Contains(tripperLinks, l => l.LinkType?.Label == "has.3");
         Assert.DoesNotContain(tripperLinks, l => l.LinkType?.Label == "has.4");
 

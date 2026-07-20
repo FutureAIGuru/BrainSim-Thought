@@ -95,8 +95,11 @@ public partial class UKS
         AddStatement("allowMultiple", "is-a", "Property");
         AddStatement("inheritable", "is-a", "Property");
         AddStatement("isEphemeral", "is-a", "Property");
+        AddStatement("conditional", "is-a", "Property");
         AddStatement("isCondition", "is-a", "Property");
         AddStatement("isResult", "is-a", "Property");
+        AddStatement("?", "is-a", "LinkType");
+        AddStatement("?", "hasProperty", "conditional");
 
         //sequence search options
         AddStatement("Wildcard", "is-a", "Thought");
@@ -131,7 +134,6 @@ public partial class UKS
 
         //colors
         AddStatement("color", "is-a", "Abstract");
-        AddStatement("color", "hasProperty", "isExclusive");
         AddStatement("red", "is-a", "color");
         AddStatement("orange", "is-a", "color");
         AddStatement("yellow", "is-a", "color");

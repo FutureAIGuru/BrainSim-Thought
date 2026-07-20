@@ -19,14 +19,14 @@
                     <Label Content="From"        HorizontalAlignment="Left"   Height="33"   Margin="10,20,0,0"       FontSize="16" Width="68" VerticalAlignment="Top"/>
                     <Label Content="Type"        HorizontalAlignment="Left"   Height="33"   Margin="10,70,0,0"    FontSize="16" Width="68" VerticalAlignment="Top"/>
                     <Label Content="To"      HorizontalAlignment="Left"   Height="33"   Margin="10,120,0,0"   FontSize="16" Width="68" VerticalAlignment="Top"/>
-                    <!--<Label Content="Filter"      HorizontalAlignment="Left"   Height="33"   Margin="10,170,0,0"   FontSize="16"  Width="68" VerticalAlignment="Top" />-->
+                    <Label Content="Filter"      HorizontalAlignment="Left"   Height="33"   Margin="10,170,0,0"   FontSize="16"  Width="68" VerticalAlignment="Top" />
                     <Label Content="Result"      HorizontalAlignment="Left"   Height="33"   Margin="10,280,0,0"   FontSize="16"  Width="68" VerticalAlignment="Top"/>
 
                     <TextBox  x:Name="sourceText"    TabIndex="1"  Height="33" VerticalAlignment="Top"   FontSize="16"   Margin="78,20,0,0" HorizontalAlignment="Left" Width="278" TextChanged="Text_TextChanged" Grid.ColumnSpan="4"/>
                     <TextBox  x:Name="typeText"      TabIndex="2"  Height="33" VerticalAlignment="Top"   FontSize="16"     Margin="78,70,0,0" HorizontalAlignment="Left" Width="278" TextChanged="Text_TextChanged" Grid.ColumnSpan="4"/>
                     <TextBox  x:Name="targetText"    TabIndex="3"  Height="33" VerticalAlignment="Top"   FontSize="16"   Margin="78,120,0,0" HorizontalAlignment="Left" Width="278"  TextChanged="Text_TextChanged" Grid.ColumnSpan="4"/>
-                    <!--<TextBox  x:Name="filterText"    TabIndex="4"  Height="32" VerticalAlignment="Top"   FontSize="16"   Margin="78,170,0,0" HorizontalAlignment="Left" Width="278" TextChanged="Text_TextChanged" Grid.ColumnSpan="2"/>-->
-                    <TextBox  x:Name="resultText"    TabIndex="5"   FontSize="18" Margin="78,180,36,10"  TextWrapping="Wrap" Grid.ColumnSpan="4"/>
+                    <TextBox  x:Name="filterText"    TabIndex="4"  Height="33" VerticalAlignment="Top"   FontSize="16"   Margin="78,170,0,0" HorizontalAlignment="Left" Width="278" TextChanged="Text_TextChanged" Grid.ColumnSpan="4"/>
+                    <TextBox  x:Name="resultText"    TabIndex="5"  FontSize="18" Margin="78,245,38,54"  TextWrapping="Wrap" Grid.ColumnSpan="4"/>
 
                     <Button x:Name="BtnLinks" IsDefault="True" Content="Query" Height="32" VerticalAlignment="Top" FontSize="16" Margin="149,21,0,0" Click="BtnLinks_Click" HorizontalAlignment="Left" Width="120" Grid.Column="3"/>
                     <Button x:Name="BtnWhy" Content="Why?" Height="32" VerticalAlignment="Top" FontSize="16" Margin="149,61,0,0" Click="BtnWhy_Click" HorizontalAlignment="Left" Width="120" Grid.Column="3"/>

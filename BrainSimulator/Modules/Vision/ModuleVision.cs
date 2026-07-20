@@ -511,7 +511,7 @@ public partial class ModuleVision : ModuleBase
         List<(Thought t, float conf)> match = new();
         if (queryThought.LinksFrom.Count > 0)
         {
-            matchOrig = theUKS.SearchForClosestMatch(queryThought, "Thought");
+            matchOrig = theUKS.SearchByAttributes(queryThought, "Thought");
 
 
             matchOrig.RemoveAll(x => x.t.Label.StartsWith("theQuery"));

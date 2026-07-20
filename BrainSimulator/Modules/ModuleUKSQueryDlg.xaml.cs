@@ -67,7 +67,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             return;
         }
 
-        List<Link> links = theUKS.GetAllLinks(new List<Thought> { source });
+        List<Link> links = theUKS.GetAttributes(source);
         Link? match = null;
         if (!string.IsNullOrWhiteSpace(targetText.Text))
             match = links.FirstOrDefault(l => l.To?.Label == targetText.Text);
@@ -123,11 +123,12 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         string source = sourceText.Text;
         string type = typeText.Text;
         string target = targetText.Text;
+        string filter = filterText?.Text ?? "";
 
         List<Thought> thoughts;
         List<Link> links;
         ModuleUKSQuery UKSQuery = (ModuleUKSQuery)ParentModule;
-        var results1 = UKSQuery.GetAttributes(source, type, target,out thoughts, out links);
+        var results1 = UKSQuery.GetAttributes(source, type, target, filter, out thoughts, out links);
 
         if (results1 is not null)
         {
@@ -157,7 +158,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             return;
         }
 
-        var allResults = theUKS.SearchForClosestMatch(queryThought, ancestor);
+        var allResults = theUKS.SearchByAttributes(queryThought, ancestor);
 
         if (allResults.Count == 0)
         {
@@ -248,7 +249,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         }
         SetStatus("OK");
 
-        var allResults = theUKS.SearchForClosestMatch(queryThought, ancestor);
+        var allResults = theUKS.SearchByAttributes(queryThought, ancestor);
 
         if (allResults.Count == 0)
         {
@@ -418,7 +419,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         var theUKS = UKSQuery.theUKS;
 
         List<Link> missingAttributes = new();
-        var inheritableLinks = theUKS.GetAllLinks(new List<Thought> { foundThought });
+        var inheritableLinks = theUKS.GetAttributes(foundThought);
         foreach (Link r in queryThought.LinksTo)
         {
             if (inheritableLinks.FindFirst(x => x.LinkType == r.LinkType && x.To == r.To) is null)
@@ -456,7 +457,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         }
         SetStatus("OK");
 
-        var allResults = theUKS.SearchForClosestMatch(queryThought, ancestor);
+        var allResults = theUKS.SearchByAttributes(queryThought, ancestor);
         if (allResults.Count == 0)
         {
             if (queryThought is not null)
