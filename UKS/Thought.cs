@@ -713,6 +713,14 @@ public partial class Thought
         Thought? t = ThoughtLabels.GetThought(label);
         return t is not null && HasProperty(t);
     }
+    public Thought AddProperty(Thought t)
+    {
+        if (t is not null && !HasProperty(t))
+        {
+            AddLink("hasProperty", t);
+        }
+        return t;
+    }
 
     public bool HasProperty(Thought? t)  //with inheritance
     {

@@ -113,7 +113,7 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         if (module != null)
         {
             SetStatus("Generating trigrams...");
-            int count = ModuleText.CreateTrigrams();
+            int count = ModuleText.ProcessTheExistingText();
             SetStatus($"Successfully generated {count} trigrams.");
         }
         else

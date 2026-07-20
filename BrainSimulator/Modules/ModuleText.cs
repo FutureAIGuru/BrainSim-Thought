@@ -12,16 +12,12 @@
  */
 
 
-using Microsoft.Msagl.GraphmapsWithMesh;
-using Microsoft.VisualBasic.FileIO;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Windows.Automation;
 using UKS;
 
 namespace BrainSimulator.Modules;
@@ -54,7 +50,6 @@ public class ModuleText : ModuleBase
     public static string AddPhrase(string phrase)
     {
         var theUKS = MainWindow.theUKS;
-        theUKS.GetOrAddThought("EnglishWord", "Thought");
         char[] trimChars = { '.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}' };
 
         int attempted = 0;
@@ -466,7 +461,7 @@ public class ModuleText : ModuleBase
     }
 
 
-    public static int CreateTrigrams()
+    public static int ProcessTheExistingText()
     {
         int retVal = FindUniversalPatterns();
         ComputeUniversalPatternOverlap();

@@ -69,7 +69,6 @@ public partial class UKS
         GetOrAddThought("Abstract", "Thought");
         GetOrAddThought("Object", "Thought");
         GetOrAddThought("Action", "Thought");
-        GetOrAddThought("Link", "Thought");
         GetOrAddThought("LinkType", "Thought");
         GetOrAddThought("is-a", "LinkType");
         GetOrAddThought("inverseOf", "LinkType");
@@ -102,11 +101,8 @@ public partial class UKS
         AddStatement("?", "hasProperty", "conditional");
 
         //sequence search options
-        AddStatement("Wildcard", "is-a", "Thought");
-        AddStatement("??", "is-a", "Wildcard").AddParent("Thought");
-        AddStatement("??", "hasProperty", "isWildcard");
-        AddStatement("w:??", "is-a", "Wildcard").AddParent("Thought");  //SHOULD be WORD
-        AddStatement("w:??", "hasProperty", "isWildcard");
+        AddStatement("Wildcard", "is-a", "abstract");
+        CreateWildcard("??", new List<Thought> { "unknown", "object", "abstract" });
         AddStatement("SearchOption", "is-a", "Property");
         AddStatement("SequenceSearchOption", "is-a", "SearchOption");
         AddStatement("mustMatchFirst", "is-a", "SequenceSearchOption");
@@ -117,11 +113,10 @@ public partial class UKS
         AddStatement("allowOutOfOrder", "is-a", "SequenceSearchOption");
         AddStatement("preferFirstLast", "is-a", "SequenceSearchOption");
         AddStatement("allowPartialMatch", "is-a", "SequenceSearchOption");
-        AddStatement("SequenceSearchOptions", "is-a", "Thought");
-        AddStatement("ExactSequenceSearch", "is-a", "SequenceSearchOptions");
+        AddStatement("ExactSequenceSearch", "is-a", "SequenceSearchOption");
         AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
-        AddStatement("MelodySearchOptions", "is-a", "SequenceSearchOptions");
-        AddStatement("OrderSearchOptions", "is-a", "SequenceSearchOptions");
+        AddStatement("MelodySearchOptions", "is-a", "SequenceSearchOption");
+        AddStatement("OrderSearchOptions", "is-a", "SequenceSearchOption");
         AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
         AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
         AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");

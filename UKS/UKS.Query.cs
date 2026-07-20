@@ -102,6 +102,7 @@ public partial class UKS
             });
         }
 
+        //follow inheritable links to find all related thoughts, up to a maximum number of hops
         for (int i = 0; i < thoughtsToExamine.Count; i++)
         {
             ThoughtWithQueryParams entry = thoughtsToExamine[i];
@@ -165,6 +166,8 @@ public partial class UKS
                 Link? existing = result.FindFirst(x => LinksAreEqual(x, r, ignoreSource));
                 if (existing is not null) continue;
 
+                //this is a fun hack which allows us to say that mary has 10 fingers because mary has 2 hands and
+                //each hand has 5 fingers.  The "has" link type is special-cased here to allow this kind of transitive counting.
                 Thought? hasAncestor = "has";
                 if (haveCount > 1 && hasAncestor is not null && r.LinkType?.HasAncestor(hasAncestor) == true)
                 {

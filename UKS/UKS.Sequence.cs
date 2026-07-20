@@ -1061,4 +1061,15 @@ public partial class UKS
             .OrderByDescending(x => x.confidence)
             .ToList();
     }
+
+    public Thought CreateWildcard(string wildcardName,List<Thought> parentThoughts)
+    {
+        Thought wildcard = GetOrAddThought(wildcardName,"wildcard");
+        wildcard.AddProperty("isWildcard");
+        foreach (var parent in parentThoughts)
+        {
+            wildcard.AddParent(parent);
+        }
+        return wildcard;
+    }
 }
