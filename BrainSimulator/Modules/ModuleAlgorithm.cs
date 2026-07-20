@@ -21,7 +21,7 @@ namespace BrainSimulator.Modules;
 
 public class ModuleAlgorithm : ModuleBase
 {
-    private TimeSpan linkTimeToLive = TimeSpan.FromSeconds(5);
+    private TimeSpan linkTimeToLive = TimeSpan.FromSeconds(30);
     //private SeqElement currentStep = null;
     private DateTime lastCycle = DateTime.Now;
 
@@ -92,8 +92,8 @@ public class ModuleAlgorithm : ModuleBase
     private bool IsCall(Thought t) { return t is not null && t is not Link && t.GetTargetOfFirstLinkOfType("steps") is not null; }
     // Context: Thought with no "steps" link and not a call or assignment
     private bool IsContext(Thought t) { return t is not null && t is not Link && t is not SeqElement s && t.GetTargetOfFirstLinkOfType("steps") is null; }
-    // Assignment: Link with a "write" ancestor
-    private bool IsAssignment(Thought t) { return t is Link link && link.LinkType?.HasAncestor("write") == true; }
+    // Assignment: Link with a "set" ancestor
+    private bool IsAssignment(Thought t) { return t is Link link && link.LinkType?.HasAncestor("set") == true; }
 
     private void FireNextStatement(Thought activeStep)
     {
@@ -143,7 +143,7 @@ public class ModuleAlgorithm : ModuleBase
             Debug.WriteLine($"Handle assignment: {action}");
             Thought newTarget = HandleIndirection(action.To);
             Thought newFrom = HandleIndirection(action.From);
-            if (action.LinkType.HasAncestor("write") && newFrom is not null)
+            if (action.LinkType.HasAncestor("set") && newFrom is not null)
             {
                 Thought newLinkType = action.LinkType.GetTargetOfFirstLinkOfType("is");
                 if (newLinkType is null) return false;
@@ -194,14 +194,14 @@ public class ModuleAlgorithm : ModuleBase
     {
         //initialization stuff  MOVE
         theUKS.GetOrAddThought("Task", "Thought");
-        theUKS.GetOrAddThought("EXIST", "LinkType");
-        theUKS.GetOrAddThought("WRITE", "LinkType");
+        theUKS.GetOrAddThought("TEST", "LinkType");
+        theUKS.GetOrAddThought("SET", "LinkType");
         theUKS.GetOrAddThought("EQ", "Comparison");
         theUKS.GetOrAddThought("GT", "Comparison");
 
-        theUKS.CreateThoughtFromMultipleAttributes("write EQ", true);
-        theUKS.CreateThoughtFromMultipleAttributes("write GT", true);
-        theUKS.CreateThoughtFromMultipleAttributes("write is", true);
+        theUKS.CreateThoughtFromMultipleAttributes("set EQ", true);
+        theUKS.CreateThoughtFromMultipleAttributes("set GT", true);
+        theUKS.CreateThoughtFromMultipleAttributes("set is", true);
     }
 
     /// <summary>
@@ -217,7 +217,7 @@ public class ModuleAlgorithm : ModuleBase
     {
         // Set link time-to-live based on execution mode
         // Single-step mode gets longer TTL since user is manually stepping through
-        linkTimeToLive = IsSingleStepMode ? TimeSpan.FromSeconds(20) : TimeSpan.FromSeconds(10);
+        linkTimeToLive = IsSingleStepMode ? TimeSpan.FromSeconds(60) : TimeSpan.FromSeconds(30);
         LastLinkWritten = null;
         CycleCount = 0;
         LastAction = "";

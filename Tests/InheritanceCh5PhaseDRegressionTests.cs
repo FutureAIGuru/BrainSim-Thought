@@ -32,14 +32,14 @@ public class InheritanceCh5PhaseDRegressionTests
         return uks.Labeled(t.Label) ?? t;
     }
 
-    private static void EnsureExistOntology(UKS uks)
+    private static void EnsureTestOntology(UKS uks)
     {
-        uks.AddStatement("exist", "is-a", "LinkType");
-        uks.AddStatement("EXIST", "is-a", "exist");
-        uks.AddStatement("exist.is-a", "is-a", "exist");
-        Thought existIsA = uks.Labeled("exist.is-a");
+        uks.AddStatement("test", "is-a", "LinkType");
+        uks.AddStatement("TEST", "is-a", "test");
+        uks.AddStatement("test.is-a", "is-a", "test");
+        Thought testIsA = uks.Labeled("test.is-a");
         Thought isA = uks.Labeled("is-a");
-        existIsA.AddLink(uks.Labeled("is"), isA);
+        testIsA.AddLink(uks.Labeled("is"), isA);
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class InheritanceCh5PhaseDRegressionTests
     public void ContextResolver_selects_higher_weight_case()
     {
         var uks = CreateUks();
-        EnsureExistOntology(uks);
+        EnsureTestOntology(uks);
 
         Thought fido = uks.GetOrAddThought("Fido", "Object");
         Thought dog = uks.GetOrAddThought("dog", "Object");
@@ -144,10 +144,10 @@ public class InheritanceCh5PhaseDRegressionTests
         Thought caseDog = uks.GetOrAddThought("case-dog", contextRoot);
         Thought casePet = uks.GetOrAddThought("case-pet", contextRoot);
         Thought has = uks.Labeled("has");
-        Thought existIsA = uks.Labeled("exist.is-a");
+        Thought testIsA = uks.Labeled("test.is-a");
 
-        Link dogCheck = new Link(fido, existIsA, dog);
-        Link petCheck = new Link(fido, existIsA, pet);
+        Link dogCheck = new Link(fido, testIsA, dog);
+        Link petCheck = new Link(fido, testIsA, pet);
         Link dogWrap = caseDog.AddLink(has, dogCheck);
         Link petWrap = casePet.AddLink(has, petCheck);
         dogWrap.Weight = 1;
@@ -162,7 +162,7 @@ public class InheritanceCh5PhaseDRegressionTests
     public void FilterLinksByContext_keeps_preferred_category_inherited_links()
     {
         var uks = CreateUks();
-        EnsureExistOntology(uks);
+        EnsureTestOntology(uks);
 
         Thought fido = uks.GetOrAddThought("Fido", "Object");
         Thought dog = uks.GetOrAddThought("dog", "Object");
@@ -178,10 +178,10 @@ public class InheritanceCh5PhaseDRegressionTests
         Thought caseDog = uks.GetOrAddThought("case-dog", contextRoot);
         Thought casePet = uks.GetOrAddThought("case-pet", contextRoot);
         Thought has = uks.Labeled("has");
-        Thought existIsA = uks.Labeled("exist.is-a");
+        Thought testIsA = uks.Labeled("test.is-a");
 
-        Link dogCheck = new Link(fido, existIsA, dog);
-        Link petCheck = new Link(fido, existIsA, pet);
+        Link dogCheck = new Link(fido, testIsA, dog);
+        Link petCheck = new Link(fido, testIsA, pet);
         Link dogWrap = caseDog.AddLink(has, dogCheck);
         Link petWrap = casePet.AddLink(has, petCheck);
         dogWrap.Weight = 1;

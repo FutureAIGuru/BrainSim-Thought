@@ -907,7 +907,7 @@
   </sThought>
   <sThought>
     <index>159</index>
-    <label>EXIST</label>
+    <label>TEST</label>
   </sThought>
   <sThought>
     <index>160</index>
@@ -918,7 +918,7 @@
   </sThought>
   <sThought>
     <index>161</index>
-    <label>WRITE</label>
+    <label>SET</label>
   </sThought>
   <sThought>
     <index>162</index>
@@ -1138,7 +1138,7 @@
   </sThought>
   <sThought>
     <index>201</index>
-    <label>[a1→WRITE</label>
+    <label>[a1→SET</label>
   </sThought>
   <sThought>
     <index>202</index>
@@ -1681,7 +1681,7 @@
   </sThought>
   <sThought>
     <index>297</index>
-    <label>EXIST.NXT</label>
+    <label>TEST.NXT</label>
   </sThought>
   <sThought>
     <index>298</index>
@@ -1692,7 +1692,7 @@
   </sThought>
   <sThought>
     <index>299</index>
-    <label>NOT.EXIST.NXT</label>
+    <label>NOT.TEST.NXT</label>
   </sThought>
   <sThought>
     <index>300</index>
@@ -1703,7 +1703,7 @@
   </sThought>
   <sThought>
     <index>301</index>
-    <label>EXIST.IS</label>
+    <label>TEST.IS</label>
   </sThought>
   <sThought>
     <index>302</index>
@@ -1714,7 +1714,7 @@
   </sThought>
   <sThought>
     <index>303</index>
-    <label>EXIST.same</label>
+    <label>TEST.same</label>
   </sThought>
   <sThought>
     <index>304</index>
@@ -1725,7 +1725,7 @@
   </sThought>
   <sThought>
     <index>305</index>
-    <label>NOT.EXIST.same</label>
+    <label>NOT.TEST.same</label>
   </sThought>
   <sThought>
     <index>306</index>
@@ -1736,7 +1736,7 @@
   </sThought>
   <sThought>
     <index>307</index>
-    <label>EXIST.GT</label>
+    <label>TEST.GT</label>
   </sThought>
   <sThought>
     <index>308</index>
@@ -1747,7 +1747,7 @@
   </sThought>
   <sThought>
     <index>309</index>
-    <label>WRITE.EQ</label>
+    <label>SET.EQ</label>
   </sThought>
   <sThought>
     <index>310</index>
@@ -1758,7 +1758,7 @@
   </sThought>
   <sThought>
     <index>311</index>
-    <label>WRITE.GT</label>
+    <label>SET.GT</label>
   </sThought>
   <sThought>
     <index>312</index>
@@ -1769,7 +1769,7 @@
   </sThought>
   <sThought>
     <index>313</index>
-    <label>WRITE.IS</label>
+    <label>SET.IS</label>
   </sThought>
   <sThought>
     <index>314</index>
@@ -1974,7 +1974,7 @@
   </sThought>
   <sThought>
     <index>350</index>
-    <label>[a1→WRITE.IS→Alphabet.order]</label>
+    <label>[a1→SET.IS→Alphabet.order]</label>
   </sThought>
   <sThought>
     <index>351</index>

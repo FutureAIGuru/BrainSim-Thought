@@ -61,7 +61,7 @@ public partial class UKS
     /// <returns>The newly created thought.</returns>
     public virtual Thought AddThought(string label, Thought? parent)
     {
-        if (label == "WRITE.EQ")
+        if (label == "SET.EQ")
         { }
         Thought newThought = new();
         newThought.Label = label;

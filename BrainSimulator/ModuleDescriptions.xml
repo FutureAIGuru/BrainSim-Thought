@@ -659,11 +659,11 @@ ffd8ffe000104a46494600010101006000600000ffdb004300030202030202030303030403030405
 {\fs24\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch Alphabetize_main^}\li0\ri0\sa0\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch   $GetInputParameters}\li0\ri0\sa0\sb0\fi0\ql\par}
-{\fs24\f3 {\ltrch   [p1\u8594?WRITE.IS\u8594?p1.is.spelled]}\li0\ri0\sa0\sb0\fi0\ql\par}
-{\fs24\f3 {\ltrch   [p2\u8594?WRITE.IS\u8594?p2.is.spelled]}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch   [p1\u8594?SET.IS\u8594?p1.is.spelled]}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch   [p2\u8594?SET.IS\u8594?p2.is.spelled]}\li0\ri0\sa0\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch   ContextWordAlpha}\li0\ri0\sa0\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch Each following indented line is a step. A step may be:}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\fs24\f3\b {\ltrch [a\u8594?WRITE.IS\u8594?b]}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3\b {\ltrch [a\u8594?SET.IS\u8594?b]}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch to write a link,}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\b\ltrch SomeOtherSequence  }{\ltrch (a sequence Thought name)}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch to call another sequence,}\li0\ri0\sa160\sb0\fi0\ql\par}
@@ -674,23 +674,23 @@ ffd8ffe000104a46494600010101006000600000ffdb004300030202030202030303030403030405
 {\fs24\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch ContextWordAlpha}\li0\ri0\sa0\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch   cSameContinue}\li0\ri0\sa0\sb0\fi0\ql\par}
-{\fs24\f3 {\ltrch     [cSameContinue\u8594?has\u8594?[p1.is.VLU\u8594?EXIST.same\u8594?p2.is.VLU]]}\li0\ri0\sa0\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch     [cSameContinue\u8594?has\u8594?[p1.is.VLU\u8594?TEST.same\u8594?p2.is.VLU]]}\li0\ri0\sa0\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch     [cSameContinue\u8594?response\u8594?advanceWordLetters]}\li0\ri0\sa0\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch Each context contains cases. A case contains one or more has conditions and one response.}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\fs32\f4 {\cf2\ltrch WRITE Instructions}\li0\ri0\sa80\sb160\fi0\ql\par}
-{\fs24\f3 {\ltrch WRITE.X creates or updates a link of type X.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs32\f4 {\cf2\ltrch SET Instructions}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f3 {\ltrch SET.X creates or updates a link of type X.}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\fs24\f3 {\ltrch [p1\u8594?WRITE.IS\u8594?p1.is.NXT]}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch [p1\u8594?SET.IS\u8594?p1.is.NXT]}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch means:}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch [p1\u8594?IS\u8594?p1.is.NXT]}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\fs32\f4 {\cf2\ltrch EXIST Conditions}\li0\ri0\sa80\sb160\fi0\ql\par}
-{\fs24\f3 {\ltrch EXIST.X tests whether a link or virtual relationship exists.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs32\f4 {\cf2\ltrch TEST Conditions}\li0\ri0\sa80\sb160\fi0\ql\par}
+{\fs24\f3 {\ltrch TEST.X tests whether a link or virtual relationship exists.}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch Example:}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\fs24\f3 {\ltrch [p1.is\u8594?EXIST.NXT\u8594???]}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch [p1.is\u8594?TEST.NXT\u8594???]}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch tests whether the current value of p1 has a NXT link.}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\fs24\f3 {\ltrch [p1.is.VLU\u8594?EXIST.same\u8594?p2.is.VLU]}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch [p1.is.VLU\u8594?TEST.same\u8594?p2.is.VLU]}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch tests whether both expressions resolve to the same Thought.}\li0\ri0\sa160\sb0\fi0\ql\par}
-{\fs24\f3 {\ltrch Use NOT.EXIST.X to test that a relationship does not exist.}\li0\ri0\sa160\sb0\fi0\ql\par}
+{\fs24\f3 {\ltrch Use NOT.TEST.X to test that a relationship does not exist.}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs32\f4 {\cf2\ltrch Indirection}\li0\ri0\sa80\sb160\fi0\ql\par}
 {\fs24\f3 {\ltrch Dot notation follows links.}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f3 {\ltrch p1.is}\li0\ri0\sa160\sb0\fi0\ql\par}
@@ -819,7 +819,7 @@ ffd8ffe000104a46494600010101006000600000ffdb004300030202030202030303030403030405
 {\fs24\f4 {\pntext \'B7\tab}{\*\pn\pnlvlblt\pnstart1{\pntxtb\'B7}}{\ltrch Use the UKS Module to inspect created Thoughts and Links}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
 {\fs24\f4\b {\ltrch Creating Custom Algorithms}\li0\ri0\sa160\sb0\fi0\ql\par}
 {\fs24\f4 {\pntext 1.\tab}{\*\pn\pnlvlbody\pndec\pnstart1{\pntxta .}}{\ltrch Use the Algorithm Editor (Sequence/Context Editor) to create tasks}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
-{\fs24\f4 {\pntext 2.\tab}{\*\pn\pnlvlbody\pndec\pnstart1{\pntxta .}}{\ltrch Define sequences with instructions like\~[p1\u8594?write EQ\u8594?TRUE]}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
+{\fs24\f4 {\pntext 2.\tab}{\*\pn\pnlvlbody\pndec\pnstart1{\pntxta .}}{\ltrch Define sequences with instructions like\~[p1\u8594?set EQ\u8594?TRUE]}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
 {\fs24\f4 {\pntext 3.\tab}{\*\pn\pnlvlbody\pndec\pnstart1{\pntxta .}}{\ltrch Use contexts to create conditional logic}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
 {\fs24\f4 {\pntext 4.\tab}{\*\pn\pnlvlbody\pndec\pnstart1{\pntxta .}}{\ltrch Save tasks as children of "Task"}\li720\ri0\sa160\sb0\jclisttab\tx720\fi-360\ql\par}
 {\fs24\f4\b {\ltrch Common Patterns}\li0\ri0\sa160\sb0\fi0\ql\par}

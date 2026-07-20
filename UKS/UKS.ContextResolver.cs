@@ -1,4 +1,18 @@
 /*
+ * Brain Simulator Thought
+ *
+ * Copyright (c) 2026 Charles Simon
+ *
+ * This file is part of Brain Simulator Thought and is licensed under
+ * the MIT License. You may use, copy, modify, merge, publish, distribute,
+ * sublicense, and/or sell copies of this software under the terms of
+ * the MIT License.
+ *
+ * See the LICENSE file in the project root for full license information.
+ */
+
+
+/*
  * Ch.5 context resolution among conflicting inherited expectations.
  * Extracted from ModuleAlgorithm.EvaluateContext.
  */
@@ -50,12 +64,12 @@ public partial class UKS
         foreach (Link l in caseThought.LinksTo.Where(x => x.LinkType?.Label == "has"))
         {
             if (l.To is not Link test) continue;
-            if (test.LinkType?.HasAncestor("exist") != true) continue;
+            if (test.LinkType?.HasAncestor("test") != true) continue;
 
             bool not = test.LinkType.HasAncestor("not");
             Thought? testType = test.LinkType.LinksTo.FindFirst(x =>
                 string.Equals(x.LinkType?.Label, "is", StringComparison.OrdinalIgnoreCase) &&
-                x.To?.Label != "EXIST")?.To;
+                x.To?.Label != "TEST")?.To;
             Thought? src = resolveIndirection(test.From);
             if (src is null) continue;
 
@@ -113,11 +127,11 @@ public partial class UKS
         foreach (Link l in caseThought.LinksTo.Where(x => x.LinkType?.Label == "has"))
         {
             if (l.To is not Link test) continue;
-            if (test.LinkType?.HasAncestor("exist") != true) continue;
+            if (test.LinkType?.HasAncestor("test") != true) continue;
 
             Thought? testType = test.LinkType.LinksTo.FindFirst(x =>
                 string.Equals(x.LinkType?.Label, "is", StringComparison.OrdinalIgnoreCase) &&
-                x.To?.Label != "EXIST")?.To;
+                x.To?.Label != "TEST")?.To;
             if (testType is null ||
                 !string.Equals(testType.Label, "is-a", StringComparison.OrdinalIgnoreCase))
                 continue;
