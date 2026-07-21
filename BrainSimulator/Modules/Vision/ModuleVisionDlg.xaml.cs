@@ -124,7 +124,7 @@ namespace BrainSimulator.Modules
                 if (cbShowCenterPts.IsChecked == true && parent.boundaryArray != null)
                 {
                     List<Thought> patchesRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.StartsWith("patch") &&
-                        x.LastFiredTime != new DateTime(0)); //> DateTime.Now - TimeSpan.FromSeconds(10));
+                        x.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10));
 
                     for (int x = 2; x < parent.boundaryArray.GetLength(0) - 2; x++)
                         for (int y = 2; y < parent.boundaryArray.GetLength(1) - 2; y++)
@@ -239,7 +239,7 @@ namespace BrainSimulator.Modules
             e.Tag = toolTipString;
 
 
-            foreach (Link pt in t.LinksFrom.Where(x => x.LinkType.Label == "hasBoundary"))
+            foreach (Link pt in t.LinksTo.Where(x => x.LinkType.Label == "hasBoundary"))
             {
                 parts = pt.To.Label.Split('_');
                 x = int.Parse(parts[1]);
@@ -262,7 +262,7 @@ namespace BrainSimulator.Modules
                 e.MouseRightButtonDown += E_MouseRightButtonDown;
                 e.Tag = toolTipString;
             }
-            foreach (Link pt in t.LinksFrom.Where(x => x.LinkType.Label == "collinearWith"))
+            foreach (Link pt in t.LinksTo.Where(x => x.LinkType.Label == "collinearWith"))
             {
                 if (pt.Weight < .2f) continue;
                 if (cbShowCorners.IsChecked != true) continue;
@@ -310,7 +310,7 @@ namespace BrainSimulator.Modules
             theCanvas.Children.Add(e);
 
             float offset = 3 * pixelSize / 4;
-            foreach (Link pt in t.LinksFrom.Where(x => x.LinkType.Label == "hasBoundary"))
+            foreach (Link pt in t.LinksTo.Where(x => x.LinkType.Label == "hasBoundary"))
             {
                 parts = pt.To.Label.Split('_');
                 float x = int.Parse(parts[1]);

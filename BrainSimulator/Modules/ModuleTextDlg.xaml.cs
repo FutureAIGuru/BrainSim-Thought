@@ -10,17 +10,13 @@
  *
  * See the LICENSE file in the project root for full license information.
  */
- 
+
 
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Forms;
 using System.Windows.Input;
-using UKS;
 
 namespace BrainSimulator.Modules;
 
@@ -112,9 +108,9 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         var module = ParentModule as ModuleText;
         if (module != null)
         {
-            SetStatus("Generating trigrams...");
+            SetStatus("Learning text patterns and classes...");
             int count = ModuleText.ProcessTheExistingText();
-            SetStatus($"Successfully generated {count} trigrams.");
+            SetStatus($"Created {count} new surface patterns and updated learned classes and templates.");
         }
         else
         {

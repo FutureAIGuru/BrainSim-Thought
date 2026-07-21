@@ -33,6 +33,7 @@ public class ModuleTextInTests
         string contentPath = Path.Combine(FindRepositoryRoot(), "BrainSimulator", "UKSContent");
         uks.ImportTextFile(Path.Combine(contentPath, "BasicWords.txt"));
         uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
+        uks.CreateWildcard("w:??", new List<Thought> { "languageElement" });
         var module = new ModuleTextIn { theUKS = uks };
 
         string answer = module.SubmitText("What is fido")?.ToLower();
@@ -47,6 +48,7 @@ public class ModuleTextInTests
         string contentPath = Path.Combine(FindRepositoryRoot(), "BrainSimulator", "UKSContent");
         uks.ImportTextFile(Path.Combine(contentPath, "BasicWords.txt"));
         uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
+        uks.CreateWildcard("w:??", new List<Thought> { "languageElement" });
         var module = new ModuleTextIn { theUKS = uks };
 
         module.SubmitText("Fifi is a cat");

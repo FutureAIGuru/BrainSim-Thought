@@ -749,3 +749,95 @@ What can swim?
 What can hop?
 What can crawl?
 What can grow?
+A dog eats oats.
+The dog eats oats.
+Dogs eat oats.
+The dogs eat oats.
+A dog plays frisbee.
+The dog plays frisbee.
+Dogs play frisbee.
+The dogs play frisbee.
+A cat can bark.
+The cat can bark.
+Cats can bark.
+The cats can bark.
+A cat eats oats.
+The cat eats oats.
+Cats eat oats.
+The cats eat oats.
+A cat plays frisbee.
+The cat plays frisbee.
+Cats play frisbee.
+The cats play frisbee.
+A bird can bark.
+The bird can bark.
+Birds can bark.
+The birds can bark.
+A bird eats oats.
+The bird eats oats.
+Birds eat oats.
+The birds eat oats.
+A bird plays frisbee.
+The bird plays frisbee.
+Birds play frisbee.
+The birds play frisbee.
+A fish can bark.
+The fish can bark.
+Fish can bark.
+The fish can bark.
+A fish eats oats.
+The fish eats oats.
+Fish eat oats.
+The fish eat oats.
+A fish plays frisbee.
+The fish plays frisbee.
+Fish play frisbee.
+The fish play frisbee.
+A rabbit can bark.
+The rabbit can bark.
+Rabbits can bark.
+The rabbits can bark.
+A rabbit eats oats.
+The rabbit eats oats.
+Rabbits eat oats.
+The rabbits eat oats.
+A rabbit plays frisbee.
+The rabbit plays frisbee.
+Rabbits play frisbee.
+The rabbits play frisbee.
+A horse can bark.
+The horse can bark.
+Horses can bark.
+The horses can bark.
+A horse eats oats.
+The horse eats oats.
+Horses eat oats.
+The horses eat oats.
+A horse plays frisbee.
+The horse plays frisbee.
+Horses play frisbee.
+The horses play frisbee.
+A cow can bark.
+The cow can bark.
+Cows can bark.
+The cows can bark.
+A cow eats oats.
+The cow eats oats.
+Cows eat oats.
+The cows eat oats.
+A cow plays frisbee.
+The cow plays frisbee.
+Cows play frisbee.
+The cows play frisbee.
+A duck can bark.
+The duck can bark.
+Ducks can bark.
+The ducks can bark.
+A duck eats oats.
+The duck eats oats.
+Ducks eat oats.
+The ducks eat oats.
+A duck plays frisbee.
+The duck plays frisbee.
+Ducks play frisbee.
+The ducks play frisbee.

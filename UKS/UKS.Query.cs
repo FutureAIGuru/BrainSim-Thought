@@ -511,7 +511,8 @@ public partial class UKS
                     }
                 }
             }
-            foreach (Link r1 in r.To?.LinksFrom ?? Enumerable.Empty<Link>())
+            if (r.To is null) continue;
+            foreach (Link r1 in r.To.LinksFrom)
             {
                 if (r1.From == target || r1.From is null) continue;
                 var existing = thoughtsToSearch.FindFirst(x => x == r1.From);
@@ -531,6 +532,8 @@ public partial class UKS
                 }
             }
         }
+
+        int inheritedValueCount = 0;
         //fan out from these seeds following all "inheritable" reverse connections.
         while (thoughtsToSearch.Count > 0)
         {
@@ -539,10 +542,10 @@ public partial class UKS
             alreadySearched.Add(t);
             foreach (Link r in t.LinksFrom)
             {
-                Thought? inheritable = "inheritable";
-                if (inheritable is null || r.LinkType?.HasProperty(inheritable) != true) continue;
+                if (r.LinkType?.HasProperty("inheritable") != true) continue;
                 if (r.From == target || r.From is null) continue;
                 AddToQueues(t, r.From);
+                inheritedValueCount++;
                 //TODO fix this to handle isSimilarTo  (and transitive...?)
                 //var similarThoughts = GetListOfSimilarThoughts(r.source);
                 //foreach (Thought t1 in similarThoughts)
@@ -550,23 +553,26 @@ public partial class UKS
             }
         }
 
-        foreach (var key in searchCandidates.ToList())
+        if (inheritedValueCount > 0)
         {
-            if (!ThoughtsHaveConflictingLink(key.Key, target)) continue;
-            searchCandidates[key.Key] = searchCandidates[key.Key] - .5f;
-        }
-        if (searchCandidates.Count == 0)
-            return retVal;
-
-        // delete items which have ancestor in list too
-        for (int i = 0; i < searchCandidates.Keys.Count; i++)
-        {
-            Thought t = searchCandidates.Keys.ToList()[i];
-            foreach (Thought t1 in t.AncestorsWithSelf)
+            foreach (var key in searchCandidates.ToList())
             {
-                if (t1 != t && searchCandidates.ContainsKey(t1) && searchCandidates[t1] < 0)
-                    searchCandidates.Remove(t);
+                if (!ThoughtsHaveConflictingLink(key.Key, target)) continue;
+                searchCandidates[key.Key] = searchCandidates[key.Key] - .5f;
             }
+            if (searchCandidates.Count == 0)
+                return retVal;
+            // delete items which have ancestor in list too
+            for (int i = 0; i < searchCandidates.Keys.Count; i++)
+            {
+                Thought t = searchCandidates.Keys.ToList()[i];
+                foreach (Thought t1 in t.AncestorsWithSelf)
+                {
+                    if (t1 != t && searchCandidates.ContainsKey(t1) && searchCandidates[t1] < 0)
+                        searchCandidates.Remove(t);
+                }
+            }
+
         }
 
         //create the output list

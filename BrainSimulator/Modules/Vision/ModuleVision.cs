@@ -36,7 +36,7 @@ public partial class ModuleVision : ModuleBase
     public int stride = 1;
     public int counter = 0;
     // Original value: 4
-    public int patchesPerPixel = 4;
+    public int patchesPerPixel = 8;
     // Original Weights: etaOn = 0.06f, etaOff = 0.03f, tpOff = -0.05f, tpOnWeight = 1
     public float etaOn = 0.06f;
     public float etaOff = 0.03f;
@@ -119,7 +119,7 @@ public partial class ModuleVision : ModuleBase
         string layerName = "patch";
 
         InitializeLayer(prevLayerName, numPatchesX, numPatchesY, patchesPerPixel, half, layerName);
-        InitializeLayer("patch", numPatchesX, numPatchesY, 16, 1, "corner");
+        //InitializeLayer("patch", numPatchesX, numPatchesY, 16, 1, "corner");
         InitCornerPoints();
     }
     void InitCornerPoints()
@@ -153,7 +153,7 @@ public partial class ModuleVision : ModuleBase
                     string targetName = $"pt_{(int)(center.X + x):D2}_{((int)center.Y + y):D2}";
                     Thought pt = theUKS.Labeled(targetName);
                     if (pt == null) continue;
-                    Link r = counter.AddLink(pt, relType);
+                    Link r = counter.AddLink( relType,pt);
                     r.Weight = weight;
                 }
         }
@@ -165,7 +165,7 @@ public partial class ModuleVision : ModuleBase
                 if (i == j) continue;
                 string srcName = $"counter_{center.X:F0}_{center.Y:F0}_{i}";
                 string trgName = $"counter_{center.X:F0}_{center.Y:F0}_{j}";
-                Link r = theUKS.Labeled(srcName).AddLink(trgName, notype);
+                Link r = theUKS.Labeled(srcName).AddLink(notype,trgName);
                 r.Weight = -1.0f;
             }
     }
@@ -199,9 +199,15 @@ public partial class ModuleVision : ModuleBase
                     string patchName = $"{layerName}_{patchCenterX:D2}_{patchCenterY:D2}_{i}";
                     Thought patchThought = theUKS.GetOrAddThought(patchName);
 
-                    // this is the maximum weight at the center for this patch index i
-                    //float centerMaxWeight = (float)(patchSize - i * 0.1);
                     float centerMaxWeight = 1f;
+
+                    // Each of the numPatchesPerPixel copies at this location is a distinct
+                    // orientation-tuned "simple cell", evenly spaced across the 180-degree
+                    // range of undirected line orientations (e.g. 0, 45, 90, 135 degrees for
+                    // numPatchesPerPixel == 4). Without this bias, all copies start out as
+                    // identical isotropic blobs and competitive learning has nothing to break
+                    // the tie on, so one copy wins every time and the others never specialize.
+                    double preferredAngle = (numPatchesPerPixel > 0) ? Math.PI * i / numPatchesPerPixel : 0;
 
                     for (int x = -half; x < half + 1; x++)
                         for (int y = -half; y < half + 1; y++)
@@ -217,16 +223,30 @@ public partial class ModuleVision : ModuleBase
                             float radial = (maxRadius > 0f) ? 1f - (r / maxRadius) : 1f;
                             if (radial < 0f) radial = 0f;
 
-                            // interpolate between minWeight and centerMaxWeight based on distance
-                            float maxWeight = minWeight + (centerMaxWeight - minWeight) * radial;
+                            // angular factor: elongates the receptive field along preferredAngle
+                            // and suppresses it perpendicular to that axis. cos^2 is naturally
+                            // symmetric under a 180-degree rotation, so it matches undirected
+                            // line orientation without any extra mod-180 handling.
+                            float orientationFactor = 1f;
+                            if (!(x == 0 && y == 0) && numPatchesPerPixel > 1)
+                            {
+                                double offsetAngle = Math.Atan2(dy, dx);
+                                double cosDiff = Math.Cos(offsetAngle - preferredAngle);
+                                orientationFactor = (float)(cosDiff * cosDiff);
+
+                                // keep a floor so off-axis connections are weakened, not severed
+                                const float minOrientationFactor = 0.15f;
+                                orientationFactor = minOrientationFactor + (1f - minOrientationFactor) * orientationFactor;
+                            }
+
+                            // interpolate between minWeight and centerMaxWeight based on distance and orientation
+                            float maxWeight = minWeight + (centerMaxWeight - minWeight) * radial * orientationFactor;
                             maxWeight *= .75f;  //reduces extraneous hits
 
                             //float maxWeight = minWeight + (1.5f - minWeight) * radial;
                             float initialWeight = maxWeight / 2;
                             if (x == 0 && y == 0) initialWeight = centerMaxWeight;
                             if (x == 0 && y == 0) maxWeight = centerMaxWeight;
-
-
 
                             string attrName = $"{prevLayerName}_{imgX:D2}_{imgY:D2}";
                             Thought t = theUKS.Labeled(attrName);
@@ -235,7 +255,7 @@ public partial class ModuleVision : ModuleBase
                                 foreach (Thought child in t.Children)
                                 {
                                     theUKS.GetLink(patchThought, "hasBoundary", child);
-                                    var rRel1 = patchThought.AddLink(child, "hasBoundary");
+                                    var rRel1 = patchThought.AddLink("hasBoundary", child);
                                     rRel1.Weight = initialWeight;
                                     if (rRel1.To == null)
                                     {
@@ -249,7 +269,7 @@ public partial class ModuleVision : ModuleBase
                             attrName = $"{prevLayerName}_{imgX:D2}_{imgY:D2}";
                             if (theUKS.Labeled(attrName) == null) continue;
 
-                            var rRel = patchThought.AddLink(attrName, "hasBoundary");
+                            var rRel = patchThought.AddLink("hasBoundary", attrName);
                             rRel.Weight = initialWeight;
                             if (rRel.To == null)
                             {
@@ -284,7 +304,7 @@ public partial class ModuleVision : ModuleBase
                                 Thought nnPatchThought = theUKS.GetOrAddThought(nnPatchName);
                                 if (nnPatchThought != null)
                                 {
-                                    var link = patchThought.AddLink(nnPatchThought, "collinearWith");
+                                    var link = patchThought.AddLink("collinearWith", nnPatchThought);
                                     link.Weight = 0.1f;
                                 }
                             }
@@ -293,8 +313,8 @@ public partial class ModuleVision : ModuleBase
 
         //add Links for nearly-collinear patches
         theUKS.GetOrAddThought("nearlyCollinearWith", "LinkType");
-        for (int patchX = 2; patchX < numPatchesX+2; patchX++)
-            for (int patchY = 2; patchY < numPatchesY+2; patchY++)
+        for (int patchX = 2; patchX < numPatchesX + 2; patchX++)
+            for (int patchY = 2; patchY < numPatchesY + 2; patchY++)
                 for (int i = 0; i < numPatchesPerPixel; i++)
                     for (int j = 0; j < numPatchesPerPixel; j++)
                     {
@@ -305,7 +325,7 @@ public partial class ModuleVision : ModuleBase
                         if (source == null) continue;
                         Thought target = theUKS.Labeled(patchName2);
                         if (target == null) continue;
-                        source.AddLink(target, "nearlyCollinearWith");
+                        source.AddLink("nearlyCollinearWith", target);
                     }
     }
 
@@ -401,9 +421,7 @@ public partial class ModuleVision : ModuleBase
 
     void DrawLine(Point p1, Point p2)
     {
-        if (boundaryArray == null) {
-            return;
-        }
+        if (boundaryArray == null) return;
 
         //create a line between p1 and pt in imageArray
         int x0 = (int)p1.X;
@@ -436,13 +454,14 @@ public partial class ModuleVision : ModuleBase
     {
         //hide any currently-displayed patches
         bool dontClearBoundaryImage = false;
-        foreach (var t in theUKS.AtomicThoughts) if (t.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10)) dontClearBoundaryImage = true;
+        foreach (var t in theUKS.AtomicThoughts) 
+            if (t.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10)) dontClearBoundaryImage = true;
 
         foreach (var t in theUKS.AtomicThoughts) t.Weight = 0;
         foreach (var t in theUKS.AtomicThoughts) t.LastFiredTime = new DateTime(0);
 
-        if (dontClearBoundaryImage || boundaryArray == null)
-            return;
+        //if (dontClearBoundaryImage || boundaryArray == null)
+        //    return;
 
         // Debug.WriteLine("Boundary Array: " + boundaryArray);
 
@@ -469,10 +488,7 @@ public partial class ModuleVision : ModuleBase
     private void SearchAndLearn(Thought parent = null)
     {
         // Check if boundary array exists to prevent errors.
-        if (boundaryArray == null)
-        {
-            return;
-        }
+        if (boundaryArray == null)return;
 
         //Build the queryThought from the boundaryPoints Array
 
@@ -485,7 +501,7 @@ public partial class ModuleVision : ModuleBase
                 if (boundaryArray[x, y]) //is this a boundary point?
                 {
                     string attrName = $"Pt_{x:D2}_{y:D2}";
-                    queryThought.AddLink(attrName, "hasBoundary");
+                    queryThought.AddLink("hasBoundary", attrName);
                     //queryThought.AddLink(attrName, "count");
                 }
             }
@@ -509,9 +525,9 @@ public partial class ModuleVision : ModuleBase
     {
         List<(Thought t, float conf)> matchOrig = new();
         List<(Thought t, float conf)> match = new();
-        if (queryThought.LinksFrom.Count > 0)
+        if (queryThought.LinksTo.Count > 0)
         {
-            matchOrig = theUKS.SearchByAttributes(queryThought, "Thought");
+            matchOrig = theUKS.SearchByAttributes(queryThought, "Patch");
 
 
             matchOrig.RemoveAll(x => x.t.Label.StartsWith("theQuery"));
@@ -555,7 +571,7 @@ public partial class ModuleVision : ModuleBase
             //adjust weights within layers
             foreach (var item in match)
             {
-                foreach (Link r in item.t.LinksFrom.Where(x => x.LinkType.Label == "collinearWith"))
+                foreach (Link r in item.t.LinksTo.Where(x => x.LinkType.Label == "collinearWith"))
                 {
 
                     if (match.Any(x => x.t == r.To))
@@ -579,14 +595,14 @@ public partial class ModuleVision : ModuleBase
             {
                 int targetFiredCount = 0;
                 int lastX = -1; int lastY = -1;
-                foreach (Link r in item.t.LinksFrom.OrderBy(x=>x.To.Label).Where(x => x.LinkType.Label == "collinearWith"))
+                foreach (Link r in item.t.LinksTo.OrderBy(x => x.To.Label).Where(x => x.LinkType.Label == "collinearWith"))
                 {
                     string[] parts = r.To.Label.Split("_");
                     int curX = int.Parse(parts[1]);
                     int curY = int.Parse(parts[2]);
                     if (curX == lastX && curY == lastY) continue;  //do not cuplicate count on the same point
                     // if (r.target.lastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10))
-                    if (matchOrig.FindAll(x=>x.t == r.To).Count > 0)
+                    if (matchOrig.FindAll(x => x.t == r.To).Count > 0)
                     {
                         targetFiredCount++;
                         lastX = curX;
@@ -629,7 +645,7 @@ public partial class ModuleVision : ModuleBase
                 }
                 Thought primary = item.t;
                 float primaryValue = item.conf;
-                foreach (Link r in primary.LinksFrom.Where(x => x.LinkType.Label == "nearlyCollinearWith"))
+                foreach (Link r in primary.LinksTo.Where(x => x.LinkType.Label == "nearlyCollinearWith"))
                 {
                     //increase weight to candidate1 if it is sufficiently lower in value than primary
                     if (r.To == candidate1)
@@ -670,7 +686,7 @@ public partial class ModuleVision : ModuleBase
                 string centerPtLabel = $"Pt_{x:D2}_{y:D2}";
 
                 //we are adjusting weights of an already-set patch
-                foreach (Link r in patch.LinksFrom)
+                foreach (Link r in patch.LinksTo)
                 {
                     //only adjust hasBoundary Links
                     if (r.LinkType.Label != "hasBoundary") continue;
@@ -678,7 +694,7 @@ public partial class ModuleVision : ModuleBase
                     if (r.To.Label == centerPtLabel) continue;
 
                     //did the input point fire?
-                    Link rFound = inputPattern.LinksFrom.FindFirst(x => x.To == r.To);
+                    Link rFound = inputPattern.LinksTo.FindFirst(x => x.To == r.To);
 
                     // targets: ON -> +1, OFF -> -0.5
                     //float tp = (rFound != null) ? r.maxWeight : -r.maxWeight / 2f;
@@ -711,7 +727,7 @@ public partial class ModuleVision : ModuleBase
         if (count >= patches.Count)
             count = 0;
 
-        while (patches[count].LinksFrom.Count < patchSize * patchSize)
+        while (patches[count].LinksTo.Count < patchSize * patchSize)
         {
             count++;
             if (count >= patches.Count) count = 0;
