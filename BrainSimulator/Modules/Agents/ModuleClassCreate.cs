@@ -15,7 +15,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using UKS;
-using static BrainSimulator.Modules.ModuleAttributeBubble;
 
 namespace BrainSimulator.Modules;
 
@@ -77,33 +76,32 @@ public class ModuleClassCreate : ModuleBase
     {
         //build a List of counts of the attributes
         //build a List of all the Links which this thought's children have
-        List<LinkDest> attributes = new();
-        foreach (Thought t1 in t.ChildrenWithSubclasses)
+        Dictionary<(Thought linkType, Thought target), List<Link>> attributes = new();
+        foreach (Thought t1 in t.Descendants)
         {
             foreach (Link r in t1.LinksTo)
             {
-                if (r.LinkType == Thought.IsA) continue;
-                Thought useLinkType = GetInstanceType(r.LinkType);
-
-                LinkDest foundItem = attributes.FindFirst(x => x.linkType == useLinkType && x.target == r.To);
-                if (foundItem is null)
+                if (r.LinkType is null || r.To is null || r.LinkType == Thought.IsA) continue;
+                var key = (r.LinkType, r.To);
+                if (!attributes.TryGetValue(key, out List<Link> links))
                 {
-                    foundItem = new LinkDest { linkType = useLinkType, target = r.To };
-                    attributes.Add(foundItem);
+                    links = new List<Link>();
+                    attributes.Add(key, links);
                 }
-                if (foundItem.links.FindFirst(x=>x.From == r.From && x.To == r.To) is null)
-                    foundItem.links.Add(r);
+                if (links.FindFirst(x => x.From == r.From && x.To == r.To) is null)
+                    links.Add(r);
             }
         }
         //create intermediate parent Thoughts
-        foreach (var key in attributes)
+        foreach (var item in attributes)
         {
-            if (key.links.Count >= minCommonAttributes)
+            if (item.Value.Count >= minCommonAttributes)
             {
-                Thought newParent = theUKS.GetOrAddThought(t.Label + "." + key.linkType + "." + key.target, t);
-                newParent.AddLink(key.linkType, key.target);
+                Thought newParent = theUKS.GetOrAddThought(
+                    t.Label + "." + item.Key.linkType + "." + item.Key.target, t);
+                newParent.AddLink(item.Key.linkType, item.Key.target);
                 debugString += "Created new subclass " + newParent;
-                foreach (Link r in key.links)
+                foreach (Link r in item.Value)
                 {
                     Thought tChild = (Thought)r.From;
                     tChild.AddParent(newParent);

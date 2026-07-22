@@ -69,7 +69,7 @@ public class ModuleTextPatternLearningTests
         Thought sourceFollowers = uks.Labeled("LearnedClass").Children.FirstOrDefault(x =>
         {
             HashSet<string> labels = x.Children
-                .Where(y => !y.HasProperty("isWildcard"))
+                .Where(y => !y.HasAncestor("Wildcard"))
                 .Select(y => y.Label.StartsWith("w:") ? y.Label[2..] : y.Label)
                 .ToHashSet(System.StringComparer.OrdinalIgnoreCase);
             return new[] { "is", "has", "eats", "plays" }.All(labels.Contains);
@@ -77,14 +77,14 @@ public class ModuleTextPatternLearningTests
         Thought targetFollowers = uks.Labeled("LearnedClass").Children.FirstOrDefault(x =>
         {
             HashSet<string> labels = x.Children
-                .Where(y => !y.HasProperty("isWildcard"))
+                .Where(y => !y.HasAncestor("Wildcard"))
                 .Select(y => y.Label.StartsWith("w:") ? y.Label[2..] : y.Label)
                 .ToHashSet(System.StringComparer.OrdinalIgnoreCase);
             return new[] { "are", "have", "eat", "play" }.All(labels.Contains);
         });
         string learnedMemberships = string.Join(" | ", uks.Labeled("LearnedClass").Children
             .Select(x => x.Label + ":" + string.Join(",", x.Children
-                .Where(y => !y.HasProperty("isWildcard"))
+                .Where(y => !y.HasAncestor("Wildcard"))
                 .Select(y => y.Label))));
         Assert.True(sourceFollowers is not null, learnedMemberships);
         Assert.True(targetFollowers is not null, learnedMemberships);
@@ -129,7 +129,7 @@ public class ModuleTextPatternLearningTests
         Thought learnedClass = uks.Labeled("LearnedClass").Children.Single(x =>
             x.Children.Any(member => member.Label == "dog"));
         HashSet<string> members = learnedClass.Children
-            .Where(x => !x.HasProperty("isWildcard"))
+            .Where(x => !x.HasAncestor("Wildcard"))
             .Select(x => x.Label)
             .ToHashSet();
         Assert.Equal(new HashSet<string> { "dog", "cat", "bird" }, members);
@@ -143,7 +143,7 @@ public class ModuleTextPatternLearningTests
             new List<Thought> { uks.Labeled("the"), classWildcard, uks.Labeled("runs") },
             uks.Labeled("TemplateSequenceSearch"));
         Assert.Equal(3, classMatches.Count(x =>
-            !uks.FlattenSequence(x.seqNode).Any(word => word.HasProperty("isWildcard"))));
+            !uks.FlattenSequence(x.seqNode).Any(word => word.HasAncestor("Wildcard"))));
 
         Assert.Equal(0, ModuleText.CreateUniversalPatternClasses(
             minMembers: 3, minPatterns: 2, minOverlap: 1f));
@@ -301,6 +301,10 @@ public class ModuleTextPatternLearningTests
             x.HasProperty("isClassFamily") && x.Children.Contains(classB));
         Assert.Contains(classC, sourceFamily.Children);
         Assert.Contains(classD, targetFamily.Children);
+        Assert.DoesNotContain(classRoot, classA.Parents);
+        Assert.DoesNotContain(classRoot, classB.Parents);
+        Assert.DoesNotContain(classRoot, classC.Parents);
+        Assert.DoesNotContain(classRoot, classD.Parents);
         Link familyApplication = sourceFamily.HasLink(uks.Labeled("spellingChangesTo"), targetFamily);
         Assert.NotNull(familyApplication);
         Assert.Equal(2, familyApplication.LinksTo.Count(x => x.LinkType?.Label == "evidence"));
@@ -332,9 +336,9 @@ public class ModuleTextPatternLearningTests
         Thought targetFollowers = classRoot.Children.Single(x =>
             x.Children.Contains(areWord) && x.Children.Contains(haveWord));
         Assert.Equal(new HashSet<Thought> { isWord, hasWord },
-            sourceFollowers.Children.Where(x => !x.HasProperty("isWildcard")).ToHashSet());
+            sourceFollowers.Children.Where(x => !x.HasAncestor("Wildcard")).ToHashSet());
         Assert.Equal(new HashSet<Thought> { areWord, haveWord },
-            targetFollowers.Children.Where(x => !x.HasProperty("isWildcard")).ToHashSet());
+            targetFollowers.Children.Where(x => !x.HasAncestor("Wildcard")).ToHashSet());
 
         Link association = sourceFollowers.HasLink(uks.Labeled("contextChangesTo"), targetFollowers);
         Assert.NotNull(association);

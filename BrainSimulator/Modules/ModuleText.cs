@@ -268,7 +268,7 @@ public class ModuleText : ModuleBase
             List<Thought> elements = theUKS.FlattenSequence(item.seq);
             int length = elements.Count;
             if (length < 2 || length > maxLength) continue;
-            if (elements.Any(x => x.HasProperty("isWildcard"))) continue;
+            if (elements.Any(x => x.HasAncestor("Wildcard"))) continue;
 
             foreach (var wildcardPositions in WildcardMasks(length, maxWildcards))
             {
@@ -401,7 +401,7 @@ public class ModuleText : ModuleBase
         List<Thought> patterns = patternRoot.Children.ToList();
         Dictionary<Thought, HashSet<Thought>> membersByPattern = patterns.ToDictionary(
             pattern => pattern,
-            pattern => pattern.Children.Where(x => !x.HasProperty("isWildcard")).ToHashSet());
+            pattern => pattern.Children.Where(x => !x.HasAncestor("Wildcard")).ToHashSet());
 
         // Each anchor grows a dense group. A candidate joins only if the shared
         // core remains large enough, preventing weak overlap chains from merging
@@ -445,7 +445,7 @@ public class ModuleText : ModuleBase
             Thought learnedClass = classRoot.Children.FirstOrDefault(existing =>
             {
                 HashSet<Thought> existingMembers = existing.Children
-                    .Where(x => !x.HasProperty("isWildcard"))
+                    .Where(x => !x.HasAncestor("Wildcard"))
                     .ToHashSet();
                 return existingMembers.SetEquals(candidate.members);
             });
@@ -520,7 +520,7 @@ public class ModuleText : ModuleBase
 
         List<(Thought learnedClass, List<SpelledClassMember> members)> classes = classRoot.Children
             .Select(learnedClass => (learnedClass, members: learnedClass.Children
-                .Where(word => !word.HasProperty("isWildcard"))
+                .Where(word => !word.HasAncestor("Wildcard"))
                 .Select(word => new SpelledClassMember
                 {
                     Word = word,
@@ -718,7 +718,7 @@ public class ModuleText : ModuleBase
     {
         Thought family = classRoot.Children.FirstOrDefault(existing =>
             HasDirectProperty(existing, classFamilyProperty) &&
-            existing.Children.Where(x => !x.HasProperty("isWildcard"))
+            existing.Children.Where(x => !x.HasAncestor("Wildcard"))
                 .ToHashSet().SetEquals(childClasses));
         if (family is null)
         {
@@ -764,7 +764,7 @@ public class ModuleText : ModuleBase
         Thought templateEvidenceType = theUKS.GetOrAddThought("templateEvidence", "linkType");
         Thought contextChangesToType = theUKS.GetOrAddThought("contextChangesTo", "linkType");
         Thought conditionedByType = theUKS.GetOrAddThought("conditionedBy", "linkType");
-        HashSet<Thought> originalClasses = classRoot.Children.ToHashSet();
+        Thought classFamilyProperty = theUKS.GetOrAddThought("isClassFamily", "Property");
         List<(Thought template, List<Thought> elements)> templates = templateRoot.Children
             .Select(template => (template,
                 elements: template.GetTargetOfFirstLinkOfType("hasPattern") is SeqElement sequence
@@ -780,7 +780,8 @@ public class ModuleText : ModuleBase
                 .Where(x => x.LinkType == appliesToType)
                 .Select(x => x.To)
                 .OfType<Link>()
-                .Where(x => originalClasses.Contains(x.From) && originalClasses.Contains(x.To))
+                .Where(x => !HasDirectProperty(x.From, classFamilyProperty) &&
+                    x.To is not null && !HasDirectProperty(x.To, classFamilyProperty))
                 .ToList();
             if (applications.Count == 0) continue;
 
@@ -894,7 +895,7 @@ public class ModuleText : ModuleBase
         Thought followerClass)
     {
         HashSet<Thought> followerMembers = followerClass.Children
-            .Where(x => !x.HasProperty("isWildcard"))
+            .Where(x => !x.HasAncestor("Wildcard"))
             .ToHashSet();
         List<Thought> evidence = new();
         foreach (var item in templates)
@@ -958,7 +959,7 @@ public class ModuleText : ModuleBase
                 if (matchedClass is null) continue;
 
                 Thought follower = item.elements[i + 1];
-                if (follower.HasProperty("isWildcard") ||
+                if (follower.HasAncestor("Wildcard") ||
                     follower.GetTargetOfFirstLinkOfType("spelled") is not SeqElement)
                     continue;
                 if (!evidence.TryGetValue(follower, out FollowerEvidence followerEvidence))
@@ -993,7 +994,7 @@ public class ModuleText : ModuleBase
 
         HashSet<Thought> members = qualified.Select(x => x.Word).ToHashSet();
         Thought learnedClass = classRoot.Children.FirstOrDefault(existing =>
-            existing.Children.Where(x => !x.HasProperty("isWildcard")).ToHashSet().SetEquals(members));
+            existing.Children.Where(x => !x.HasAncestor("Wildcard")).ToHashSet().SetEquals(members));
         if (learnedClass is null)
         {
             learnedClass = theUKS.GetOrAddThought("class*", classRoot);
@@ -1027,8 +1028,8 @@ public class ModuleText : ModuleBase
         if (pattern.Count < 2 ||
             !string.Equals(pattern[^1].Label, "spellingend", StringComparison.OrdinalIgnoreCase))
             return false;
-        if (!pattern[0].HasProperty("isWildcard")) return false;
-        if (pattern.Skip(1).Take(pattern.Count - 2).Any(x => x.HasProperty("isWildcard")))
+        if (!pattern[0].HasAncestor("Wildcard")) return false;
+        if (pattern.Skip(1).Take(pattern.Count - 2).Any(x => x.HasAncestor("Wildcard")))
             return false;
 
         wildcard = pattern[0];
@@ -1242,7 +1243,7 @@ public class ModuleText : ModuleBase
             foreach (Thought pattern in evidencePatterns)
             {
                 foreach (Thought candidate in pattern.Children
-                    .Where(x => !x.HasProperty("isWildcard"))
+                    .Where(x => !x.HasAncestor("Wildcard"))
                     .Distinct())
                 {
                     if (!candidateEvidence.TryGetValue(candidate, out List<Thought> supportingPatterns))
@@ -1275,7 +1276,7 @@ public class ModuleText : ModuleBase
             Thought classWildcard = theUKS.Labeled("??" + learnedClass.Label) ??
                 theUKS.CreateWildcard("??" + learnedClass.Label, new List<Thought> { learnedClass });
             HashSet<Thought> classMembers = learnedClass.Children
-                .Where(x => !x.HasProperty("isWildcard"))
+                .Where(x => !x.HasAncestor("Wildcard"))
                 .ToHashSet();
 
             foreach (Thought surfacePattern in evidencePatterns)
@@ -1284,7 +1285,7 @@ public class ModuleText : ModuleBase
                     continue;
 
                 List<Thought> templateElements = theUKS.FlattenSequence(patternSequence);
-                int slotPosition = templateElements.FindIndex(x => x.HasProperty("isWildcard"));
+                int slotPosition = templateElements.FindIndex(x => x.HasAncestor("Wildcard"));
                 if (slotPosition < 0) continue;
                 templateElements[slotPosition] = classWildcard;
 
@@ -1390,7 +1391,7 @@ public class ModuleText : ModuleBase
                     ? new List<Thought>()
                     : theUKS.FlattenSequence(sequence));
             })
-            .Where(x => x.elements.Count >= 2 && x.elements.Any(y => y.HasProperty("isWildcard")))
+            .Where(x => x.elements.Count >= 2 && x.elements.Any(y => y.HasAncestor("Wildcard")))
             .OrderBy(x => x.elements.Count)
             .ThenBy(x => x.template.Label)
             .ToList();
@@ -1506,7 +1507,7 @@ public class ModuleText : ModuleBase
                 // For now, consolidation only recognizes modifiers immediately
                 // before a wildcard slot. This avoids treating arbitrary inserted
                 // sentence material as an optional constituent.
-                if (!core[coreIndex].HasProperty("isWildcard")) return false;
+                if (!core[coreIndex].HasAncestor("Wildcard")) return false;
                 alignment.Insertions[coreIndex] = expanded
                     .GetRange(expandedIndex, matchIndex - expandedIndex);
             }
@@ -1553,23 +1554,51 @@ public class ModuleText : ModuleBase
 
     private static Thought GetWildcardClass(Thought value, Thought learnedClassRoot)
     {
-        if (value is null || learnedClassRoot is null || !value.HasProperty("isWildcard")) return null;
+        if (value is null || learnedClassRoot is null || !value.HasAncestor("Wildcard")) return null;
         return value.Parents.FirstOrDefault(learnedClassRoot.Children.Contains);
+    }
+
+    /// <summary>
+    /// Discovers phrase-owner classes directly from every Phrase hasWords
+    /// sequence currently in the UKS. This does not depend on the older text
+    /// pattern, spelling-rule, or grammar-template pipeline.
+    /// </summary>
+    public static List<Thought> DiscoverPhraseSequenceClasses(
+        int minMembers = 44,
+        int minFixedElements = 2)
+    {
+        var theUKS = MainWindow.theUKS;
+        Thought phraseRoot = theUKS.Labeled("Phrase");
+        if (phraseRoot is null) return new List<Thought>();
+
+        Thought classRoot = theUKS.GetOrAddThought("LearnedClass", "LanguageElement");
+        List<SequenceView> phraseObservations = theUKS.GetSequenceViews(phraseRoot.Children)
+            .Where(view => view.LinkType?.Label == "hasWords")
+            .ToList();
+        return theUKS.DiscoverSequenceClasses(
+            phraseObservations,
+            classRoot,
+            minMembers,
+            minFixedElements);
     }
 
 
     public static int ProcessTheExistingText()
     {
-        int retVal = FindUniversalPatterns();
-        ComputeUniversalPatternOverlap();
-        CreateUniversalPatternClasses();
-        FindClassSpellingRules();
-        CreateClassBasedTemplates();
-        CreateClassFamiliesFromSpellingRules();
-        CreateFollowerClassesFromSpellingRules();
-        CreateClassPairTemplates();
-        CreateTemplateFamilies();
-        return retVal;
+        // Previous directed learning pipeline, retained for comparison while
+        // the general sequence-class discovery mechanism is evaluated.
+        //int retVal = FindUniversalPatterns();
+        //ComputeUniversalPatternOverlap();
+        //CreateUniversalPatternClasses();
+        //FindClassSpellingRules();
+        //CreateClassBasedTemplates();
+        //CreateClassFamiliesFromSpellingRules();
+        //CreateFollowerClassesFromSpellingRules();
+        //CreateClassPairTemplates();
+        //CreateTemplateFamilies();
+        //return retVal;
+
+        return DiscoverPhraseSequenceClasses().Count;
     }
     public static void FindPlurals()
     {

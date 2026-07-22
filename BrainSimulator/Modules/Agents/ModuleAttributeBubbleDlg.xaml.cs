@@ -48,12 +48,9 @@ namespace BrainSimulator.Modules
 
         private void Enable_Checked(object sender, RoutedEventArgs e)
         {
-            if (sender is CheckBox cb)
-            {
-                ModuleAttributeBubble parent = (ModuleAttributeBubble)base.ParentModule;
-                if (parent is not null)
-                    parent.isEnabled = cb.IsChecked == true;
-            }
+            if (sender is CheckBox cb && base.ParentModule is ModuleAttributeBubble parent)
+                parent.isEnabled = cb.IsChecked == true;
         }
+
     }
 }

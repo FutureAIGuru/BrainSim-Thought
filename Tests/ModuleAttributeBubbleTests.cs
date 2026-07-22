@@ -21,7 +21,7 @@ public class ModuleAttributeBubbleTests
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks, isEnabled = true };
+        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var animal = uks.GetOrAddThought("Animal", "Object");
         var dog = uks.GetOrAddThought("Dog", animal);
@@ -50,7 +50,7 @@ public class ModuleAttributeBubbleTests
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks, isEnabled = true };
+        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var vehicle = uks.GetOrAddThought("Vehicle", "Object");
         var car = uks.GetOrAddThought("Car", vehicle);
@@ -79,7 +79,7 @@ public class ModuleAttributeBubbleTests
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks, isEnabled = true };
+        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var shape = uks.GetOrAddThought("Shape", "Object");
         var circle = uks.GetOrAddThought("Circle", shape);
@@ -104,11 +104,11 @@ public class ModuleAttributeBubbleTests
     }
 
     [Fact]
-    public void BubbleChildAttributes_RemovesFromChildren()
+    public void BubbleChildAttributes_LeavesEvidenceOnChildren()
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks, isEnabled = true };
+        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var animal = uks.GetOrAddThought("Animal", "Object");
         var dog = uks.GetOrAddThought("Dog", animal);
@@ -124,37 +124,8 @@ public class ModuleAttributeBubbleTests
         module.DoTheWork();
 
         // Assert
-        Assert.DoesNotContain(dog.LinksTo, l => l.LinkType == breathes && l.To == air);
-        Assert.DoesNotContain(cat.LinksTo, l => l.LinkType == breathes && l.To == air);
+        Assert.Contains(dog.LinksTo, l => l.LinkType == breathes && l.To == air);
+        Assert.Contains(cat.LinksTo, l => l.LinkType == breathes && l.To == air);
     }
 
-    [Fact]
-    public void GetInstanceType_NumberedInstance_ReturnsBaseType()
-    {
-        // Arrange
-        var uks = CreateUKS();
-        var color = uks.GetOrAddThought("color", "Object");
-        var blue = uks.GetOrAddThought("blue", color);
-        var blue5 = uks.GetOrAddThought("blue5", blue);
-
-        // Act
-        var result = ModuleAttributeBubble.GetInstanceType(blue5);
-
-        // Assert
-        Assert.Equal(blue, result);
-    }
-
-    [Fact]
-    public void GetInstanceType_NonNumbered_ReturnsSelf()
-    {
-        // Arrange
-        var uks = CreateUKS();
-        var red = uks.GetOrAddThought("red", "color");
-
-        // Act
-        var result = ModuleAttributeBubble.GetInstanceType(red);
-
-        // Assert
-        Assert.Equal(red, result);
-    }
 }

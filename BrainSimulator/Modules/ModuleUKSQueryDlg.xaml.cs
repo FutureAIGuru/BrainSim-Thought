@@ -23,7 +23,6 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using System.Windows.Input;
 using UKS;
-using static BrainSimulator.Modules.ModuleAttributeBubble;
 
 namespace BrainSimulator.Modules;
 
@@ -372,14 +371,14 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         var parent = queryThought.Parents[0];
         //build a List of counts of the attributes
         //build a List of all the Links which this thought's children have
-        List<LinkDest> attributes = new();
+        Dictionary<(Thought linkType, Thought target), List<Link>> attributes = new();
         foreach (var child in parent.Children)
             CountAttributes(child, attributes);
 
-        foreach (var key in attributes)
+        foreach (var item in attributes)
         {
-            if (key.links.Count < 2 || key.links.Count < parent.Children.Count) continue;
-            parent.AddLink(key.linkType, key.target).Weight = .9f;
+            if (item.Value.Count < 2 || item.Value.Count < parent.Children.Count) continue;
+            parent.AddLink(item.Key.linkType, item.Key.target).Weight = .9f;
         }
         foreach (var child in parent.Children)
         {
@@ -515,7 +514,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         int minCommonAttributes = 2;
         //build a List of counts of the attributes
         //build a List of all the Links which this thought's children have
-        List<LinkDest> attributes = new();
+        Dictionary<(Thought linkType, Thought target), List<Link>> attributes = new();
 
         CountAttributes(tExisting, attributes);
         CountAttributes(tNew, attributes);
@@ -525,14 +524,14 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         ModuleUKSQuery UKSQuery = (ModuleUKSQuery)ParentModule;
         Thought newParent = null;
 
-        foreach (var key in attributes)
+        foreach (var item in attributes)
         {
-            if (key.links.Count >= minCommonAttributes)
+            if (item.Value.Count >= minCommonAttributes)
             {
                 if (newParent is null)
                     newParent = UKSQuery.theUKS.GetOrAddThought("newParent", tExisting.Parents[0]);
-                newParent.AddLink(key.linkType, key.target);
-                foreach (Link r in key.links)
+                newParent.AddLink(item.Key.linkType, item.Key.target);
+                foreach (Link r in item.Value)
                 {
                     Thought tChild = (Thought)r.From;
                     Thought rp = tChild.AddParent(newParent);
@@ -546,21 +545,23 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         newParent.Label = "Unl*";
     }
 
-    private static void CountAttributes(Thought tExisting, List<LinkDest> attributes)
+    private static void CountAttributes(
+        Thought tExisting,
+        Dictionary<(Thought linkType, Thought target), List<Link>> attributes)
     {
         foreach (Link r in tExisting.LinksTo)
         {
-            if (r.LinkType == Thought.IsA) continue;
-            Thought useLinkType = GetInstanceType(r.LinkType);
+            if (r.LinkType is null || r.To is null || r.LinkType == Thought.IsA) continue;
+            Thought useLinkType = r.LinkType;
 
-            LinkDest foundItem = attributes.FindFirst(x => x.linkType == useLinkType && x.target == r.To);
-            if (foundItem is null)
+            var key = (useLinkType, r.To);
+            if (!attributes.TryGetValue(key, out List<Link> links))
             {
-                foundItem = new LinkDest { linkType = useLinkType, target = r.To };
-                attributes.Add(foundItem);
+                links = new List<Link>();
+                attributes.Add(key, links);
             }
-            if (foundItem.links.FindFirst(x => x.From == r.From && x.To == r.To) is null)
-                foundItem.links.Add(r);
+            if (links.FindFirst(x => x.From == r.From && x.To == r.To) is null)
+                links.Add(r);
         }
     }
 

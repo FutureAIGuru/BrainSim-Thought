@@ -41,6 +41,173 @@ public class UKSSequenceTests
         return searchOptions;
     }
 
+    public static IEnumerable<object[]> WildcardCardinalityCases()
+    {
+        yield return new object[] { "isWildcard", "beginning", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "isWildcard", "beginning", new[] { "A", "X", "B", "C" }, false };
+        yield return new object[] { "isWildcard", "middle", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "isWildcard", "middle", new[] { "A", "B", "X", "C" }, false };
+        yield return new object[] { "isWildcard", "end", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "isWildcard", "end", new[] { "A", "B", "C", "D" }, false };
+
+        yield return new object[] { "isOptionalWildcard", "beginning", new[] { "B", "C" }, true };
+        yield return new object[] { "isOptionalWildcard", "beginning", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "isOptionalWildcard", "beginning", new[] { "A", "X", "B", "C" }, false };
+        yield return new object[] { "isOptionalWildcard", "middle", new[] { "A", "C" }, true };
+        yield return new object[] { "isOptionalWildcard", "middle", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "isOptionalWildcard", "middle", new[] { "A", "B", "X", "C" }, false };
+        yield return new object[] { "isOptionalWildcard", "end", new[] { "A", "B" }, true };
+        yield return new object[] { "isOptionalWildcard", "end", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "isOptionalWildcard", "end", new[] { "A", "B", "C", "D" }, false };
+
+        yield return new object[] { "is*Wildcard", "beginning", new[] { "B", "C" }, true };
+        yield return new object[] { "is*Wildcard", "beginning", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "is*Wildcard", "beginning", new[] { "A", "X", "B", "C" }, true };
+        yield return new object[] { "is*Wildcard", "beginning", new[] { "A", "X", "B", "D" }, false };
+        yield return new object[] { "is*Wildcard", "middle", new[] { "A", "C" }, true };
+        yield return new object[] { "is*Wildcard", "middle", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "is*Wildcard", "middle", new[] { "A", "B", "X", "C" }, true };
+        yield return new object[] { "is*Wildcard", "middle", new[] { "A", "B", "X", "D" }, false };
+        yield return new object[] { "is*Wildcard", "end", new[] { "A", "B" }, true };
+        yield return new object[] { "is*Wildcard", "end", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "is*Wildcard", "end", new[] { "A", "B", "C", "D" }, true };
+        yield return new object[] { "is*Wildcard", "end", new[] { "A", "X", "C", "D" }, false };
+
+        yield return new object[] { "is+Wildcard", "beginning", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "is+Wildcard", "beginning", new[] { "A", "X", "B", "C" }, true };
+        yield return new object[] { "is+Wildcard", "beginning", new[] { "B", "C" }, false };
+        yield return new object[] { "is+Wildcard", "middle", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "is+Wildcard", "middle", new[] { "A", "B", "X", "C" }, true };
+        yield return new object[] { "is+Wildcard", "middle", new[] { "A", "C" }, false };
+        yield return new object[] { "is+Wildcard", "end", new[] { "A", "B", "C" }, true };
+        yield return new object[] { "is+Wildcard", "end", new[] { "A", "B", "C", "D" }, true };
+        yield return new object[] { "is+Wildcard", "end", new[] { "A", "B" }, false };
+    }
+
+    [Theory]
+    [MemberData(nameof(WildcardCardinalityCases))]
+    public void FindSequencesByActivation_EnforcesWildcardCardinalityAtEveryPosition(
+        string wildcardProperty,
+        string position,
+        string[] sequenceLabels,
+        bool shouldMatch)
+    {
+        var uks = CreateUKS();
+        Thought wildcard = uks.CreateWildcard(
+            $"wildcard-{wildcardProperty}-{position}",
+            new List<Thought> { uks.Labeled("Letter") },
+            wildcardProperty);
+        Thought a = uks.Labeled("A");
+        Thought b = uks.Labeled("B");
+        Thought c = uks.Labeled("C");
+        List<Thought> pattern = position switch
+        {
+            "beginning" => new List<Thought> { wildcard, b, c },
+            "middle" => new List<Thought> { a, wildcard, c },
+            "end" => new List<Thought> { a, b, wildcard },
+            _ => throw new System.ArgumentOutOfRangeException(nameof(position)),
+        };
+        SeqElement sequence = uks.AddSequenceAndLink(
+            uks.GetOrAddThought("cardinality-case"),
+            uks.GetOrAddThought("hasSequence", "LinkType"),
+            sequenceLabels.Select(label => uks.Labeled(label)).ToList());
+
+        var matches = uks.FindSequencesByActivation(pattern, uks.Labeled("TemplateSequenceSearch"));
+
+        if (shouldMatch)
+            Assert.Contains(matches, x => ReferenceEquals(x.seqNode, sequence) && x.confidence == 1.0f);
+        else
+            Assert.DoesNotContain(matches, x => ReferenceEquals(x.seqNode, sequence));
+    }
+
+    [Theory]
+    [InlineData("isWildcard")]
+    [InlineData("isOptionalWildcard")]
+    [InlineData("is*Wildcard")]
+    [InlineData("is+Wildcard")]
+    public void CreateWildcard_UsesClassForIdentityAndPropertyForTraversal(string wildcardProperty)
+    {
+        var uks = CreateUKS();
+
+        Thought wildcard = uks.CreateWildcard(
+            "cardinality-" + wildcardProperty,
+            new List<Thought> { uks.Labeled("Letter") },
+            wildcardProperty);
+
+        Assert.True(wildcard.HasAncestor("Wildcard"));
+        Assert.True(wildcard.HasProperty(wildcardProperty));
+    }
+
+    [Fact]
+    public void LeadingZeroOrMoreWildcard_TriesLaterOccurrenceOfFollowingLiteral()
+    {
+        var uks = CreateUKS();
+        Thought prefix = uks.CreateWildcard(
+            "??*Letter",
+            new List<Thought> { uks.Labeled("Letter") },
+            "is*Wildcard");
+        SeqElement attention = uks.AddSequenceAndLink(
+            uks.GetOrAddThought("ATTENTION"),
+            uks.GetOrAddThought("spelled", "LinkType"),
+            new List<Thought> { "A", "T", "T", "E", "N", "T", "I", "O", "N" });
+
+        var matches = uks.FindSequencesByActivation(
+            new List<Thought> { prefix, "T", "I", "O", "N" },
+            uks.Labeled("TemplateSequenceSearch"));
+
+        Assert.Contains(matches, x => ReferenceEquals(x.seqNode, attention));
+    }
+
+    [Fact]
+    public void VariableWildcard_RequiresEveryConsumedValueToMatchItsClass()
+    {
+        var uks = CreateUKS();
+        Thought letters = uks.CreateWildcard(
+            "??*letters-only",
+            new List<Thought> { uks.Labeled("Letter") },
+            "is*Wildcard");
+        Thought nonLetter = uks.GetOrAddThought("non-letter", "Object");
+        SeqElement sequence = uks.AddSequenceAndLink(
+            uks.GetOrAddThought("mixed-sequence"),
+            uks.GetOrAddThought("hasSequence", "LinkType"),
+            new List<Thought> { uks.Labeled("A"), nonLetter, uks.Labeled("C") });
+
+        var matches = uks.FindSequencesByActivation(
+            new List<Thought> { uks.Labeled("A"), letters, uks.Labeled("C") },
+            uks.Labeled("TemplateSequenceSearch"));
+
+        Assert.DoesNotContain(matches, x => ReferenceEquals(x.seqNode, sequence));
+    }
+
+    [Fact]
+    public void OptionalArticleWildcard_MatchesSentenceWithOrWithoutOneArticle()
+    {
+        var uks = CreateUKS();
+        Thought articleClass = uks.GetOrAddThought("Article", "WordClass");
+        Thought nounClass = uks.GetOrAddThought("Noun", "WordClass");
+        Thought the = uks.GetOrAddThought("the", articleClass);
+        Thought dog = uks.GetOrAddThought("dog", nounClass);
+        Thought runs = uks.GetOrAddThought("runs", "Word");
+        Thought optionalArticle = uks.CreateWildcard(
+            "???article", new List<Thought> { articleClass }, "isOptionalWildcard");
+        Thought noun = uks.CreateWildcard(
+            "??noun", new List<Thought> { nounClass }, "isWildcard");
+        Thought words = uks.GetOrAddThought("hasWords", "LinkType");
+        SeqElement withoutArticle2 = uks.AddSequenceAndLink(
+            uks.GetOrAddThought("dog-runs"), words, new List<Thought> { "dog", "runs" });
+        SeqElement withoutArticle = uks.AddSequenceAndLink(
+            uks.GetOrAddThought("dog-runs"), words, new List<Thought> { dog, runs });
+        SeqElement withArticle = uks.AddSequenceAndLink(
+            uks.GetOrAddThought("the-dog-runs"), words, new List<Thought> { the, dog, runs });
+
+        var matches = uks.FindSequencesByActivation(
+            new List<Thought> { optionalArticle, noun, runs },
+            uks.Labeled("TemplateSequenceSearch"));
+
+        Assert.Contains(matches, x => ReferenceEquals(x.seqNode, withoutArticle));
+        Assert.Contains(matches, x => ReferenceEquals(x.seqNode, withArticle));
+    }
+
     [Fact]
     public void IsSequenceElement_DetectsSeqElement()
     {

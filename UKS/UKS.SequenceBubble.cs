@@ -1,0 +1,463 @@
+/*
+ * Brain Simulator Thought
+ *
+ * Copyright (c) 2026 Charles Simon
+ *
+ * This file is part of Brain Simulator Thought and is licensed under
+ * the MIT License. You may use, copy, modify, merge, publish, distribute,
+ * sublicense, and/or sell copies of this software under the terms of
+ * the MIT License.
+ *
+ * See the LICENSE file in the project root for full license information.
+ */
+
+namespace UKS;
+
+/// <summary>
+/// Cardinality inferred for a non-common region between fixed sequence values.
+/// </summary>
+public enum SequenceGapCardinality
+{
+    ExactlyOne,
+    ZeroOrOne,
+    ZeroOrMore,
+    OneOrMore,
+}
+
+/// <summary>
+/// One transient element of a common-sequence description. It is either a
+/// fixed Thought or a gap with an inferred cardinality.
+/// </summary>
+public sealed class CommonSequenceElement
+{
+    private CommonSequenceElement(Thought? value, SequenceGapCardinality? gapCardinality)
+    {
+        Value = value;
+        GapCardinality = gapCardinality;
+    }
+
+    public Thought? Value { get; }
+    public SequenceGapCardinality? GapCardinality { get; }
+    public bool IsGap => GapCardinality.HasValue;
+
+    internal static CommonSequenceElement Fixed(Thought value) => new(value, null);
+    internal static CommonSequenceElement Gap(SequenceGapCardinality cardinality) => new(null, cardinality);
+}
+
+/// <summary>
+/// A side-effect-free alignment result. Persisted knowledge is created only
+/// when a caller bubbles this description onto a Thought class.
+/// </summary>
+public sealed class CommonSequencePattern
+{
+    internal CommonSequencePattern(
+        IReadOnlyList<SequenceView> observations,
+        IReadOnlyList<CommonSequenceElement> elements,
+        int fixedElementCount)
+    {
+        Observations = observations;
+        Elements = elements;
+        FixedElementCount = fixedElementCount;
+    }
+
+    public IReadOnlyList<SequenceView> Observations { get; }
+    public IReadOnlyList<CommonSequenceElement> Elements { get; }
+    public int FixedElementCount { get; }
+}
+
+public partial class UKS
+{
+    /// <summary>
+    /// Finds an ordered description common to all supplied sequence views.
+    /// Exact shared Thoughts become fixed elements. Regions between them become
+    /// wildcard gaps whose cardinality is inferred from the observed lengths.
+    /// The method does not change the UKS.
+    /// </summary>
+    public CommonSequencePattern? FindCommonSequence(
+        IEnumerable<SequenceView> observations,
+        int minFixedElements = 1)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+        if (minFixedElements < 0) throw new ArgumentOutOfRangeException(nameof(minFixedElements));
+
+        List<SequenceView> observationList = observations
+            .Where(observation => observation is not null && observation.Elements.Count > 0)
+            .ToList();
+        if (observationList.Count == 0) return null;
+
+        List<Thought> common = observationList[0].Elements.ToList();
+        for (int i = 1; i < observationList.Count && common.Count > 0; i++)
+            common = LongestCommonSubsequence(common, observationList[i].Elements);
+
+        if (common.Count < minFixedElements) return null;
+
+        List<int[]> gapsByObservation = observationList
+            .Select(observation => GetGapLengths(observation.Elements, common))
+            .ToList();
+        List<CommonSequenceElement> pattern = new();
+
+        for (int gapIndex = 0; gapIndex <= common.Count; gapIndex++)
+        {
+            AppendInferredGap(pattern, gapsByObservation.Select(gaps => gaps[gapIndex]));
+            if (gapIndex < common.Count)
+                pattern.Add(CommonSequenceElement.Fixed(common[gapIndex]));
+        }
+
+        return new CommonSequencePattern(observationList, pattern, common.Count);
+    }
+
+    /// <summary>
+    /// Determines whether an observation fits a transient common-sequence
+    /// pattern without materializing wildcard Thoughts.
+    /// </summary>
+    public bool SequenceMatchesPattern(CommonSequencePattern pattern, SequenceView observation)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        ArgumentNullException.ThrowIfNull(observation);
+
+        HashSet<int> activePositions = new() { 0 };
+        foreach (CommonSequenceElement patternElement in pattern.Elements)
+        {
+            HashSet<int> nextPositions = new();
+            foreach (int position in activePositions)
+            {
+                if (!patternElement.IsGap)
+                {
+                    if (position < observation.Elements.Count &&
+                        ReferenceEquals(patternElement.Value, observation.Elements[position]))
+                        nextPositions.Add(position + 1);
+                    continue;
+                }
+
+                switch (patternElement.GapCardinality!.Value)
+                {
+                    case SequenceGapCardinality.ExactlyOne:
+                        if (position < observation.Elements.Count) nextPositions.Add(position + 1);
+                        break;
+                    case SequenceGapCardinality.ZeroOrOne:
+                        nextPositions.Add(position);
+                        if (position < observation.Elements.Count) nextPositions.Add(position + 1);
+                        break;
+                    case SequenceGapCardinality.ZeroOrMore:
+                        for (int end = position; end <= observation.Elements.Count; end++)
+                            nextPositions.Add(end);
+                        break;
+                    case SequenceGapCardinality.OneOrMore:
+                        for (int end = position + 1; end <= observation.Elements.Count; end++)
+                            nextPositions.Add(end);
+                        break;
+                }
+            }
+
+            activePositions = nextPositions;
+            if (activePositions.Count == 0) return false;
+        }
+        return activePositions.Contains(observation.Elements.Count);
+    }
+
+    /// <summary>
+    /// Discovers classes directly from an unclassified population of sequence
+    /// owners. Pairs propose common structures; every proposal is expanded to
+    /// all matching owners, and proposals with identical memberships are
+    /// consolidated before ordinary Thought classes are created.
+    /// </summary>
+    public List<Thought> DiscoverSequenceClasses(
+        IEnumerable<SequenceView> observations,
+        Thought classRoot,
+        int minMembers = 4,
+        int minFixedElements = 2,
+        string classLabel = "class*")
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+        ArgumentNullException.ThrowIfNull(classRoot);
+        if (minMembers < 2) throw new ArgumentOutOfRangeException(nameof(minMembers));
+        if (minFixedElements < 1) throw new ArgumentOutOfRangeException(nameof(minFixedElements));
+
+        List<(Thought linkType, List<SequenceView> observations)> relationshipGroups = observations
+            .Where(observation => observation is not null && observation.LinkType is not null)
+            .GroupBy(observation => observation.LinkType!)
+            .Select(group => (group.Key, group
+                .GroupBy(observation => observation.Owner)
+                .Select(ownerGroup => ownerGroup.First())
+                .ToList()))
+            .Where(group => group.Item2.Count >= minMembers)
+            .ToList();
+
+        List<Thought> results = new();
+        foreach (var relationshipGroup in relationshipGroups)
+        {
+            Dictionary<string, CommonSequencePattern> proposals = new(StringComparer.Ordinal);
+            List<SequenceView> groupObservations = relationshipGroup.observations;
+            for (int first = 0; first < groupObservations.Count - 1; first++)
+            {
+                for (int second = first + 1; second < groupObservations.Count; second++)
+                {
+                    CommonSequencePattern? proposal = FindCommonSequence(
+                        new[] { groupObservations[first], groupObservations[second] },
+                        minFixedElements);
+                    if (proposal is null || proposal.Elements.Count < 2 ||
+                        !HasOnlySingletonGaps(proposal)) continue;
+                    proposals.TryAdd(CommonSequenceSignature(proposal), proposal);
+                }
+            }
+
+            List<(HashSet<Thought> owners, CommonSequencePattern pattern)> consolidated = new();
+            foreach (CommonSequencePattern proposal in proposals.Values)
+            {
+                List<SequenceView> matches = groupObservations
+                    .Where(observation => SequenceMatchesPattern(proposal, observation))
+                    .ToList();
+                CommonSequencePattern generalized;
+                while (true)
+                {
+                    generalized = FindCommonSequence(matches, minFixedElements)!;
+                    if (!HasOnlySingletonGaps(generalized)) break;
+                    List<SequenceView> expanded = groupObservations
+                        .Where(observation => SequenceMatchesPattern(generalized, observation))
+                        .ToList();
+                    HashSet<Thought> currentOwners = matches.Select(match => match.Owner).ToHashSet();
+                    HashSet<Thought> expandedOwners = expanded.Select(match => match.Owner).ToHashSet();
+                    if (expandedOwners.SetEquals(currentOwners)) break;
+                    matches = expanded;
+                }
+
+                if (!HasOnlySingletonGaps(generalized)) continue;
+
+                HashSet<Thought> owners = matches.Select(match => match.Owner).ToHashSet();
+                if (owners.Count < minMembers) continue;
+                if (consolidated.Any(candidate => candidate.owners.SetEquals(owners))) continue;
+                consolidated.Add((owners, generalized));
+            }
+
+            foreach (var candidate in consolidated.OrderByDescending(candidate => candidate.owners.Count))
+            {
+                List<SequenceView> members = groupObservations
+                    .Where(observation => candidate.owners.Contains(observation.Owner))
+                    .ToList();
+                Thought learnedClass = GetOrCreateSequenceClass(classRoot, members, classLabel);
+                List<Thought> description = MaterializeClassSequence(
+                    candidate.pattern, members, classRoot, classLabel);
+                if (description.Count < 2) continue;
+
+                SequenceView? existing = GetSequenceViews(learnedClass)
+                    .FirstOrDefault(view => view.LinkType == relationshipGroup.linkType);
+                if (existing is null || !existing.Elements.SequenceEqual(description))
+                    AddSequenceAndLink(learnedClass, relationshipGroup.linkType, description);
+                learnedClass.Weight = Math.Max(learnedClass.Weight, candidate.owners.Count);
+                if (!results.Contains(learnedClass)) results.Add(learnedClass);
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Converts a transient common-sequence pattern into ordinary Thoughts.
+    /// Gap Thoughts are members of Wildcard and use properties to control their
+    /// traversal cardinality.
+    /// </summary>
+    public List<Thought> MaterializeCommonSequence(CommonSequencePattern pattern)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        List<Thought> result = new();
+        foreach (CommonSequenceElement element in pattern.Elements)
+        {
+            if (!element.IsGap)
+            {
+                if (element.Value is not null) result.Add(element.Value);
+                continue;
+            }
+
+            result.Add(GetCommonSequenceWildcard(element.GapCardinality!.Value));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Finds and bubbles common sequence descriptions from the direct children
+    /// of a class. Observations are grouped by their relationship type, and the
+    /// original child sequences are retained.
+    /// </summary>
+    public bool BubbleSharedSequences(
+        Thought parent,
+        float minFraction = 0.6f,
+        int minFixedElements = 1)
+    {
+        if (parent is null || parent.Children.Count == 0) return false;
+        if (parent.Label.Equals("Unknown", StringComparison.OrdinalIgnoreCase)) return false;
+        if (minFraction <= 0 || minFraction > 1) throw new ArgumentOutOfRangeException(nameof(minFraction));
+
+        int childCount = parent.Children.Count;
+        bool changed = false;
+        var groups = GetSequenceViews(parent.Children)
+            .Where(view => view.LinkType is not null && view.LinkType != Thought.IsA)
+            .GroupBy(view => view.LinkType!);
+
+        foreach (var group in groups)
+        {
+            List<SequenceView> observations = group
+                .GroupBy(view => view.Owner)
+                .Select(ownerGroup => ownerGroup.First())
+                .ToList();
+            if (observations.Count < childCount * minFraction) continue;
+
+            CommonSequencePattern? common = FindCommonSequence(observations, minFixedElements);
+            if (common is null) continue;
+            List<Thought> elements = MaterializeCommonSequence(common);
+            if (elements.Count < 2) continue;
+
+            SequenceView? existing = GetSequenceViews(parent)
+                .FirstOrDefault(view => view.LinkType == group.Key);
+            if (existing is not null && existing.Elements.SequenceEqual(elements)) continue;
+
+            SeqElement sequence = AddSequenceAndLink(parent, group.Key, elements);
+            if (sequence is null) continue;
+
+            Link? bubbledLink = GetLink(parent, group.Key, sequence);
+            if (bubbledLink is not null)
+                bubbledLink.Weight = observations.Count / (float)childCount;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static List<Thought> LongestCommonSubsequence(
+        IReadOnlyList<Thought> first,
+        IReadOnlyList<Thought> second)
+    {
+        int[,] lengths = new int[first.Count + 1, second.Count + 1];
+        for (int i = first.Count - 1; i >= 0; i--)
+        {
+            for (int j = second.Count - 1; j >= 0; j--)
+            {
+                lengths[i, j] = ReferenceEquals(first[i], second[j])
+                    ? lengths[i + 1, j + 1] + 1
+                    : Math.Max(lengths[i + 1, j], lengths[i, j + 1]);
+            }
+        }
+
+        List<Thought> result = new();
+        int firstIndex = 0;
+        int secondIndex = 0;
+        while (firstIndex < first.Count && secondIndex < second.Count)
+        {
+            if (ReferenceEquals(first[firstIndex], second[secondIndex]))
+            {
+                result.Add(first[firstIndex]);
+                firstIndex++;
+                secondIndex++;
+            }
+            else if (lengths[firstIndex + 1, secondIndex] >= lengths[firstIndex, secondIndex + 1])
+            {
+                firstIndex++;
+            }
+            else
+            {
+                secondIndex++;
+            }
+        }
+        return result;
+    }
+
+    private static int[] GetGapLengths(IReadOnlyList<Thought> sequence, IReadOnlyList<Thought> anchors)
+    {
+        int[] gaps = new int[anchors.Count + 1];
+        int cursor = 0;
+        for (int anchorIndex = 0; anchorIndex < anchors.Count; anchorIndex++)
+        {
+            int position = cursor;
+            while (position < sequence.Count && !ReferenceEquals(sequence[position], anchors[anchorIndex]))
+                position++;
+            if (position == sequence.Count)
+                throw new InvalidOperationException("The common sequence is not a subsequence of an observation.");
+
+            gaps[anchorIndex] = position - cursor;
+            cursor = position + 1;
+        }
+        gaps[anchors.Count] = sequence.Count - cursor;
+        return gaps;
+    }
+
+    private static void AppendInferredGap(
+        List<CommonSequenceElement> pattern,
+        IEnumerable<int> observedLengths)
+    {
+        int[] lengths = observedLengths.ToArray();
+        int minimum = lengths.Min();
+        int maximum = lengths.Max();
+        if (maximum == 0) return;
+
+        if (minimum == maximum)
+        {
+            for (int i = 0; i < minimum; i++)
+                pattern.Add(CommonSequenceElement.Gap(SequenceGapCardinality.ExactlyOne));
+        }
+        else if (minimum == 0 && maximum == 1)
+        {
+            pattern.Add(CommonSequenceElement.Gap(SequenceGapCardinality.ZeroOrOne));
+        }
+        else if (minimum == 0)
+        {
+            pattern.Add(CommonSequenceElement.Gap(SequenceGapCardinality.ZeroOrMore));
+        }
+        else
+        {
+            pattern.Add(CommonSequenceElement.Gap(SequenceGapCardinality.OneOrMore));
+        }
+    }
+
+    private Thought GetCommonSequenceWildcard(SequenceGapCardinality cardinality)
+    {
+        (string label, string property) = cardinality switch
+        {
+            SequenceGapCardinality.ExactlyOne => ("??", "isWildcard"),
+            SequenceGapCardinality.ZeroOrOne => ("???", "isOptionalWildcard"),
+            SequenceGapCardinality.ZeroOrMore => ("??*", "is*Wildcard"),
+            SequenceGapCardinality.OneOrMore => ("??+", "is+Wildcard"),
+            _ => throw new ArgumentOutOfRangeException(nameof(cardinality)),
+        };
+        return CreateWildcard(label, new List<Thought>(), property);
+    }
+
+    private List<Thought> MaterializeClassSequence(
+        CommonSequencePattern pattern,
+        IReadOnlyList<SequenceView> observations,
+        Thought classRoot,
+        string classLabel)
+    {
+        List<Thought> result = new();
+        for (int position = 0; position < pattern.Elements.Count; position++)
+        {
+            CommonSequenceElement element = pattern.Elements[position];
+            if (!element.IsGap)
+            {
+                result.Add(element.Value!);
+                continue;
+            }
+
+            HashSet<Thought> fillers = observations
+                .Select(observation => observation.Elements[position])
+                .ToHashSet();
+            Thought fillerClass = GetOrCreateThoughtClass(classRoot, fillers, classLabel);
+            Thought wildcard = Labeled("??" + fillerClass.Label) ??
+                CreateWildcard("??" + fillerClass.Label, new List<Thought> { fillerClass });
+            result.Add(wildcard);
+        }
+        return result;
+    }
+
+    private static bool HasOnlySingletonGaps(CommonSequencePattern pattern)
+    {
+        return pattern.Elements.All(element => !element.IsGap ||
+            element.GapCardinality == SequenceGapCardinality.ExactlyOne);
+    }
+
+    private static string CommonSequenceSignature(CommonSequencePattern pattern)
+    {
+        return string.Join("\u001f", pattern.Elements.Select(element => element.IsGap
+            ? "G:" + element.GapCardinality
+            : "V:" + element.Value!.Label));
+    }
+
+}

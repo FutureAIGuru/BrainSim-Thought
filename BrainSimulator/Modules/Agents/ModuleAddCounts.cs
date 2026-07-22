@@ -73,10 +73,13 @@ public class ModuleAddCounts : ModuleBase
         {
             Link r = t.LinksTo[j];
             if (r.LinkType == Thought.IsA) continue;
-            Thought useLinkType = ModuleAttributeBubble.GetInstanceType(r.LinkType);
+            Thought useLinkType = r.LinkType;
 
             //get the counts of targets and/or their ancestors
-            List<Thought> targets = t.LinksTo.FindAll(x => ModuleAttributeBubble.GetInstanceType(x.LinkType) == useLinkType).Select(x => x.To).ToList();
+            List<Thought> targets = t.LinksTo
+                .Where(x => x.LinkType == useLinkType && x.To is not null)
+                .Select(x => x.To)
+                .ToList();
             List<(Thought tMatch, int bestCount)> bestMatches = GetAttributeCounts(targets);
             foreach (var match in bestMatches)
             {

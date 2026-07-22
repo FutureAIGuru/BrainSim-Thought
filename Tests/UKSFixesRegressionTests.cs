@@ -32,7 +32,7 @@ public class UKSFixesRegressionTests
     }
 
     [Fact]
-    public void ChildrenWithSubclasses_UsesIsA_NotLabelPrefix()
+    public void Descendants_UsesIsA_NotLabelPrefix()
     {
         var uks = CreateUks();
         uks.AddStatement("dog", "is-a", "Object");
@@ -42,7 +42,7 @@ public class UKSFixesRegressionTests
         var dog = uks.Labeled("dog");
         var doghouse = uks.Labeled("doghouse");
         var puppy = uks.Labeled("puppy");
-        var children = dog.ChildrenWithSubclasses;
+        var children = dog.Descendants;
 
         Assert.Contains(puppy, children);
         Assert.DoesNotContain(doghouse, children);

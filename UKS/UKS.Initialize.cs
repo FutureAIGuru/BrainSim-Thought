@@ -90,6 +90,9 @@ public partial class UKS
         AddStatement("isTransitive", "is-a", "Property");
         AddStatement("isInstance", "is-a", "Property");
         AddStatement("isWildcard", "is-a", "Property");
+        AddStatement("isOptionalWildcard", "is-a", "Property");
+        AddStatement("is*Wildcard", "is-a", "Property");
+        AddStatement("is+Wildcard", "is-a", "Property");
         AddStatement("isCommutative", "is-a", "Property");
         AddStatement("allowMultiple", "is-a", "Property");
         AddStatement("inheritable", "is-a", "Property");
@@ -102,7 +105,7 @@ public partial class UKS
 
         //sequence search options
         AddStatement("Wildcard", "is-a", "abstract");
-        CreateWildcard("??", new List<Thought> { "unknown", "object", "abstract" });
+        CreateWildcard("??", new List<Thought>());
         AddStatement("SearchOption", "is-a", "Property");
         AddStatement("SequenceSearchOption", "is-a", "SearchOption");
         AddStatement("mustMatchFirst", "is-a", "SequenceSearchOption");

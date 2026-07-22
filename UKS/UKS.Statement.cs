@@ -77,12 +77,10 @@ public partial class UKS
 		WriteTheLink(lnk);
 		lnk.Fire();
 		ApplyDefaultTimeToLive(lnk);
-		RaiseLinkAdded(lnk);
 		if (lnk.LinkType is not null && HasProperty(lnk.LinkType, "isCommutative"))
 		{
 			Link rReverse = new Link(lnk.To!, lnk.LinkType!, lnk.From!);
 			WriteTheLink(rReverse);
-			RaiseLinkAdded(rReverse);
 		}
 
 		//if this is adding a child link, remove any Unknown parent

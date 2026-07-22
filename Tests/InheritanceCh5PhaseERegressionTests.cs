@@ -34,16 +34,6 @@ public class InheritanceCh5PhaseERegressionTests
     }
 
     [Fact]
-    public void LinkAdded_fires_on_AddStatement()
-    {
-        var uks = CreateUks();
-        int count = 0;
-        uks.LinkAdded += _ => count++;
-        uks.AddStatement("dog", "is-a", "Object");
-        Assert.Equal(1, count);
-    }
-
-    [Fact]
     public void BubbleSharedAttributes_majority_bubbles_to_parent()
     {
         var uks = CreateUks();
@@ -60,39 +50,7 @@ public class InheritanceCh5PhaseERegressionTests
 
         Assert.True(uks.BubbleSharedAttributes(animal));
         Assert.NotNull(animal.HasLink(has, fur));
-        Assert.Null(dog.HasLink(has, fur));
-    }
-
-    [Fact]
-    public void BubbleLog_records_bubble_action()
-    {
-        var uks = CreateUks();
-        Thought group = uks.GetOrAddThought("Group", "Object");
-        Thought a = uks.GetOrAddThought("A", group);
-        Thought b = uks.GetOrAddThought("B", group);
-        Thought flag = uks.GetOrAddThought("flag", "Object");
-        Thought has = uks.Labeled("has");
-        a.AddLink(has, flag).Weight = 1f;
-        b.AddLink(has, flag).Weight = 1f;
-
-        uks.BubbleSharedAttributes(group);
-        Assert.Contains(uks.BubbleLog, e => e.Action == "bubble" && e.TargetLabel == "flag");
-    }
-
-    [Fact]
-    public void TryFormCategoryFromChildren_returns_parent_when_bubble_succeeds()
-    {
-        var uks = CreateUks();
-        Thought vehicle = uks.GetOrAddThought("Vehicle", "Object");
-        Thought car = uks.GetOrAddThought("Car", vehicle);
-        Thought truck = uks.GetOrAddThought("Truck", vehicle);
-        Thought engine = uks.GetOrAddThought("engine", "Object");
-        Thought has = uks.Labeled("has");
-        car.AddLink(has, engine).Weight = 1f;
-        truck.AddLink(has, engine).Weight = 1f;
-
-        Thought? formed = uks.TryFormCategoryFromChildren(vehicle);
-        Assert.Same(vehicle, formed);
+        Assert.NotNull(dog.HasLink(has, fur));
     }
 
     [Fact]
@@ -110,30 +68,6 @@ public class InheritanceCh5PhaseERegressionTests
 
         var trace = uks.ExplainLink(inherited, fido);
         Assert.Equal(new[] { "Fido", "dog", "fur" }, trace.Select(t => t.Label).ToArray());
-    }
-
-    [Fact]
-    public void LinkAdded_handler_can_bubble_on_learn()
-    {
-        var uks = CreateUks();
-        uks.LinkAdded += lnk =>
-        {
-            if (lnk.From is null) return;
-            foreach (Thought parent in lnk.From.Parents)
-                uks.BubbleSharedAttributes(parent);
-        };
-
-        Thought animal = uks.GetOrAddThought("Animal", "Object");
-        Thought dog = uks.GetOrAddThought("Dog", animal);
-        Thought cat = uks.GetOrAddThought("Cat", animal);
-        Thought bird = uks.GetOrAddThought("Bird", animal);
-        Thought fur = uks.GetOrAddThought("fur", "Object");
-        Thought has = uks.Labeled("has");
-        dog.AddLink(has, fur).Weight = 1f;
-        cat.AddLink(has, fur).Weight = 1f;
-
-        uks.AddStatement("Bird", "has", "fur");
-        Assert.NotNull(animal.HasLink(has, fur));
     }
 
     [Fact]

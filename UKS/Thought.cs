@@ -286,29 +286,6 @@ public partial class Thought
     }
 
     /// <summary>
-    /// Returns direct children plus any subclass children.
-    /// </summary>
-    public IReadOnlyList<Thought> ChildrenWithSubclasses
-    {
-        get
-        {
-            List<Thought> retVal = new();
-            HashSet<Thought> seen = new();
-            foreach (Thought child in Children)
-            {
-                if (seen.Add(child))
-                    retVal.Add(child);
-                foreach (Thought descendant in child.Descendants)
-                {
-                    if (seen.Add(descendant))
-                        retVal.Add(descendant);
-                }
-            }
-            return retVal;
-        }
-    }
-
-    /// <summary>
     /// Ancestors including self (BFS).
     /// </summary>
     public IEnumerable<Thought> AncestorsWithSelf

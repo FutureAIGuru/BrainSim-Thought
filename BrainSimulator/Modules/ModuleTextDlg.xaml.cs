@@ -108,9 +108,9 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         var module = ParentModule as ModuleText;
         if (module != null)
         {
-            SetStatus("Learning text patterns and classes...");
+            SetStatus("Discovering common phrase structures...");
             int count = ModuleText.ProcessTheExistingText();
-            SetStatus($"Created {count} new surface patterns and updated learned classes and templates.");
+            SetStatus($"Found {count} phrase-structure classes. You can rerun this after adding text.");
         }
         else
         {
