@@ -116,7 +116,7 @@ public partial class UKS
         AddStatement("allowOutOfOrder", "is-a", "SequenceSearchOption");
         AddStatement("preferFirstLast", "is-a", "SequenceSearchOption");
         AddStatement("allowPartialMatch", "is-a", "SequenceSearchOption");
-        AddStatement("allowUnclassifiedWildcard", "is-a", "SequenceSearchOption");
+        AddStatement("allowNewClassMembers", "is-a", "SequenceSearchOption");
         AddStatement("ExactSequenceSearch", "is-a", "SequenceSearchOption");
         AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
         AddStatement("TemplateLearningSearch", "is-a", "TemplateSequenceSearch");
@@ -126,7 +126,7 @@ public partial class UKS
         AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
         AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");
         AddStatement("TemplateSequenceSearch", "hasProperty", "allowWildcards");
-        AddStatement("TemplateLearningSearch", "hasProperty", "allowUnclassifiedWildcard");
+        AddStatement("TemplateLearningSearch", "hasProperty", "allowNewClassMembers");
         AddStatement("MelodySearchOptions", "hasProperty", "allowNestedSequences");
         AddStatement("MelodySearchOptions", "hasProperty", "preferFirstLast");
         AddStatement("OrderSearchOptions", "hasProperty", "mustMatchFirst");

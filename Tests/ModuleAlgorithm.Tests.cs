@@ -79,14 +79,14 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
     public void Test01_BoolNot_TrueInput()
     {
         // Test: BoolNot with TRUE input
-        // Expected: p1->is->FALSE
+        // Expected: p1->ref->FALSE
         
         bool success = module.ExecuteTask("invertBool", "TRUE", "FALSE");
         
         Assert.True(success, "BoolNot task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         Assert.Equal("p1", module.LastLinkWritten.From?.Label.ToLower());
-        Assert.Equal("is", module.LastLinkWritten.LinkType?.Label.ToLower());
+        Assert.Equal("ref", module.LastLinkWritten.LinkType?.Label.ToLower());
         Assert.Equal("false", module.LastLinkWritten.To?.Label.ToLower());
     }
 
@@ -94,14 +94,14 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
     public void Test02_BoolNot_FalseInput()
     {
         // Test: BoolNot with FALSE input
-        // Expected: p1->is->TRUE
+        // Expected: p1->ref->TRUE
         
         bool success = module.ExecuteTask("invertBool", "FALSE", "TRUE");
         
         Assert.True(success, "BoolNot task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         Assert.Equal("p1", module.LastLinkWritten.From?.Label.ToLower());
-        Assert.Equal("is", module.LastLinkWritten.LinkType?.Label.ToLower());
+        Assert.Equal("ref", module.LastLinkWritten.LinkType?.Label.ToLower());
         Assert.Equal("true", module.LastLinkWritten.To?.Label.ToLower());
     }
 
@@ -114,11 +114,26 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Thought p1 = uks.Labeled("p1");
         Assert.NotNull(p1);
         
-        Thought isType = uks.Labeled("is");
+        Thought refType = uks.Labeled("ref");
         Thought falseThought = uks.Labeled("FALSE");
         
-        Link writtenLink = p1.HasLink(isType, falseThought);
+        Link writtenLink = p1.HasLink(refType, falseThought);
         Assert.NotNull(writtenLink);
+    }
+
+    [Fact]
+    public void AlgorithmPointersUseAnExclusiveRefRelationship()
+    {
+        // Algorithm pointers must replace their previous target. Ordinary "is"
+        // assertions remain non-exclusive and may coexist on the same Thought.
+        Thought refType = uks.Labeled("ref");
+        Thought isType = uks.Labeled("is");
+
+        Assert.NotNull(refType);
+        Assert.True(refType.HasProperty("isExclusive"));
+        Assert.False(isType.HasProperty("isExclusive"));
+        Assert.Contains(refType, uks.Labeled("SET.ref").Parents);
+        Assert.NotNull(uks.Labeled("TEST.ref"));
     }
 
     [Fact]

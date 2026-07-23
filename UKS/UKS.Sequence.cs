@@ -1086,8 +1086,12 @@ public partial class UKS
             // abstract implementation parent, not a value-class constraint.
             if (WildcardMatchesValue(sequenceElementValue, patternElement))
                 return true;
-            if (searchOptions.HasProperty("allowUnclassifiedWildcard") &&
-                IsUnclassifiedLearnedValue(patternElement))
+            // Manual template learning may propose a new member for the class
+            // referenced by this particular wildcard. The value may already
+            // belong to another learned class; that other observation must not
+            // prevent it from acquiring an additional syntactic role.
+            if (searchOptions.HasProperty("allowNewClassMembers") &&
+                IsLearnedClassWildcard(sequenceElementValue))
                 return true;
         }
         if (patternElement.HasAncestor("Wildcard"))
@@ -1098,12 +1102,11 @@ public partial class UKS
         return false;
     }
 
-    private static bool IsUnclassifiedLearnedValue(Thought value)
+    private static bool IsLearnedClassWildcard(Thought wildcard)
     {
         Thought learnedClassRoot = ThoughtLabels.GetThought("LearnedClass");
-        if (learnedClassRoot is null) return true;
-        return !value.Parents.Any(parent =>
-            parent == learnedClassRoot || parent.HasAncestor(learnedClassRoot));
+        return learnedClassRoot is not null &&
+            wildcard.Parents.Any(learnedClassRoot.Children.Contains);
     }
 
     private bool IsWildcardPatternElement(Thought patternElement, Thought searchOptions)

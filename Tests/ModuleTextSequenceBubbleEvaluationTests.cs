@@ -10,6 +10,11 @@ using Xunit.Abstractions;
 
 namespace BrainSimulator.Tests;
 
+[CollectionDefinition("ModuleTextPatternLearning", DisableParallelization = true)]
+public class ModuleTextPatternLearningCollection
+{
+}
+
 [Collection("ModuleTextPatternLearning")]
 public class ModuleTextSequenceBubbleEvaluationTests
 {
@@ -61,6 +66,64 @@ public class ModuleTextSequenceBubbleEvaluationTests
             output.WriteLine(
                 $"{learnedTemplate.Label} ({evidenceCount} phrases): " +
                 string.Join(' ', description.Elements.Select(x => x.Label)));
+        }
+
+        List<Thought> tokenClasses = ModuleText.DiscoverTemplateTokenClasses();
+        Assert.Contains(tokenClasses, learnedClass =>
+        {
+            HashSet<string> members = learnedClass.Children.Select(member =>
+                member.Label.StartsWith("w:") ? member.Label[2..] : member.Label).ToHashSet();
+            return new[] { "a", "an", "the" }.All(members.Contains);
+        });
+        Assert.Contains(tokenClasses, learnedClass =>
+        {
+            HashSet<string> members = learnedClass.Children.Select(member =>
+                member.Label.StartsWith("w:") ? member.Label[2..] : member.Label).ToHashSet();
+            return new[] { "is", "are", "has", "have", "can" }.All(members.Contains);
+        });
+        foreach (Thought tokenClass in tokenClasses)
+            output.WriteLine($"{tokenClass.Label}: " +
+                string.Join(", ", tokenClass.Children.Select(member => member.Label)));
+    }
+
+    [Fact]
+    public void CorpusActionExamplesTeachTemplatesToPerformSimpleAssertions()
+    {
+        // English intent: the learner is shown several ordinary assertions
+        // together with the relationships they mean. It should learn the
+        // sentence frames, then use those frames to understand a new subject
+        // without being given an action specifically for that subject.
+        UKS.UKS uks = CreateTextUKS();
+        LoadCorpus(uks);
+
+        int learnedActionTemplates = ModuleText.LearnActionsFromExemplars();
+
+        Assert.True(learnedActionTemplates >= 4);
+        HashSet<string> learnedActionTypes = uks.Labeled("LearnedTemplate").Children
+            .SelectMany(template => template.LinksTo)
+            .Where(link => link.LinkType?.Label == "means")
+            .Select(link => link.To)
+            .OfType<Link>()
+            .Select(action => action.LinkType.Label)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("SET.is-a", learnedActionTypes);
+        Assert.Contains("SET.is", learnedActionTypes);
+        Assert.Contains("SET.has", learnedActionTypes);
+        Assert.Contains("SET.can", learnedActionTypes);
+
+        // "otter" has never appeared in the corpus. Known predicate values
+        // make the intended learned frame unambiguous in this first version.
+        AssertUnderstands("A otter is a dog.", "is-a", "dog");
+        AssertUnderstands("A otter is brown.", "is", "brown");
+        AssertUnderstands("A otter has a tail.", "has", "tail");
+        AssertUnderstands("A otter can bark.", "can", "bark");
+
+        void AssertUnderstands(string sentence, string linkType, string target)
+        {
+            string result = ModuleText.AddPhrase(sentence, applyExistingTemplates: true);
+            Assert.StartsWith("Template:", result);
+            Assert.NotNull(uks.GetLink(
+                uks.Labeled("otter"), uks.Labeled(linkType), uks.Labeled(target)));
         }
     }
 
@@ -210,6 +273,116 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
+    public void ManualTemplateLearningCanAddAWordToASecondCompatibleSlotClass()
+    {
+        // "pigs are animals" first teaches that pigs occupy the unqualified
+        // plural-subject slot. Later, "the pigs are smelly" must still match
+        // the article-bearing template and add pigs to that template's subject
+        // class. Existing membership in the first class is supporting evidence,
+        // not a reason to reject the second syntax.
+        UKS.UKS uks = CreateTextUKS();
+        Thought classRoot = uks.GetOrAddThought("LearnedClass", "LanguageElement");
+        Thought bareSubjectClass = uks.GetOrAddThought("bareSubjectClass", classRoot);
+        Thought classificationClass = uks.GetOrAddThought("classificationClass", classRoot);
+        Thought articleSubjectClass = uks.GetOrAddThought("articleSubjectClass", classRoot);
+        Thought attributeClass = uks.GetOrAddThought("attributeClass", classRoot);
+        Thought templateRoot = uks.GetOrAddThought("LearnedTemplate", "LanguageElement");
+        Thought bareTemplate = uks.GetOrAddThought("bareTemplate", templateRoot);
+        Thought articleTemplate = uks.GetOrAddThought("articleTemplate", templateRoot);
+        Thought are = uks.GetOrAddThought("w:are", "Word");
+        Thought animals = uks.GetOrAddThought("w:animals", "Word");
+        animals.AddParent(classificationClass);
+
+        uks.AddSequenceAndLink(bareTemplate, "hasWords", new List<Thought>
+        {
+            uks.CreateWildcard("??bareSubjectClass", new List<Thought> { bareSubjectClass }),
+            are,
+            uks.CreateWildcard("??classificationClass", new List<Thought> { classificationClass })
+        });
+        uks.AddSequenceAndLink(articleTemplate, "hasWords", new List<Thought>
+        {
+            uks.GetOrAddThought("w:the", "Word"),
+            uks.CreateWildcard("??articleSubjectClass", new List<Thought> { articleSubjectClass }),
+            are,
+            uks.CreateWildcard("??attributeClass", new List<Thought> { attributeClass })
+        });
+
+        Thought firstPhrase = uks.GetOrAddThought("firstManualPhrase", "Phrase");
+        Thought pigs = uks.GetOrAddThought("w:pigs", "Word");
+        uks.AddSequenceAndLink(firstPhrase, "hasWords", new List<Thought> { pigs, are, animals });
+        Assert.Same(bareTemplate, ModuleText.ApplyExistingTemplatesToPhrase(firstPhrase));
+        Assert.Contains(bareSubjectClass, pigs.Parents);
+
+        Thought secondPhrase = uks.GetOrAddThought("secondManualPhrase", "Phrase");
+        Thought smelly = uks.GetOrAddThought("w:smelly", "Word");
+        uks.AddSequenceAndLink(secondPhrase, "hasWords", new List<Thought>
+        {
+            uks.Labeled("w:the"), pigs, are, smelly
+        });
+        Assert.Same(articleTemplate, ModuleText.ApplyExistingTemplatesToPhrase(secondPhrase));
+        Assert.Contains(articleSubjectClass, pigs.Parents);
+        Assert.Contains(attributeClass, smelly.Parents);
+    }
+
+    [Fact]
+    public void LearnedTemplatesProduceBoundaryAndConnectorWordClasses()
+    {
+        // These are structural discoveries, not supplied English grammar
+        // labels. Fixed words immediately before class slots should collect as
+        // one class, while the first fixed word following a class slot should
+        // collect as another. The shared internal/leading "a" observation
+        // joins a/an/the into the same boundary population.
+        UKS.UKS uks = CreateTextUKS();
+        Thought classRoot = uks.GetOrAddThought("LearnedClass", "LanguageElement");
+        Thought templateRoot = uks.GetOrAddThought("LearnedTemplate", "LanguageElement");
+        Thought subjectClass = uks.GetOrAddThought("subjectClass", classRoot);
+        Thought predicateClass = uks.GetOrAddThought("predicateClass", classRoot);
+        Thought objectClass = uks.GetOrAddThought("objectClass", classRoot);
+        Thought subject = uks.CreateWildcard("??subjectClass", new List<Thought> { subjectClass });
+        Thought predicate = uks.CreateWildcard("??predicateClass", new List<Thought> { predicateClass });
+        Thought obj = uks.CreateWildcard("??objectClass", new List<Thought> { objectClass });
+        Thought a = uks.GetOrAddThought("w:a", "Word");
+        Thought an = uks.GetOrAddThought("w:an", "Word");
+        Thought the = uks.GetOrAddThought("w:the", "Word");
+        Thought isWord = uks.GetOrAddThought("w:is", "Word");
+        Thought are = uks.GetOrAddThought("w:are", "Word");
+        Thought has = uks.GetOrAddThought("w:has", "Word");
+        Thought can = uks.GetOrAddThought("w:can", "Word");
+
+        AddTemplate("singularClassification", a, subject, isWord, an, predicate);
+        AddTemplate("definiteAttribute", the, subject, isWord, predicate);
+        AddTemplate("pluralClassification", subject, are, predicate);
+        AddTemplate("definiteCapability", the, subject, can, predicate);
+        AddTemplate("singularPossession", a, subject, has, a, obj);
+
+        List<Thought> tokenClasses = ModuleText.DiscoverTemplateTokenClasses();
+
+        Thought boundaryClass = Assert.Single(tokenClasses.Where(candidate =>
+            OrdinaryMembers(candidate).SetEquals(new[] { a, an, the })));
+        Thought connectorClass = Assert.Single(tokenClasses.Where(candidate =>
+            OrdinaryMembers(candidate).SetEquals(new[] { isWord, are, has, can })));
+        Assert.Equal(4, boundaryClass.LinksTo.Count(link => link.LinkType?.Label == "evidence"));
+        Assert.Equal(5, connectorClass.LinksTo.Count(link => link.LinkType?.Label == "evidence"));
+
+        int classCount = classRoot.Children.Count;
+        List<Thought> repeated = ModuleText.DiscoverTemplateTokenClasses();
+        Assert.Equal(classCount, classRoot.Children.Count);
+        Assert.Contains(boundaryClass, repeated);
+        Assert.Contains(connectorClass, repeated);
+
+        void AddTemplate(string label, params Thought[] elements)
+        {
+            Thought template = uks.GetOrAddThought(label, templateRoot);
+            uks.AddSequenceAndLink(template, "hasWords", elements.ToList());
+        }
+
+        static HashSet<Thought> OrdinaryMembers(Thought learnedClass) =>
+            learnedClass.Children
+                .Where(member => !member.HasAncestor("Wildcard") && member is not SeqElement)
+                .ToHashSet();
+    }
+
+    [Fact]
     public void DuplicatePhraseContentsReinforceExistingTemplatesWithoutCreatingNewOnes()
     {
         // Replaying observations is reinforcement, not discovery of another
@@ -249,10 +422,14 @@ public class ModuleTextSequenceBubbleEvaluationTests
                 line.Contains("what", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            string[] words = line.Trim().TrimEnd('.', '!', '?')
+            string[] fields = line.Split('\t', 2);
+            string phraseText = fields[0].Trim();
+            string[] words = phraseText.TrimEnd('.', '!', '?')
                 .ToLowerInvariant()
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries);
             AddPhrase(uks, words);
+            if (fields.Length == 2 && !string.IsNullOrWhiteSpace(fields[1]))
+                ModuleText.AddActionExemplar(phraseText, fields[1]);
             phraseCount++;
         }
         return phraseCount;

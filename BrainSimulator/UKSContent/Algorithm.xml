@@ -1703,7 +1703,7 @@
   </sThought>
   <sThought>
     <index>301</index>
-    <label>TEST.IS</label>
+    <label>TEST.ref</label>
   </sThought>
   <sThought>
     <index>302</index>
@@ -1769,7 +1769,7 @@
   </sThought>
   <sThought>
     <index>313</index>
-    <label>SET.IS</label>
+    <label>SET.ref</label>
   </sThought>
   <sThought>
     <index>314</index>
@@ -1857,7 +1857,7 @@
   </sThought>
   <sThought>
     <index>329</index>
-    <label>aramp1.IS</label>
+    <label>aramp1.ref</label>
   </sThought>
   <sThought>
     <index>330</index>
@@ -1974,7 +1974,7 @@
   </sThought>
   <sThought>
     <index>350</index>
-    <label>[a1→SET.IS→Alphabet.order]</label>
+    <label>[a1→SET.ref→Alphabet.order]</label>
   </sThought>
   <sThought>
     <index>351</index>
@@ -1996,11 +1996,11 @@
   </sThought>
   <sThought>
     <index>354</index>
-    <label>a1.IS.VLU</label>
+    <label>a1.ref.VLU</label>
   </sThought>
   <sThought>
     <index>355</index>
-    <label>p1.IS.VLU</label>
+    <label>p1.ref.VLU</label>
   </sThought>
   <sThought>
     <index>354</index>
@@ -2025,7 +2025,7 @@
   </sThought>
   <sThought>
     <index>359</index>
-    <label>p2.IS.VLU</label>
+    <label>p2.ref.VLU</label>
   </sThought>
   <sThought>
     <index>359</index>
@@ -2050,7 +2050,7 @@
   </sThought>
   <sThought>
     <index>363</index>
-    <label>a1.IS</label>
+    <label>a1.ref</label>
   </sThought>
   <sThought>
     <index>364</index>
@@ -3093,7 +3093,7 @@
     <label>unl_b98a7b10</label>
     <source>301</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>549</index>
@@ -3142,7 +3142,7 @@
     <label>unl_76ef274f</label>
     <source>313</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>556</index>
@@ -3268,11 +3268,11 @@
     <label>unl_7b72bd33</label>
     <source>329</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>577</index>
-    <label>param2.IS</label>
+    <label>param2.ref</label>
   </sThought>
   <sThought>
     <index>578</index>
@@ -3744,7 +3744,7 @@
   </sThought>
   <sThought>
     <index>656</index>
-    <label>param1.IS</label>
+    <label>param1.ref</label>
   </sThought>
   <sThought>
     <index>656</index>
@@ -3798,7 +3798,7 @@
   </sThought>
   <sThought>
     <index>665</index>
-    <label>p1.IS.spelled</label>
+    <label>p1.ref.spelled</label>
   </sThought>
   <sThought>
     <index>665</index>
@@ -4019,7 +4019,7 @@
     <index>704</index>
     <label>unl_49f57dac</label>
     <source>489</source>
-    <linkType>140</linkType>
+    <linkType>1472</linkType>
     <target>315</target>
   </sThought>
   <sThought>
@@ -4033,12 +4033,12 @@
     <index>706</index>
     <label>unl_4fef1ddb</label>
     <source>491</source>
-    <linkType>140</linkType>
+    <linkType>1472</linkType>
     <target>317</target>
   </sThought>
   <sThought>
     <index>707</index>
-    <label>p1.IS.NXT</label>
+    <label>p1.ref.NXT</label>
   </sThought>
   <sThought>
     <index>708</index>
@@ -4049,7 +4049,7 @@
   </sThought>
   <sThought>
     <index>709</index>
-    <label>p1.IS.FRST</label>
+    <label>p1.ref.FRST</label>
   </sThought>
   <sThought>
     <index>710</index>
@@ -4067,7 +4067,7 @@
   </sThought>
   <sThought>
     <index>712</index>
-    <label>p1.IS</label>
+    <label>p1.ref</label>
   </sThought>
   <sThought>
     <index>713</index>
@@ -4176,7 +4176,7 @@
   </sThought>
   <sThought>
     <index>728</index>
-    <label>p2.IS.FRST</label>
+    <label>p2.ref.FRST</label>
   </sThought>
   <sThought>
     <index>729</index>
@@ -4187,7 +4187,7 @@
   </sThought>
   <sThought>
     <index>730</index>
-    <label>p2.IS.spelled</label>
+    <label>p2.ref.spelled</label>
   </sThought>
   <sThought>
     <index>731</index>
@@ -4198,7 +4198,7 @@
   </sThought>
   <sThought>
     <index>732</index>
-    <label>p2.IS.NXT</label>
+    <label>p2.ref.NXT</label>
   </sThought>
   <sThought>
     <index>733</index>
@@ -4209,7 +4209,7 @@
   </sThought>
   <sThought>
     <index>734</index>
-    <label>p2.IS</label>
+    <label>p2.ref</label>
   </sThought>
   <sThought>
     <index>735</index>
@@ -4269,7 +4269,7 @@
   </sThought>
   <sThought>
     <index>743</index>
-    <label>a1.IS.NXT</label>
+    <label>a1.ref.NXT</label>
   </sThought>
   <sThought>
     <index>744</index>
@@ -4889,7 +4889,7 @@
     <label>unl_feb3cf2f</label>
     <source>577</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>848</index>
@@ -5518,7 +5518,7 @@
     <label>unl_3fee7b03</label>
     <source>355</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>946</index>
@@ -5546,7 +5546,7 @@
     <label>unl_d18983be</label>
     <source>359</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>950</index>
@@ -6864,14 +6864,14 @@
     <label>unl_c54f2506</label>
     <source>656</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1151</index>
     <label>unl_d23f360a</label>
     <source>707</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1152</index>
@@ -6899,7 +6899,7 @@
     <label>unl_86ebc3bc</label>
     <source>709</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1156</index>
@@ -6927,7 +6927,7 @@
     <label>unl_656b3ea3</label>
     <source>665</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1160</index>
@@ -6983,7 +6983,7 @@
     <label>unl_885dc804</label>
     <source>712</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1168</index>
@@ -7004,7 +7004,7 @@
     <label>unl_cfe6806f</label>
     <source>728</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1171</index>
@@ -7025,7 +7025,7 @@
     <label>unl_ad1b3290</label>
     <source>730</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1174</index>
@@ -7039,7 +7039,7 @@
     <label>unl_f38df165</label>
     <source>732</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1176</index>
@@ -7081,14 +7081,14 @@
     <label>unl_56d293ee</label>
     <source>734</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1182</index>
     <label>unl_b58b5bb5</label>
     <source>743</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1183</index>
@@ -7109,7 +7109,7 @@
     <label>unl_6711ace4</label>
     <source>363</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1186</index>
@@ -7151,7 +7151,7 @@
     <label>unl_43271380</label>
     <source>354</source>
     <linkType>140</linkType>
-    <target>140</target>
+    <target>1472</target>
   </sThought>
   <sThought>
     <index>1192</index>
@@ -9011,5 +9011,65 @@
     <source>1320</source>
     <linkType>272</linkType>
     <target>533</target>
+  </sThought>
+  <sThought>
+    <index>1472</index>
+    <label>ref</label>
+  </sThought>
+  <sThought>
+    <index>1473</index>
+    <label>unl_ref_parent</label>
+    <source>1472</source>
+    <linkType>2</linkType>
+    <target>120</target>
+  </sThought>
+  <sThought>
+    <index>1474</index>
+    <label>unl_ref_exclusive</label>
+    <source>1472</source>
+    <linkType>100</linkType>
+    <target>249</target>
+  </sThought>
+  <sThought>
+    <index>1475</index>
+    <label>unl_test_nxt_relationship</label>
+    <source>297</source>
+    <linkType>2</linkType>
+    <target>165</target>
+  </sThought>
+  <sThought>
+    <index>1476</index>
+    <label>unl_test_ref_relationship</label>
+    <source>301</source>
+    <linkType>2</linkType>
+    <target>1472</target>
+  </sThought>
+  <sThought>
+    <index>1477</index>
+    <label>unl_test_gt_relationship</label>
+    <source>307</source>
+    <linkType>2</linkType>
+    <target>293</target>
+  </sThought>
+  <sThought>
+    <index>1478</index>
+    <label>unl_set_eq_relationship</label>
+    <source>309</source>
+    <linkType>2</linkType>
+    <target>291</target>
+  </sThought>
+  <sThought>
+    <index>1479</index>
+    <label>unl_set_gt_relationship</label>
+    <source>311</source>
+    <linkType>2</linkType>
+    <target>293</target>
+  </sThought>
+  <sThought>
+    <index>1480</index>
+    <label>unl_set_ref_relationship</label>
+    <source>313</source>
+    <linkType>2</linkType>
+    <target>1472</target>
   </sThought>
 </ArrayOfSThought>

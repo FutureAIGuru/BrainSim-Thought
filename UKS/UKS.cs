@@ -220,6 +220,7 @@ public partial class UKS
             }
             if (label.Split('.').Contains("?") && Labeled("?") is Thought conditionalType)
                 thoughtToReturn.AddParent(conditionalType);
+            AddActionTypeInheritance(thoughtToReturn, label);
 
             return thoughtToReturn;
         }
@@ -250,6 +251,7 @@ public partial class UKS
                     if (attrib is not null)
                         instanceThought.AddLink("is", attrib);
                 }
+                AddActionTypeInheritance(instanceThought, label);
             }
             return instanceThought;
         }
@@ -275,6 +277,32 @@ public partial class UKS
         thoughtToReturn = AddThought(label, correctParent);
         thoughtToReturn.Fire();
         return thoughtToReturn;
+    }
+
+    /// <summary>
+    /// SET and TEST action types inherit from both the operation and the
+    /// relationship they operate on. For example, SET.ref inherits from SET
+    /// and ref. The dotted "is" metadata remains descriptive and is not needed
+    /// when an action is applied.
+    /// </summary>
+    private void AddActionTypeInheritance(Thought actionType, string label)
+    {
+        string[] parts = label.Split('.');
+        if (parts.Length < 2) return;
+        if (!parts[0].Equals("SET", StringComparison.OrdinalIgnoreCase) &&
+            !parts[0].Equals("TEST", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        Thought? linkTypeRoot = Labeled("LinkType");
+        if (linkTypeRoot is null) return;
+
+        Thought? relationshipType = Labeled(parts[1]);
+        if (relationshipType is null)
+            relationshipType = AddThought(parts[1], linkTypeRoot);
+        else if (!relationshipType.HasAncestor(linkTypeRoot))
+            relationshipType.AddParent(linkTypeRoot);
+
+        actionType.AddParent(relationshipType);
     }
 
 

@@ -391,11 +391,11 @@ public class UKSSequenceTests
     }
 
     [Fact]
-    public void FindSequencesByActivation_LearningSearchAllowsOnlyUnclassifiedClassFillers()
+    public void FindSequencesByActivation_LearningSearchAllowsNewMembershipForClassifiedFillers()
     {
         // Strict matching must reject a word that is not already in the
-        // wildcard's class.  The learning search may provisionally accept a
-        // wholly unclassified word, but not a word assigned to another class.
+        // wildcard's class. The learning search may provisionally accept it as
+        // a new member even when another learned class already contains it.
         UKS uks = CreateUKS();
         Thought learnedClassRoot = uks.GetOrAddThought("LearnedClass", "Thought");
         Thought subjectClass = uks.GetOrAddThought("subjectClass", learnedClassRoot);
@@ -421,7 +421,7 @@ public class UKSSequenceTests
             match => ReferenceEquals(match.seqNode, template));
 
         pigs.AddParent(otherClass);
-        Assert.DoesNotContain(
+        Assert.Contains(
             uks.FindSequencesByActivation(input, uks.Labeled("TemplateLearningSearch")),
             match => ReferenceEquals(match.seqNode, template));
     }

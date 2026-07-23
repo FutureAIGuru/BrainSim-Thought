@@ -1,26 +1,26 @@
-A dog is an animal.
+A dog is an animal.	[dog->SET.is-a->animal]
 The dog is an animal.
-Dogs are animals.
+Dogs are animals.	[dog->SET.is-a->animal]
 The dogs are animals.
-a dog has a tail.
+a dog has a tail.	[dog->SET.has->tail]
 The dog has a tail.
-Dogs have tails.
+Dogs have tails.	[dog->SET.has->tail]
 The dogs have tails.
 A dog has four legs.
 The dog has four legs.
 Dogs have four legs.
 The dogs have four legs.
-A dog is brown.
+A dog is brown.	[dog->SET.is->brown]
 The dog is brown.
-Dogs are brown.
+Dogs are brown.	[dog->SET.is->brown]
 The dogs are brown.
 A dog is large.
 The dog is large.
 Dogs are large.
 The dogs are large.
-A dog can bark.
+A dog can bark.	[dog->SET.can->bark]
 The dog can bark.
-Dogs can bark.
+Dogs can bark.	[dog->SET.can->bark]
 The dogs can bark.
 What is a dog?
 What is the dog?
@@ -33,29 +33,29 @@ What can the dog do?
 What can dogs do?
 What color is the dog?
 What size is the dog?
-A cat is an animal.
+A cat is an animal.	[cat->SET.is-a->animal]
 The cat is an animal.
-Cats are animals.
+Cats are animals.	[cat->SET.is-a->animal]
 The cats are animals.
-a cat has a tail.
+a cat has a tail.	[cat->SET.has->tail]
 The cat has a tail.
-Cats have tails.
+Cats have tails.	[cat->SET.has->tail]
 The cats have tails.
 A cat has four legs.
 The cat has four legs.
 Cats have four legs.
 The cats have four legs.
-A cat is black.
+A cat is black.	[cat->SET.is->black]
 The cat is black.
-Cats are black.
+Cats are black.	[cat->SET.is->black]
 The cats are black.
 A cat is small.
 The cat is small.
 Cats are small.
 The cats are small.
-A cat can meow.
+A cat can meow.	[cat->SET.can->meow]
 The cat can meow.
-Cats can meow.
+Cats can meow.	[cat->SET.can->meow]
 The cats can meow.
 What is a cat?
 What is the cat?
@@ -68,29 +68,29 @@ What can the cat do?
 What can cats do?
 What color is the cat?
 What size is the cat?
-A bird is an animal.
+A bird is an animal.	[bird->SET.is-a->animal]
 The bird is an animal.
-Birds are animals.
+Birds are animals.	[bird->SET.is-a->animal]
 The birds are animals.
-a bird has a wing.
+a bird has a wing.	[bird->SET.has->wing]
 The bird has a wing.
-Birds have wings.
+Birds have wings.	[bird->SET.has->wing]
 The birds have wings.
 A bird has two wings.
 The bird has two wings.
 Birds have two wings.
 The birds have two wings.
-A bird is blue.
+A bird is blue.	[bird->SET.is->blue]
 The bird is blue.
-Birds are blue.
+Birds are blue.	[bird->SET.is->blue]
 The birds are blue.
 A bird is small.
 The bird is small.
 Birds are small.
 The birds are small.
-A bird can fly.
+A bird can fly.	[bird->SET.can->fly]
 The bird can fly.
-Birds can fly.
+Birds can fly.	[bird->SET.can->fly]
 The birds can fly.
 What is a bird?
 What is the bird?
@@ -103,29 +103,29 @@ What can the bird do?
 What can birds do?
 What color is the bird?
 What size is the bird?
-A fish is an animal.
+A fish is an animal.	[fish->SET.is-a->animal]
 The fish is an animal.
-Fish are animals.
+Fish are animals.	[fish->SET.is-a->animal]
 The fish are animals.
-a fish has a fin.
+a fish has a fin.	[fish->SET.has->fin]
 The fish has a fin.
-Fish have fins.
+Fish have fins.	[fish->SET.has->fin]
 The fish have fins.
 A fish has two fins.
 The fish has two fins.
 Fish have two fins.
 The fish have two fins.
-A fish is silver.
+A fish is silver.	[fish->SET.is->silver]
 The fish is silver.
-Fish are silver.
+Fish are silver.	[fish->SET.is->silver]
 The fish are silver.
 A fish is small.
 The fish is small.
 Fish are small.
 The fish are small.
-A fish can swim.
+A fish can swim.	[fish->SET.can->swim]
 The fish can swim.
-Fish can swim.
+Fish can swim.	[fish->SET.can->swim]
 What is a fish?
 What is the fish?
 What are fish?
@@ -841,8 +841,8 @@ A duck plays frisbee.
 The duck plays frisbee.
 Ducks play frisbee.
 The ducks play frisbee.
-A terrier is a dog.
-Terriers are dogs.
+A terrier is a dog.	[terrier->SET.is-a->dog]
+Terriers are dogs.	[terrier->SET.is-a->dog]
 A beagle is a dog.
 Beagles are dogs.
 A poodle is a dog.
@@ -857,8 +857,8 @@ A lion is a cat.
 Lions are cats.
 A tiger is a cat.
 Tigers are cats.
-A robin is a bird.
-Robins are birds.
+A robin is a bird.	[robin->SET.is-a->bird]
+Robins are birds.	[robin->SET.is-a->bird]
 A sparrow is a bird.
 Sparrows are birds.
 An eagle is a bird.
@@ -871,12 +871,12 @@ A shark is a fish.
 Sharks are fish.
 An oak is a tree.
 Oaks are trees.
-A pine is a tree.
-Pines are trees.
+A pine is a tree.	[pine->SET.is-a->tree]
+Pines are trees.	[pine->SET.is-a->tree]
 A maple is a tree.
 Maples are trees.
-A rose is a flower.
-Roses are flowers.
+A rose is a flower.	[rose->SET.is-a->flower]
+Roses are flowers.	[rose->SET.is-a->flower]
 A tulip is a flower.
 Tulips are flowers.
 A daisy is a flower.
