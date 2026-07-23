@@ -110,7 +110,7 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         {
             SetStatus("Discovering common phrase structures...");
             int count = ModuleText.ProcessTheExistingText();
-            SetStatus($"Found {count} phrase-structure classes. You can rerun this after adding text.");
+            SetStatus($"Found {count} learned phrase templates. You can rerun this after adding text.");
         }
         else
         {

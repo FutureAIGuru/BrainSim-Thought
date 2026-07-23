@@ -1,0 +1,1000 @@
+the dog is quiet.
+a dog is quick.
+the dogs are quiet.
+dogs are quick.
+the dog has a pig.
+a dog has a camel.
+the dogs have pigs.
+dogs have camels.
+the dog can run.
+a dog can eat.
+the dogs can run.
+dogs can eat.
+the dog runs the pig.
+a dog eats a camel.
+the dogs run the pigs.
+dogs eat camels.
+the quiet dog can run.
+the quick dogs can eat.
+the dog sees a pig.
+the dogs visit the camels.
+the cat is noisy.
+a cat is large.
+the cats are noisy.
+cats are large.
+the cat has a panda.
+a cat has a snake.
+the cats have pandas.
+cats have snakes.
+the cat can jump.
+a cat can watch.
+the cats can jump.
+cats can watch.
+the cat jumps the panda.
+a cat watches a snake.
+the cats jump the pandas.
+cats watch snakes.
+the noisy cat can jump.
+the large cats can watch.
+the cat sees a panda.
+the cats visit the snakes.
+the bird is happy.
+a bird is warm.
+the birds are happy.
+birds are warm.
+the bird has a shark.
+a bird has a squirrel.
+the birds have sharks.
+birds have squirrels.
+the bird can sleep.
+a bird can climb.
+the birds can sleep.
+birds can climb.
+the bird sleeps the shark.
+a bird climbs a squirrel.
+the birds sleep the sharks.
+birds climb squirrels.
+the happy bird can sleep.
+the warm birds can climb.
+the bird sees a shark.
+the birds visit the squirrels.
+the horse is sleepy.
+a horse is dark.
+the horses are sleepy.
+horses are dark.
+the horse has a snake.
+a horse has a lion.
+the horses have snakes.
+horses have lions.
+the horse can eat.
+a horse can find.
+the horses can eat.
+horses can find.
+the horse eats the snake.
+a horse finds a lion.
+the horses eat the snakes.
+horses find lions.
+the sleepy horse can eat.
+the dark horses can find.
+the horse sees a snake.
+the horses visit the lions.
+the cow is hungry.
+a cow is friendly.
+the cows are hungry.
+cows are friendly.
+the cow has a yak.
+a cow has a otter.
+the cows have yaks.
+cows have otters.
+the cow can play.
+a cow can eat.
+the cows can play.
+cows can eat.
+the cow plays the yak.
+a cow eats a otter.
+the cows play the yaks.
+cows eat otters.
+the hungry cow can play.
+the friendly cows can eat.
+the cow sees a yak.
+the cows visit the otters.
+the goat is gentle.
+a goat is soft.
+the goats are gentle.
+goats are soft.
+the goat has a badger.
+a goat has a chicken.
+the goats have badgers.
+goats have chickens.
+the goat can swim.
+a goat can watch.
+the goats can swim.
+goats can watch.
+the goat swims the badger.
+a goat watches a chicken.
+the goats swim the badgers.
+goats watch chickens.
+the gentle goat can swim.
+the soft goats can watch.
+the goat sees a badger.
+the goats visit the chickens.
+the rabbit is brave.
+a rabbit is quiet.
+the rabbits are brave.
+rabbits are quiet.
+the rabbit has a horse.
+a rabbit has a falcon.
+the rabbits have horses.
+rabbits have falcons.
+the rabbit can walk.
+a rabbit can climb.
+the rabbits can walk.
+rabbits can climb.
+the rabbit walks the horse.
+a rabbit climbs a falcon.
+the rabbits walk the horses.
+rabbits climb falcons.
+the brave rabbit can walk.
+the quiet rabbits can climb.
+the rabbit sees a horse.
+the rabbits visit the falcons.
+the bear is quick.
+a bear is sleepy.
+the bears are quick.
+bears are sleepy.
+the bear has a duck.
+a bear has a duck.
+the bears have ducks.
+bears have ducks.
+the bear can chase.
+a bear can find.
+the bears can chase.
+bears can find.
+the bear chases the duck.
+a bear finds a duck.
+the bears chase the ducks.
+bears find ducks.
+the quick bear can chase.
+the sleepy bears can find.
+the bear sees a duck.
+the bears visit the ducks.
+the lion is slow.
+a lion is brave.
+the lions are slow.
+lions are brave.
+the lion has a monkey.
+a lion has a eagle.
+the lions have monkeys.
+lions have eagles.
+the lion can watch.
+a lion can eat.
+the lions can watch.
+lions can eat.
+the lion watches the monkey.
+a lion eats a eagle.
+the lions watch the monkeys.
+lions eat eagles.
+the slow lion can watch.
+the brave lions can eat.
+the lion sees a monkey.
+the lions visit the eagles.
+the tiger is small.
+a tiger is small.
+the tigers are small.
+tigers are small.
+the tiger has a robin.
+a tiger has a parrot.
+the tigers have robins.
+tigers have parrots.
+the tiger can carry.
+a tiger can watch.
+the tigers can carry.
+tigers can watch.
+the tiger carries the robin.
+a tiger watches a parrot.
+the tigers carry the robins.
+tigers watch parrots.
+the small tiger can carry.
+the small tigers can watch.
+the tiger sees a robin.
+the tigers visit the parrots.
+the duck is large.
+a duck is old.
+the ducks are large.
+ducks are old.
+the duck has a spider.
+a duck has a lobster.
+the ducks have spiders.
+ducks have lobsters.
+the duck can sing.
+a duck can climb.
+the ducks can sing.
+ducks can climb.
+the duck sings the spider.
+a duck climbs a lobster.
+the ducks sing the spiders.
+ducks climb lobsters.
+the large duck can sing.
+the old ducks can climb.
+the duck sees a spider.
+the ducks visit the lobsters.
+the pig is young.
+a pig is bright.
+the pigs are young.
+pigs are bright.
+the pig has a seal.
+a pig has a sheep.
+the pigs have seals.
+pigs have sheeps.
+the pig can dance.
+a pig can find.
+the pigs can dance.
+pigs can find.
+the pig dances the seal.
+a pig finds a sheep.
+the pigs dance the seals.
+pigs find sheeps.
+the young pig can dance.
+the bright pigs can find.
+the pig sees a seal.
+the pigs visit the sheeps.
+the sheep is old.
+a sheep is alert.
+the sheeps are old.
+sheeps are alert.
+the sheep has a squirrel.
+a sheep has a shark.
+the sheeps have squirrels.
+sheeps have sharks.
+the sheep can rest.
+a sheep can eat.
+the sheeps can rest.
+sheeps can eat.
+the sheep rests the squirrel.
+a sheep eats a shark.
+the sheeps rest the squirrels.
+sheeps eat sharks.
+the old sheep can rest.
+the alert sheeps can eat.
+the sheep sees a squirrel.
+the sheeps visit the sharks.
+the wolf is warm.
+a wolf is strong.
+the wolfs are warm.
+wolfs are strong.
+the wolf has a bird.
+a wolf has a seal.
+the wolfs have birds.
+wolfs have seals.
+the wolf can climb.
+a wolf can watch.
+the wolfs can climb.
+wolfs can watch.
+the wolf climbs the bird.
+a wolf watches a seal.
+the wolfs climb the birds.
+wolfs watch seals.
+the warm wolf can climb.
+the strong wolfs can watch.
+the wolf sees a bird.
+the wolfs visit the seals.
+the deer is cold.
+a deer is muddy.
+the deers are cold.
+deers are muddy.
+the deer has a tiger.
+a deer has a cat.
+the deers have tigers.
+deers have cats.
+the deer can follow.
+a deer can climb.
+the deers can follow.
+deers can climb.
+the deer follows the tiger.
+a deer climbs a cat.
+the deers follow the tigers.
+deers climb cats.
+the cold deer can follow.
+the muddy deers can climb.
+the deer sees a tiger.
+the deers visit the cats.
+the frog is bright.
+a frog is happy.
+the frogs are bright.
+frogs are happy.
+the frog has a turtle.
+a frog has a deer.
+the frogs have turtles.
+frogs have deers.
+the frog can visit.
+a frog can find.
+the frogs can visit.
+frogs can find.
+the frog visits the turtle.
+a frog finds a deer.
+the frogs visit the turtles.
+frogs find deers.
+the bright frog can visit.
+the happy frogs can find.
+the frog sees a turtle.
+the frogs visit the deers.
+the turtle is dark.
+a turtle is gentle.
+the turtles are dark.
+turtles are gentle.
+the turtle has a eagle.
+a turtle has a dolphin.
+the turtles have eagles.
+turtles have dolphins.
+the turtle can push.
+a turtle can eat.
+the turtles can push.
+turtles can eat.
+the turtle pushes the eagle.
+a turtle eats a dolphin.
+the turtles push the eagles.
+turtles eat dolphins.
+the dark turtle can push.
+the gentle turtles can eat.
+the turtle sees a eagle.
+the turtles visit the dolphins.
+the monkey is calm.
+a monkey is slow.
+the monkeys are calm.
+monkeys are slow.
+the monkey has a bee.
+a monkey has a zebra.
+the monkeys have bees.
+monkeys have zebras.
+the monkey can pull.
+a monkey can watch.
+the monkeys can pull.
+monkeys can watch.
+the monkey pulls the bee.
+a monkey watches a zebra.
+the monkeys pull the bees.
+monkeys watch zebras.
+the calm monkey can pull.
+the slow monkeys can watch.
+the monkey sees a bee.
+the monkeys visit the zebras.
+the panda is alert.
+a panda is young.
+the pandas are alert.
+pandas are young.
+the panda has a penguin.
+a panda has a horse.
+the pandas have penguins.
+pandas have horses.
+the panda can find.
+a panda can climb.
+the pandas can find.
+pandas can climb.
+the panda finds the penguin.
+a panda climbs a horse.
+the pandas find the penguins.
+pandas climb horses.
+the alert panda can find.
+the young pandas can climb.
+the panda sees a penguin.
+the pandas visit the horses.
+the camel is friendly.
+a camel is cold.
+the camels are friendly.
+camels are cold.
+the camel has a rhino.
+a camel has a turtle.
+the camels have rhinos.
+camels have turtles.
+the camel can need.
+a camel can find.
+the camels can need.
+camels can find.
+the camel needs the rhino.
+a camel finds a turtle.
+the camels need the rhinos.
+camels find turtles.
+the friendly camel can need.
+the cold camels can find.
+the camel sees a rhino.
+the camels visit the turtles.
+the donkey is playful.
+a donkey is calm.
+the donkeys are playful.
+donkeys are calm.
+the donkey has a cat.
+a donkey has a ant.
+the donkeys have cats.
+donkeys have ants.
+the donkey can run.
+a donkey can eat.
+the donkeys can run.
+donkeys can eat.
+the donkey runs the cat.
+a donkey eats a ant.
+the donkeys run the cats.
+donkeys eat ants.
+the playful donkey can run.
+the calm donkeys can eat.
+the donkey sees a cat.
+the donkeys visit the ants.
+the otter is strong.
+a otter is playful.
+the otters are strong.
+otters are playful.
+the otter has a lion.
+a otter has a elephant.
+the otters have lions.
+otters have elephants.
+the otter can jump.
+a otter can watch.
+the otters can jump.
+otters can watch.
+the otter jumps the lion.
+a otter watches a elephant.
+the otters jump the lions.
+otters watch elephants.
+the strong otter can jump.
+the playful otters can watch.
+the otter sees a lion.
+the otters visit the elephants.
+the beaver is soft.
+a beaver is clean.
+the beavers are soft.
+beavers are clean.
+the beaver has a frog.
+a beaver has a goat.
+the beavers have frogs.
+beavers have goats.
+the beaver can sleep.
+a beaver can climb.
+the beavers can sleep.
+beavers can climb.
+the beaver sleeps the frog.
+a beaver climbs a goat.
+the beavers sleep the frogs.
+beavers climb goats.
+the soft beaver can sleep.
+the clean beavers can climb.
+the beaver sees a frog.
+the beavers visit the goats.
+the eagle is clean.
+a eagle is noisy.
+the eagles are clean.
+eagles are noisy.
+the eagle has a beaver.
+a eagle has a panda.
+the eagles have beavers.
+eagles have pandas.
+the eagle can eat.
+a eagle can find.
+the eagles can eat.
+eagles can find.
+the eagle eats the beaver.
+a eagle finds a panda.
+the eagles eat the beavers.
+eagles find pandas.
+the clean eagle can eat.
+the noisy eagles can find.
+the eagle sees a beaver.
+the eagles visit the pandas.
+the robin is muddy.
+a robin is hungry.
+the robins are muddy.
+robins are hungry.
+the robin has a ant.
+a robin has a spider.
+the robins have ants.
+robins have spiders.
+the robin can play.
+a robin can eat.
+the robins can play.
+robins can eat.
+the robin plays the ant.
+a robin eats a spider.
+the robins play the ants.
+robins eat spiders.
+the muddy robin can play.
+the hungry robins can eat.
+the robin sees a ant.
+the robins visit the spiders.
+the shark is quiet.
+a shark is quick.
+the sharks are quiet.
+sharks are quick.
+the shark has a parrot.
+a shark has a rhino.
+the sharks have parrots.
+sharks have rhinos.
+the shark can swim.
+a shark can watch.
+the sharks can swim.
+sharks can watch.
+the shark swims the parrot.
+a shark watches a rhino.
+the sharks swim the parrots.
+sharks watch rhinos.
+the quiet shark can swim.
+the quick sharks can watch.
+the shark sees a parrot.
+the sharks visit the rhinos.
+the whale is noisy.
+a whale is large.
+the whales are noisy.
+whales are large.
+the whale has a hippo.
+a whale has a bear.
+the whales have hippos.
+whales have bears.
+the whale can walk.
+a whale can climb.
+the whales can walk.
+whales can climb.
+the whale walks the hippo.
+a whale climbs a bear.
+the whales walk the hippos.
+whales climb bears.
+the noisy whale can walk.
+the large whales can climb.
+the whale sees a hippo.
+the whales visit the bears.
+the dolphin is happy.
+a dolphin is warm.
+the dolphins are happy.
+dolphins are warm.
+the dolphin has a dog.
+a dolphin has a donkey.
+the dolphins have dogs.
+dolphins have donkeys.
+the dolphin can chase.
+a dolphin can find.
+the dolphins can chase.
+dolphins can find.
+the dolphin chases the dog.
+a dolphin finds a donkey.
+the dolphins chase the dogs.
+dolphins find donkeys.
+the happy dolphin can chase.
+the warm dolphins can find.
+the dolphin sees a dog.
+the dolphins visit the donkeys.
+the crab is sleepy.
+a crab is dark.
+the crabs are sleepy.
+crabs are dark.
+the crab has a bear.
+a crab has a lizard.
+the crabs have bears.
+crabs have lizards.
+the crab can watch.
+a crab can eat.
+the crabs can watch.
+crabs can eat.
+the crab watches the bear.
+a crab eats a lizard.
+the crabs watch the bears.
+crabs eat lizards.
+the sleepy crab can watch.
+the dark crabs can eat.
+the crab sees a bear.
+the crabs visit the lizards.
+the ant is hungry.
+a ant is friendly.
+the ants are hungry.
+ants are friendly.
+the ant has a deer.
+a ant has a badger.
+the ants have deers.
+ants have badgers.
+the ant can carry.
+a ant can watch.
+the ants can carry.
+ants can watch.
+the ant carries the deer.
+a ant watches a badger.
+the ants carry the deers.
+ants watch badgers.
+the hungry ant can carry.
+the friendly ants can watch.
+the ant sees a deer.
+the ants visit the badgers.
+the bee is gentle.
+a bee is soft.
+the bees are gentle.
+bees are soft.
+the bee has a otter.
+a bee has a tiger.
+the bees have otters.
+bees have tigers.
+the bee can sing.
+a bee can climb.
+the bees can sing.
+bees can climb.
+the bee sings the otter.
+a bee climbs a tiger.
+the bees sing the otters.
+bees climb tigers.
+the gentle bee can sing.
+the soft bees can climb.
+the bee sees a otter.
+the bees visit the tigers.
+the spider is brave.
+a spider is quiet.
+the spiders are brave.
+spiders are quiet.
+the spider has a crab.
+a spider has a beaver.
+the spiders have crabs.
+spiders have beavers.
+the spider can dance.
+a spider can find.
+the spiders can dance.
+spiders can find.
+the spider dances the crab.
+a spider finds a beaver.
+the spiders dance the crabs.
+spiders find beavers.
+the brave spider can dance.
+the quiet spiders can find.
+the spider sees a crab.
+the spiders visit the beavers.
+the snake is quick.
+a snake is sleepy.
+the snakes are quick.
+snakes are sleepy.
+the snake has a owl.
+a snake has a owl.
+the snakes have owls.
+snakes have owls.
+the snake can rest.
+a snake can eat.
+the snakes can rest.
+snakes can eat.
+the snake rests the owl.
+a snake eats a owl.
+the snakes rest the owls.
+snakes eat owls.
+the quick snake can rest.
+the sleepy snakes can eat.
+the snake sees a owl.
+the snakes visit the owls.
+the lizard is slow.
+a lizard is brave.
+the lizards are slow.
+lizards are brave.
+the lizard has a elephant.
+a lizard has a salmon.
+the lizards have elephants.
+lizards have salmons.
+the lizard can climb.
+a lizard can watch.
+the lizards can climb.
+lizards can watch.
+the lizard climbs the elephant.
+a lizard watches a salmon.
+the lizards climb the elephants.
+lizards watch salmons.
+the slow lizard can climb.
+the brave lizards can watch.
+the lizard sees a elephant.
+the lizards visit the salmons.
+the chicken is small.
+a chicken is small.
+the chickens are small.
+chickens are small.
+the chicken has a lobster.
+a chicken has a pig.
+the chickens have lobsters.
+chickens have pigs.
+the chicken can follow.
+a chicken can climb.
+the chickens can follow.
+chickens can climb.
+the chicken follows the lobster.
+a chicken climbs a pig.
+the chickens follow the lobsters.
+chickens climb pigs.
+the small chicken can follow.
+the small chickens can climb.
+the chicken sees a lobster.
+the chickens visit the pigs.
+the owl is large.
+a owl is old.
+the owls are large.
+owls are old.
+the owl has a rabbit.
+a owl has a robin.
+the owls have rabbits.
+owls have robins.
+the owl can visit.
+a owl can find.
+the owls can visit.
+owls can find.
+the owl visits the rabbit.
+a owl finds a robin.
+the owls visit the rabbits.
+owls find robins.
+the large owl can visit.
+the old owls can find.
+the owl sees a rabbit.
+the owls visit the robins.
+the parrot is young.
+a parrot is bright.
+the parrots are young.
+parrots are bright.
+the parrot has a wolf.
+a parrot has a penguin.
+the parrots have wolfs.
+parrots have penguins.
+the parrot can push.
+a parrot can eat.
+the parrots can push.
+parrots can eat.
+the parrot pushes the wolf.
+a parrot eats a penguin.
+the parrots push the wolfs.
+parrots eat penguins.
+the young parrot can push.
+the bright parrots can eat.
+the parrot sees a wolf.
+the parrots visit the penguins.
+the penguin is old.
+a penguin is alert.
+the penguins are old.
+penguins are alert.
+the penguin has a donkey.
+a penguin has a dog.
+the penguins have donkeys.
+penguins have dogs.
+the penguin can pull.
+a penguin can watch.
+the penguins can pull.
+penguins can watch.
+the penguin pulls the donkey.
+a penguin watches a dog.
+the penguins pull the donkeys.
+penguins watch dogs.
+the old penguin can pull.
+the alert penguins can watch.
+the penguin sees a donkey.
+the penguins visit the dogs.
+the seal is warm.
+a seal is strong.
+the seals are warm.
+seals are strong.
+the seal has a dolphin.
+a seal has a wolf.
+the seals have dolphins.
+seals have wolfs.
+the seal can find.
+a seal can climb.
+the seals can find.
+seals can climb.
+the seal finds the dolphin.
+a seal climbs a wolf.
+the seals find the dolphins.
+seals climb wolfs.
+the warm seal can find.
+the strong seals can climb.
+the seal sees a dolphin.
+the seals visit the wolfs.
+the yak is cold.
+a yak is muddy.
+the yaks are cold.
+yaks are muddy.
+the yak has a chicken.
+a yak has a whale.
+the yaks have chickens.
+yaks have whales.
+the yak can need.
+a yak can find.
+the yaks can need.
+yaks can find.
+the yak needs the chicken.
+a yak finds a whale.
+the yaks need the chickens.
+yaks find whales.
+the cold yak can need.
+the muddy yaks can find.
+the yak sees a chicken.
+the yaks visit the whales.
+the zebra is bright.
+a zebra is happy.
+the zebras are bright.
+zebras are happy.
+the zebra has a giraffe.
+a zebra has a yak.
+the zebras have giraffes.
+zebras have yaks.
+the zebra can run.
+a zebra can eat.
+the zebras can run.
+zebras can eat.
+the zebra runs the giraffe.
+a zebra eats a yak.
+the zebras run the giraffes.
+zebras eat yaks.
+the bright zebra can run.
+the happy zebras can eat.
+the zebra sees a giraffe.
+the zebras visit the yaks.
+the giraffe is dark.
+a giraffe is gentle.
+the giraffes are dark.
+giraffes are gentle.
+the giraffe has a salmon.
+a giraffe has a bird.
+the giraffes have salmons.
+giraffes have birds.
+the giraffe can jump.
+a giraffe can watch.
+the giraffes can jump.
+giraffes can watch.
+the giraffe jumps the salmon.
+a giraffe watches a bird.
+the giraffes jump the salmons.
+giraffes watch birds.
+the dark giraffe can jump.
+the gentle giraffes can watch.
+the giraffe sees a salmon.
+the giraffes visit the birds.
+the elephant is calm.
+a elephant is slow.
+the elephants are calm.
+elephants are slow.
+the elephant has a goat.
+a elephant has a frog.
+the elephants have goats.
+elephants have frogs.
+the elephant can sleep.
+a elephant can climb.
+the elephants can sleep.
+elephants can climb.
+the elephant sleeps the goat.
+a elephant climbs a frog.
+the elephants sleep the goats.
+elephants climb frogs.
+the calm elephant can sleep.
+the slow elephants can climb.
+the elephant sees a goat.
+the elephants visit the frogs.
+the hippo is alert.
+a hippo is young.
+the hippos are alert.
+hippos are young.
+the hippo has a sheep.
+a hippo has a crab.
+the hippos have sheeps.
+hippos have crabs.
+the hippo can eat.
+a hippo can find.
+the hippos can eat.
+hippos can find.
+the hippo eats the sheep.
+a hippo finds a crab.
+the hippos eat the sheeps.
+hippos find crabs.
+the alert hippo can eat.
+the young hippos can find.
+the hippo sees a sheep.
+the hippos visit the crabs.
+the rhino is friendly.
+a rhino is cold.
+the rhinos are friendly.
+rhinos are cold.
+the rhino has a camel.
+a rhino has a giraffe.
+the rhinos have camels.
+rhinos have giraffes.
+the rhino can play.
+a rhino can eat.
+the rhinos can play.
+rhinos can eat.
+the rhino plays the camel.
+a rhino eats a giraffe.
+the rhinos play the camels.
+rhinos eat giraffes.
+the friendly rhino can play.
+the cold rhinos can eat.
+the rhino sees a camel.
+the rhinos visit the giraffes.
+the squirrel is playful.
+a squirrel is calm.
+the squirrels are playful.
+squirrels are calm.
+the squirrel has a whale.
+a squirrel has a cow.
+the squirrels have whales.
+squirrels have cows.
+the squirrel can swim.
+a squirrel can watch.
+the squirrels can swim.
+squirrels can watch.
+the squirrel swims the whale.
+a squirrel watches a cow.
+the squirrels swim the whales.
+squirrels watch cows.
+the playful squirrel can swim.
+the calm squirrels can watch.
+the squirrel sees a whale.
+the squirrels visit the cows.
+the badger is strong.
+a badger is playful.
+the badgers are strong.
+badgers are playful.
+the badger has a lizard.
+a badger has a monkey.
+the badgers have lizards.
+badgers have monkeys.
+the badger can walk.
+a badger can climb.
+the badgers can walk.
+badgers can climb.
+the badger walks the lizard.
+a badger climbs a monkey.
+the badgers walk the lizards.
+badgers climb monkeys.
+the strong badger can walk.
+the playful badgers can climb.
+the badger sees a lizard.
+the badgers visit the monkeys.
+the falcon is soft.
+a falcon is clean.
+the falcons are soft.
+falcons are clean.
+the falcon has a zebra.
+a falcon has a bee.
+the falcons have zebras.
+falcons have bees.
+the falcon can chase.
+a falcon can find.
+the falcons can chase.
+falcons can find.
+the falcon chases the zebra.
+a falcon finds a bee.
+the falcons chase the zebras.
+falcons find bees.
+the soft falcon can chase.
+the clean falcons can find.
+the falcon sees a zebra.
+the falcons visit the bees.
+the salmon is clean.
+a salmon is noisy.
+the salmons are clean.
+salmons are noisy.
+the salmon has a falcon.
+a salmon has a hippo.
+the salmons have falcons.
+salmons have hippos.
+the salmon can watch.
+a salmon can eat.
+the salmons can watch.
+salmons can eat.
+the salmon watches the falcon.
+a salmon eats a hippo.
+the salmons watch the falcons.
+salmons eat hippos.
+the clean salmon can watch.
+the noisy salmons can eat.
+the salmon sees a falcon.
+the salmons visit the hippos.
+the lobster is muddy.
+a lobster is hungry.
+the lobsters are muddy.
+lobsters are hungry.
+the lobster has a cow.
+a lobster has a rabbit.
+the lobsters have cows.
+lobsters have rabbits.
+the lobster can carry.
+a lobster can watch.
+the lobsters can carry.
+lobsters can watch.
+the lobster carries the cow.
+a lobster watches a rabbit.
+the lobsters carry the cows.
+lobsters watch rabbits.
+the muddy lobster can carry.
+the hungry lobsters can watch.
+the lobster sees a cow.
+the lobsters visit the rabbits.

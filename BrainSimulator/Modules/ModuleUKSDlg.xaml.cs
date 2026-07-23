@@ -11,10 +11,12 @@
  * See the LICENSE file in the project root for full license information.
  */
 
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -22,7 +24,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using UKS;
-using Microsoft.Win32;
 
 namespace BrainSimulator.Modules;
 
@@ -114,7 +115,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (depth > maxDepth) return;
 
         List<Link> theChildren = t.LinksFrom.Where(x => x.LinkType.Label.StartsWith("is-a") && x.To is not null).ToList();
-        theChildren = theChildren.OrderBy(x => x.From.Label).ToList();
+        theChildren = theChildren.OrderBy(x => x.From.Label, NaturalLabelComparer.Instance).ToList();
         if (detailsCB.IsChecked == true)
             theChildren = theChildren.OrderByDescending(x => x.From.Weight).ToList();
 
@@ -157,6 +158,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             sortedLinks = t.LinksTo.Where(x => x.LinkType.Label != "is-a").OrderBy(x => x?.LinkType?.Label).ToList();
         foreach (Link l in sortedLinks)
         {
+            if (showConditionals.IsChecked != true && l.LinkType.Label == "evidence") continue;
             if (showConditionals.IsChecked != true)
                 if (l.HasProperty("isCondition") || l.HasProperty("isResult")) continue; //hide conditionals
             var x = expandedItems;
@@ -221,7 +223,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             {
                 var seqElements = theUKS.FlattenSequence(s);
                 string joinCharacter = " ";
-                if (r.LinkType.Label == "events" || seqElements.Count(x=>x is Link l)>0) joinCharacter = "\n\t\t"; //hack for better dieplay of longer items
+                if (r.LinkType.Label == "events" || seqElements.Count(x => x is Link l) > 0) joinCharacter = "\n\t\t"; //hack for better dieplay of longer items
                 if (r.LinkType.Label == "NXT" || r.LinkType.Label == "FRST")
                 {
                     header = $"[{r.From.Label}→{r.LinkType.Label}→{r.To.Label}]";
@@ -237,7 +239,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                             else
                                 seqLabels.Add(t1.Label);
                         int i = seqLabels[0].IndexOf(':');
-                        string leftSide = seqLabels[0][..(i+1)];
+                        string leftSide = seqLabels[0][..(i + 1)];
 
                         seqLabels = seqLabels
                             .Select(s =>
@@ -245,7 +247,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                                 int i = s.IndexOf(':');
                                 return i >= 0 ? s[(i + 1)..] : s;
                             }).ToList();
-                        string sequence = "^" +leftSide +  string.Join(joinCharacter, seqLabels);
+                        string sequence = "^" + leftSide + string.Join(joinCharacter, seqLabels);
                         header = $"[{r.From.Label}→{r.LinkType.Label}→{sequence}]";
                     }
                 }
@@ -368,9 +370,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         mi.IsEnabled = false;
         menu.Items.Add(mi);
 
-        TextBox renameBox = new() { Text = thoughtLabel, Width = 200, Name = "RenameBox",Foreground=Brushes.White,Background=Brushes.DarkBlue };
+        TextBox renameBox = new() { Text = thoughtLabel, Width = 200, Name = "RenameBox", Foreground = Brushes.White, Background = Brushes.DarkBlue };
         renameBox.PreviewKeyDown += RenameBox_PreviewKeyDown;
-      
+
         mi = new();
         mi.Header = renameBox;
         menu.Items.Add(mi);
@@ -482,15 +484,24 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         mi.Header = $"Weight:  {r.Weight.ToString("0.00")}";
         mi.IsEnabled = false;
         menu.Items.Add(mi);
+
         mi = new();
         string timeToLive = (r.TimeToLive == TimeSpan.MaxValue ? "∞" : (r.LastFiredTime + r.TimeToLive - DateTime.Now).ToString(@"mm\:ss"));
         mi.Header = $"TTL: {timeToLive}";
         mi.IsEnabled = false;
         menu.Items.Add(mi);
+
         mi = new();
         mi.Click += Mi_Click;
         mi.Header = "Delete";
         menu.Items.Add(mi);
+
+        //mi = new();
+        //mi.Click += Mi_Click;
+        //mi.Header = "Copy Text";
+        //mi.SetValue(ThoughtObjectProperty, r);
+        //menu.Items.Add(mi);
+
         mi = new();
         mi.Header = "Go To:";
         mi.IsEnabled = false;
@@ -542,6 +553,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             ModuleUKS parent = (ModuleUKS)ParentModule;
             switch (mi.Header)
             {
+                case "Copy Text":
+                    //copy the text of the link to the clipboard
+                    break;
                 case "Expand All":
                     expandAll = t.Label;
                     expandedItems.Clear();
@@ -976,6 +990,47 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     tbHeader.SelectionBrush = fg;
                 }
             }
+        }
+    }
+    /// <summary>
+    /// Compares labels so that trailing numeric suffixes are sorted numerically
+    /// (e.g. class1, class2, class10, class11) instead of purely lexicographically
+    /// (which would produce class1, class10, class11, class2).
+    /// </summary>
+    private class NaturalLabelComparer : IComparer<string>
+    {
+        public static readonly NaturalLabelComparer Instance = new();
+
+        private static readonly Regex TrailingNumberRegex = new(@"^(.*?)(\d+)$", RegexOptions.Compiled);
+
+        public int Compare(string x, string y)
+        {
+            if (x == null && y == null) return 0;
+            if (x == null) return -1;
+            if (y == null) return 1;
+
+            var mx = TrailingNumberRegex.Match(x);
+            var my = TrailingNumberRegex.Match(y);
+
+            if (mx.Success && my.Success)
+            {
+                string prefixX = mx.Groups[1].Value;
+                string prefixY = my.Groups[1].Value;
+                int prefixCompare = string.Compare(prefixX, prefixY, StringComparison.OrdinalIgnoreCase);
+                if (prefixCompare != 0) return prefixCompare;
+
+                // Prefixes match (or both empty) - compare numerically.
+                // Use BigInteger-safe comparison by comparing length first, then value,
+                // to correctly handle arbitrarily long numeric suffixes.
+                string numX = mx.Groups[2].Value;
+                string numY = my.Groups[2].Value;
+                if (numX.Length != numY.Length)
+                    return numX.Length.CompareTo(numY.Length);
+                return string.Compare(numX, numY, StringComparison.Ordinal);
+            }
+
+            // Fall back to standard string comparison when there's no trailing numeric suffix.
+            return string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

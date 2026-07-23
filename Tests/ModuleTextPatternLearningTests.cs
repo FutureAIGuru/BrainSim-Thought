@@ -49,7 +49,7 @@ public class ModuleTextPatternLearningTests
         int followerClassesCreated = ModuleText.CreateFollowerClassesFromSpellingRules();
         int grammarTemplatesCreated = ModuleText.CreateClassPairTemplates();
 
-        Assert.Equal(582, phraseCount);
+        Assert.Equal(642, phraseCount);
         Assert.True(patternsCreated > 0);
         Assert.True(overlapsCreated > 0);
         Assert.True(classesCreated > 0);

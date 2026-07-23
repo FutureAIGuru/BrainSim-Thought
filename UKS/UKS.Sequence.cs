@@ -326,18 +326,12 @@ public partial class UKS
 
         List<Thought> resolvedTargets = new(targets);
 
-        // does sequence one already exist?
-        // Note: this returns the existing sequence as opposed to creating a new sequence which references the
-        // existing as a sub-sequence
-        /////// this breaks the read-in if there are wildcards in the sequence because the wildcard will match any existing sequence and then the rest of the sequence will be lost
-        //var existingSequences = RawSearchExact(resolvedTargets);
-        //foreach (var t in existingSequences)
-        //{
-        //    if (IsSequenceFirstElement(t.seqNode) && GetSequenceLength(t.seqNode) == targets.Count)
-        //    {
-        //        return t.seqNode;
-        //    }
-        //}
+        // does the exact sequence already exist?
+        //  (wildcards are not allowed)
+        var existing = FindSequencesByActivation(targets, "ExactSequenceSearch");
+        if (existing.Count > 0) 
+            return existing[0].seqNode;
+
 
         //check for any existing sequences which begins with the targets[startIndex]
         (Thought seqStart, int length) FindExistingSubsequence(int startIndex)
@@ -1088,23 +1082,28 @@ public partial class UKS
 
         if (sequenceElementValue.HasAncestor("Wildcard"))
         {
-            // Check if sequenceElementValue has any of the wildcard's parents as an ancestor
-            foreach (var parent in sequenceElementValue.Parents)
-            {
-                if (patternElement.HasAncestor(parent))
-                    return true;
-            }
+            // The stored sequence may itself be a template. Wildcard is the
+            // abstract implementation parent, not a value-class constraint.
+            if (WildcardMatchesValue(sequenceElementValue, patternElement))
+                return true;
+            if (searchOptions.HasProperty("allowUnclassifiedWildcard") &&
+                IsUnclassifiedLearnedValue(patternElement))
+                return true;
         }
         if (patternElement.HasAncestor("Wildcard"))
         {
-            // Check if sequenceElementValue has any of the wildcard's parents as an ancestor
-            foreach (var parent in patternElement.Parents)
-            {
-                if (sequenceElementValue.HasAncestor(parent))
-                    return true;
-            }
+            if (WildcardMatchesValue(patternElement, sequenceElementValue))
+                return true;
         }
         return false;
+    }
+
+    private static bool IsUnclassifiedLearnedValue(Thought value)
+    {
+        Thought learnedClassRoot = ThoughtLabels.GetThought("LearnedClass");
+        if (learnedClassRoot is null) return true;
+        return !value.Parents.Any(parent =>
+            parent == learnedClassRoot || parent.HasAncestor(learnedClassRoot));
     }
 
     private bool IsWildcardPatternElement(Thought patternElement, Thought searchOptions)

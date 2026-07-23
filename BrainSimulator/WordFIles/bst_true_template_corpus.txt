@@ -841,3 +841,63 @@ A duck plays frisbee.
 The duck plays frisbee.
 Ducks play frisbee.
 The ducks play frisbee.
+A terrier is a dog.
+Terriers are dogs.
+A beagle is a dog.
+Beagles are dogs.
+A poodle is a dog.
+Poodles are dogs.
+A collie is a dog.
+Collies are dogs.
+A siamese is a cat.
+Siamese are cats.
+A tabby is a cat.
+Tabbies are cats.
+A lion is a cat.
+Lions are cats.
+A tiger is a cat.
+Tigers are cats.
+A robin is a bird.
+Robins are birds.
+A sparrow is a bird.
+Sparrows are birds.
+An eagle is a bird.
+Eagles are birds.
+A salmon is a fish.
+Salmons are fish.
+A trout is a fish.
+Trouts are fish.
+A shark is a fish.
+Sharks are fish.
+An oak is a tree.
+Oaks are trees.
+A pine is a tree.
+Pines are trees.
+A maple is a tree.
+Maples are trees.
+A rose is a flower.
+Roses are flowers.
+A tulip is a flower.
+Tulips are flowers.
+A daisy is a flower.
+Daisies are flowers.
+A car is an object.
+Cars are objects.
+A truck is a vehicle.
+Trucks are vehicles.
+A bicycle is a vehicle.
+Bicycles are vehicles.
+A vehicle is an object.
+Vehicles are objects.
+An apple is a fruit.
+Apples are fruits.
+A pear is a fruit.
+Pears are fruits.
+An orange is a fruit.
+Oranges are fruits.
+A fruit is a food.
+Fruits are foods.
+An oat is a grain.
+Oats are grains.
+A grain is a food.
+Grains are foods.

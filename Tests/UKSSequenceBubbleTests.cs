@@ -221,10 +221,11 @@ public class UKSSequenceBubbleTests
     }
 
     [Fact]
-    public void DiscoveryCreatesPhraseOwnerClassWithoutExistingGrammarClasses()
+    public void DiscoveryCreatesTemplateWithPhraseEvidenceAndWordFillerClass()
     {
         UKS uks = CreateUKS();
         Thought phraseRoot = uks.GetOrAddThought("Phrase", "Thought");
+        Thought templateRoot = uks.GetOrAddThought("LearnedTemplate", "Thought");
         Thought classRoot = uks.GetOrAddThought("LearnedClass", "Thought");
         Thought hasWords = uks.GetOrAddThought("hasWords", "LinkType");
         SequenceView dog = Observation(uks, hasWords, "the-dog-runs", "the", "dog", "runs");
@@ -234,12 +235,17 @@ public class UKSSequenceBubbleTests
         foreach (SequenceView observation in new[] { dog, cat, bird, fish })
             observation.Owner.AddParent(phraseRoot);
 
-        List<Thought> classes = uks.DiscoverSequenceClasses(
-            uks.GetSequenceViews(phraseRoot.Children), classRoot, minMembers: 3, minFixedElements: 2);
+        List<Thought> templates = uks.DiscoverSequenceTemplates(
+            uks.GetSequenceViews(phraseRoot.Children), templateRoot, classRoot,
+            minMembers: 3, minFixedElements: 2);
 
-        Thought runsClass = Assert.Single(classes.Where(learnedClass =>
-            learnedClass.Children.ToHashSet().SetEquals(new[] { dog.Owner, cat.Owner, bird.Owner })));
-        SequenceView description = Assert.Single(uks.GetSequenceViews(runsClass));
+        Thought runsTemplate = Assert.Single(templates.Where(template => template.LinksTo
+            .Where(link => link.LinkType?.Label == "evidence")
+            .Select(link => link.To)
+            .ToHashSet()
+            .SetEquals(new[] { dog.Owner, cat.Owner, bird.Owner })));
+        Assert.Empty(runsTemplate.Children);
+        SequenceView description = Assert.Single(uks.GetSequenceViews(runsTemplate));
         Assert.Equal("the", description.Elements[0].Label);
         Assert.Equal("runs", description.Elements[2].Label);
         Thought subjectWildcard = description.Elements[1];
@@ -254,26 +260,53 @@ public class UKSSequenceBubbleTests
     {
         UKS uks = CreateUKS();
         Thought wordRoot = uks.GetOrAddThought("Word", "Thought");
+        Thought templateRoot = uks.GetOrAddThought("LearnedTemplate", "Thought");
         Thought classRoot = uks.GetOrAddThought("LearnedClass", "Thought");
         Thought spelled = uks.GetOrAddThought("spelled", "LinkType");
-        SequenceView dogs = Observation(uks, spelled, "DOGS", "D", "O", "G", "S");
-        SequenceView cats = Observation(uks, spelled, "CATS", "C", "A", "T", "S");
-        SequenceView pigs = Observation(uks, spelled, "PIGS", "P", "I", "G", "S");
+        SequenceView cats = Observation(uks, spelled, "CAT", "C", "A", "T");
+        SequenceView cots = Observation(uks, spelled, "COT", "C", "O", "T");
+        SequenceView cuts = Observation(uks, spelled, "CUT", "C", "U", "T");
         SequenceView fish = Observation(uks, spelled, "FISH", "F", "I", "S", "H");
-        foreach (SequenceView observation in new[] { dogs, cats, pigs, fish })
+        foreach (SequenceView observation in new[] { cats, cots, cuts, fish })
             observation.Owner.AddParent(wordRoot);
 
-        List<Thought> classes = uks.DiscoverSequenceClasses(
-            uks.GetSequenceViews(wordRoot.Children), classRoot, minMembers: 3, minFixedElements: 1);
+        List<Thought> templates = uks.DiscoverSequenceTemplates(
+            uks.GetSequenceViews(wordRoot.Children), templateRoot, classRoot,
+            minMembers: 3, minFixedElements: 1);
 
-        Thought endingInS = Assert.Single(classes.Where(learnedClass =>
-            learnedClass.Children.ToHashSet().SetEquals(new[] { dogs.Owner, cats.Owner, pigs.Owner })));
-        List<Thought> description = uks.GetSequenceViews(endingInS).Single().Elements.ToList();
-        Assert.Equal("S", description[^1].Label);
-        Assert.All(description.Take(3), wildcard =>
-        {
-            Assert.StartsWith("??class", wildcard.Label);
-            Assert.True(wildcard.HasProperty("isWildcard"));
-        });
+        Thought cVowelT = Assert.Single(templates.Where(template => template.LinksTo
+            .Where(link => link.LinkType?.Label == "evidence")
+            .Select(link => link.To)
+            .ToHashSet()
+            .SetEquals(new[] { cats.Owner, cots.Owner, cuts.Owner })));
+        Assert.Empty(cVowelT.Children);
+        List<Thought> description = uks.GetSequenceViews(cVowelT).Single().Elements.ToList();
+        Assert.Equal("C", description[0].Label);
+        Assert.StartsWith("??class", description[1].Label);
+        Assert.True(description[1].HasProperty("isWildcard"));
+        Assert.Equal("T", description[2].Label);
+    }
+
+    [Fact]
+    public void DiscoveryRejectsTemplatesWithAdjacentInferredWildcards()
+    {
+        // With adjacent wildcards forbidden, these observations share only the
+        // two-word suffix.  Their two differing leading positions must not be
+        // turned into a vague "??classA ??classB are small" template.
+        UKS uks = CreateUKS();
+        Thought phraseRoot = uks.GetOrAddThought("Phrase", "Thought");
+        Thought templateRoot = uks.GetOrAddThought("LearnedTemplate", "Thought");
+        Thought classRoot = uks.GetOrAddThought("LearnedClass", "Thought");
+        Thought hasWords = uks.GetOrAddThought("hasWords", "LinkType");
+        SequenceView first = Observation(uks, hasWords, "p1", "the", "cats", "are", "small");
+        SequenceView second = Observation(uks, hasWords, "p2", "some", "dogs", "are", "small");
+        first.Owner.AddParent(phraseRoot);
+        second.Owner.AddParent(phraseRoot);
+
+        List<Thought> templates = uks.DiscoverSequenceTemplates(
+            uks.GetSequenceViews(phraseRoot.Children), templateRoot, classRoot,
+            minMembers: 2, minFixedElements: 2);
+
+        Assert.Empty(templates);
     }
 }

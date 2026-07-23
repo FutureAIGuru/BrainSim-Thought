@@ -365,6 +365,68 @@ public class UKSSequenceTests
     }
 
     [Fact]
+    public void FindSequencesByActivation_ConcreteInputFindsStoredGenericTemplate()
+    {
+        // ModuleTextIn searches in this direction: the input is concrete while
+        // the sequence already in the UKS contains unconstrained wildcards.
+        UKS uks = CreateUKS();
+        Thought wildcard = uks.Labeled("??");
+        Thought isWord = uks.GetOrAddThought("is", "Word");
+        SeqElement template = uks.AddSequenceAndLink(
+            uks.GetOrAddThought("inputTemplate"),
+            "hasWords",
+            new List<Thought> { wildcard, isWord, wildcard });
+
+        List<(SeqElement seqNode, float confidence)> matches =
+            uks.FindSequencesByActivation(
+                new List<Thought>
+                {
+                    uks.GetOrAddThought("fido", "Word"),
+                    isWord,
+                    uks.GetOrAddThought("wet", "Word")
+                },
+                uks.Labeled("TemplateSequenceSearch"));
+
+        Assert.Contains(matches, match => ReferenceEquals(match.seqNode, template));
+    }
+
+    [Fact]
+    public void FindSequencesByActivation_LearningSearchAllowsOnlyUnclassifiedClassFillers()
+    {
+        // Strict matching must reject a word that is not already in the
+        // wildcard's class.  The learning search may provisionally accept a
+        // wholly unclassified word, but not a word assigned to another class.
+        UKS uks = CreateUKS();
+        Thought learnedClassRoot = uks.GetOrAddThought("LearnedClass", "Thought");
+        Thought subjectClass = uks.GetOrAddThought("subjectClass", learnedClassRoot);
+        Thought descriptionClass = uks.GetOrAddThought("descriptionClass", learnedClassRoot);
+        Thought otherClass = uks.GetOrAddThought("otherClass", learnedClassRoot);
+        Thought subject = uks.CreateWildcard("??subjectClass", new List<Thought> { subjectClass });
+        Thought description = uks.CreateWildcard("??descriptionClass", new List<Thought> { descriptionClass });
+        Thought the = uks.GetOrAddThought("w:the", "Word");
+        Thought are = uks.GetOrAddThought("w:are", "Word");
+        Thought pigs = uks.GetOrAddThought("w:pigs", "Word");
+        Thought happy = uks.GetOrAddThought("w:happy", "Word");
+        SeqElement template = uks.AddSequenceAndLink(
+            uks.GetOrAddThought("learnedTemplate"),
+            "hasWords",
+            new List<Thought> { the, subject, are, description });
+        List<Thought> input = new() { the, pigs, are, happy };
+
+        Assert.DoesNotContain(
+            uks.FindSequencesByActivation(input, uks.Labeled("TemplateSequenceSearch")),
+            match => ReferenceEquals(match.seqNode, template));
+        Assert.Contains(
+            uks.FindSequencesByActivation(input, uks.Labeled("TemplateLearningSearch")),
+            match => ReferenceEquals(match.seqNode, template));
+
+        pigs.AddParent(otherClass);
+        Assert.DoesNotContain(
+            uks.FindSequencesByActivation(input, uks.Labeled("TemplateLearningSearch")),
+            match => ReferenceEquals(match.seqNode, template));
+    }
+
+    [Fact]
     public void FindSequencesByActivation_MatchesClassBasedWildcards()
     {
         var uks = CreateUKS();

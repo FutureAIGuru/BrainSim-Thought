@@ -47,7 +47,7 @@ public class ModuleText : ModuleBase
 
     }
 
-    public static string AddPhrase(string phrase)
+    public static string AddPhrase(string phrase, bool applyExistingTemplates = false)
     {
         var theUKS = MainWindow.theUKS;
         char[] trimChars = { '.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}' };
@@ -64,12 +64,20 @@ public class ModuleText : ModuleBase
                 if (clean.Any(ch => !char.IsLetterOrDigit(ch))) continue;
                 if (clean.Count(char.IsDigit) > 2) continue;
                 attempted++;
-                if (MainWindow.theWindow.GetModuleByLabel("ModuleWord0") is ModuleWord mw)
+                Thought wordThought = null;
+                if (MainWindow.theWindow?.GetModuleByLabel("ModuleWord0") is ModuleWord mw)
+                    wordThought = mw.AddWordSpelling(clean);
+
+                // ModuleWord returns null while its attention/mental-model
+                // streaming path is active. ModuleText still needs a stable
+                // word value now so the observed phrase can be learned.
+                wordThought ??= theUKS.Labeled("w:" + clean) ??
+                    theUKS.GetOrAddThought("w:" + clean, "Word");
+                if (wordThought is not null)
                 {
-                    var wordThought = mw.AddWordSpelling(clean);
                     wordsInPhrase.Add(wordThought);
+                    ingested++;
                 }
-                ingested++;
             }
 
             theUKS.GetOrAddThought("Phrase");
@@ -79,6 +87,10 @@ public class ModuleText : ModuleBase
             if (wordsInPhrase.Count > 1)
             {
                 theUKS.AddSequenceAndLink(thePhrase, "hasWords", wordsInPhrase);
+                if (applyExistingTemplates)
+                {
+                    Thought theTemplate = ApplyExistingTemplatesToPhrase(thePhrase);
+                }
             }
             return $"Processed {attempted} tokens; ingested {ingested} words.";
         }
@@ -89,7 +101,7 @@ public class ModuleText : ModuleBase
 
     }
 
-    public static string AddText(string text)
+    public static string AddText(string text, bool applyExistingTemplates = true)
     {
         var theUKS = MainWindow.theUKS;
         theUKS.GetOrAddThought("Word", "Thought");
@@ -101,9 +113,95 @@ public class ModuleText : ModuleBase
             string trimmed = sentence.Trim();
             if (trimmed.Length == 0) continue;
 
-            AddPhrase(trimmed);
+            AddPhrase(trimmed, applyExistingTemplates);
         }
         return "OK";
+    }
+
+    /// <summary>
+    /// Applies already learned templates to one manually entered phrase. An
+    /// unclassified word may occupy a class wildcard; a successful match then
+    /// adds that word to the wildcard's learned class.
+    /// </summary>
+    /// <returns>The selected learned template, or null when none matches.</returns>
+    public static Thought ApplyExistingTemplatesToPhrase(Thought phrase)
+    {
+        var theUKS = MainWindow.theUKS;
+        Thought templateRoot = theUKS.Labeled("LearnedTemplate");
+        Thought learnedClassRoot = theUKS.Labeled("LearnedClass");
+        Thought searchOptions = theUKS.Labeled("TemplateLearningSearch");
+        if (phrase is null || templateRoot is null || learnedClassRoot is null || searchOptions is null)
+            return null;
+
+        SequenceView phraseSequence = theUKS.GetSequenceViews(phrase)
+            .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+        if (phraseSequence is null) return null;
+
+        Dictionary<Thought, float> matchingTemplates = new();
+        foreach (var match in theUKS.FindSequencesByActivation(
+            phraseSequence.Elements.ToList(), searchOptions))
+        {
+            foreach (Link ownerLink in match.seqNode.FRST.LinksFrom.Where(link =>
+                link.LinkType?.Label == "hasWords" && link.From is not null &&
+                templateRoot.Children.Contains(link.From)))
+            {
+                if (!matchingTemplates.TryGetValue(ownerLink.From, out float previousConfidence) ||
+                    match.confidence > previousConfidence)
+                    matchingTemplates[ownerLink.From] = match.confidence;
+            }
+        }
+
+        // Prefer a template whose classes already explain the largest number
+        // of phrase elements. Fixed elements and accumulated evidence break
+        // ties. This keeps a known noun/noun frame ahead of a noun/adjective
+        // frame once those classes have begun to separate.
+        Thought foundTemplate = matchingTemplates
+            .Select(candidate =>
+            {
+                SequenceView sequence = theUKS.GetSequenceViews(candidate.Key)
+                    .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+                int classifiedMatches = sequence is null ? 0 : sequence.Elements
+                    .Select((element, position) => (element, position))
+                    .Count(item => item.position < phraseSequence.Elements.Count &&
+                        item.element.HasAncestor("Wildcard") &&
+                        item.element.Parents.Any(parent => parent != theUKS.Labeled("Wildcard") &&
+                            phraseSequence.Elements[item.position].HasAncestor(parent)));
+                int fixedElements = sequence?.Elements.Count(element =>
+                    !element.HasAncestor("Wildcard")) ?? 0;
+                int evidence = candidate.Key.LinksTo.Count(link => link.LinkType?.Label == "evidence");
+                return (template: candidate.Key, candidate.Value, classifiedMatches, fixedElements, evidence);
+            })
+            .OrderByDescending(candidate => candidate.classifiedMatches)
+            .ThenByDescending(candidate => candidate.fixedElements)
+            .ThenByDescending(candidate => candidate.Value)
+            .ThenByDescending(candidate => candidate.evidence)
+            .ThenBy(candidate => candidate.template.Label, StringComparer.Ordinal)
+            .Select(candidate => candidate.template)
+            .FirstOrDefault();
+        if (foundTemplate is null) return null;
+
+        Thought evidenceType = theUKS.GetOrAddThought("evidence", "LinkType");
+        SequenceView templateSequence = theUKS.GetSequenceViews(foundTemplate)
+            .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+        if (templateSequence is null ||
+            templateSequence.Elements.Count != phraseSequence.Elements.Count)
+            return null;
+
+        for (int position = 0; position < templateSequence.Elements.Count; position++)
+        {
+            Thought wildcard = templateSequence.Elements[position];
+            if (!wildcard.HasAncestor("Wildcard") || !wildcard.HasProperty("isWildcard"))
+                continue;
+            Thought valueClass = wildcard.Parents.FirstOrDefault(
+                parent => learnedClassRoot.Children.Contains(parent));
+            if (valueClass is not null)
+                phraseSequence.Elements[position].AddParent(valueClass);
+        }
+
+        theUKS.AddStatement(foundTemplate, evidenceType, phrase);
+        foundTemplate.Weight = Math.Max(foundTemplate.Weight,
+            foundTemplate.LinksTo.Count(link => link.LinkType == evidenceType));
+        return foundTemplate;
     }
 
     public int LoadTextFromFileOld(string filePath)
@@ -122,7 +220,7 @@ public class ModuleText : ModuleBase
                 word = splits[0];
                 if (!string.IsNullOrWhiteSpace(word))
                 {
-                    AddText(word);
+                    AddText(word, applyExistingTemplates: false);
                     count++;
                 }
             }
@@ -190,7 +288,9 @@ public class ModuleText : ModuleBase
                     string trimmed = sentence.Trim();
                     if (trimmed.Length == 0) continue;
 
-                    AddPhrase(trimmed);
+                    string result = AddPhrase(trimmed);
+                    if (result.StartsWith("Error:", StringComparison.Ordinal))
+                        throw new InvalidOperationException(result);
                     count++;
                 }
             }
@@ -1559,25 +1659,27 @@ public class ModuleText : ModuleBase
     }
 
     /// <summary>
-    /// Discovers phrase-owner classes directly from every Phrase hasWords
-    /// sequence currently in the UKS. This does not depend on the older text
-    /// pattern, spelling-rule, or grammar-template pipeline.
+    /// Discovers learned templates from every Phrase hasWords sequence currently
+    /// in the UKS. Phrase owners become evidence; wildcard fillers become
+    /// ordinary learned classes.
     /// </summary>
-    public static List<Thought> DiscoverPhraseSequenceClasses(
-        int minMembers = 44,
+    public static List<Thought> DiscoverPhraseTemplates(
+        int minMembers = 30,
         int minFixedElements = 2)
     {
         var theUKS = MainWindow.theUKS;
         Thought phraseRoot = theUKS.Labeled("Phrase");
         if (phraseRoot is null) return new List<Thought>();
 
-        Thought classRoot = theUKS.GetOrAddThought("LearnedClass", "LanguageElement");
+        Thought templateRoot = theUKS.GetOrAddThought("LearnedTemplate", "LanguageElement");
+        Thought fillerClassRoot = theUKS.GetOrAddThought("LearnedClass", "LanguageElement");
         List<SequenceView> phraseObservations = theUKS.GetSequenceViews(phraseRoot.Children)
             .Where(view => view.LinkType?.Label == "hasWords")
             .ToList();
-        return theUKS.DiscoverSequenceClasses(
+        return theUKS.DiscoverSequenceTemplates(
             phraseObservations,
-            classRoot,
+            templateRoot,
+            fillerClassRoot,
             minMembers,
             minFixedElements);
     }
@@ -1598,7 +1700,11 @@ public class ModuleText : ModuleBase
         //CreateTemplateFamilies();
         //return retVal;
 
-        return DiscoverPhraseSequenceClasses().Count;
+        List<Thought> learnedTemplates = DiscoverPhraseTemplates(10,1);
+        Thought learnedClassRoot = MainWindow.theUKS.Labeled("LearnedClass");
+        if (learnedClassRoot is not null)
+            MainWindow.theUKS.CoalesceSimilarClasses(learnedClassRoot);
+        return learnedTemplates.Count;
     }
     public static void FindPlurals()
     {
