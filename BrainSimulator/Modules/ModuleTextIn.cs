@@ -38,8 +38,8 @@ public class ModuleTextIn : ModuleBase
         theUKS.GetOrAddThought("Phrase", "LanguageElement");
         theUKS.GetOrAddThought("Word", "LanguageElement");
         theUKS.GetOrAddThought("WordType", "Word");
-        theUKS.GetOrAddThought("Sentence", "LanguageElement");
-        theUKS.GetOrAddThought("Template", "LanguageElement");
+        theUKS.GetOrAddThought("StatementTemplate", "Phrase");
+        theUKS.GetOrAddThought("QueryTemplate", "Phrase");
         theUKS.GetOrAddThought("hasWords", "LinkType");
         theUKS.GetOrAddThought("means", "LinkType");
         theUKS.GetOrAddThought("spelled", "LinkType");

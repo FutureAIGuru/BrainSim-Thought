@@ -609,7 +609,7 @@
   <sThought>
     <index>108</index>
     <label>RootHistory0</label>
-    <V xsi:type="xsd:string">LanguageElement|template</V>
+    <V xsi:type="xsd:string">LanguageElement|Phrase</V>
   </sThought>
   <sThought>
     <index>108</index>
@@ -1276,25 +1276,25 @@
   </sThought>
   <sThought>
     <index>222</index>
-    <label>Sentence</label>
+    <label>StatementTemplate</label>
   </sThought>
   <sThought>
     <index>222</index>
     <label>unl_d84cbeaf</label>
     <source>222</source>
     <linkType>2</linkType>
-    <target>156</target>
+    <target>218</target>
   </sThought>
   <sThought>
     <index>224</index>
-    <label>Template</label>
+    <label>QueryTemplate</label>
   </sThought>
   <sThought>
     <index>224</index>
     <label>unl_f1802d8b</label>
     <source>224</source>
     <linkType>2</linkType>
-    <target>156</target>
+    <target>218</target>
   </sThought>
   <sThought>
     <index>226</index>

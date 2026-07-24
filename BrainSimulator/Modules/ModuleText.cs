@@ -167,9 +167,10 @@ public class ModuleText : ModuleBase
         Thought setType = theUKS.GetOrAddThought(setTypeLabel, "LinkType");
         Thought source = theUKS.GetOrAddThought(sourceLabel);
         Thought target = theUKS.GetOrAddThought(targetLabel);
-        Link action = theUKS.AddStatement(source, setType, target);
+        Link action = new(source, setType, target);
         theUKS.AddStatement(exemplar,
             theUKS.GetOrAddThought("demonstrates", "LinkType"), action);
+        theUKS.ApplySetAction(action);
         return exemplar;
     }
 
@@ -237,7 +238,15 @@ public class ModuleText : ModuleBase
                 int targetPosition = parameterPositions[^1];
                 Thought sourceParameter = templateSequence.Elements[sourcePosition];
                 Thought targetParameter = templateSequence.Elements[targetPosition];
-                Link parameterizedAction = theUKS.AddStatement(
+                Link parameterizedAction = template.LinksTo
+                    .Where(link => link.LinkType == meansType)
+                    .Select(link => link.To)
+                    .OfType<Link>()
+                    .FirstOrDefault(action =>
+                        action.From == sourceParameter &&
+                        action.LinkType == actionGroup.Key &&
+                        action.To == targetParameter);
+                parameterizedAction ??= new Link(
                     sourceParameter, actionGroup.Key, targetParameter);
                 theUKS.AddStatement(template, meansType, parameterizedAction);
 
@@ -528,12 +537,150 @@ public class ModuleText : ModuleBase
         Thought meaning = word.GetTargetOfFirstLinkOfType("means");
         if (meaning is not null) return meaning;
 
+        meaning = InferMeaningFromSpellingPattern(word);
+        if (meaning is not null)
+        {
+            theUKS.AddStatement(
+                word, theUKS.GetOrAddThought("means", "LinkType"), meaning);
+            return meaning;
+        }
+
         string label = word.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase)
             ? word.Label[2..]
             : word.Label;
         meaning = theUKS.GetOrAddThought(label);
         theUKS.AddStatement(word, theUKS.GetOrAddThought("means", "LinkType"), meaning);
         return meaning;
+    }
+
+    private static Thought InferMeaningFromSpellingPattern(Thought word)
+    {
+        var theUKS = MainWindow.theUKS;
+        Thought patternRoot = theUKS.Labeled("SpellingPattern");
+        if (patternRoot is null)
+        {
+            Thought noMeaning = null;
+            return noMeaning;
+        }
+
+        string surfaceSpelling = word.Label.StartsWith(
+            "w:", StringComparison.OrdinalIgnoreCase)
+            ? word.Label[2..]
+            : word.Label;
+        List<(Thought pattern, Thought sourceClass, string baseSpelling)> candidates = new();
+        foreach (Thought pattern in patternRoot.Children)
+        {
+            Thought position = pattern.GetTargetOfFirstLinkOfType("position");
+            string addition = GetSpellingPatternAddition(pattern);
+            if (string.IsNullOrEmpty(addition))
+                continue;
+
+            string baseSpelling = null;
+            if (position?.Label == "end" &&
+                surfaceSpelling.EndsWith(addition, StringComparison.OrdinalIgnoreCase))
+            {
+                baseSpelling = surfaceSpelling[..^addition.Length];
+            }
+            else if (position?.Label == "beginning" &&
+                surfaceSpelling.StartsWith(addition, StringComparison.OrdinalIgnoreCase))
+            {
+                baseSpelling = surfaceSpelling[addition.Length..];
+            }
+            if (string.IsNullOrEmpty(baseSpelling))
+                continue;
+
+            foreach ((Thought sourceClass, Thought targetClass) in
+                GetSpellingPatternClassPairs(pattern))
+            {
+                if (word.Parents.Contains(targetClass))
+                    candidates.Add((pattern, sourceClass, baseSpelling));
+            }
+        }
+
+        List<string> possibleMeanings = candidates
+            .Select(candidate => candidate.baseSpelling)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (possibleMeanings.Count != 1)
+        {
+            Thought noMeaning = null;
+            return noMeaning;
+        }
+
+        string inferredLabel = possibleMeanings[0];
+        Thought knownSourceWord = candidates
+            .SelectMany(candidate => candidate.sourceClass.Children)
+            .FirstOrDefault(candidate =>
+                GetSpelling(candidate).Equals(
+                    inferredLabel, StringComparison.OrdinalIgnoreCase));
+        Thought retVal = knownSourceWord is not null
+            ? GetOrCreateMeaning(knownSourceWord)
+            : theUKS.GetOrAddThought(inferredLabel.ToLowerInvariant());
+        return retVal;
+    }
+
+    private static string GetSpellingPatternAddition(Thought pattern)
+    {
+        var theUKS = MainWindow.theUKS;
+        Link addition = pattern.LinksTo.FirstOrDefault(
+            link => link.LinkType?.Label == "adds");
+        if (addition?.To is null)
+        {
+            string noAddition = "";
+            return noAddition;
+        }
+        if (addition.To is not SeqElement)
+        {
+            string retVal = addition.To.Label.StartsWith(
+                "c:", StringComparison.OrdinalIgnoreCase)
+                ? addition.To.Label[2..]
+                : addition.To.Label;
+            return retVal;
+        }
+
+        SequenceView additionSequence = theUKS.GetSequenceViews(pattern)
+            .FirstOrDefault(view => view.LinkType?.Label == "adds");
+        string sequenceText = additionSequence is null
+            ? ""
+            : string.Concat(additionSequence.Elements.Select(element =>
+                element.Label.StartsWith("c:", StringComparison.OrdinalIgnoreCase)
+                    ? element.Label[2..]
+                    : element.Label));
+        return sequenceText;
+    }
+
+    private static List<(Thought sourceClass, Thought targetClass)>
+        GetSpellingPatternClassPairs(Thought pattern)
+    {
+        List<(Thought sourceClass, Thought targetClass)> retVal =
+            pattern.LinksTo
+                .Where(link => link.LinkType?.Label == "classEvidence")
+                .Select(link => link.To)
+                .OfType<Link>()
+                .Where(link => link.LinkType?.Label == "correspondsTo" &&
+                    link.From is not null && link.To is not null)
+                .Select(link => (link.From, link.To))
+                .Distinct()
+                .ToList();
+        if (retVal.Count > 0)
+            return retVal;
+
+        // Compatibility with spelling patterns created before class-pair
+        // evidence was introduced. Consolidation converts these direct links.
+        List<Thought> sourceClasses = pattern.LinksTo
+            .Where(link => link.LinkType?.Label == "sourceClass")
+            .Select(link => link.To)
+            .Where(sourceClass => sourceClass is not null)
+            .ToList();
+        List<Thought> targetClasses = pattern.LinksTo
+            .Where(link => link.LinkType?.Label == "targetClass")
+            .Select(link => link.To)
+            .Where(targetClass => targetClass is not null)
+            .ToList();
+        int pairCount = Math.Min(sourceClasses.Count, targetClasses.Count);
+        for (int index = 0; index < pairCount; index++)
+            retVal.Add((sourceClasses[index], targetClasses[index]));
+        return retVal;
     }
 
     /// <summary>
@@ -660,6 +807,400 @@ public class ModuleText : ModuleBase
         }
     }
 
+    /// <summary>
+    /// Compares pairs of learned word classes and records repeated spelling
+    /// correspondences. This is deliberately a discovery step only: it does
+    /// not assign word meanings or decide that a spelling pattern is a rule.
+    /// </summary>
+    /// <param name="minMatchedPairs">
+    /// Minimum number of distinct word pairs supporting the same pattern.
+    /// </param>
+    /// <param name="minCoverage">
+    /// Minimum fraction of the smaller class which must participate.
+    /// </param>
+    /// <param name="minCommonLetters">
+    /// Minimum unchanged spelling required in each supporting word pair.
+    /// </param>
+    /// <returns>The useful spelling-pattern Thoughts which were found.</returns>
+    public static List<Thought> DiscoverClassSpellingPatterns(
+        int minMatchedPairs = 3,
+        float minCoverage = 0.5f,
+        int minCommonLetters = 3)
+    {
+        if (minMatchedPairs < 1)
+            throw new ArgumentOutOfRangeException(nameof(minMatchedPairs));
+        if (minCoverage <= 0 || minCoverage > 1)
+            throw new ArgumentOutOfRangeException(nameof(minCoverage));
+        if (minCommonLetters < 1)
+            throw new ArgumentOutOfRangeException(nameof(minCommonLetters));
+
+        var theUKS = MainWindow.theUKS;
+        Thought classRoot = theUKS.Labeled("LearnedClass");
+        if (classRoot is null)
+        {
+            List<Thought> noPatterns = new();
+            return noPatterns;
+        }
+
+        Thought patternRoot = theUKS.GetOrAddThought("SpellingPattern", "LanguageElement");
+        Thought positionType = theUKS.GetOrAddThought("position", "LinkType");
+        Thought addsType = theUKS.GetOrAddThought("adds", "LinkType");
+        Thought evidenceType = theUKS.GetOrAddThought("evidence", "LinkType");
+        Thought classEvidenceType = theUKS.GetOrAddThought("classEvidence", "LinkType");
+        Thought correspondsToType = theUKS.GetOrAddThought("correspondsTo", "LinkType");
+        Thought beginning = theUKS.GetOrAddThought("beginning");
+        Thought end = theUKS.GetOrAddThought("end");
+        ConsolidateSpellingPatterns();
+
+        List<Thought> classes = classRoot.Children
+            .Where(learnedClass => GetOrdinaryWordMembers(learnedClass).Count > 0)
+            .ToList();
+        List<Thought> retVal = new();
+
+        for (int firstIndex = 0; firstIndex < classes.Count - 1; firstIndex++)
+        {
+            Thought firstClass = classes[firstIndex];
+            List<Thought> firstWords = GetOrdinaryWordMembers(firstClass);
+            for (int secondIndex = firstIndex + 1; secondIndex < classes.Count; secondIndex++)
+            {
+                Thought secondClass = classes[secondIndex];
+                List<Thought> secondWords = GetOrdinaryWordMembers(secondClass);
+                Dictionary<SpellingPatternKey, HashSet<WordCorrespondence>> candidates = new();
+
+                foreach (Thought firstWord in firstWords)
+                {
+                    string firstSpelling = GetSpelling(firstWord);
+                    foreach (Thought secondWord in secondWords)
+                    {
+                        string secondSpelling = GetSpelling(secondWord);
+                        AffixDifference difference = FindAffixDifference(
+                            firstClass, firstWord, firstSpelling,
+                            secondClass, secondWord, secondSpelling,
+                            minCommonLetters);
+                        if (difference is null) continue;
+
+                        SpellingPatternKey key = new(
+                            difference.SourceClass,
+                            difference.TargetClass,
+                            difference.Position,
+                            difference.AddedText);
+                        if (!candidates.TryGetValue(key, out HashSet<WordCorrespondence> pairs))
+                        {
+                            pairs = new();
+                            candidates.Add(key, pairs);
+                        }
+                        pairs.Add(new WordCorrespondence(
+                            difference.SourceWord, difference.TargetWord));
+                    }
+                }
+
+                foreach ((SpellingPatternKey key, HashSet<WordCorrespondence> pairs) in candidates)
+                {
+                    int sourcePopulation = GetOrdinaryWordMembers(key.SourceClass).Count;
+                    int targetPopulation = GetOrdinaryWordMembers(key.TargetClass).Count;
+                    float coverage = pairs.Count /
+                        (float)Math.Min(sourcePopulation, targetPopulation);
+                    if (pairs.Count < minMatchedPairs || coverage < minCoverage)
+                        continue;
+
+                    Thought position = key.Position == AffixPosition.Beginning
+                        ? beginning
+                        : end;
+                    Thought pattern = FindExistingSpellingPattern(
+                        patternRoot, position, key.AddedText);
+                    pattern ??= theUKS.GetOrAddThought("spellingPattern*", patternRoot);
+                    theUKS.AddStatement(pattern, positionType, position);
+                    Link classCorrespondence = theUKS.AddStatement(
+                        key.SourceClass, correspondsToType, key.TargetClass);
+                    theUKS.AddStatement(
+                        pattern, classEvidenceType, classCorrespondence);
+
+                    bool alreadyHasAddition = pattern.LinksTo
+                        .Any(link => link.LinkType?.Label == "adds");
+                    if (!alreadyHasAddition)
+                    {
+                        List<Thought> addedLetters = key.AddedText
+                            .Select(letter => theUKS.GetOrAddThought(
+                                "c:" + char.ToUpperInvariant(letter), "letter"))
+                            .ToList();
+                        if (addedLetters.Count == 1)
+                            theUKS.AddStatement(pattern, addsType, addedLetters[0]);
+                        else
+                            theUKS.AddSequenceAndLink(pattern, addsType, addedLetters);
+                    }
+
+                    foreach (WordCorrespondence pair in pairs)
+                    {
+                        Link correspondence = theUKS.AddStatement(
+                            pair.Source, correspondsToType, pair.Target);
+                        theUKS.AddStatement(pattern, evidenceType, correspondence);
+                    }
+                    int evidenceCount = pattern.LinksTo.Count(link =>
+                        link.LinkType == evidenceType);
+                    pattern.Weight = Math.Max(pattern.Weight, evidenceCount);
+                    if (!retVal.Contains(pattern))
+                        retVal.Add(pattern);
+                }
+            }
+        }
+        return retVal;
+
+        Thought FindExistingSpellingPattern(
+            Thought root,
+            Thought position,
+            string addedText)
+        {
+            Thought existingPattern = root.Children.FirstOrDefault(candidate =>
+                candidate.GetTargetOfFirstLinkOfType("position") == position &&
+                GetSpellingPatternAddition(candidate).Equals(
+                    addedText, StringComparison.OrdinalIgnoreCase));
+            return existingPattern;
+        }
+    }
+
+    /// <summary>
+    /// Merges spelling-pattern nodes which describe the same operation.
+    /// Supporting class pairs and word pairs remain as evidence on the one
+    /// canonical pattern.
+    /// </summary>
+    /// <returns>The number of redundant spelling-pattern nodes removed.</returns>
+    public static int ConsolidateSpellingPatterns()
+    {
+        var theUKS = MainWindow.theUKS;
+        Thought patternRoot = theUKS.Labeled("SpellingPattern");
+        if (patternRoot is null)
+        {
+            int noMerges = 0;
+            return noMerges;
+        }
+
+        Thought classEvidenceType = theUKS.GetOrAddThought(
+            "classEvidence", "LinkType");
+        Thought evidenceType = theUKS.GetOrAddThought("evidence", "LinkType");
+        Thought correspondsToType = theUKS.GetOrAddThought(
+            "correspondsTo", "LinkType");
+        Thought sourceClassType = theUKS.GetOrAddThought(
+            "sourceClass", "LinkType");
+        Thought targetClassType = theUKS.GetOrAddThought(
+            "targetClass", "LinkType");
+        int retVal = 0;
+
+        var groups = patternRoot.Children
+            .Select(pattern => (
+                pattern,
+                position: pattern.GetTargetOfFirstLinkOfType("position"),
+                addition: GetSpellingPatternAddition(pattern).ToUpperInvariant()))
+            .Where(item => item.position is not null &&
+                !string.IsNullOrEmpty(item.addition))
+            .GroupBy(item => (item.position, item.addition))
+            .ToList();
+        foreach (var group in groups)
+        {
+            Thought canonical = group.First().pattern;
+            foreach (Thought pattern in group.Select(item => item.pattern).ToList())
+            {
+                foreach ((Thought sourceClass, Thought targetClass) in
+                    GetSpellingPatternClassPairs(pattern))
+                {
+                    Link classCorrespondence = theUKS.AddStatement(
+                        sourceClass, correspondsToType, targetClass);
+                    theUKS.AddStatement(
+                        canonical, classEvidenceType, classCorrespondence);
+                }
+                foreach (Thought evidence in pattern.LinksTo
+                    .Where(link => link.LinkType == evidenceType)
+                    .Select(link => link.To)
+                    .Where(evidence => evidence is not null)
+                    .ToList())
+                {
+                    theUKS.AddStatement(canonical, evidenceType, evidence);
+                }
+
+                canonical.Weight = Math.Max(canonical.Weight, pattern.Weight);
+                if (pattern == canonical) continue;
+                theUKS.ReplaceThoughtReferences(pattern, canonical);
+                retVal++;
+            }
+            canonical.RemoveLinks(sourceClassType);
+            canonical.RemoveLinks(targetClassType);
+        }
+        return retVal;
+    }
+
+    /// <summary>
+    /// Gives the corresponding word forms in discovered spelling patterns the
+    /// same semantic meaning. Only a missing meaning or an automatically
+    /// created identity meaning is changed; an established different meaning
+    /// is preserved.
+    /// </summary>
+    /// <returns>The number of word meanings assigned or normalized.</returns>
+    public static int NormalizeMeaningsFromSpellingPatterns()
+    {
+        var theUKS = MainWindow.theUKS;
+        ConsolidateSpellingPatterns();
+        Thought patternRoot = theUKS.Labeled("SpellingPattern");
+        if (patternRoot is null)
+        {
+            int noMeanings = 0;
+            return noMeanings;
+        }
+
+        Thought meansType = theUKS.GetOrAddThought("means", "LinkType");
+        int retVal = 0;
+        foreach (Thought pattern in patternRoot.Children)
+        {
+            List<Link> correspondences = pattern.LinksTo
+                .Where(link => link.LinkType?.Label == "evidence")
+                .Select(link => link.To)
+                .OfType<Link>()
+                .Where(link => link.LinkType?.Label == "correspondsTo" &&
+                    link.From is not null && link.To is not null)
+                .ToList();
+
+            foreach (Link correspondence in correspondences)
+            {
+                Thought sourceWord = correspondence.From;
+                Thought targetWord = correspondence.To;
+                Thought canonicalMeaning = GetOrCreateMeaning(sourceWord);
+                List<Link> currentMeaningLinks = targetWord.LinksTo
+                    .Where(link => link.LinkType == meansType && link.To is not null)
+                    .ToList();
+                if (currentMeaningLinks.Any(link => link.To == canonicalMeaning))
+                    continue;
+
+                // GetOrCreateMeaning uses the word spelling as a provisional
+                // identity meaning. It is safe to supersede that placeholder,
+                // but a genuinely different learned meaning remains untouched.
+                bool onlyIdentityMeanings = currentMeaningLinks.All(link =>
+                    IsIdentityMeaning(targetWord, link.To));
+                if (!onlyIdentityMeanings)
+                    continue;
+
+                foreach (Link currentMeaning in currentMeaningLinks)
+                    targetWord.RemoveLink(currentMeaning);
+                theUKS.AddStatement(targetWord, meansType, canonicalMeaning);
+                retVal++;
+            }
+        }
+        return retVal;
+    }
+
+    private static bool IsIdentityMeaning(Thought word, Thought meaning)
+    {
+        string wordLabel = word.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase)
+            ? word.Label[2..]
+            : word.Label;
+        bool retVal = meaning.Label.Equals(
+            wordLabel, StringComparison.OrdinalIgnoreCase);
+        return retVal;
+    }
+
+    private static List<Thought> GetOrdinaryWordMembers(Thought learnedClass)
+    {
+        List<Thought> retVal = learnedClass.Children
+            .Where(member => member is not SeqElement &&
+                !member.HasAncestor("Wildcard") &&
+                (member.HasAncestor("Word") ||
+                    member.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        return retVal;
+    }
+
+    private static string GetSpelling(Thought word)
+    {
+        var theUKS = MainWindow.theUKS;
+        SequenceView spelling = theUKS.GetSequenceViews(word)
+            .FirstOrDefault(view => view.LinkType?.Label == "spelled");
+        string retVal;
+        if (spelling is not null)
+        {
+            retVal = string.Concat(spelling.Elements.Select(element =>
+                element.Label.StartsWith("c:", StringComparison.OrdinalIgnoreCase)
+                    ? element.Label[2..]
+                    : element.Label));
+        }
+        else
+        {
+            retVal = word.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase)
+                ? word.Label[2..]
+                : word.Label;
+        }
+        return retVal;
+    }
+
+    private static AffixDifference FindAffixDifference(
+        Thought firstClass,
+        Thought firstWord,
+        string firstSpelling,
+        Thought secondClass,
+        Thought secondWord,
+        string secondSpelling,
+        int minCommonLetters)
+    {
+        if (string.IsNullOrEmpty(firstSpelling) ||
+            string.IsNullOrEmpty(secondSpelling) ||
+            firstSpelling.Equals(secondSpelling, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        // Orient the observation from the shorter spelling to the longer one.
+        // This describes an insertion without assuming which grammatical form
+        // is primary. Equal-length replacements are intentionally deferred.
+        Thought sourceClass = firstClass;
+        Thought sourceWord = firstWord;
+        string sourceSpelling = firstSpelling;
+        Thought targetClass = secondClass;
+        Thought targetWord = secondWord;
+        string targetSpelling = secondSpelling;
+        if (sourceSpelling.Length > targetSpelling.Length)
+        {
+            (sourceClass, targetClass) = (targetClass, sourceClass);
+            (sourceWord, targetWord) = (targetWord, sourceWord);
+            (sourceSpelling, targetSpelling) = (targetSpelling, sourceSpelling);
+        }
+        if (sourceSpelling.Length < minCommonLetters)
+            return null;
+
+        if (targetSpelling.StartsWith(sourceSpelling, StringComparison.OrdinalIgnoreCase))
+        {
+            string addedText = targetSpelling[sourceSpelling.Length..];
+            AffixDifference retVal = new(
+                sourceClass, targetClass, sourceWord, targetWord,
+                AffixPosition.End, addedText);
+            return retVal;
+        }
+        if (targetSpelling.EndsWith(sourceSpelling, StringComparison.OrdinalIgnoreCase))
+        {
+            string addedText = targetSpelling[..^sourceSpelling.Length];
+            AffixDifference retVal = new(
+                sourceClass, targetClass, sourceWord, targetWord,
+                AffixPosition.Beginning, addedText);
+            return retVal;
+        }
+        return null;
+    }
+
+    private enum AffixPosition
+    {
+        Beginning,
+        End
+    }
+
+    private sealed record AffixDifference(
+        Thought SourceClass,
+        Thought TargetClass,
+        Thought SourceWord,
+        Thought TargetWord,
+        AffixPosition Position,
+        string AddedText);
+
+    private sealed record SpellingPatternKey(
+        Thought SourceClass,
+        Thought TargetClass,
+        AffixPosition Position,
+        string AddedText);
+
+    private sealed record WordCorrespondence(Thought Source, Thought Target);
+
 
     public static int ProcessTheExistingText()
     {
@@ -669,6 +1210,8 @@ public class ModuleText : ModuleBase
             MainWindow.theUKS.CoalesceSimilarClasses(learnedClassRoot);
         DiscoverTemplateTokenClasses();
         LearnActionsFromExemplars();
+        DiscoverClassSpellingPatterns();
+        NormalizeMeaningsFromSpellingPatterns();
         return learnedTemplates.Count;
     }
 

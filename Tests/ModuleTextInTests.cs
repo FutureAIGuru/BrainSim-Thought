@@ -25,6 +25,23 @@ public class ModuleTextInTests
         return directory?.FullName ?? throw new DirectoryNotFoundException("BrainSim Thought repository root not found.");
     }
 
+    [Fact]
+    public void TextTaxonomyUsesPhraseAndSpecificTemplateClasses()
+    {
+        UKS.UKS uks = CreateUKS();
+        string contentPath = Path.Combine(
+            FindRepositoryRoot(), "BrainSimulator", "UKSContent");
+        uks.ImportTextFile(Path.Combine(contentPath, "BasicWords.txt"));
+        uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
+
+        Assert.Null(uks.Labeled("Sentence"));
+        Assert.Null(uks.Labeled("Template"));
+        Assert.True(uks.Labeled("StatementTemplate").HasAncestor("Phrase"));
+        Assert.True(uks.Labeled("QueryTemplate").HasAncestor("Phrase"));
+        Assert.True(uks.Labeled("tpl:X_is_a_Y").HasAncestor("StatementTemplate"));
+        Assert.True(uks.Labeled("tpl:what_is_X").HasAncestor("QueryTemplate"));
+    }
+
 
     [Fact]
     public void SubmitText_ReturnsCompletedRelationship()

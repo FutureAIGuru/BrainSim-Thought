@@ -96,6 +96,14 @@ public class ModuleTextSequenceBubbleEvaluationTests
         UKS.UKS uks = CreateTextUKS();
         LoadCorpus(uks);
 
+        // The SET relationship is an instruction demonstrated by the corpus,
+        // not an assertion bird should own. Loading the annotated observation
+        // executes it and retains the resulting ordinary relationship.
+        Thought bird = uks.Labeled("bird");
+        Thought fly = uks.Labeled("fly");
+        Assert.Null(uks.GetLink(bird, uks.Labeled("SET.can"), fly));
+        Assert.NotNull(uks.GetLink(bird, uks.Labeled("can"), fly));
+
         int learnedActionTemplates = ModuleText.LearnActionsFromExemplars();
 
         Assert.True(learnedActionTemplates >= 4);
@@ -125,6 +133,29 @@ public class ModuleTextSequenceBubbleEvaluationTests
             Assert.NotNull(uks.GetLink(
                 uks.Labeled("otter"), uks.Labeled(linkType), uks.Labeled(target)));
         }
+    }
+
+    [Fact]
+    public void ProcessedCorpusRecognizesANewPluralClassificationPhrase()
+    {
+        // After the complete learning pass, a manually entered phrase using
+        // new words must still match the learned plural classification frame.
+        UKS.UKS uks = CreateTextUKS();
+        LoadCorpus(uks);
+        Assert.True(ModuleText.ProcessTheExistingText() > 0);
+        Assert.Single(uks.Labeled("SpellingPattern").Children);
+
+        string result = ModuleText.AddPhrase(
+            "pigs are animals", applyExistingTemplates: true);
+
+        Assert.StartsWith("Template:", result);
+        Link learnedAssertion = uks.GetLink(
+            uks.Labeled("pig"), uks.Labeled("is-a"), uks.Labeled("animal"));
+        string pigAttributes = string.Join(", ", uks.Labeled("pig")?.LinksTo
+            .Select(link => $"{link.LinkType?.Label}->{link.To?.Label}") ??
+            Enumerable.Empty<string>());
+        Assert.True(learnedAssertion is not null,
+            $"{result} Pig relationships: {pigAttributes}");
     }
 
     [Fact]
@@ -380,6 +411,187 @@ public class ModuleTextSequenceBubbleEvaluationTests
             learnedClass.Children
                 .Where(member => !member.HasAncestor("Wildcard") && member is not SeqElement)
                 .ToHashSet();
+    }
+
+    [Fact]
+    public void LearnedWordClassesCanRevealARepeatedSpellingPattern()
+    {
+        // These classes are anonymous structural discoveries. Without being
+        // told anything about English plurality, the spelling comparison
+        // should notice that members of one class repeatedly correspond to
+        // members of the other by adding S at the end. This first step records
+        // the observation and its evidence but does not alter word meanings.
+        UKS.UKS uks = CreateTextUKS();
+        Thought classRoot = uks.GetOrAddThought("LearnedClass", "LanguageElement");
+        Thought firstClass = uks.GetOrAddThought("firstWordClass", classRoot);
+        Thought secondClass = uks.GetOrAddThought("secondWordClass", classRoot);
+        Thought thirdClass = uks.GetOrAddThought("thirdWordClass", classRoot);
+        Thought fourthClass = uks.GetOrAddThought("fourthWordClass", classRoot);
+        Thought unrelatedClass = uks.GetOrAddThought("unrelatedWordClass", classRoot);
+
+        AddMember(firstClass, "dog");
+        AddMember(firstClass, "cat");
+        AddMember(firstClass, "bird");
+        AddMember(firstClass, "animal");
+        AddMember(secondClass, "dogs");
+        AddMember(secondClass, "cats");
+        AddMember(secondClass, "birds");
+        AddMember(secondClass, "animals");
+        AddMember(thirdClass, "tree");
+        AddMember(thirdClass, "book");
+        AddMember(thirdClass, "river");
+        AddMember(thirdClass, "house");
+        AddMember(fourthClass, "trees");
+        AddMember(fourthClass, "books");
+        AddMember(fourthClass, "rivers");
+        AddMember(fourthClass, "houses");
+        AddMember(unrelatedClass, "happy");
+        AddMember(unrelatedClass, "small");
+        AddMember(unrelatedClass, "hungry");
+        AddMember(unrelatedClass, "large");
+
+        List<Thought> patterns = ModuleText.DiscoverClassSpellingPatterns(
+            minMatchedPairs: 3,
+            minCoverage: 0.75f,
+            minCommonLetters: 3);
+
+        Thought pattern = Assert.Single(patterns);
+        Assert.Equal("end", pattern.GetTargetOfFirstLinkOfType("position").Label);
+        Assert.Equal("c:S", pattern.GetTargetOfFirstLinkOfType("adds").Label);
+
+        List<Link> classPairs = pattern.LinksTo
+            .Where(link => link.LinkType?.Label == "classEvidence")
+            .Select(link => link.To)
+            .OfType<Link>()
+            .ToList();
+        Assert.Equal(2, classPairs.Count);
+        Assert.Contains(classPairs, pair =>
+            pair.From == firstClass && pair.To == secondClass);
+        Assert.Contains(classPairs, pair =>
+            pair.From == thirdClass && pair.To == fourthClass);
+
+        List<Link> evidencePairs = pattern.LinksTo
+            .Where(link => link.LinkType?.Label == "evidence")
+            .Select(link => link.To)
+            .OfType<Link>()
+            .ToList();
+        Assert.Equal(8, evidencePairs.Count);
+        Assert.Contains(evidencePairs, pair =>
+            pair.From.Label == "w:dog" && pair.To.Label == "w:dogs");
+        Assert.All(firstClass.Children.Concat(secondClass.Children)
+            .Concat(thirdClass.Children).Concat(fourthClass.Children),
+            word => Assert.Null(word.GetTargetOfFirstLinkOfType("means")));
+
+        // At this next stage the observed pairs, rather than a generated
+        // English plural rule, provide the safe basis for shared meanings.
+        Thought provisionalPluralMeaning = uks.GetOrAddThought("dogs");
+        uks.AddStatement(uks.Labeled("w:dogs"),
+            uks.GetOrAddThought("means", "LinkType"), provisionalPluralMeaning);
+        int normalizedMeanings = ModuleText.NormalizeMeaningsFromSpellingPatterns();
+
+        Assert.Equal(8, normalizedMeanings);
+        foreach ((string first, string second) in new[]
+        {
+            ("dog", "dogs"),
+            ("cat", "cats"),
+            ("bird", "birds"),
+            ("animal", "animals"),
+            ("tree", "trees"),
+            ("book", "books"),
+            ("river", "rivers"),
+            ("house", "houses")
+        })
+        {
+            Thought canonical = uks.Labeled("w:" + first)
+                .GetTargetOfFirstLinkOfType("means");
+            Assert.Equal(first, canonical.Label);
+            Assert.Same(canonical, uks.Labeled("w:" + second)
+                .GetTargetOfFirstLinkOfType("means"));
+        }
+        Assert.Equal(0, ModuleText.NormalizeMeaningsFromSpellingPatterns());
+
+        // Re-running discovery reinforces the same graph objects rather than
+        // manufacturing duplicate patterns or correspondence relationships.
+        List<Thought> repeated = ModuleText.DiscoverClassSpellingPatterns(
+            minMatchedPairs: 3,
+            minCoverage: 0.75f,
+            minCommonLetters: 3);
+        Assert.Same(pattern, Assert.Single(repeated));
+        Assert.Single(uks.Labeled("SpellingPattern").Children);
+        Assert.Equal(2, pattern.LinksTo.Count(
+            link => link.LinkType?.Label == "classEvidence"));
+        Assert.Equal(8, pattern.LinksTo.Count(
+            link => link.LinkType?.Label == "evidence"));
+
+        Thought AddMember(Thought learnedClass, string spelling)
+        {
+            Thought word = uks.GetOrAddThought("w:" + spelling, "Word");
+            List<Thought> letters = spelling.ToUpperInvariant()
+                .Select(letter => uks.GetOrAddThought("c:" + letter, "letter"))
+                .ToList();
+            uks.AddSequenceAndLink(word, "spelled", letters);
+            word.AddParent(learnedClass);
+            return word;
+        }
+    }
+
+    [Fact]
+    public void IncidentalSpellingPairsDoNotCreateAClassPattern()
+    {
+        // One or two coincidental word pairs are not enough to characterize
+        // two entire classes. A useful class-level pattern needs repeated,
+        // representative evidence.
+        UKS.UKS uks = CreateTextUKS();
+        Thought classRoot = uks.GetOrAddThought("LearnedClass", "LanguageElement");
+        Thought firstClass = uks.GetOrAddThought("firstWordClass", classRoot);
+        Thought secondClass = uks.GetOrAddThought("secondWordClass", classRoot);
+        foreach (string word in new[] { "dog", "cat", "bird", "animal" })
+            uks.GetOrAddThought("w:" + word, firstClass).AddParent(uks.Labeled("Word"));
+        foreach (string word in new[] { "dogs", "table", "green", "quickly" })
+            uks.GetOrAddThought("w:" + word, secondClass).AddParent(uks.Labeled("Word"));
+
+        List<Thought> patterns = ModuleText.DiscoverClassSpellingPatterns(
+            minMatchedPairs: 3,
+            minCoverage: 0.5f,
+            minCommonLetters: 3);
+
+        Assert.Empty(patterns);
+    }
+
+    [Fact]
+    public void ExistingDuplicateSpellingPatternsAreConsolidated()
+    {
+        // Earlier discovery stored one pattern per class pair. Reprocessing an
+        // existing UKS must migrate those nodes into one operation with several
+        // class-pair evidence relationships.
+        UKS.UKS uks = CreateTextUKS();
+        Thought classRoot = uks.GetOrAddThought("LearnedClass", "LanguageElement");
+        Thought patternRoot = uks.GetOrAddThought("SpellingPattern", "LanguageElement");
+        Thought position = uks.GetOrAddThought("end");
+        Thought addedLetter = uks.GetOrAddThought("c:S", "letter");
+        for (int index = 0; index < 3; index++)
+        {
+            Thought sourceClass = uks.GetOrAddThought($"sourceClass{index}", classRoot);
+            Thought targetClass = uks.GetOrAddThought($"targetClass{index}", classRoot);
+            Thought pattern = uks.GetOrAddThought($"oldSpellingPattern{index}", patternRoot);
+            uks.AddStatement(pattern,
+                uks.GetOrAddThought("sourceClass", "LinkType"), sourceClass);
+            uks.AddStatement(pattern,
+                uks.GetOrAddThought("targetClass", "LinkType"), targetClass);
+            uks.AddStatement(pattern,
+                uks.GetOrAddThought("position", "LinkType"), position);
+            uks.AddStatement(pattern,
+                uks.GetOrAddThought("adds", "LinkType"), addedLetter);
+        }
+
+        int mergeCount = ModuleText.ConsolidateSpellingPatterns();
+
+        Assert.Equal(2, mergeCount);
+        Thought consolidated = Assert.Single(patternRoot.Children);
+        Assert.Equal(3, consolidated.LinksTo.Count(
+            link => link.LinkType?.Label == "classEvidence"));
+        Assert.DoesNotContain(consolidated.LinksTo,
+            link => link.LinkType?.Label is "sourceClass" or "targetClass");
     }
 
     [Fact]
