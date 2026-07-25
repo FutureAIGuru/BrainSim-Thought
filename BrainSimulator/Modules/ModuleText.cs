@@ -22,7 +22,7 @@ using UKS;
 
 namespace BrainSimulator.Modules;
 
-public class ModuleText : ModuleBase
+public partial class ModuleText : ModuleBase
 {
 
     // Fill this method in with code which will execute
@@ -543,7 +543,8 @@ public class ModuleText : ModuleBase
     /// </summary>
     public static List<Thought> DiscoverPhraseTemplates(
         int minMembers = 30,
-        int minFixedElements = 2)
+        int minFixedElements = 2,
+        int maxAdjacentGapPairs = 1)
     {
         var theUKS = MainWindow.theUKS;
         Thought phraseRoot = theUKS.Labeled("Phrase");
@@ -559,7 +560,8 @@ public class ModuleText : ModuleBase
             templateRoot,
             fillerClassRoot,
             minMembers,
-            minFixedElements);
+            minFixedElements,
+            maxAdjacentGapPairs: maxAdjacentGapPairs);
     }
 
     /// <summary>
@@ -669,6 +671,7 @@ public class ModuleText : ModuleBase
             MainWindow.theUKS.CoalesceSimilarClasses(learnedClassRoot);
         DiscoverTemplateTokenClasses();
         LearnActionsFromExemplars();
+        DiscoverGrammaticalRoles();
         return learnedTemplates.Count;
     }
 

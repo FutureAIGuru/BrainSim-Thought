@@ -167,7 +167,8 @@ public partial class UKS
         int minMembers = 4,
         int minFixedElements = 2,
         string templateLabel = "template*",
-        string classLabel = "class*")
+        string classLabel = "class*",
+        int maxAdjacentGapPairs = 0)
     {
         ArgumentNullException.ThrowIfNull(observations);
         ArgumentNullException.ThrowIfNull(templateRoot);
@@ -210,7 +211,7 @@ public partial class UKS
                         new[] { groupObservations[first], groupObservations[second] },
                         minFixedElements);
                     if (proposal is null || proposal.Elements.Count < 2 ||
-                        !IsLearnableTemplatePattern(proposal)) continue;
+                        !IsLearnableTemplatePattern(proposal, maxAdjacentGapPairs)) continue;
                     proposals.TryAdd(CommonSequenceSignature(proposal), proposal);
                 }
             }
@@ -227,7 +228,7 @@ public partial class UKS
                 while (true)
                 {
                     generalized = FindCommonSequence(matches, minFixedElements)!;
-                    if (!IsLearnableTemplatePattern(generalized)) break;
+                    if (!IsLearnableTemplatePattern(generalized, maxAdjacentGapPairs)) break;
                     List<SequenceView> expanded = groupObservations
                         .Where(observation => SequenceMatchesPattern(generalized, observation))
                         .ToList();
@@ -237,7 +238,7 @@ public partial class UKS
                     matches = expanded;
                 }
 
-                if (!IsLearnableTemplatePattern(generalized)) continue;
+                if (!IsLearnableTemplatePattern(generalized, maxAdjacentGapPairs)) continue;
 
                 HashSet<Thought> owners = matches.Select(match => match.Owner).ToHashSet();
                 if (owners.Count < minMembers) continue;
@@ -494,13 +495,27 @@ public partial class UKS
             element.GapCardinality == SequenceGapCardinality.ExactlyOne);
     }
 
-    private static bool IsLearnableTemplatePattern(CommonSequencePattern pattern)
+    /// <summary>
+    /// Adjacent gaps are ordinarily rejected because a run of them describes
+    /// almost any observation. Permitting a single pair admits the structures in
+    /// which one slot qualifies another, while a run of three or more remains
+    /// too general to be worth learning.
+    /// </summary>
+    private static bool IsLearnableTemplatePattern(
+        CommonSequencePattern pattern,
+        int maxAdjacentGapPairs = 0)
     {
         if (!HasOnlySingletonGaps(pattern)) return false;
-        for (int position = 1; position < pattern.Elements.Count; position++)
-            if (pattern.Elements[position - 1].IsGap && pattern.Elements[position].IsGap)
-                return false;
-        return true;
+
+        int adjacentPairs = 0;
+        int runLength = 0;
+        foreach (CommonSequenceElement element in pattern.Elements)
+        {
+            runLength = element.IsGap ? runLength + 1 : 0;
+            if (runLength > 2) return false;
+            if (runLength == 2) adjacentPairs++;
+        }
+        return adjacentPairs <= maxAdjacentGapPairs;
     }
 
     private static string CommonSequenceSignature(CommonSequencePattern pattern)
