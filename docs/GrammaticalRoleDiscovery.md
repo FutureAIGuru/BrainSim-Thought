@@ -3,9 +3,10 @@
 This document describes the changes that let the text modules identify the
 grammatical role of each learned class — subjects, verbs, articles, adjectives,
 and predicates — from a corpus of observed phrases, without being given any
-English grammar to start from. It also covers the two follow-on steps that build
-on those roles: relating singular and plural word forms, and telling a
-classification (`is-a`) apart from an attribute assertion (`is`).
+English grammar to start from. It also covers the follow-on steps that build on
+those roles: relating singular and plural word forms, telling a classification
+(`is-a`) apart from an attribute assertion (`is`), and learning what an observed
+question asks so it can be answered from what is already known.
 
 It covers what was built, why each piece exists, how the pieces fit together,
 what the measured results are, and what is and is not covered.
@@ -65,6 +66,8 @@ are *derived* by pooling the fillers of every position that carries a given role
 | File | Change |
 |---|---|
 | `UKS/UKS.SequenceBubble.cs` | `IsLearnableTemplatePattern` now permits **one** adjacent wildcard pair, opt-in via a new `maxAdjacentGapPairs` parameter on `DiscoverSequenceTemplates`. |
+| `UKS/UKS.Actions.cs` | Adds `ApplyTestAction`, the read-only counterpart of `ApplySetAction`; both now share one `GetActionRelationship` helper. |
+| `UKS/UKS.Query.cs` | `SearchForRelationships` matches the relationship by inheritance when searching **backwards**, as it already did forwards (see §7). |
 | `BrainSimulator/Modules/ModuleText.cs` | `DiscoverPhraseTemplates` opts in to one adjacent gap pair; `ProcessTheExistingText` runs `DiscoverGrammaticalRoles` (which now also relates number) as its final step; class marked `partial`. |
 | `BrainSimulator/Modules/ModuleTextDlg.xaml.cs` | The "Discover structures" button's status line now reports role and category counts. |
 
@@ -321,6 +324,94 @@ So Phase 8 is delivered by Phase 7 plus code that already existed. The singular
 case (`a dog is an animal` vs `a dog is brown`) was already unambiguous, because
 the article before the complement puts those two in *different* templates.
 
+### Phase 9 — Separate questions from statements
+
+**File:** `ModuleText.cs` — `GetPhraseKind`, `GetPhrasesOfKind`, `DiscoverQuestionTemplates`
+
+261 of the corpus's 903 lines — **29%** — are questions, and every one of them was
+being discarded by a temporary line in `LoadTextFromFile`
+(`if (phrase.ToLower().Contains("what")) continue;`). That line is gone.
+
+Each observed phrase is now filed under the kind of utterance it is, taken from
+the mark it ends with: `Question` or `Statement`, both under `Phrase`. Using the
+punctuation rather than the word "what" keeps the split language-neutral — and it
+lets the system go on to *discover* that "what" is the word characteristic of
+question phrases, the same way it discovered articles and separators.
+
+Templates are then discovered per kind, into separate roots (`LearnedTemplate`
+for statements, `LearnedQuestionTemplate` for questions). Keeping the populations
+apart is what stops questions from distorting the roles and categories measured
+in Phases 2–6 — those results are unchanged by this phase.
+
+The learned question templates are exactly the corpus's question forms:
+
+```
+what is a ??class3          what does a ??class3 have
+what are ??class7           what do ??class7 have
+what can a ??class17 do     what can ??class20
+what has a ??class21        what can ??class18 do
+```
+
+### Phase 10 — `ApplyTestAction`
+
+**File:** `UKS/UKS.Actions.cs`
+
+Slide 5 of the design deck promises `[Fido → TEST.is-a → dog]` acting "as TRUE
+if the relationship already exists," but only `ApplySetAction` existed. The
+dotted-type machinery was already in place — `AddActionTypeInheritance` in
+`UKS.cs` has always handled `TEST.` as well as `SET.` — so only the execution
+was missing.
+
+`ApplyTestAction` is the read-only counterpart of `ApplySetAction`: it resolves
+`TEST.can` to the underlying `can` and **queries** instead of asserting. A
+wildcard at either end leaves that end open, so the action asks *which* Thoughts
+stand in the relationship rather than whether two particular ones do. Both
+methods now share one `GetActionRelationship` helper rather than duplicating the
+parent-resolution logic.
+
+### Phase 11 — Learn what a question asks
+
+**File:** `ModuleText.Grammar.cs` — `LearnQuestionsFromStatementTemplates`
+
+A question and the statement that answers it share the word naming the
+relationship, and the words a question accepts in its open position are the words
+standing at one end of that relationship. Matching those two populations says
+which end the question *supplies*, and therefore which end it *asks for*:
+
+- `what can a ??` — the open position holds animals, which are what stands at the
+  **source** of `can`. So the question supplies the source and asks for the
+  target → `[dog → TEST.can → ??]`
+- `what can ??` — the open position holds `bark`, `swim`, `hop`, which stand at
+  the **target**. So it asks for the source → `[?? → TEST.can → bark]`
+
+Two details make this work on the real corpus:
+
+- **Evidence is pooled per relationship, not per template.** The same possession
+  is written `has` beside one thing and `have` beside several, so `what does a
+  dog have` matches `SET.has` through `have` even though the singular statement
+  says `has`. Without pooling, that question learns nothing.
+- **Overlap is measured against the smaller population.** Only words carried by
+  an exemplar reach an assertion's ends, so that population is far smaller than
+  the one a question accepts. Dividing by the smaller of the two asks whether one
+  sits inside the other rather than whether they are the same size; at least two
+  shared words are required so a single coincidence cannot decide it.
+
+A question whose surface does not settle which relationship is meant acquires
+**more than one** TEST action — `what is a dog` asks both `is-a` and `is` — and
+answering reports all of them rather than inventing a preference.
+
+### Phase 12 — Answer
+
+**File:** `ModuleText.Grammar.cs` — `AnswerQuestion`
+
+A question phrase is matched to a learned question template, the supplied word is
+resolved to its meaning, the open end is left open, and each TEST action is run.
+Results are converted back to words, preferring the singular form (the one the
+plural was derived from) as the citation form.
+
+Asking is read-only: `AskingChangesNothing` asserts that answering a question
+adds no Thoughts and no links.
+
 ---
 
 ## 4. Results
@@ -350,6 +441,21 @@ position receives a role.
 - **assertions distinguished from classifications**: `dogs are animals` asserts
   `[dog -is-a-> animal]`, `dogs are brown` asserts `[dog -is-> brown]`, each with
   the opposite relation confirmed absent
+
+### Questions
+
+All 16 learned question templates ask at least one relationship, except the two
+two-slot forms which this step does not yet interpret. Answers are read back out
+of relationships that were only ever asserted by statements:
+
+| question | answer |
+|---|---|
+| `What can a dog do?` | `bark` |
+| `What does a dog have?` | `tail` |
+| `What can bark?` | `dog` |
+
+The third is the inverse direction — supplying the target and asking for the
+source — which exercises a different path through the query engine.
 
 ---
 
@@ -384,6 +490,17 @@ Assert.Null(uks.GetLink(dog, is, animal));     // and not an assertion
 
 These remain future work, consistent with the project's roadmap:
 
+- **Attribute-type questions.** `What color is the dog?` and `What size is the
+  dog?` ask for an attribute *of a named kind*. The templates are discovered and
+  do bind TEST actions, but answering them correctly needs `color` and `size` to
+  be known as attribute categories — deliberately deferred.
+- **Two-slot questions.** `what ??class12 is the ??class3` has two open
+  positions; `LearnQuestionsFromStatementTemplates` currently interprets only
+  single-unknown questions and skips these.
+- **The legacy query path.** `ModuleTextIn.FindAndMapTemplates` still reads the
+  hand-authored `tpl:*` templates in `UKSContent/QueryTemplates.txt`, which use
+  the older `hasWords`/`outputs` format. The learned question templates are a
+  parallel mechanism; replacing the legacy path was deliberately not attempted.
 - **Irregular plurals.** The learned suffix relates regular forms
   (`dog`/`dogs`); `mouse`/`mice`, `goose`/`geese` are not paired. This is an
   honest limit of a single learned transformation, not a bug — such pairs simply
@@ -411,6 +528,33 @@ These remain future work, consistent with the project's roadmap:
   recreated, so a second pass over unchanged templates adds nothing to the UKS.
   This is covered by `RediscoveringRolesAddsNothingToTheUks`.
 - **Thresholds** (`minFunctionWordTemplates`, `minRoleOverlap`,
-  `maxAdjacentGapPairs`) are parameters with corpus-tuned defaults, consistent
-  with the project's existing manually-selected thresholds. They are the natural
-  knobs to revisit on a larger or less structured corpus.
+  `maxAdjacentGapPairs`, `minFillerOverlap`) are parameters with corpus-tuned
+  defaults, consistent with the project's existing manually-selected thresholds.
+  They are the natural knobs to revisit on a larger or less structured corpus.
+
+---
+
+## 7. A fix made to shared query code
+
+`SearchForRelationships` in `UKS/UKS.Query.cs` matched the relationship
+**by inheritance** when searching forwards from a known source:
+
+```csharp
+link.LinkType?.HasAncestor(linkType) == true      // forward
+```
+
+but by **exact equality** when searching backwards from a known target:
+
+```csharp
+link.LinkType == linkType                          // backward, before
+```
+
+The consequence was that a search for `can` found the `SET.can` links that
+inherit from it in one direction but not the other — so `What can a dog do?`
+could be answered and `What can bark?` could not, from the same knowledge. The
+backward branch now uses the same inheritance test as the forward one.
+
+This is shared code with two callers (`ModuleTextIn.SubmitText` and the new
+`ApplyTestAction`). The change strictly widens what the backward search finds, in
+the direction the forward search already went; `HasAncestor` includes the Thought
+itself, so previously-exact matches still match.

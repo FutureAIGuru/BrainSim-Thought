@@ -208,7 +208,11 @@ public partial class ModuleText
             .OrderBy(text => text, StringComparer.Ordinal));
         int grounded = roleRoot.Children.Count(role =>
             role.Parents.Any(parent => parent.HasAncestor("GrammaticalRole")));
-        return $"{roleRoot.Children.Count} slot roles ({grounded} grounded in actions); {categories}";
+        int asking = theUKS.Labeled("LearnedQuestionTemplate")?.Children
+            .Count(template => template.LinksTo.Any(link => link.LinkType?.Label == "means" &&
+                link.To is Link action && action.LinkType?.HasAncestor("TEST") == true)) ?? 0;
+        return $"{roleRoot.Children.Count} slot roles ({grounded} grounded in actions); " +
+            $"{categories}; {asking} question templates";
     }
 
     /// <summary>
@@ -757,6 +761,251 @@ public partial class ModuleText
         if (descriptor is null) return "none";
         int separator = descriptor.IndexOf('|');
         return separator < 0 ? descriptor : descriptor[..separator];
+    }
+
+    /// <summary>
+    /// Everything the statement templates show about one relationship: the words
+    /// which name it, and the words observed at each of its ends. Evidence is
+    /// pooled across templates because one relationship is named differently in
+    /// different frames — the same possession is written "has" beside a single
+    /// thing and "have" beside several — and a question may use any of them.
+    /// </summary>
+    private sealed class RelationEvidence
+    {
+        public Thought SetType;
+        public HashSet<Thought> Separators = new();
+        public HashSet<Thought> SourceFillers = new();
+        public HashSet<Thought> TargetFillers = new();
+    }
+
+    /// <summary>
+    /// Learns what an observed question asks, by comparing it with the
+    /// statements which would answer it. A question and its answering statement
+    /// share the word which names the relationship, and the words a question
+    /// accepts in its open position are the words that stand at one end of that
+    /// relationship. Matching those two populations says which end the question
+    /// supplies, and therefore which end it is asking for.
+    ///
+    /// The result is a TEST action, the counterpart of the SET action a
+    /// statement template performs: the same relationship, read instead of
+    /// written. A question whose surface does not settle which relationship is
+    /// meant acquires more than one, and answering reports all of them rather
+    /// than inventing a preference.
+    /// </summary>
+    /// <returns>The number of question templates which now ask something.</returns>
+    public static int LearnQuestionsFromStatementTemplates(float minFillerOverlap = 0.3f)
+    {
+        var theUKS = MainWindow.theUKS;
+        Thought questionRoot = theUKS.Labeled("LearnedQuestionTemplate");
+        Thought statementRoot = theUKS.Labeled("LearnedTemplate");
+        Thought hasWords = theUKS.Labeled("hasWords");
+        if (questionRoot is null || statementRoot is null || hasWords is null) return 0;
+
+        theUKS.GetOrAddThought("TEST", "LinkType");
+        Thought meansType = theUKS.GetOrAddThought("means", "LinkType");
+        Thought unknown = theUKS.Labeled("??")
+            ?? theUKS.CreateWildcard("??", new List<Thought>());
+
+        List<RelationEvidence> assertions = ReadRelationEvidence(statementRoot, hasWords);
+        if (assertions.Count == 0) return 0;
+
+        int learned = 0;
+        foreach (Thought question in questionRoot.Children)
+        {
+            SequenceView sequence = theUKS.GetSequenceViews(question)
+                .FirstOrDefault(view => view.LinkType == hasWords);
+            if (sequence is null) continue;
+
+            List<int> slots = sequence.Elements
+                .Select((element, position) => (element, position))
+                .Where(item => item.element.HasAncestor("Wildcard"))
+                .Select(item => item.position)
+                .ToList();
+            // A question with no open position asks nothing, and one with
+            // several is not yet interpretable by this step.
+            if (slots.Count != 1) continue;
+
+            Thought slot = sequence.Elements[slots[0]];
+            HashSet<Thought> slotFillers = SlotMembers(slot).ToHashSet();
+            if (slotFillers.Count == 0) continue;
+            HashSet<Thought> questionWords = sequence.Elements
+                .Where(element => !element.HasAncestor("Wildcard"))
+                .ToHashSet();
+
+            bool askedSomething = false;
+            foreach (RelationEvidence assertion in assertions)
+            {
+                if (!assertion.Separators.Overlaps(questionWords)) continue;
+
+                float asSource = Overlap(slotFillers, assertion.SourceFillers);
+                float asTarget = Overlap(slotFillers, assertion.TargetFillers);
+                if (Math.Max(asSource, asTarget) < minFillerOverlap) continue;
+
+                string relationLabel = assertion.SetType.Label[4..];
+                theUKS.GetOrAddThought(relationLabel, "LinkType");
+                Thought testType = theUKS.GetOrAddThought("TEST." + relationLabel, "LinkType");
+
+                // The end the question supplies is the one whose observed words
+                // match; the other end is what it asks for.
+                Link asked = asSource >= asTarget
+                    ? theUKS.AddStatement(slot, testType, unknown)
+                    : theUKS.AddStatement(unknown, testType, slot);
+                if (asked is null) continue;
+                theUKS.AddStatement(question, meansType, asked);
+                askedSomething = true;
+            }
+            if (askedSomething) learned++;
+        }
+        return learned;
+
+        // Only the words demonstrated by an exemplar reach an assertion's ends,
+        // so that population is usually far smaller than the one a question
+        // accepts. Dividing by the smaller of the two therefore asks whether one
+        // population sits inside the other, rather than whether they are the
+        // same size. Two shared words are required so that a single coincidence
+        // cannot carry the comparison.
+        static float Overlap(HashSet<Thought> fillers, HashSet<Thought> population)
+        {
+            if (fillers.Count == 0 || population.Count == 0) return 0f;
+            int shared = fillers.Intersect(population).Count();
+            if (shared < 2) return 0f;
+            return shared / (float)Math.Min(fillers.Count, population.Count);
+        }
+    }
+
+    /// <summary>
+    /// Reads what the statement templates show about each relationship, pooling
+    /// the evidence of every template which asserts it.
+    /// </summary>
+    private static List<RelationEvidence> ReadRelationEvidence(
+        Thought statementRoot,
+        Thought hasWords)
+    {
+        var theUKS = MainWindow.theUKS;
+        Dictionary<Thought, RelationEvidence> retVal = new();
+        foreach (Thought template in statementRoot.Children)
+        {
+            Link action = template.LinksTo
+                .Where(link => link.LinkType?.Label == "means")
+                .Select(link => link.To)
+                .OfType<Link>()
+                .FirstOrDefault(candidate => candidate.LinkType?.HasAncestor("SET") == true);
+            if (action?.From is null || action.To is null) continue;
+
+            SequenceView sequence = theUKS.GetSequenceViews(template)
+                .FirstOrDefault(view => view.LinkType == hasWords);
+            if (sequence is null) continue;
+
+            List<Thought> elements = sequence.Elements.ToList();
+            int sourcePosition = elements.IndexOf(action.From);
+            int targetPosition = elements.IndexOf(action.To);
+            if (sourcePosition < 0 || targetPosition < 0) continue;
+
+            // The word which names the relationship stands between its two ends.
+            int first = Math.Min(sourcePosition, targetPosition);
+            int last = Math.Max(sourcePosition, targetPosition);
+            Thought separator = elements
+                .Skip(first + 1)
+                .Take(last - first - 1)
+                .FirstOrDefault(element => !element.HasAncestor("Wildcard"));
+            if (separator is null) continue;
+
+            if (!retVal.TryGetValue(action.LinkType, out RelationEvidence evidence))
+                retVal[action.LinkType] = evidence =
+                    new RelationEvidence { SetType = action.LinkType };
+            evidence.Separators.Add(separator);
+            evidence.SourceFillers.UnionWith(MembersOf(elements[sourcePosition]));
+            evidence.TargetFillers.UnionWith(MembersOf(elements[targetPosition]));
+        }
+        return retVal.Values.ToList();
+
+        static HashSet<Thought> MembersOf(Thought element) =>
+            element.HasAncestor("Wildcard")
+                ? SlotMembers(element).ToHashSet()
+                : new HashSet<Thought> { element };
+    }
+
+    /// <summary>
+    /// Answers one question against what the UKS already knows. The question is
+    /// matched to a learned question template, the open position is left open,
+    /// and the resulting TEST actions are read rather than asserted.
+    /// </summary>
+    /// <returns>The answering words, or an empty list when nothing is known.</returns>
+    public static List<string> AnswerQuestion(string questionText)
+    {
+        var theUKS = MainWindow.theUKS;
+        List<string> retVal = new();
+        Thought questionRoot = theUKS.Labeled("LearnedQuestionTemplate");
+        Thought hasWords = theUKS.Labeled("hasWords");
+        if (questionRoot is null || hasWords is null) return retVal;
+
+        List<Thought> askedWords = GetPhraseWords(questionText);
+        if (askedWords.Count < 2) return retVal;
+
+        foreach (Thought template in questionRoot.Children)
+        {
+            SequenceView sequence = theUKS.GetSequenceViews(template)
+                .FirstOrDefault(view => view.LinkType == hasWords);
+            if (sequence is null || sequence.Elements.Count != askedWords.Count) continue;
+
+            // A question matches when every fixed word agrees and the open
+            // position holds a word this template has accepted there before.
+            Thought supplied = null;
+            bool matches = true;
+            for (int position = 0; position < sequence.Elements.Count && matches; position++)
+            {
+                Thought element = sequence.Elements[position];
+                if (!element.HasAncestor("Wildcard"))
+                    matches = element == askedWords[position];
+                else
+                    supplied = askedWords[position];
+            }
+            if (!matches || supplied is null) continue;
+
+            foreach (Link asked in template.LinksTo
+                .Where(link => link.LinkType?.Label == "means")
+                .Select(link => link.To)
+                .OfType<Link>()
+                .Where(candidate => candidate.LinkType?.HasAncestor("TEST") == true))
+            {
+                Thought meaning = GetOrCreateMeaning(supplied);
+                bool suppliesSource = asked.From is not null && asked.From.HasAncestor("Wildcard") &&
+                    !asked.From.Label.Equals("??", StringComparison.Ordinal);
+                Link query = suppliesSource
+                    ? new Link(meaning, asked.LinkType, null)
+                    : new Link(null, asked.LinkType, meaning);
+
+                foreach (Link result in theUKS.ApplyTestAction(query))
+                {
+                    Thought answer = suppliesSource ? result.To : result.From;
+                    if (answer is null || answer == meaning) continue;
+                    string word = WordForMeaning(answer);
+                    if (word is not null && !retVal.Contains(word)) retVal.Add(word);
+                }
+            }
+            if (retVal.Count > 0) break;
+        }
+        return retVal;
+    }
+
+    /// <summary>
+    /// The word which denotes a meaning, preferring one the corpus actually used
+    /// over the meaning's own label. Once plurals are related to their
+    /// singulars both forms denote the same thing, so the singular is preferred
+    /// as the form the other was derived from.
+    /// </summary>
+    private static string WordForMeaning(Thought meaning)
+    {
+        List<Thought> words = meaning.LinksFrom
+            .Where(link => link.LinkType?.Label == "means" && link.From is not null)
+            .Select(link => link.From)
+            .Where(candidate => candidate.HasAncestor("Word"))
+            .ToList();
+        if (words.Count == 0) return meaning.Label;
+
+        Thought singular = words.FirstOrDefault(word =>
+            word.GetTargetOfFirstLinkOfType("pluralOf") is null);
+        return WordLabel(singular ?? words[0]);
     }
 
     /// <summary>

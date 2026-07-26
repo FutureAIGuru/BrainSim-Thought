@@ -220,7 +220,11 @@ public class ModuleTextSequenceBubbleEvaluationTests
             Assert.False(result.StartsWith("Error:", StringComparison.Ordinal), result);
         }
 
-        Assert.All(uks.Labeled("Phrase").Children, phrase =>
+        // An observed phrase is filed under the kind of utterance it is, so a
+        // declarative phrase is a Statement rather than a direct child of
+        // Phrase. What it must still carry is its words.
+        Assert.NotEmpty(uks.Labeled("Statement").Children);
+        Assert.All(uks.Labeled("Statement").Children, phrase =>
             Assert.NotNull(phrase.GetTargetOfFirstLinkOfType("hasWords")));
         Assert.Null(uks.Labeled("LearnedClass"));
         Assert.Null(uks.Labeled("LearnedTemplate"));

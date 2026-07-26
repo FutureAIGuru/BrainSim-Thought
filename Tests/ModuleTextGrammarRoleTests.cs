@@ -258,6 +258,78 @@ public class ModuleTextGrammarRoleTests
     }
 
     [Fact]
+    public void QuestionsAreSeparatedFromStatementsAndLearnedApart()
+    {
+        UKS.UKS uks = LoadAndDiscover("bst_true_template_corpus.txt");
+
+        // The two populations are kept apart, so neither distorts what is
+        // learned from the other.
+        Assert.NotEmpty(ModuleText.GetPhrasesOfKind("Question"));
+        Assert.NotEmpty(ModuleText.GetPhrasesOfKind("Statement"));
+        Assert.Empty(ModuleText.GetPhrasesOfKind("Question")
+            .Intersect(ModuleText.GetPhrasesOfKind("Statement")));
+
+        Thought questionTemplates = uks.Labeled("LearnedQuestionTemplate");
+        Assert.NotNull(questionTemplates);
+        Assert.NotEmpty(questionTemplates.Children);
+
+        Thought hasWords = uks.Labeled("hasWords");
+        foreach (Thought template in questionTemplates.Children)
+        {
+            SequenceView view = uks.GetSequenceViews(template).Single(v => v.LinkType == hasWords);
+            int asks = template.LinksTo.Count(link => link.LinkType?.Label == "means" &&
+                link.To is Link action && action.LinkType?.HasAncestor("TEST") == true);
+            output.WriteLine($"{template.Label} (asks {asks}): " +
+                string.Join(' ', view.Elements.Select(Show)));
+        }
+
+        // A learned question template asks about a relationship rather than
+        // asserting one.
+        Assert.Contains(questionTemplates.Children, template =>
+            template.LinksTo.Any(link => link.LinkType?.Label == "means" &&
+                link.To is Link action && action.LinkType?.HasAncestor("TEST") == true));
+        Assert.DoesNotContain(questionTemplates.Children, template =>
+            template.LinksTo.Any(link => link.LinkType?.Label == "means" &&
+                link.To is Link action && action.LinkType?.HasAncestor("SET") == true));
+    }
+
+    [Fact]
+    public void LearnedQuestionsAreAnsweredFromWhatIsKnown()
+    {
+        UKS.UKS uks = LoadAndDiscover("bst_true_template_corpus.txt");
+
+        // Nothing states these answers; they are read back out of the
+        // relationships the statements asserted.
+        List<string> canDo = ModuleText.AnswerQuestion("What can a dog do?");
+        output.WriteLine("what can a dog do -> " + string.Join(", ", canDo));
+        Assert.Contains("bark", canDo);
+
+        List<string> hasWhat = ModuleText.AnswerQuestion("What does a dog have?");
+        output.WriteLine("what does a dog have -> " + string.Join(", ", hasWhat));
+        Assert.Contains("tail", hasWhat);
+
+        // The inverse question supplies the other end of the same relationship.
+        List<string> whoBarks = ModuleText.AnswerQuestion("What can bark?");
+        output.WriteLine("what can bark -> " + string.Join(", ", whoBarks));
+        Assert.Contains("dog", whoBarks);
+    }
+
+    [Fact]
+    public void AskingChangesNothing()
+    {
+        // A question reads knowledge; it must not create any.
+        UKS.UKS uks = LoadAndDiscover("bst_true_template_corpus.txt");
+        int thoughtCount = uks.AtomicThoughts.Count;
+        int dogLinks = uks.Labeled("dog").LinksTo.Count;
+
+        ModuleText.AnswerQuestion("What can a dog do?");
+        ModuleText.AnswerQuestion("What can bark?");
+
+        Assert.Equal(thoughtCount, uks.AtomicThoughts.Count);
+        Assert.Equal(dogLinks, uks.Labeled("dog").LinksTo.Count);
+    }
+
+    [Fact]
     public void RediscoveringRolesAddsNothingToTheUks()
     {
         UKS.UKS uks = LoadAndDiscover("bst_simple_1000_corpus.txt");
@@ -334,9 +406,7 @@ public class ModuleTextGrammarRoleTests
         string corpusPath = Path.Combine(FindRepositoryRoot(), "BrainSimulator", "WordFIles", fileName);
         foreach (string line in File.ReadLines(corpusPath))
         {
-            if (string.IsNullOrWhiteSpace(line) ||
-                line.Contains("what", StringComparison.OrdinalIgnoreCase))
-                continue;
+            if (string.IsNullOrWhiteSpace(line)) continue;
 
             // Both the phrase and its action exemplar have to be built the way
             // the running program builds them. Creating words here by hand once

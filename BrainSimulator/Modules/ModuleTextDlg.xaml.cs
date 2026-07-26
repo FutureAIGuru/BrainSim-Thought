@@ -46,6 +46,18 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         string phrase = tbPhrase.Text ?? string.Empty;
 
         tbPhrase.Text = string.Empty; tbPhrase.Focus();
+
+        // An interrogative phrase is answered from what is already known rather
+        // than being learned as another observation.
+        if (phrase.TrimEnd().EndsWith("?", StringComparison.Ordinal))
+        {
+            var answers = ModuleText.AnswerQuestion(phrase);
+            SetStatus(answers.Count > 0
+                ? string.Join(", ", answers)
+                : "Nothing known about that.");
+            return;
+        }
+
         string message = ModuleText.AddText(phrase);
         SetStatus(message);
     }

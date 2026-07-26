@@ -82,7 +82,7 @@ public partial class ModuleText : ModuleBase
 
             theUKS.GetOrAddThought("Phrase");
             theUKS.GetOrAddThought("hasWords", "LinkType");
-            Thought thePhrase = theUKS.GetOrAddThought("p*", "Phrase");
+            Thought thePhrase = theUKS.GetOrAddThought("p*", GetPhraseKind(phrase));
             //thePhrase.TimeToLive = TimeSpan.FromSeconds(30); // adjust as needed
             if (wordsInPhrase.Count > 1)
             {
@@ -104,6 +104,41 @@ public partial class ModuleText : ModuleBase
         {
             return $"Error: {ex.Message}";
         }
+    }
+
+    /// <summary>
+    /// The kind of utterance a phrase is, taken from the mark it ends with.
+    /// The mark is an observation rather than an assumption about English: this
+    /// separates the two populations so that neither distorts what is learned
+    /// from the other. What an interrogative phrase *means* is not decided here;
+    /// it is discovered later by grounding question templates in the
+    /// relationships they interrogate.
+    /// </summary>
+    private static Thought GetPhraseKind(string phrase)
+    {
+        var theUKS = MainWindow.theUKS;
+        theUKS.GetOrAddThought("Phrase");
+        bool interrogative = phrase.TrimEnd().EndsWith("?", StringComparison.Ordinal);
+        return theUKS.GetOrAddThought(interrogative ? "Question" : "Statement", "Phrase");
+    }
+
+    /// <summary>
+    /// The phrases observed for one kind of utterance. Phrases created directly
+    /// under Phrase, before the kinds existed, are read as statements so that
+    /// earlier knowledge keeps its meaning.
+    /// </summary>
+    public static List<Thought> GetPhrasesOfKind(string kindLabel)
+    {
+        var theUKS = MainWindow.theUKS;
+        List<Thought> retVal = new();
+        if (theUKS.Labeled(kindLabel) is Thought kind)
+            retVal.AddRange(kind.Children.Where(HasWords));
+        if (kindLabel == "Statement" && theUKS.Labeled("Phrase") is Thought phraseRoot)
+            retVal.AddRange(phraseRoot.Children.Where(HasWords));
+        return retVal;
+
+        static bool HasWords(Thought phrase) =>
+            phrase.GetTargetOfFirstLinkOfType("hasWords") is not null;
     }
 
     public static string AddText(string text, bool applyExistingTemplates = true)
@@ -438,10 +473,6 @@ public partial class ModuleText : ModuleBase
                 string phrase = line.Trim();
                 if (phrase.Length == 0) continue;
 
-                //TEMPORARY ignore questions
-                if (phrase.ToLower().Contains("what")) continue;
-
-
                 string actionText = null;
                 int tabIdx = phrase.IndexOf('\t');
                 if (tabIdx >= 0)
@@ -546,13 +577,39 @@ public partial class ModuleText : ModuleBase
         int minFixedElements = 2,
         int maxAdjacentGapPairs = 1)
     {
-        var theUKS = MainWindow.theUKS;
-        Thought phraseRoot = theUKS.Labeled("Phrase");
-        if (phraseRoot is null) return new List<Thought>();
+        return DiscoverTemplatesForKind(
+            "Statement", "LearnedTemplate", minMembers, minFixedElements, maxAdjacentGapPairs);
+    }
 
-        Thought templateRoot = theUKS.GetOrAddThought("LearnedTemplate", "LanguageElement");
+    /// <summary>
+    /// Discovers templates from observed questions. They are kept apart from the
+    /// statement templates because the two populations describe different things:
+    /// a statement template asserts a relationship, a question template asks
+    /// about one.
+    /// </summary>
+    public static List<Thought> DiscoverQuestionTemplates(
+        int minMembers = 5,
+        int minFixedElements = 2,
+        int maxAdjacentGapPairs = 0)
+    {
+        return DiscoverTemplatesForKind(
+            "Question", "LearnedQuestionTemplate", minMembers, minFixedElements, maxAdjacentGapPairs);
+    }
+
+    private static List<Thought> DiscoverTemplatesForKind(
+        string kindLabel,
+        string templateRootLabel,
+        int minMembers,
+        int minFixedElements,
+        int maxAdjacentGapPairs)
+    {
+        var theUKS = MainWindow.theUKS;
+        List<Thought> phrases = GetPhrasesOfKind(kindLabel);
+        if (phrases.Count == 0) return new List<Thought>();
+
+        Thought templateRoot = theUKS.GetOrAddThought(templateRootLabel, "LanguageElement");
         Thought fillerClassRoot = theUKS.GetOrAddThought("LearnedClass", "LanguageElement");
-        List<SequenceView> phraseObservations = theUKS.GetSequenceViews(phraseRoot.Children)
+        List<SequenceView> phraseObservations = theUKS.GetSequenceViews(phrases)
             .Where(view => view.LinkType?.Label == "hasWords")
             .ToList();
         return theUKS.DiscoverSequenceTemplates(
@@ -672,6 +729,8 @@ public partial class ModuleText : ModuleBase
         DiscoverTemplateTokenClasses();
         LearnActionsFromExemplars();
         DiscoverGrammaticalRoles();
+        DiscoverQuestionTemplates();
+        LearnQuestionsFromStatementTemplates();
         return learnedTemplates.Count;
     }
 

@@ -688,12 +688,16 @@ public partial class UKS
                 }
             }
         }
-        // If from is null but to is specified, search backwards from to
+        // If from is null but to is specified, search backwards from to.
+        // The relationship is matched by inheritance, exactly as the forward
+        // search does: a search for "can" must find the SET.can and TEST.can
+        // which inherit from it, or the same question would be answerable in one
+        // direction and not the other.
         else if (to is not null)
         {
             foreach (Link link in to.LinksFrom)
             {
-                if (linkType is null || link.LinkType == linkType)
+                if (linkType is null || link.LinkType?.HasAncestor(linkType) == true)
                 {
                     results.Add(link);
                 }
