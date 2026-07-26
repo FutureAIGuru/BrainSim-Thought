@@ -11,34 +11,19 @@
  * See the LICENSE file in the project root for full license information.
  */
 //
-// Copyright (c) FutureAI. All rights reserved.  
+// Copyright (c) FutureAI. All rights reserved.
 // Contains confidential and  proprietary information and programs which may not be distributed without a separate license
-//  
+//
 
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using Pluralize.NET;
-using UKS;
 
 namespace BrainSimulator.Modules
 {
-
     public partial class ModuleStressTestDlg : ModuleBaseDlg
     {
-
-        // UKS call
-        // Needed when accessing all items in the UKS.
-        public static ModuleHandler moduleHandler = new();
-        public static UKS.UKS theUKS = moduleHandler.theUKS;
-
-
         public ModuleStressTestDlg()
         {
             InitializeComponent();
@@ -54,28 +39,70 @@ namespace BrainSimulator.Modules
             Draw(false);
         }
 
-        private void SetOutputText(string theText)
+        private async void BtnBenchmark_Click(object sender, RoutedEventArgs e)
         {
-            txtOutput.Text = theText;
+            await RunOffTheUiThread("Benchmarking",
+                count => ModuleStressTest.RunBenchmark(count, ReportProgress));
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private async void BtnAdd_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn)
+            await RunOffTheUiThread("Adding",
+                count => ModuleStressTest.AddManyTestItems(count, ReportProgress));
+        }
+
+        private async void BtnClear_Click(object sender, RoutedEventArgs e)
+        {
+            await RunOffTheUiThread("Removing",
+                _ => ModuleStressTest.ClearTestItems(ReportProgress), requiresCount: false);
+        }
+
+        /// <summary>
+        /// Runs one long operation without blocking the window, so the progress
+        /// it reports can actually be seen while it is running.
+        /// </summary>
+        private async Task RunOffTheUiThread(
+            string description,
+            Func<int, string> work,
+            bool requiresCount = true)
+        {
+            int count = 0;
+            if (requiresCount && !int.TryParse(textInput.Text, out count))
             {
-                txtOutput.Text = "";
-                int count;
-                bool isValid = int.TryParse(textInput.Text, out count);
-                if (isValid)
-                {
-                    String message = ModuleStressTest.AddManyTestItems(count);
-                    txtOutput.Text = message;
-                }
-                else
-                {
-                    txtOutput.Text = "Error! You must provide an integer to run.";
-                }
+                txtOutput.Text = "Enter a whole number of Thoughts.";
+                return;
             }
+
+            SetButtonsEnabled(false);
+            StatusLabel.Content = description + "...";
+            txtOutput.Text = "";
+            try
+            {
+                string result = await Task.Run(() => work(count));
+                txtOutput.Text = result;
+                StatusLabel.Content = "Done.";
+            }
+            catch (Exception exception)
+            {
+                txtOutput.Text = "Error: " + exception.Message;
+                StatusLabel.Content = "Failed.";
+            }
+            finally
+            {
+                SetButtonsEnabled(true);
+            }
+        }
+
+        private void ReportProgress(string message)
+        {
+            Dispatcher.BeginInvoke(new Action(() => StatusLabel.Content = message));
+        }
+
+        private void SetButtonsEnabled(bool enabled)
+        {
+            btnBenchmark.IsEnabled = enabled;
+            btnAdd.IsEnabled = enabled;
+            btnClear.IsEnabled = enabled;
         }
     }
 }

@@ -1,16 +1,39 @@
-﻿<local:ModuleBaseDlg x:Class="BrainSimulator.Modules.ModuleStressTestDlg"
+<local:ModuleBaseDlg x:Class="BrainSimulator.Modules.ModuleStressTestDlg"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BrainSimulator.Modules"
         mc:Ignorable="d"
-        Title="Stress test the system" Height="450" Width="800" Background="Gray" ShowInTaskbar="False">
-    <Grid Name="theGrid" >
-        <TextBox x:Name="txtOutput" FontSize="14" TextWrapping="Wrap" Text="" Margin="58,137,79,54"/>
-        <TextBox x:Name="textInput" Height="37" Margin="58,73,458,0" TextWrapping="Wrap" Text="1000" FontSize="16" VerticalAlignment="Top"/>
-        <Button Content="Add Items" HorizontalAlignment="Right" Margin="0,78,300,0" Height="28" Width="148" Click="Button_Click" FontSize="16" VerticalAlignment="Top" />
-        <Label x:Name="StatusLabel" Content="" Margin="58,0,300,10" Grid.Row="1" Height="29" VerticalAlignment="Bottom"/>
-        <Label Content="Used to stress test by adding toy examples. &#10;Enter the amount of examples you want to add." HorizontalAlignment="Left" Height="44" Margin="58,20,0,0" VerticalAlignment="Top" Width="309"/>
+        Title="Stress test the system" Height="520" Width="820" Background="Gray" ShowInTaskbar="False">
+    <Grid Name="theGrid" Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10" FontSize="13"
+                   Text="Builds a UKS of the requested size and reports what ordinary operations cost at that size. Creation is cheap; reading and reorganizing are what limit how large a UKS can usefully become."/>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+            <Label Content="Thoughts:" VerticalAlignment="Center" FontSize="14"/>
+            <TextBox x:Name="textInput" Width="110" Height="28" Text="50000"
+                     FontSize="15" VerticalContentAlignment="Center" Margin="4,0,12,0"/>
+            <Button x:Name="btnBenchmark" Content="Run Benchmark" Width="150" Height="28"
+                    FontSize="14" Click="BtnBenchmark_Click" Margin="0,0,8,0"/>
+            <Button x:Name="btnAdd" Content="Add Items Only" Width="140" Height="28"
+                    FontSize="14" Click="BtnAdd_Click" Margin="0,0,8,0"/>
+            <Button x:Name="btnClear" Content="Remove Test Items" Width="150" Height="28"
+                    FontSize="14" Click="BtnClear_Click"/>
+        </StackPanel>
+
+        <TextBox Grid.Row="2" x:Name="txtOutput" FontSize="13" FontFamily="Consolas"
+                 TextWrapping="NoWrap" IsReadOnly="True" AcceptsReturn="True"
+                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                 Background="#FFF8F8F8"/>
+
+        <Label Grid.Row="3" x:Name="StatusLabel" Content="Ready." Margin="0,6,0,0" FontSize="13"/>
     </Grid>
 </local:ModuleBaseDlg>
