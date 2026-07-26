@@ -3,10 +3,12 @@
 This document describes the changes that let the text modules identify the
 grammatical role of each learned class — subjects, verbs, articles, adjectives,
 and predicates — from a corpus of observed phrases, without being given any
-English grammar to start from.
+English grammar to start from. It also covers the two follow-on steps that build
+on those roles: relating singular and plural word forms, and telling a
+classification (`is-a`) apart from an attribute assertion (`is`).
 
 It covers what was built, why each piece exists, how the pieces fit together,
-what the measured results are, and where the current boundary lies.
+what the measured results are, and what is and is not covered.
 
 ---
 
@@ -63,7 +65,7 @@ are *derived* by pooling the fillers of every position that carries a given role
 | File | Change |
 |---|---|
 | `UKS/UKS.SequenceBubble.cs` | `IsLearnableTemplatePattern` now permits **one** adjacent wildcard pair, opt-in via a new `maxAdjacentGapPairs` parameter on `DiscoverSequenceTemplates`. |
-| `BrainSimulator/Modules/ModuleText.cs` | `DiscoverPhraseTemplates` opts in to one adjacent gap pair; `ProcessTheExistingText` runs `DiscoverGrammaticalRoles` as its final step; class marked `partial`. |
+| `BrainSimulator/Modules/ModuleText.cs` | `DiscoverPhraseTemplates` opts in to one adjacent gap pair; `ProcessTheExistingText` runs `DiscoverGrammaticalRoles` (which now also relates number) as its final step; class marked `partial`. |
 | `BrainSimulator/Modules/ModuleTextDlg.xaml.cs` | The "Discover structures" button's status line now reports role and category counts. |
 
 ---
@@ -264,6 +266,61 @@ but it shares its bare complements with `is`, which *is* thing-linking. So `are`
 inherits thing-linking status by complement overlap, and `dogs are brown` is read
 as a quality rather than an action.
 
+### Phase 7 — Learn the singular/plural relation
+
+**File:** `ModuleText.Grammar.cs` — `DiscoverNumberRelation`
+
+Phase 6 leaves one gap. A plural noun that is only ever seen as a *complement* —
+`animals` in `dogs are animals`, `tails` in `dogs have tails`, neither of which
+ever appears as a subject — has no position that marks it as a thing, so it is
+mistaken for a quality. Its singular (`animal`, `tail`) *is* known to be a thing,
+because `a dog is an animal` places it after an article. The two forms need to be
+tied together.
+
+`DiscoverNumberRelation` learns that tie from the spellings the words already
+carry, **not** from a built-in pluralizer (the deck asks specifically to replace
+English-specific spelling assumptions with learned ones):
+
+1. Over the known nouns, count the suffix that most often turns one noun into
+   another (`dog`→`dogs`, `cat`→`cats`, …). In English this discovers `s`; the
+   method never assumes it, and a different corpus would settle on a different
+   ending. The rule is stored as ordinary knowledge (`pluralSuffix:s` under
+   `NumberTransform`).
+2. For each singular noun `s`, if `s` + suffix is a known word `p`, then `p` is
+   the plural of `s`: it is marked a noun (correcting any earlier guess that put
+   it among qualities or actions), it is linked `p --means--> (s's concept)` so
+   it denotes the same thing, and the relation `p --pluralOf--> s` is recorded.
+
+This makes `animals` a thing that means `animal`, and `tails` a thing that means
+`tail`.
+
+### Phase 8 — Distinguish assertions from classifications
+
+**No new apply-path code was needed.** This is worth stating plainly, because the
+plan expected a change here and the code turned out not to require one.
+
+`dogs are animals` (a classification → `is-a`) and `dogs are brown` (an assertion
+→ `is`) share a surface. `LearnActionsFromExemplars` already produces two
+separate action templates for `?? are ??` — one per SET type — because it groups
+exemplars by relation before discovering templates. The remaining question is
+only which of the two a given phrase should use, and the existing selection in
+`ApplyExistingTemplatesToPhrase` already answers it: it scores each candidate by
+how many of the phrase's words fall into that template's learned slot classes.
+
+The `is-a` template's complement class contains `animals`; the `is` template's
+contains qualities like `brown`. Once Phase 7 has made `animals` a thing and
+given it its singular meaning:
+
+- `dogs are animals` scores higher on the `is-a` template → asserts
+  `[dog -is-a-> animal]` (with the singular concepts, via the Phase 7 meaning
+  links).
+- `dogs are brown` scores higher on the `is` template → asserts
+  `[dog -is-> brown]`.
+
+So Phase 8 is delivered by Phase 7 plus code that already existed. The singular
+case (`a dog is an animal` vs `a dog is brown`) was already unambiguous, because
+the article before the complement puts those two in *different* templates.
+
 ---
 
 ## 4. Results
@@ -289,30 +346,53 @@ position receives a role.
 - 13 qualities (`brown, large, small, black, white, green, tall, short, …`)
   correctly separated from nouns and verbs
 - nouns and verbs clean; subject and predicate roles disjoint
+- complement-only plurals (`animals`, `tails`, …) correctly recognized as things
+- **assertions distinguished from classifications**: `dogs are animals` asserts
+  `[dog -is-a-> animal]`, `dogs are brown` asserts `[dog -is-> brown]`, each with
+  the opposite relation confirmed absent
 
 ---
 
-## 5. Current boundary
+## 5. What is covered, and what is not
 
-Every remaining error on the true-template corpus is the **singular/plural
-classification** case, and it is a known dependency on later work, not a defect
-in this one.
+The role and category work (Phases 0–6) plus the number relation (Phase 7) and
+the assertion/classification distinction (Phase 8) together deliver, on the two
+structured corpora:
 
-`A dog is an animal` establishes `animal` as a *thing* (it takes an article). But
-nothing yet relates the plural `animals` to the singular `animal`, so
-`dogs are animals` is structurally identical to `dogs are brown` — a bare word
-after `are` — and `animals`, `tails`, `plants` are read as qualities.
+- every learned class identified as subject, verb, article, adjective, or
+  predicate, grounded in the actions its templates perform;
+- singular and plural noun forms related by a learned suffix rule;
+- classifications (`is-a`) told apart from attribute assertions (`is`), in both
+  singular and plural surface forms.
 
-Resolving this needs the singular↔plural relation (a separate planned phase). The
-test suite **asserts this boundary explicitly** rather than hiding it:
+The test suite records the singular/plural boundary explicitly rather than
+leaving it implicit — the assertions that once documented the gap now document
+its closure:
 
 ```csharp
 foreach (string plural in new[] { "animals", "tails" })
-    Assert.DoesNotContain(plural, nouns);
+    Assert.Contains(plural, nouns);           // Phase 7 recognizes plural things
 ```
 
-When the plural work lands, these assertions flipping is the signal that it
-worked.
+```csharp
+ModuleText.AddPhrase("dogs are animals", applyExistingTemplates: true);
+Assert.NotNull(uks.GetLink(dog, isA, animal)); // classification
+Assert.Null(uks.GetLink(dog, is, animal));     // and not an assertion
+```
+
+### Still open (out of scope here)
+
+These remain future work, consistent with the project's roadmap:
+
+- **Irregular plurals.** The learned suffix relates regular forms
+  (`dog`/`dogs`); `mouse`/`mice`, `goose`/`geese` are not paired. This is an
+  honest limit of a single learned transformation, not a bug — such pairs simply
+  stay unrelated.
+- **Larger, less structured corpora.** All results are on closed, deliberately
+  structured vocabularies. Real prose (`tinyStories.txt`) would need punctuation
+  and clause handling not attempted here.
+- **Ambiguous meanings, questions, durability, natural-language output** — the
+  remaining items on the deck's "Next Steps" and "Shortcomings" slides.
 
 ---
 
@@ -327,9 +407,9 @@ worked.
   only because it strips the prefix in its assertions; a separate cleanup is
   warranted.
 - **Idempotence.** `DiscoverGrammaticalRoles` is safe to rerun: descriptor
-  markers and role sequences are reused rather than recreated, so a second pass
-  over unchanged templates adds nothing to the UKS. This is covered by
-  `RediscoveringRolesAddsNothingToTheUks`.
+  markers, role sequences, and the number relation are reused rather than
+  recreated, so a second pass over unchanged templates adds nothing to the UKS.
+  This is covered by `RediscoveringRolesAddsNothingToTheUks`.
 - **Thresholds** (`minFunctionWordTemplates`, `minRoleOverlap`,
   `maxAdjacentGapPairs`) are parameters with corpus-tuned defaults, consistent
   with the project's existing manually-selected thresholds. They are the natural

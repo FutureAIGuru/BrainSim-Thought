@@ -92,7 +92,91 @@ public partial class ModuleText
         WriteRoleSequences(templates);
         GroundRolesInActions(templates);
         DeriveLexicalCategories(templates, functionWords);
+        DiscoverNumberRelation();
         return theUKS.GetSlotRoleRoot().Children.Count;
+    }
+
+    /// <summary>
+    /// Learns the relationship between singular and plural word classes from the
+    /// spellings the words already carry, rather than from a built-in
+    /// pluralizer. The suffix which most often turns one noun into another is
+    /// taken as the number transformation, and every noun formed that way is
+    /// recognized as the plural of its singular: it denotes the same thing, and
+    /// is itself a thing.
+    ///
+    /// This is what lets a plural seen only as a complement — "dogs are
+    /// animals", where "animals" never appears as a subject — be understood as a
+    /// thing rather than a quality, which in turn tells that classification
+    /// apart from the assertion "dogs are brown".
+    /// </summary>
+    /// <returns>The number of singular/plural pairs related.</returns>
+    public static int DiscoverNumberRelation(int minPairs = 3)
+    {
+        var theUKS = MainWindow.theUKS;
+        Thought nounCategory = theUKS.Labeled("noun");
+        Thought wordRoot = theUKS.Labeled("Word");
+        if (nounCategory is null || wordRoot is null) return 0;
+
+        Dictionary<string, Thought> vocabulary = wordRoot.Children
+            .Where(word => word.Label.StartsWith("w:", StringComparison.Ordinal))
+            .GroupBy(WordLabel, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        List<Thought> nouns = nounCategory.Children
+            .Where(member => member is not SeqElement && !member.HasAncestor("Wildcard"))
+            .ToList();
+        HashSet<string> nounLabels = nouns.Select(WordLabel).ToHashSet(StringComparer.Ordinal);
+
+        // The transformation is whatever most often carries one known noun onto
+        // another. In English this discovers "s"; nothing here assumes it, and a
+        // corpus in another language would settle on a different ending.
+        Dictionary<string, int> suffixCounts = new(StringComparer.Ordinal);
+        foreach (string singular in nounLabels)
+            foreach (string longer in nounLabels)
+                if (longer.Length > singular.Length &&
+                    longer.StartsWith(singular, StringComparison.Ordinal))
+                {
+                    string suffix = longer[singular.Length..];
+                    suffixCounts[suffix] = suffixCounts.GetValueOrDefault(suffix) + 1;
+                }
+        if (suffixCounts.Count == 0) return 0;
+
+        var dominant = suffixCounts.OrderByDescending(entry => entry.Value)
+            .ThenBy(entry => entry.Key, StringComparer.Ordinal).First();
+        if (dominant.Value < minPairs) return 0;
+        string pluralSuffix = dominant.Key;
+
+        // The discovered rule is kept as ordinary knowledge, not left implicit
+        // in this method.
+        theUKS.GetOrAddThought("NumberTransform", "LanguageElement");
+        theUKS.GetOrAddThought("pluralSuffix:" + pluralSuffix, "NumberTransform");
+        Thought meansType = theUKS.GetOrAddThought("means", "LinkType");
+        Thought pluralOfType = theUKS.GetOrAddThought("pluralOf", "LinkType");
+        Thought verbCategory = theUKS.Labeled("verb");
+        Thought adjectiveCategory = theUKS.Labeled("adjective");
+
+        int pairs = 0;
+        foreach (Thought singular in nouns)
+        {
+            string pluralLabel = WordLabel(singular) + pluralSuffix;
+            if (!vocabulary.TryGetValue(pluralLabel, out Thought plural) || plural == singular)
+                continue;
+
+            // A plural is a thing, so correct any earlier guess that placed it
+            // among the qualities or the actions.
+            plural.AddParent(nounCategory);
+            if (adjectiveCategory is not null) plural.RemoveParent(adjectiveCategory);
+            if (verbCategory is not null) plural.RemoveParent(verbCategory);
+
+            // It denotes the same thing the singular denotes, so "dogs are
+            // animals" can resolve to the concepts dog and animal.
+            Thought concept = GetOrCreateMeaning(singular);
+            if (plural.GetTargetOfFirstLinkOfType("means") is null)
+                theUKS.AddStatement(plural, meansType, concept);
+            if (theUKS.GetLink(plural, pluralOfType, singular) is null)
+                theUKS.AddStatement(plural, pluralOfType, singular);
+            pairs++;
+        }
+        return pairs;
     }
 
     /// <summary>
@@ -673,6 +757,16 @@ public partial class ModuleText
         if (descriptor is null) return "none";
         int separator = descriptor.IndexOf('|');
         return separator < 0 ? descriptor : descriptor[..separator];
+    }
+
+    /// <summary>
+    /// The spelling a word carries, without the "w:" the corpus loader prefixes.
+    /// Comparisons must use this rather than the raw label, or a value created by
+    /// one path fails to match the same value created by another.
+    /// </summary>
+    private static string WordLabel(Thought word)
+    {
+        return word.Label.StartsWith("w:", StringComparison.Ordinal) ? word.Label[2..] : word.Label;
     }
 
     private static void Increment(Dictionary<Thought, int> counts, Thought key)

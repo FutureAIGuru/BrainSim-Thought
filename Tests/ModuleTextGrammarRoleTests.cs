@@ -171,13 +171,11 @@ public class ModuleTextGrammarRoleTests
         Assert.Empty(adjectives.Intersect(nouns));
         Assert.Empty(adjectives.Intersect(verbs));
 
-        // A plural in bare complement position ("dogs are animals", "dogs have
-        // tails") is still read as a quality, because nothing yet relates it to
-        // the singular which "is an animal" established as a thing. Relating the
-        // two forms is separate work; this records the boundary rather than
-        // hiding it.
+        // A plural seen only as a complement ("dogs are animals", "dogs have
+        // tails") is now recognized as a thing, because the number relation ties
+        // it to the singular which "is an animal" established as one.
         foreach (string plural in new[] { "animals", "tails" })
-            Assert.DoesNotContain(plural, nouns);
+            Assert.Contains(plural, nouns);
     }
 
     [Fact]
@@ -209,6 +207,54 @@ public class ModuleTextGrammarRoleTests
         // which fill them, because they sit on opposite sides of the verb.
         Assert.Empty(uks.Labeled("subjectRole").Children
             .Intersect(uks.Labeled("predicateRole").Children));
+    }
+
+    [Fact]
+    public void PluralsAreRelatedToTheirSingularsByALearnedSuffix()
+    {
+        // The corpus never states the rule; it is read off the spellings the
+        // words already have. Every plural formed by the discovered suffix means
+        // the singular's concept and inherits its category.
+        UKS.UKS uks = LoadAndDiscover("bst_true_template_corpus.txt");
+
+        Thought pluralSuffix = uks.Labeled("pluralSuffix:s");
+        Assert.NotNull(pluralSuffix);
+
+        Thought pluralOf = uks.Labeled("pluralOf");
+        foreach ((string plural, string singular) in new[]
+        {
+            ("dogs", "dog"), ("animals", "animal"), ("tails", "tail"), ("legs", "leg"),
+        })
+        {
+            Thought pluralWord = uks.Labeled("w:" + plural);
+            Assert.NotNull(pluralWord);
+            Assert.Contains(pluralWord.LinksTo, link =>
+                link.LinkType == pluralOf && Show(link.To) == singular);
+            Assert.Equal(uks.Labeled("w:" + singular).GetTargetOfFirstLinkOfType("means"),
+                pluralWord.GetTargetOfFirstLinkOfType("means"));
+        }
+    }
+
+    [Fact]
+    public void PluralClassificationsAndAssertionsAreDistinguished()
+    {
+        // This is the deck's example. "dogs are animals" classifies; "dogs are
+        // noisy" asserts a quality. The two share a surface but not a meaning,
+        // and the difference is decided by what fills the complement — a thing
+        // or a quality — now that plural things are recognized as things.
+        UKS.UKS uks = LoadAndDiscover("bst_true_template_corpus.txt");
+
+        ModuleText.AddPhrase("dogs are animals", applyExistingTemplates: true);
+        Assert.NotNull(uks.GetLink(
+            uks.Labeled("dog"), uks.Labeled("is-a"), uks.Labeled("animal")));
+        Assert.Null(uks.GetLink(
+            uks.Labeled("dog"), uks.Labeled("is"), uks.Labeled("animal")));
+
+        ModuleText.AddPhrase("dogs are brown", applyExistingTemplates: true);
+        Assert.NotNull(uks.GetLink(
+            uks.Labeled("dog"), uks.Labeled("is"), uks.Labeled("brown")));
+        Assert.Null(uks.GetLink(
+            uks.Labeled("dog"), uks.Labeled("is-a"), uks.Labeled("brown")));
     }
 
     [Fact]
