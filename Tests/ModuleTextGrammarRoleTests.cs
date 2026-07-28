@@ -315,6 +315,34 @@ public class ModuleTextGrammarRoleTests
     }
 
     [Fact]
+    public void QuestionsAreAnsweredInEnglishRatherThanInFragments()
+    {
+        // The same knowledge, said as a phrase instead of the bare word which
+        // completes it.
+        UKS.UKS uks = LoadAndDiscover("bst_true_template_corpus.txt");
+
+        foreach ((string question, string expected) in new[]
+        {
+            ("What can a dog do?", "a dog can bark"),
+            ("What does a dog have?", "a dog has a tail"),
+            ("What can bark?", "a dog can bark"),
+        })
+        {
+            List<string> said = ModuleText.AnswerQuestionInEnglish(question);
+            output.WriteLine($"{question,-24} => " + string.Join(" / ", said));
+            Assert.Contains(expected, said);
+        }
+
+        // Asked from either end, the same fact is stated the same way.
+        Assert.Equal(
+            ModuleText.AnswerQuestionInEnglish("What can a dog do?"),
+            ModuleText.AnswerQuestionInEnglish("What can bark?"));
+
+        // The word form still works, so nothing which relied on it has changed.
+        Assert.Contains("bark", ModuleText.AnswerQuestion("What can a dog do?"));
+    }
+
+    [Fact]
     public void AskingChangesNothing()
     {
         // A question reads knowledge; it must not create any.

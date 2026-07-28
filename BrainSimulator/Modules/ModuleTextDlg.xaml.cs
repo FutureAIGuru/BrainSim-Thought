@@ -51,10 +51,23 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         // than being learned as another observation.
         if (phrase.TrimEnd().EndsWith("?", StringComparison.Ordinal))
         {
-            var answers = ModuleText.AnswerQuestion(phrase);
+            var answers = ModuleText.AnswerQuestionInEnglish(phrase);
+            if (answers.Count == 0) answers = ModuleText.AnswerQuestion(phrase);
             SetStatus(answers.Count > 0
-                ? string.Join(", ", answers)
+                ? string.Join(". ", answers) + "."
                 : "Nothing known about that.");
+            return;
+        }
+
+        // A single word cannot be a phrase, so it is taken as asking what is
+        // known about the thing it names.
+        string single = phrase.Trim().TrimEnd('.', '!');
+        if (single.Length > 0 && !single.Contains(' '))
+        {
+            var account = ModuleText.DescribeThought(single);
+            SetStatus(account.Count > 0
+                ? string.Join(". ", account) + "."
+                : $"Nothing known about {single}.");
             return;
         }
 

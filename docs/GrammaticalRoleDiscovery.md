@@ -5,8 +5,9 @@ grammatical role of each learned class — subjects, verbs, articles, adjectives
 and predicates — from a corpus of observed phrases, without being given any
 English grammar to start from. It also covers the follow-on steps that build on
 those roles: relating singular and plural word forms, telling a classification
-(`is-a`) apart from an attribute assertion (`is`), and learning what an observed
-question asks so it can be answered from what is already known.
+(`is-a`) apart from an attribute assertion (`is`), learning what an observed
+question asks so it can be answered from what is already known, and saying what
+is known back in English.
 
 It covers what was built, why each piece exists, how the pieces fit together,
 what the measured results are, and what is and is not covered.
@@ -59,6 +60,7 @@ are *derived* by pooling the fillers of every position that carries a given role
 |---|---|
 | `UKS/UKS.SequenceRole.cs` | Generic mechanism: the `SlotRole` vocabulary, the parallel `hasRoles` sequence written beside a template's words, and role coalescing by population overlap. |
 | `BrainSimulator/Modules/ModuleText.Grammar.cs` | The grammar-specific policy: discover function words, assign and merge role candidates, ground roles in actions, derive lexical categories. A `partial` extension of `ModuleText`. |
+| `BrainSimulator/Modules/ModuleText.Generate.cs` | Saying knowledge in English: render one relationship as a phrase, and give an account of everything known about a Thought. |
 | `Tests/ModuleTextGrammarRoleTests.cs` | Gold-standard evaluation against the closed corpus vocabulary, plus grounding, separation, and idempotence tests. |
 
 ### Modified files
@@ -412,6 +414,103 @@ plural was derived from) as the citation form.
 Asking is read-only: `AskingChangesNothing` asserts that answering a question
 adds no Thoughts and no links.
 
+### Phases 13–15 — Saying it back in English
+
+**File:** `ModuleText.Generate.cs`
+
+Everything above reads English. This says it. **Generation is application run
+backwards**, over the same templates and the same actions:
+
+| understanding | saying |
+|---|---|
+| template + phrase → relationship | template + relationship → phrase |
+| read the words at the action's positions | write the words at the action's positions |
+| `ApplyLearnedTemplateAction` | `DescribeRelationship` |
+
+The enabling detail already existed: `LearnActionsFromExemplars` builds each
+template's action out of the template's own wildcards, so `action.From` and
+`action.To` *are* positions in the `hasWords` sequence. Finding where the subject
+and the object go is a lookup, not an inference.
+
+`DescribeRelationship(Link)` collects every template whose action names the same
+relationship, places the two Thoughts at the action's positions, and ranks the
+results:
+
+1. **openness** — a template which has frozen an end says something about the
+   word it froze, however much evidence stands behind it;
+2. **fit** — has this template actually been seen to accept these words;
+3. **base form** — prefer the form the other forms were derived from, so a fact
+   is stated in the singular where either would do;
+4. evidence, then a stable tiebreak.
+
+A template holding a position the relationship says nothing about — `the quiet
+dog can run`, when only `[dog→can→run]` is being said — is rejected outright,
+since there would be no word to put in it.
+
+`DescribeThought` says everything known about one Thought, passing over each
+relationship no template can phrase. That also keeps the machinery out of the
+account: `hasWords`, `means` and `evidence` links match no template and so are
+never said.
+
+#### Articles and agreement are not implemented
+
+There is no rule anywhere about *a* before a consonant and *an* before a vowel,
+and none about singular and plural agreement. Both come out right for one reason:
+**a template is chosen by the words it has been seen to accept.**
+
+The corpus teaches `a terrier is a dog` and `a dog is an animal`. The singular
+classification template that results accepts only what it observed:
+
+```
+a ??class4 is a ??class5
+    ??class4 accepts: terrier, robin, pine, rose
+    ??class5 accepts: dog, bird, tree, flower      <- all consonant-initial
+```
+
+Asked to classify a terrier, that template fits and produces `a terrier is a
+dog`. Asked to classify a dog — whose class is `animal` — the template does not
+accept the word, loses on fit, and the phrasing learned for that fact is used
+instead: `dogs are animals`. The system **cannot** produce `a dog is a animal`,
+not because anything inspects letters, but because no template was ever seen
+accepting that combination.
+
+`TheSameRelationIsPhrasedByWhichWordsATemplateAccepts` asserts this and guards it
+by searching the generator's source for `aeiou`, `IsVowel`, `"an"` and `"a"` —
+with comments stripped, since the first version of that guard matched the very
+comment explaining that no such rule exists.
+
+#### What is produced
+
+```
+[dog->can->bark]        =>  a dog can bark
+[dog->has->tail]        =>  a dog has a tail
+[dog->is->brown]        =>  a dog is brown
+[terrier->is-a->dog]    =>  a terrier is a dog
+[dog->is-a->animal]     =>  dogs are animals
+
+What can a dog do?      =>  a dog can bark
+What does a dog have?   =>  a dog has a tail
+What can bark?          =>  a dog can bark
+```
+
+The last line matters: asked from the opposite end, supplying the predicate
+rather than the subject, the same fact is stated the same way.
+
+`AnswerQuestion` still returns bare words and is unchanged;
+`AnswerQuestionInEnglish` is the phrase-returning counterpart. Both are thin
+wrappers over one `FindAnswers`, so the two cannot drift apart.
+
+#### Reading back what was said
+
+Two tests close the loop, and they are only possible because both directions now
+exist:
+
+- `WhatIsSaidCanBeUnderstoodAgain` — generate a phrase, read it back in, and
+  confirm it asserts the relationship it was made from.
+- `SayingWhatIsKnownTeachesNothingNew` — give an account of everything known
+  about `dog`, read every phrase back, and confirm the number of relationships
+  is unchanged. Saying what is known must not change what is known.
+
 ---
 
 ## 4. Results
@@ -457,19 +556,41 @@ of relationships that were only ever asserted by statements:
 The third is the inverse direction — supplying the target and asking for the
 source — which exercises a different path through the query engine.
 
+### English out
+
+Every answer above can be given as a phrase rather than a fragment, and
+everything known about a Thought can be recounted:
+
+```
+DescribeThought("dog")  =>  a dog can bark
+                            a dog has a tail
+                            a dog is brown
+                            dogs are animals
+```
+
+Reading all four back in leaves the count of what is believed about `dog`
+unchanged.
+
 ---
 
 ## 5. What is covered, and what is not
 
-The role and category work (Phases 0–6) plus the number relation (Phase 7) and
-the assertion/classification distinction (Phase 8) together deliver, on the two
-structured corpora:
+The role and category work (Phases 0–6), the number relation (Phase 7), the
+assertion/classification distinction (Phase 8), the question work (Phases 9–12)
+and generation (Phases 13–15) together deliver, on the two structured corpora:
 
 - every learned class identified as subject, verb, article, adjective, or
   predicate, grounded in the actions its templates perform;
 - singular and plural noun forms related by a learned suffix rule;
 - classifications (`is-a`) told apart from attribute assertions (`is`), in both
-  singular and plural surface forms.
+  singular and plural surface forms;
+- observed questions understood as TEST actions and answered from knowledge that
+  only statements asserted;
+- knowledge said back in English, with article and number agreement falling out
+  of template choice rather than any rule.
+
+The arc is closed: English in → knowledge → English out, and what comes out can
+be read back in to yield exactly what was already believed.
 
 The test suite records the singular/plural boundary explicitly rather than
 leaving it implicit — the assertions that once documented the gap now document
@@ -501,6 +622,16 @@ These remain future work, consistent with the project's roadmap:
   hand-authored `tpl:*` templates in `UKSContent/QueryTemplates.txt`, which use
   the older `hasWords`/`outputs` format. The learned question templates are a
   parallel mechanism; replacing the legacy path was deliberately not attempted.
+- **Conjoined statements.** Each fact is said as its own phrase (`a dog is
+  brown.` `a dog can bark.`). Combining them into `a dog is brown and can bark`
+  would need conjunction templates the corpus never demonstrates, so it would be
+  invented grammar rather than learned; it belongs with a corpus that shows
+  conjunctions.
+- **Phrasings the corpus never taught.** Generation can only say a fact in a way
+  it has seen. The corpus's one `an` context is the fixed word `animal`, so no
+  general template with an open position after `an` exists, and a classification
+  whose target begins with a vowel is stated in the plural instead. That is a
+  limit of the corpus, not of the method.
 - **Irregular plurals.** The learned suffix relates regular forms
   (`dog`/`dogs`); `mouse`/`mice`, `goose`/`geese` are not paired. This is an
   honest limit of a single learned transformation, not a bug — such pairs simply

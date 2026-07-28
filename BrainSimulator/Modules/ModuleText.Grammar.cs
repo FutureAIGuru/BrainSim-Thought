@@ -933,8 +933,41 @@ public partial class ModuleText
     /// <returns>The answering words, or an empty list when nothing is known.</returns>
     public static List<string> AnswerQuestion(string questionText)
     {
-        var theUKS = MainWindow.theUKS;
         List<string> retVal = new();
+        foreach ((Link _, Thought answer) in FindAnswers(questionText))
+        {
+            string word = WordForMeaning(answer);
+            if (word is not null && !retVal.Contains(word)) retVal.Add(word);
+        }
+        return retVal;
+    }
+
+    /// <summary>
+    /// Answers one question in English, saying the whole relationship rather
+    /// than the word which completes it: "a dog can bark" rather than "bark".
+    /// </summary>
+    /// <returns>One phrase for each answering relationship which can be said.</returns>
+    public static List<string> AnswerQuestionInEnglish(string questionText)
+    {
+        List<string> retVal = new();
+        foreach ((Link relationship, Thought _) in FindAnswers(questionText))
+        {
+            string said = DescribeRelationship(relationship);
+            if (said is not null && !retVal.Contains(said)) retVal.Add(said);
+        }
+        return retVal;
+    }
+
+    /// <summary>
+    /// Finds the relationships which answer a question, each paired with the
+    /// Thought it contributes as the answer. The question is matched to a
+    /// learned question template, the open position is left open, and the
+    /// resulting TEST actions are read rather than asserted.
+    /// </summary>
+    private static List<(Link relationship, Thought answer)> FindAnswers(string questionText)
+    {
+        var theUKS = MainWindow.theUKS;
+        List<(Link, Thought)> retVal = new();
         Thought questionRoot = theUKS.Labeled("LearnedQuestionTemplate");
         Thought hasWords = theUKS.Labeled("hasWords");
         if (questionRoot is null || hasWords is null) return retVal;
@@ -979,8 +1012,7 @@ public partial class ModuleText
                 {
                     Thought answer = suppliesSource ? result.To : result.From;
                     if (answer is null || answer == meaning) continue;
-                    string word = WordForMeaning(answer);
-                    if (word is not null && !retVal.Contains(word)) retVal.Add(word);
+                    if (!retVal.Any(found => found.Item2 == answer)) retVal.Add((result, answer));
                 }
             }
             if (retVal.Count > 0) break;
