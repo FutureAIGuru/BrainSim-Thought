@@ -64,6 +64,178 @@ public class ModuleTextGenerationTests
         }
     }
 
+    [Theory]
+    [InlineData(903)]
+    [InlineData(500)]
+    public void ShowTheAccountOfABirdAsTheDialogWouldGiveIt(int lines)
+    {
+        // Exactly what the running program does: load, Process, and no more.
+        // 500 is what one press of Load ingests, so it shows what a half-loaded
+        // corpus produces.
+        UKS.UKS uks = LoadCorpus(applyActions: false, lineLimit: lines);
+        Thought bird = uks.Labeled("bird");
+        output.WriteLine($"--- {lines} lines ---");
+        if (bird is null) { output.WriteLine("no bird"); return; }
+        foreach (Link link in bird.LinksTo.Where(l => l.To is not null))
+            output.WriteLine($"  [bird -{link.LinkType?.Label}-> {link.To.Label}]  =>  " +
+                (ModuleText.DescribeRelationship(link) ?? "(nothing)"));
+        output.WriteLine("  account:");
+        foreach (string phrase in ModuleText.DescribeThought(bird))
+            output.WriteLine("    " + phrase);
+    }
+
+    [Theory]
+    [InlineData(903)]
+    [InlineData(500)]
+    [InlineData(250)]
+    public void ShowWhetherCommonWordsCanBeDescribed(int lines)
+    {
+        UKS.UKS uks = LoadCorpus(applyActions: false, lineLimit: lines);
+        output.WriteLine($"--- {lines} lines loaded ---");
+        foreach (string name in new[] { "dog", "cat", "bird", "fish", "ball" })
+        {
+            List<string> account = ModuleText.DescribeThought(name);
+            output.WriteLine($"  {name,-6} {account.Count} phrases" +
+                (account.Count == 0 ? "   because: " + ModuleText.ExplainNothingSaid(name) : ""));
+            foreach (string phrase in account) output.WriteLine("           " + phrase);
+        }
+    }
+
+    [Fact]
+    public void TheReasonNothingIsSaidIsReported()
+    {
+        // Silence has several causes and they need telling apart: nothing
+        // learned yet, a word never seen, a word seen but not understood, and
+        // knowledge which no learned phrase can express.
+        UKS.UKS empty = new(clear: true);
+        empty.CreateInitialStructure();
+        MainWindow.theUKS = empty;
+        Assert.Contains("Load a corpus", ModuleText.ExplainNothingSaid("dog"));
+
+        UKS.UKS uks = LoadCorpus(applyActions: false, lineLimit: int.MaxValue);
+        Assert.Contains("never been seen", ModuleText.ExplainNothingSaid("aardvark"));
+        Assert.Contains("nothing has been understood",
+            ModuleText.ExplainNothingSaid("ball"));
+
+        // And when a relationship can be said, the diagnosis says so with it.
+        Link canFly = uks.GetLink(uks.Labeled("bird"), uks.Labeled("can"), uks.Labeled("fly"));
+        string diagnosis = ModuleText.DiagnoseRelationship(canFly);
+        output.WriteLine(diagnosis);
+        Assert.Contains("can be said", diagnosis);
+        Assert.Contains("a bird can fly", diagnosis);
+
+        // A relationship no phrase covers names the position which refused it,
+        // or says no phrase performs that relation at all.
+        Thought odd = uks.GetOrAddThought("smellsLike", "LinkType");
+        string refused = ModuleText.DiagnoseRelationship(
+            uks.AddStatement(uks.Labeled("bird"), odd, uks.Labeled("blue")));
+        output.WriteLine(refused);
+        Assert.Contains("no learned phrase performs", refused);
+    }
+
+    [Fact]
+    public void WordsAreStillWordsWhenTheirClassMembershipHasChanged()
+    {
+        // A running program had every relationship intact and could say none of
+        // them, because the words denoting things were no longer under the Word
+        // class and so were not recognised as words at all. A Thought carrying
+        // the spelling prefix is a word whatever has become of its parentage.
+        UKS.UKS uks = LoadCorpus();
+        Thought bird = uks.Labeled("bird");
+        Assert.NotEmpty(ModuleText.DescribeThought(bird));
+
+        Thought wordRoot = uks.Labeled("Word");
+        List<Thought> reparented = wordRoot.Children
+            .Where(word => word.Label.StartsWith("w:", StringComparison.Ordinal))
+            .ToList();
+        Assert.NotEmpty(reparented);
+        Thought elsewhere = uks.GetOrAddThought("SomewhereElse", "Thought");
+        foreach (Thought word in reparented)
+        {
+            word.AddParent(elsewhere);
+            word.RemoveParent(wordRoot);
+        }
+        Assert.DoesNotContain(uks.Labeled("w:bird").Parents, parent => parent == wordRoot);
+
+        List<string> account = ModuleText.DescribeThought(bird);
+        foreach (string phrase in account) output.WriteLine("  " + phrase);
+        Assert.NotEmpty(account);
+        Assert.Contains("a bird can fly", account);
+    }
+
+    [Fact]
+    public void SilenceForWantOfAWordSaysSo()
+    {
+        UKS.UKS uks = LoadCorpus();
+        Thought bird = uks.Labeled("bird");
+        Link canFly = uks.GetLink(bird, uks.Labeled("can"), uks.Labeled("fly"));
+
+        // Take away what denotes the bird, leaving the knowledge untouched.
+        foreach (Link link in bird.LinksFrom
+            .Where(l => l.LinkType?.Label == "means").ToList())
+            link.From?.RemoveLink(link);
+
+        string diagnosis = ModuleText.DiagnoseRelationship(canFly);
+        output.WriteLine(diagnosis);
+        Assert.Contains("no word denotes", diagnosis);
+        Assert.Contains("means", diagnosis);
+    }
+
+    [Fact]
+    public void ShowWhatIsKnownAboutABall()
+    {
+        UKS.UKS uks = LoadCorpus(applyActions: false, lineLimit: int.MaxValue);
+
+        foreach (string name in new[] { "ball", "bird" })
+        {
+            Thought thought = uks.Labeled(name);
+            output.WriteLine($"--- {name} --- (exists: {thought is not null})");
+            if (thought is null) continue;
+            foreach (Link link in thought.LinksTo)
+                output.WriteLine($"    [{name} -{link.LinkType?.Label}-> {link.To?.Label}]");
+            output.WriteLine($"    account: {ModuleText.DescribeThought(thought).Count} phrases");
+        }
+
+        output.WriteLine("");
+        output.WriteLine("what reading the corpus asserted (bird only):");
+        ModuleText.UnderstandStoredPhrases(line =>
+        {
+            if (line.Contains("bird")) output.WriteLine("    " + line);
+        });
+
+        output.WriteLine("");
+        output.WriteLine("corpus lines mentioning ball:");
+        foreach (string line in File.ReadLines(Path.Combine(FindRepositoryRoot(),
+            "BrainSimulator", "WordFIles", "bst_true_template_corpus.txt"))
+            .Where(l => l.ToLowerInvariant().Contains("ball")).Take(6))
+            output.WriteLine("    " + line);
+    }
+
+    [Fact]
+    public void ShowTheAccountOfABird()
+    {
+        UKS.UKS uks = LoadCorpus();
+        Thought bird = uks.Labeled("bird");
+
+        output.WriteLine("bird's relationships:");
+        foreach (Link link in bird.LinksTo.Where(l => l.To is not null))
+            output.WriteLine($"  [bird -{link.LinkType?.Label}-> {link.To.Label}]  =>  " +
+                (ModuleText.DescribeRelationship(link) ?? "(nothing)"));
+
+        output.WriteLine("");
+        output.WriteLine("account: ");
+        foreach (string phrase in ModuleText.DescribeThought(bird))
+            output.WriteLine("  " + phrase);
+
+        output.WriteLine("");
+        Thought isAsubject = uks.Labeled("LearnedClass")?.Children
+            .FirstOrDefault(c => c.Children.Any(m => m.Label == "w:birds"));
+        foreach (Thought cls in uks.Labeled("LearnedClass").Children.Take(12))
+            output.WriteLine($"  {cls.Label}: " + string.Join(", ", cls.Children
+                .Where(m => m is not SeqElement && !m.HasAncestor("Wildcard"))
+                .Select(m => m.Label).Take(12)));
+    }
+
     [Fact]
     public void RelationshipsAreSaidAsEnglishPhrases()
     {
@@ -214,6 +386,29 @@ public class ModuleTextGenerationTests
     }
 
     [Fact]
+    public void TheThingAskedAboutCanBeNamedAsItWouldBeSpoken()
+    {
+        // What is typed into the dialog is whatever came to mind, so the same
+        // account is given for the thing however it was written.
+        UKS.UKS uks = LoadCorpus();
+        List<string> expected = ModuleText.DescribeThought(uks.Labeled("dog"));
+        Assert.NotEmpty(expected);
+
+        foreach (string spoken in new[] { "dog", "Dog", "a dog", "the dog", "dog.", "  dog  " })
+        {
+            output.WriteLine($"\"{spoken}\" -> {ModuleText.DescribeThought(spoken).Count} phrases");
+            Assert.Equal(expected, ModuleText.DescribeThought(spoken));
+        }
+
+        // A plural names the same thing as its singular.
+        Assert.Equal(expected, ModuleText.DescribeThought("dogs"));
+
+        Assert.Empty(ModuleText.DescribeThought(""));
+        Assert.Empty(ModuleText.DescribeThought("   "));
+        Assert.Empty(ModuleText.DescribeThought("nothingKnownByThisName"));
+    }
+
+    [Fact]
     public void SayingWhatIsKnownTeachesNothingNew()
     {
         // Reading back an account of what is known must not change what is
@@ -240,6 +435,62 @@ public class ModuleTextGenerationTests
     }
 
     [Fact]
+    public void TheUksOwnBookkeepingIsNeverSaid()
+    {
+        // A Thought whose parent is not known is filed under "Unknown". That is
+        // the UKS keeping house, not something to report: "birds are Unknown"
+        // states the absence of knowledge as though it were knowledge.
+        UKS.UKS uks = LoadCorpus(applyActions: false, lineLimit: int.MaxValue);
+
+        // Anything the corpus mentions but says nothing about keeps the
+        // placeholder parent; once something is understood about a Thought the
+        // UKS drops it, so the example is found rather than assumed.
+        Thought unknown = uks.Labeled("Unknown");
+        Link toUnknown = uks.AtomicThoughts
+            .SelectMany(thought => thought.LinksTo)
+            .FirstOrDefault(link => link.To == unknown && link.LinkType?.Label == "is-a" &&
+                link.From is not null && link.From is not SeqElement);
+        Assert.NotNull(toUnknown);
+        output.WriteLine($"placeholder link: [{toUnknown.From.Label} -is-a-> Unknown]");
+        Assert.Null(ModuleText.DescribeRelationship(toUnknown));
+        Assert.DoesNotContain(ModuleText.DescribeThought(toUnknown.From),
+            phrase => phrase.Contains("Unknown"));
+
+        List<string> account = ModuleText.DescribeThought(uks.Labeled("bird"));
+        foreach (string phrase in account) output.WriteLine("  " + phrase);
+        Assert.NotEmpty(account);
+        Assert.DoesNotContain(account, phrase => phrase.Contains("Unknown"));
+    }
+
+    [Fact]
+    public void AWordAPositionHasNotAcceptedIsNeverPutInIt()
+    {
+        // Filling a plural frame with singular words produces "bird are
+        // animal". A template whose position has never accepted any available
+        // form of the word is not used at all.
+        UKS.UKS uks = LoadCorpus();
+
+        // "wing" is known only as something a bird has, never as a kind of
+        // thing, so no classification template has a position which accepts it.
+        Thought wing = uks.Labeled("wing");
+        Link invented = uks.AddStatement(wing, uks.Labeled("is-a"), uks.Labeled("animal"));
+        string said = ModuleText.DescribeRelationship(invented);
+        output.WriteLine("[wing->is-a->animal] => " + (said ?? "(nothing)"));
+
+        // Whatever comes out, it may not be a frame filled with words the frame
+        // never took.
+        if (said is not null)
+        {
+            Assert.DoesNotContain("wing are", said);
+            Assert.DoesNotContain("are animal.", said + ".");
+        }
+
+        // The accounts which were already right stay right.
+        Assert.Equal("birds are animals", ModuleText.DescribeRelationship(
+            uks.GetLink(uks.Labeled("bird"), uks.Labeled("is-a"), uks.Labeled("animal"))));
+    }
+
+    [Fact]
     public void NothingIsSaidAboutARelationshipNoTemplateCovers()
     {
         // Silence is the right answer when no learned phrase fits; inventing
@@ -253,7 +504,9 @@ public class ModuleTextGenerationTests
         Assert.Null(ModuleText.DescribeRelationship(null));
     }
 
-    private static UKS.UKS LoadCorpus()
+    private static UKS.UKS LoadCorpus() => LoadCorpus(applyActions: true, lineLimit: int.MaxValue);
+
+    private static UKS.UKS LoadCorpus(bool applyActions, int lineLimit)
     {
         UKS.UKS uks = new(clear: true);
         uks.CreateInitialStructure();
@@ -265,16 +518,20 @@ public class ModuleTextGenerationTests
 
         string corpusPath = Path.Combine(FindRepositoryRoot(),
             "BrainSimulator", "WordFIles", "bst_true_template_corpus.txt");
+        int used = 0;
         foreach (string line in File.ReadLines(corpusPath))
         {
+            if (used >= lineLimit) break;
             if (string.IsNullOrWhiteSpace(line)) continue;
             string[] fields = line.Split('\t', 2);
             string phraseText = fields[0].Trim();
             ModuleText.AddPhrase(phraseText, applyExistingTemplates: false);
             if (fields.Length == 2 && !string.IsNullOrWhiteSpace(fields[1]))
                 ModuleText.AddActionExemplar(phraseText, fields[1]);
+            used++;
         }
         ModuleText.ProcessTheExistingText();
+        if (!applyActions) return uks;
 
         // Loading states the actions but never carries them out, so the plain
         // relationships have to be asserted before there is anything to say.

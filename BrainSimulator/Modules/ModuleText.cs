@@ -731,6 +731,8 @@ public partial class ModuleText : ModuleBase
         DiscoverGrammaticalRoles();
         DiscoverQuestionTemplates();
         LearnQuestionsFromStatementTemplates();
+        // The templates now exist, so everything already read can be understood.
+        UnderstandStoredPhrases();
         return learnedTemplates.Count;
     }
 

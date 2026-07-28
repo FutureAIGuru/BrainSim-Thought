@@ -5,28 +5,54 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BrainSimulator.Modules"
         mc:Ignorable="d"
-        Title="Text Import" Height="300" Width="550" Background="Gray" ShowInTaskbar="False" >
+        Title="Text Import" Height="470" Width="640" Background="Gray" ShowInTaskbar="False" >
 
-    <Grid>
-        <TextBox x:Name="tbPhrase" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" PreviewKeyDown="tbPhrase_PreviewKeyDown"
-                 TextWrapping="Wrap" Margin="78,62,0,0" HorizontalAlignment="Left" Width="283" Height="24" VerticalAlignment="Top" />
+    <Grid Margin="10,6,10,34">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-        <Button x:Name="btnIngest" Content="Add"
-                    Click="BtnAdd_Click" Margin="387,62,0,0" Height="24" Width="75" VerticalAlignment="Top" HorizontalAlignment="Left" />
+        <Label Grid.Row="0" Content="Enter Phrase" FontWeight="Bold" Padding="0,2,0,2"/>
 
-        <!-- File Loading Section -->
-        <Label Content="Enter Phrase" FontWeight="Bold" Margin="10,0,0,0" Height="30" VerticalAlignment="Top" HorizontalAlignment="Left" Width="135"/>
-        <Label Content="Load from File" FontWeight="Bold" Margin="0,124,0,0" Height="30" VerticalAlignment="Top" HorizontalAlignment="Left" Width="135"/>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,4">
+            <Label Content="Phrase:" VerticalAlignment="Center" Width="56" Padding="0,0,4,0"/>
+            <TextBox x:Name="tbPhrase" AcceptsReturn="False" TextWrapping="NoWrap"
+                     PreviewKeyDown="tbPhrase_PreviewKeyDown"
+                     Width="300" Height="24" VerticalContentAlignment="Center"/>
+            <Button x:Name="btnIngest" Content="Add" Click="BtnAdd_Click"
+                    Width="72" Height="24" Margin="6,0,0,0"/>
+            <Button x:Name="btnDescribe" Content="Tell Me" Click="BtnDescribe_Click"
+                    Width="72" Height="24" Margin="6,0,0,0"/>
+            <Button x:Name="btnTrigram" Content="Process" Click="btnTrigram_Click"
+                    Width="72" Height="24" Margin="6,0,0,0"/>
+        </StackPanel>
 
-        <Label Content="Phrase:" VerticalAlignment="Top" Width="60" Margin="31,61,469,0"/>
-        <Label Content="File:" VerticalAlignment="Top" Width="60" Margin="16,167,454,0"/>
-        <TextBox x:Name="txtFilePath" Height="24" Margin="81,169,0,0" IsReadOnly="True" 
-               VerticalAlignment="Top" Background="#F0F0F0" HorizontalAlignment="Left" Width="250"/>
-        <Button x:Name="btnBrowse" Content="Browse..." Click="btnBrowse_Click" Width="75" Height="24"
-              Margin="361,169,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-        <Button x:Name="btnLoad" Content="Load" Click="btnLoad_Click"  Width="75" Height="24"
-              Margin="441,169,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-        <Button x:Name="btnTrigram" Content="Process" Click="btnTrigram_Click"  Width="74" Height="24"
-              Margin="404,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+        <TextBlock Grid.Row="2" TextWrapping="Wrap" Margin="56,0,0,6" Foreground="#FF202020"
+                   Text="Add learns a statement. Tell Me answers a question ending in '?', or gives an account of a single word such as: dog"/>
+
+        <Label Grid.Row="3" Content="In English" FontWeight="Bold" Padding="0,2,0,2"/>
+
+        <TextBox Grid.Row="4" x:Name="txtSaid" IsReadOnly="True" AcceptsReturn="True"
+                 TextWrapping="Wrap" FontFamily="Consolas" FontSize="13"
+                 VerticalScrollBarVisibility="Auto" Background="#FFF8F8F8"
+                 Margin="0,0,0,8"/>
+
+        <Label Grid.Row="5" Content="Load from File" FontWeight="Bold" Padding="0,2,0,2"/>
+
+        <StackPanel Grid.Row="6" Orientation="Horizontal">
+            <Label Content="File:" VerticalAlignment="Center" Width="56" Padding="0,0,4,0"/>
+            <TextBox x:Name="txtFilePath" Height="24" IsReadOnly="True" Width="300"
+                     Background="#F0F0F0" VerticalContentAlignment="Center"/>
+            <Button x:Name="btnBrowse" Content="Browse..." Click="btnBrowse_Click"
+                    Width="72" Height="24" Margin="6,0,0,0"/>
+            <Button x:Name="btnLoad" Content="Load" Click="btnLoad_Click"
+                    Width="72" Height="24" Margin="6,0,0,0"/>
+        </StackPanel>
     </Grid>
 </local:ModuleBaseDlg>

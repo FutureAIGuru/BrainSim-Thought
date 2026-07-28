@@ -333,10 +333,14 @@ public class ModuleTextGrammarRoleTests
             Assert.Contains(expected, said);
         }
 
-        // Asked from either end, the same fact is stated the same way.
-        Assert.Equal(
-            ModuleText.AnswerQuestionInEnglish("What can a dog do?"),
-            ModuleText.AnswerQuestionInEnglish("What can bark?"));
+        // Asked from the other end the same fact is stated the same way, but the
+        // question is a different one: the corpus says four creatures bark, so
+        // asking what can bark reports all of them.
+        List<string> whoBarks = ModuleText.AnswerQuestionInEnglish("What can bark?");
+        Assert.Contains("a dog can bark", whoBarks);
+        Assert.True(whoBarks.Count > 1,
+            "asking what can bark should report every creature said to bark");
+        Assert.All(whoBarks, phrase => Assert.EndsWith("can bark", phrase));
 
         // The word form still works, so nothing which relied on it has changed.
         Assert.Contains("bark", ModuleText.AnswerQuestion("What can a dog do?"));

@@ -13,15 +13,21 @@
 
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace BrainSimulator.Modules;
 
 public partial class ModuleTextDlg : ModuleBaseDlg
 {
+    /// <summary>Phrases read so far from the file currently selected.</summary>
+    private int totalLoaded;
+
     public ModuleTextDlg()
     {
         InitializeComponent();
@@ -44,35 +50,72 @@ public partial class ModuleTextDlg : ModuleBaseDlg
     private void BtnAdd_Click(object sender, RoutedEventArgs e)
     {
         string phrase = tbPhrase.Text ?? string.Empty;
+        tbPhrase.Text = string.Empty;
+        tbPhrase.Focus();
 
-        tbPhrase.Text = string.Empty; tbPhrase.Focus();
-
-        // An interrogative phrase is answered from what is already known rather
-        // than being learned as another observation.
-        if (phrase.TrimEnd().EndsWith("?", StringComparison.Ordinal))
+        // A question, or the name of one thing, is not an observation to learn
+        // from. Either is answered instead, so that pressing Enter does the
+        // sensible thing with whatever was typed.
+        if (IsAskingSomething(phrase))
         {
-            var answers = ModuleText.AnswerQuestionInEnglish(phrase);
-            if (answers.Count == 0) answers = ModuleText.AnswerQuestion(phrase);
-            SetStatus(answers.Count > 0
-                ? string.Join(". ", answers) + "."
-                : "Nothing known about that.");
+            Say(phrase);
             return;
         }
 
-        // A single word cannot be a phrase, so it is taken as asking what is
-        // known about the thing it names.
-        string single = phrase.Trim().TrimEnd('.', '!');
-        if (single.Length > 0 && !single.Contains(' '))
+        SetStatus(ModuleText.AddText(phrase));
+    }
+
+    private void BtnDescribe_Click(object sender, RoutedEventArgs e)
+    {
+        Say(tbPhrase.Text ?? string.Empty);
+        tbPhrase.Focus();
+    }
+
+    private static bool IsAskingSomething(string text)
+    {
+        string trimmed = text.Trim().TrimEnd('.', '!');
+        return trimmed.EndsWith("?", StringComparison.Ordinal) ||
+            (trimmed.Length > 0 && !trimmed.Contains(' '));
+    }
+
+    /// <summary>
+    /// Says what is known, either as the answer to a question or as an account
+    /// of one thing. One phrase per line, because an account usually has
+    /// several and running them together makes them hard to read.
+    /// </summary>
+    private void Say(string text)
+    {
+        string trimmed = (text ?? string.Empty).Trim();
+        if (trimmed.Length == 0)
         {
-            var account = ModuleText.DescribeThought(single);
-            SetStatus(account.Count > 0
-                ? string.Join(". ", account) + "."
-                : $"Nothing known about {single}.");
+            SetStatus("Type a question, or the name of one thing.");
             return;
         }
 
-        string message = ModuleText.AddText(phrase);
-        SetStatus(message);
+        List<string> said;
+        if (trimmed.EndsWith("?", StringComparison.Ordinal))
+        {
+            said = ModuleText.AnswerQuestionInEnglish(trimmed);
+            // Nothing learned can phrase it, but the bare answer is still worth
+            // more than silence.
+            if (said.Count == 0)
+                said = ModuleText.AnswerQuestion(trimmed);
+        }
+        else
+        {
+            said = ModuleText.DescribeThought(trimmed);
+        }
+
+        if (said.Count == 0)
+        {
+            txtSaid.Text = "";
+            SetStatus(ModuleText.ExplainNothingSaid(trimmed));
+            return;
+        }
+
+        txtSaid.Text = string.Join(Environment.NewLine,
+            said.Select(phrase => phrase.EndsWith(".") ? phrase : phrase + "."));
+        SetStatus($"{said.Count} said.", Colors.Black);
     }
 
     private void btnBrowse_Click(object sender, RoutedEventArgs e)
@@ -87,6 +130,7 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         if (openFileDialog.ShowDialog() == true)
         {
             txtFilePath.Text = openFileDialog.FileName;
+            totalLoaded = 0;
             var module = ParentModule as ModuleText;
             module.CancelIncrementalLoad();
         }
@@ -114,8 +158,21 @@ public partial class ModuleTextDlg : ModuleBaseDlg
             SetStatus("Loading phrases...");
             try
             {
-                int count = await Task.Run(() => module.LoadTextFromFile(filePath));
-                SetStatus($"Successfully loaded {count} phases(s) from file.");
+                // One press reads a fixed number of phrases so the window stays
+                // responsive on a large file. Saying so avoids the trap of
+                // pressing Process on half a corpus and wondering why what was
+                // learned is patchy.
+                const int perPress = 500;
+                int count = await Task.Run(() => module.LoadTextFromFile(filePath, perPress));
+                totalLoaded += count;
+                if (count == perPress)
+                    SetStatus($"Loaded {totalLoaded} phrases so far — press Load " +
+                        "again to continue, then Process.");
+                else if (count > 0)
+                    SetStatus($"Loaded {totalLoaded} phrases; the file is complete. " +
+                        "Now press Process.");
+                else
+                    SetStatus($"Nothing more to load ({totalLoaded} phrases in total).");
             }
             catch (Exception ex)
             {

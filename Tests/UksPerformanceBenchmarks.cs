@@ -147,7 +147,13 @@ public class UksPerformanceBenchmarks
         output.WriteLine($"Children: 2000 members {smallCost * 1000,8:F1} us, " +
             $"8000 members {largeCost * 1000,8:F1} us, ratio {ratio:F2} " +
             "(4.00 would be exactly proportional)");
-        Assert.True(ratio < 8.0,
+
+        // Four times the members costs about five times as much, the extra being
+        // the memory hierarchy rather than extra work. Quadratic growth would
+        // cost sixteen times as much, and that is what this is here to catch, so
+        // the limit is set well clear of the honest figure: a tighter one only
+        // reports how busy the machine was when the suite ran.
+        Assert.True(ratio < 10.0,
             $"Reading a class's members cost {ratio:F1}x more for 4x the members; " +
             "the accessor is growing faster than the number of members.");
     }

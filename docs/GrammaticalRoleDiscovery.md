@@ -60,7 +60,7 @@ are *derived* by pooling the fillers of every position that carries a given role
 |---|---|
 | `UKS/UKS.SequenceRole.cs` | Generic mechanism: the `SlotRole` vocabulary, the parallel `hasRoles` sequence written beside a template's words, and role coalescing by population overlap. |
 | `BrainSimulator/Modules/ModuleText.Grammar.cs` | The grammar-specific policy: discover function words, assign and merge role candidates, ground roles in actions, derive lexical categories. A `partial` extension of `ModuleText`. |
-| `BrainSimulator/Modules/ModuleText.Generate.cs` | Saying knowledge in English: render one relationship as a phrase, and give an account of everything known about a Thought. |
+| `BrainSimulator/Modules/ModuleText.Generate.cs` | Saying knowledge in English: understand the phrases already read, render one relationship as a phrase, give an account of everything known about a Thought, and explain any silence. |
 | `Tests/ModuleTextGrammarRoleTests.cs` | Gold-standard evaluation against the closed corpus vocabulary, plus grounding, separation, and idempotence tests. |
 
 ### Modified files
@@ -500,6 +500,60 @@ rather than the subject, the same fact is stated the same way.
 `AnswerQuestionInEnglish` is the phrase-returning counterpart. Both are thin
 wrappers over one `FindAnswers`, so the two cannot drift apart.
 
+#### Reading is not yet believing
+
+Loading a corpus stores phrases so their structure can be learned, but storing a
+phrase is not believing it. Until the templates exist there is nothing to
+understand a phrase *with*, so on a first pass the only knowledge created is from
+the handful of lines carrying an explicit action exemplar — about forty of the
+nine hundred. Everything else was read and then forgotten.
+
+`UnderstandStoredPhrases` closes that. It runs at the end of `Process`, when the
+templates finally exist, and reads every stored phrase again, asserting what it
+says. A phrase is only read by a template whose positions accept its words, so
+nothing is asserted on the strength of a frame that merely happens to be the
+right length.
+
+This is what turns the corpus from a pile of sentences into knowledge. Before it,
+`dog` had four relationships and `bird` had eight; after it they have the plain
+`is-a`, `has`, `is` and `can` relationships the corpus actually states.
+
+It also made something visible which had been there all along. The corpus
+contains a block of deliberately false filler — `A cat can bark.`, `A bird can
+bark.`, `A bird plays frisbee.` — presumably to give the template learner more
+structural variety. Now that reading produces belief, an account of a bird
+includes `a bird can bark`. That is the system faithfully believing what it was
+told, and it is left alone: making it disregard its own input would be a worse
+fault than believing a strange corpus.
+
+#### Silence, and being able to tell why
+
+Three things were changed after watching the running program rather than the
+tests:
+
+- **The UKS's own bookkeeping is never said.** A Thought whose parent is not
+  known is filed under `Unknown`; saying "birds are Unknown" reports the absence
+  of knowledge as though it were knowledge.
+- **A word is never put in a position which has not accepted it.** The earlier
+  code fell back to using a word anyway and ranking it lower, which is how a
+  plural frame comes to be filled with singular words: "bird are animal". The
+  template is now simply unusable, and saying nothing is preferred to saying it
+  wrongly.
+- **A word is still a word when its class membership changes.** Whether
+  something is a word was decided by membership of the `Word` class. In a
+  long-running session that membership can be lost, and when it is, *nothing*
+  can be said at all — every relationship fails at the same point, while the
+  knowledge sits there intact. A Thought carrying the `w:` spelling prefix is now
+  taken as a word whatever has become of its parentage.
+
+The last of those was found only because silence was made to explain itself.
+`ExplainNothingSaid` distinguishes the four reasons — nothing learned yet, a word
+never seen, a word seen but not understood, and knowledge no phrase can express —
+and `DiagnoseRelationship` names the position which refused a word, or reports
+that no word denotes the Thought at all. A message reading *"would be said with
+bird and animal"*, with the spelling prefix conspicuously absent, identified the
+cause immediately where three rounds of reasoning about it had not.
+
 #### Reading back what was said
 
 Two tests close the loop, and they are only possible because both directions now
@@ -571,6 +625,12 @@ DescribeThought("dog")  =>  a dog can bark
 Reading all four back in leaves the count of what is believed about `dog`
 unchanged.
 
+This is reachable from the running program. `ModuleTextDlg` has a **Tell Me**
+button which answers a question ending in `?` or gives an account of a single
+word, with the phrases listed one per line; **Load** now reports whether the file
+is complete, since it reads a fixed number of phrases per press and pressing
+`Process` on half a corpus produces patchy results which are hard to attribute.
+
 ---
 
 ## 5. What is covered, and what is not
@@ -627,6 +687,19 @@ These remain future work, consistent with the project's roadmap:
   would need conjunction templates the corpus never demonstrates, so it would be
   invented grammar rather than learned; it belongs with a corpus that shows
   conjunctions.
+- **Something re-parents words during a long session.** The generator no longer
+  depends on `Word` membership, but something is removing it. `ClearExtraneousParents`
+  only strips `Unknown` and `GetOrAddThought` only adds parents, so it is neither
+  of those. Other code filters on `HasAncestor("Word")` and may be affected in
+  ways which have not shown themselves yet.
+- **Words the action templates never accepted.** `A ball is an object.` is read
+  but never understood, because the slot classes of the templates which perform
+  actions contain only the eight subjects the exemplars named. Extending that
+  means giving the broad statement templates their relations too, by the same
+  separator-and-population matching already used for questions. The obstacle is
+  that `?? are ??` exists for both `is-a` and `is`, so `balls are objects` is
+  ambiguous until the complement's lexical category resolves it — which is what
+  the noun and adjective categories of Phase 6 are for.
 - **Phrasings the corpus never taught.** Generation can only say a fact in a way
   it has seen. The corpus's one `an` context is the fixed word `animal`, so no
   general template with an open position after `an` exists, and a classification
