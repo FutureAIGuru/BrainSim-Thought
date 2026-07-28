@@ -243,6 +243,29 @@ public class UKSSequenceTests
     }
 
     [Fact]
+    public void AddSequence_CreatesAndFindsAOneElementSequence()
+    {
+        // A one-character spelling and a one-word phrase are still sequences:
+        // their length must not make them disappear from the representation.
+        var uks = CreateUKS();
+        Thought source = uks.GetOrAddThought("w:4", "Thought");
+        Thought spelled = uks.GetOrAddThought("spelled", "LinkType");
+        Thought digit = uks.GetOrAddThought("c:4", "Thought");
+
+        SeqElement sequence = uks.AddSequenceAndLink(
+            source, spelled, new List<Thought> { digit });
+        List<(SeqElement seqNode, float confidence)> matches =
+            uks.FindSequencesByActivation(
+                new List<Thought> { digit }, uks.Labeled("ExactSequenceSearch"));
+
+        Assert.NotNull(sequence);
+        Assert.Equal(new[] { "c:4" },
+            uks.FlattenSequence(sequence).Select(element => element.Label));
+        Assert.Contains(matches, match =>
+            ReferenceEquals(match.seqNode, sequence) && match.confidence == 1.0f);
+    }
+
+    [Fact]
     public void InsertElement_PrependsValue()
     {
         var uks = CreateUKS();

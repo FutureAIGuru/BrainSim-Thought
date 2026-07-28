@@ -84,7 +84,7 @@ public class ModuleText : ModuleBase
             theUKS.GetOrAddThought("hasWords", "LinkType");
             Thought thePhrase = theUKS.GetOrAddThought("p*", "Phrase");
             //thePhrase.TimeToLive = TimeSpan.FromSeconds(30); // adjust as needed
-            if (wordsInPhrase.Count > 1)
+            if (wordsInPhrase.Count > 0)
             {
                 theUKS.AddSequenceAndLink(thePhrase, "hasWords", wordsInPhrase);
                 if (applyExistingTemplates)
@@ -200,7 +200,16 @@ public class ModuleText : ModuleBase
                 exemplar,
                 action: exemplar.GetTargetOfFirstLinkOfType("demonstrates") as Link))
             .Where(item => item.action?.LinkType?.HasAncestor("SET") == true)
-            .GroupBy(item => item.action.LinkType);
+            .Select(item =>
+            {
+                Thought modifier = GetNumericActionModifier(item.action.LinkType);
+                Thought actionType = modifier is null
+                    ? item.action.LinkType
+                    : GetNumericActionBaseType(item.action.LinkType);
+                var retVal = (item.exemplar, item.action, actionType, modifier);
+                return retVal;
+            })
+            .GroupBy(item => (item.actionType, hasModifier: item.modifier is not null));
 
         foreach (var actionGroup in actionGroups)
         {
@@ -232,36 +241,59 @@ public class ModuleText : ModuleBase
                     .Where(item => item.element.HasProperty("isWildcard"))
                     .Select(item => item.position)
                     .ToList();
-                if (parameterPositions.Count < 2) continue;
+                List<Thought> templateExemplars = template.LinksTo
+                    .Where(link => link.LinkType?.Label == "evidence" &&
+                        groupExemplars.Contains(link.To))
+                    .Select(link => link.To)
+                    .ToList();
+                int modifierPosition = actionGroup.Key.hasModifier
+                    ? FindNumericActionModifierPosition(templateExemplars)
+                    : -1;
+                List<int> relationshipParameterPositions = parameterPositions
+                    .Where(position => position != modifierPosition)
+                    .ToList();
+                if (relationshipParameterPositions.Count == 0) continue;
 
-                int sourcePosition = parameterPositions[0];
-                int targetPosition = parameterPositions[^1];
+                int sourcePosition = relationshipParameterPositions[0];
+                int targetPosition = relationshipParameterPositions.Count > 1
+                    ? relationshipParameterPositions[^1]
+                    : -1;
                 Thought sourceParameter = templateSequence.Elements[sourcePosition];
-                Thought targetParameter = templateSequence.Elements[targetPosition];
+                Thought targetParameter = targetPosition >= 0
+                    ? templateSequence.Elements[targetPosition]
+                    : GetConstantActionTarget(templateExemplars);
+                if (targetParameter is null) continue;
+                Thought modifierParameter = modifierPosition >= 0
+                    ? templateSequence.Elements[modifierPosition]
+                    : null;
                 Link parameterizedAction = template.LinksTo
                     .Where(link => link.LinkType == meansType)
                     .Select(link => link.To)
                     .OfType<Link>()
                     .FirstOrDefault(action =>
                         action.From == sourceParameter &&
-                        action.LinkType == actionGroup.Key &&
-                        action.To == targetParameter);
+                        action.LinkType == actionGroup.Key.actionType &&
+                        action.To == targetParameter &&
+                        action.GetTargetOfFirstLinkOfType("linkTypeParameter") ==
+                            modifierParameter);
                 parameterizedAction ??= new Link(
-                    sourceParameter, actionGroup.Key, targetParameter);
+                    sourceParameter, actionGroup.Key.actionType, targetParameter);
                 theUKS.AddStatement(template, meansType, parameterizedAction);
+                if (modifierParameter is not null)
+                {
+                    theUKS.AddStatement(parameterizedAction,
+                        theUKS.GetOrAddThought("linkTypeParameter", "LinkType"),
+                        modifierParameter);
+                }
 
-                foreach (Thought exemplar in template.LinksTo
-                    .Where(link => link.LinkType?.Label == "evidence" &&
-                        groupExemplars.Contains(link.To))
-                    .Select(link => link.To))
+                foreach (Thought exemplar in templateExemplars)
                 {
                     Link concreteAction =
                         exemplar.GetTargetOfFirstLinkOfType("demonstrates") as Link;
                     SequenceView exemplarSequence = theUKS.GetSequenceViews(exemplar)
                         .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
                     if (concreteAction?.From is null || concreteAction.To is null ||
-                        exemplarSequence is null ||
-                        targetPosition >= exemplarSequence.Elements.Count)
+                        exemplarSequence is null)
                         continue;
 
                     // These are the ordinary lexical meaning links used by
@@ -269,14 +301,139 @@ public class ModuleText : ModuleBase
                     // teach multiple meanings without changing this structure.
                     theUKS.AddStatement(
                         exemplarSequence.Elements[sourcePosition], meansType, concreteAction.From);
-                    theUKS.AddStatement(
-                        exemplarSequence.Elements[targetPosition], meansType, concreteAction.To);
+                    if (targetPosition >= 0)
+                    {
+                        theUKS.AddStatement(
+                            exemplarSequence.Elements[targetPosition], meansType, concreteAction.To);
+                    }
+                    if (modifierPosition >= 0)
+                    {
+                        Thought modifier = GetNumericActionModifier(concreteAction.LinkType);
+                        if (modifier is not null)
+                        {
+                            theUKS.AddStatement(
+                                exemplarSequence.Elements[modifierPosition], meansType, modifier);
+                        }
+                    }
                     theUKS.AddStatement(parameterizedAction, evidenceType, exemplar);
                 }
                 learnedCount++;
             }
         }
         return learnedCount;
+    }
+
+    private static Thought GetNumericActionModifier(Thought actionType)
+    {
+        Thought retVal = null;
+        if (actionType is null) return retVal;
+
+        string[] parts = actionType.Label.Split('.');
+        if (parts.Length != 3 ||
+            !parts[0].Equals("SET", StringComparison.OrdinalIgnoreCase))
+            return retVal;
+
+        var theUKS = MainWindow.theUKS;
+        Thought candidate = theUKS.Labeled(parts[2]);
+        if (candidate is null && int.TryParse(parts[2], out int numericValue))
+            candidate = theUKS.GetOrAddThought(numericValue.ToString(), "number");
+        if (candidate?.HasAncestor("number") == true)
+            retVal = candidate;
+        return retVal;
+    }
+
+    private static Thought GetNumericActionBaseType(Thought actionType)
+    {
+        Thought retVal = actionType;
+        Thought modifier = GetNumericActionModifier(actionType);
+        if (modifier is null) return retVal;
+
+        string[] parts = actionType.Label.Split('.');
+        string baseLabel = parts[0] + "." + parts[1];
+        retVal = MainWindow.theUKS.GetOrAddThought(baseLabel, "LinkType");
+        return retVal;
+    }
+
+    private static int FindNumericActionModifierPosition(
+        IReadOnlyCollection<Thought> exemplars)
+    {
+        int retVal = -1;
+        foreach (Thought exemplar in exemplars)
+        {
+            Link concreteAction =
+                exemplar.GetTargetOfFirstLinkOfType("demonstrates") as Link;
+            Thought modifier = GetNumericActionModifier(concreteAction?.LinkType);
+            SequenceView sequence = MainWindow.theUKS.GetSequenceViews(exemplar)
+                .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+            if (modifier is null || sequence is null) return -1;
+
+            List<int> positions = sequence.Elements
+                .Select((word, position) => (word, position))
+                .Where(item => GetObservedNumberMeaning(item.word) == modifier)
+                .Select(item => item.position)
+                .ToList();
+            if (positions.Count == 0) continue;
+            if (positions.Count != 1) return -1;
+            if (retVal < 0)
+                retVal = positions[0];
+            else if (retVal != positions[0])
+                return -1;
+        }
+
+        if (retVal < 0) return retVal;
+
+        // A written numeral anchors the parameter position. The supervised
+        // actions then teach other surface forms at that position: if "4" and
+        // "four" both accompany SET.has.4, both words acquire means -> 4.
+        Thought meansType = MainWindow.theUKS.GetOrAddThought("means", "LinkType");
+        foreach (Thought exemplar in exemplars)
+        {
+            Link concreteAction =
+                exemplar.GetTargetOfFirstLinkOfType("demonstrates") as Link;
+            Thought modifier = GetNumericActionModifier(concreteAction?.LinkType);
+            SequenceView sequence = MainWindow.theUKS.GetSequenceViews(exemplar)
+                .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+            if (modifier is null || sequence is null ||
+                retVal >= sequence.Elements.Count)
+                return -1;
+
+            Thought word = sequence.Elements[retVal];
+            Thought existingMeaning = word.GetTargetOfFirstLinkOfType("means");
+            if (existingMeaning != modifier)
+            {
+                word.RemoveLinks(meansType);
+                MainWindow.theUKS.AddStatement(word, meansType, modifier);
+            }
+        }
+        return retVal;
+    }
+
+    private static Thought GetObservedNumberMeaning(Thought word)
+    {
+        Thought retVal = word?.GetTargetOfFirstLinkOfType("means");
+        if (retVal?.HasAncestor("number") == true) return retVal;
+        if (word is null) return null;
+
+        string surfaceForm = word.Label.StartsWith(
+            "w:", StringComparison.OrdinalIgnoreCase)
+            ? word.Label[2..]
+            : word.Label;
+        retVal = GetCanonicalNumberMeaning(surfaceForm);
+        return retVal;
+    }
+
+    private static Thought GetConstantActionTarget(
+        IReadOnlyCollection<Thought> exemplars)
+    {
+        List<Thought> targets = exemplars
+            .Select(exemplar =>
+                exemplar.GetTargetOfFirstLinkOfType("demonstrates") as Link)
+            .Where(action => action?.To is not null)
+            .Select(action => action.To)
+            .Distinct()
+            .ToList();
+        Thought retVal = targets.Count == 1 ? targets[0] : null;
+        return retVal;
     }
 
     /// <summary>
@@ -304,15 +461,33 @@ public class ModuleText : ModuleBase
             templateSequence.Elements.Count != phraseSequence.Elements.Count)
             return null;
 
-        int sourcePosition = templateSequence.Elements
-            .ToList().FindIndex(element => element == parameterizedAction.From);
-        int targetPosition = templateSequence.Elements
-            .ToList().FindIndex(element => element == parameterizedAction.To);
-        if (sourcePosition < 0 || targetPosition < 0) return null;
+        List<Thought> templateElements = templateSequence.Elements.ToList();
+        int sourcePosition = templateElements.FindIndex(
+            element => element == parameterizedAction.From);
+        int targetPosition = templateElements.FindIndex(
+            element => element == parameterizedAction.To);
+        if (sourcePosition < 0) return null;
 
         Thought source = GetOrCreateMeaning(phraseSequence.Elements[sourcePosition]);
-        Thought target = GetOrCreateMeaning(phraseSequence.Elements[targetPosition]);
-        Link action = new(source, parameterizedAction.LinkType, target);
+        Thought target = targetPosition >= 0
+            ? GetOrCreateMeaning(phraseSequence.Elements[targetPosition])
+            : parameterizedAction.To;
+        Thought actionType = parameterizedAction.LinkType;
+        Thought linkTypeParameter =
+            parameterizedAction.GetTargetOfFirstLinkOfType("linkTypeParameter");
+        if (linkTypeParameter is not null)
+        {
+            int modifierPosition = templateElements.FindIndex(
+                element => element == linkTypeParameter);
+            if (modifierPosition < 0) return null;
+            Thought modifier = GetOrCreateMeaning(
+                phraseSequence.Elements[modifierPosition]);
+            actionType = theUKS.GetOrAddThought(
+                parameterizedAction.LinkType.Label + "." + modifier.Label,
+                "LinkType");
+        }
+
+        Link action = new(source, actionType, target);
         Link retVal = theUKS.ApplySetAction(action);
         return retVal;
     }
@@ -534,23 +709,49 @@ public class ModuleText : ModuleBase
     private static Thought GetOrCreateMeaning(Thought word)
     {
         var theUKS = MainWindow.theUKS;
+        Thought meansType = theUKS.GetOrAddThought("means", "LinkType");
+        string label = word.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase)
+            ? word.Label[2..]
+            : word.Label;
+        Thought numericMeaning = GetCanonicalNumberMeaning(label);
         Thought meaning = word.GetTargetOfFirstLinkOfType("means");
+        if (numericMeaning is not null)
+        {
+            if (meaning != numericMeaning)
+            {
+                word.RemoveLinks(meansType);
+                theUKS.AddStatement(word, meansType, numericMeaning);
+            }
+            return numericMeaning;
+        }
         if (meaning is not null) return meaning;
 
         meaning = InferMeaningFromSpellingPattern(word);
         if (meaning is not null)
         {
-            theUKS.AddStatement(
-                word, theUKS.GetOrAddThought("means", "LinkType"), meaning);
+            theUKS.AddStatement(word, meansType, meaning);
             return meaning;
         }
 
-        string label = word.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase)
-            ? word.Label[2..]
-            : word.Label;
         meaning = theUKS.GetOrAddThought(label);
-        theUKS.AddStatement(word, theUKS.GetOrAddThought("means", "LinkType"), meaning);
+        theUKS.AddStatement(word, meansType, meaning);
         return meaning;
+    }
+
+    private static Thought GetCanonicalNumberMeaning(string surfaceForm)
+    {
+        string numberLabel = null;
+        if (int.TryParse(surfaceForm, out int numericValue))
+            numberLabel = numericValue.ToString();
+
+        Thought retVal = null;
+        if (numberLabel is not null)
+        {
+            var theUKS = MainWindow.theUKS;
+            retVal = theUKS.Labeled(numberLabel) ??
+                theUKS.GetOrAddThought(numberLabel, "number");
+        }
+        return retVal;
     }
 
     private static Thought InferMeaningFromSpellingPattern(Thought word)

@@ -57,4 +57,22 @@ public class ModuleWordTests
         var flat = uks.FlattenSequence((SeqElement)spelledLink.To);
         Assert.Equal(new[] { "c:D", "c:O", "c:G" }, flat.Select(t => t.Label));
     }
+
+    [Fact]
+    public void AddWordSpelling_PreservesAOneCharacterWord()
+    {
+        // The written numeral "4" is a word-level language element whose
+        // spelling happens to contain a single sequence element.
+        var uks = CreateUKS();
+        var module = new ModuleWord { theUKS = uks };
+
+        Thought word = module.AddWordSpelling("4");
+
+        Link spelledLink = word.LinksTo
+            .FirstOrDefault(link => link.LinkType?.Label == "spelled");
+        Assert.NotNull(spelledLink);
+        SeqElement spelling = Assert.IsType<SeqElement>(spelledLink.To);
+        Assert.Equal(new[] { "c:4" },
+            uks.FlattenSequence(spelling).Select(element => element.Label));
+    }
 }

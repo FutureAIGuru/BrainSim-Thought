@@ -136,6 +136,58 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
+    public void NumericWordsAndDigitsProduceTheSameParameterizedRelationship()
+    {
+        // "four" and "4" are different written words, but both mean the
+        // canonical number 4. A learned action uses that meaning to construct
+        // has.4 rather than treating the quantity as an ordinary object.
+        UKS.UKS uks = CreateTextUKS();
+        ModuleText.AddActionExemplar(
+            "dog has four legs", "[dog->SET.has.4->leg]");
+        ModuleText.AddActionExemplar(
+            "cat has 4 legs", "[cat->SET.has.4->leg]");
+        ModuleText.AddActionExemplar(
+            "rabbit has four legs", "[rabbit->SET.has.4->leg]");
+        ModuleText.AddActionExemplar(
+            "horse has 4 legs", "[horse->SET.has.4->leg]");
+
+        int learnedActionTemplates = ModuleText.LearnActionsFromExemplars();
+        string wordResult = ModuleText.AddPhrase(
+            "otter has four legs", applyExistingTemplates: true);
+        string digitResult = ModuleText.AddPhrase(
+            "badger has 4 legs", applyExistingTemplates: true);
+
+        Assert.True(learnedActionTemplates > 0);
+        Assert.StartsWith("Template:", wordResult);
+        Assert.StartsWith("Template:", digitResult);
+        Assert.Same(uks.Labeled("4"),
+            uks.Labeled("w:four").GetTargetOfFirstLinkOfType("means"));
+        Assert.Same(uks.Labeled("4"),
+            uks.Labeled("w:4").GetTargetOfFirstLinkOfType("means"));
+        Assert.NotNull(uks.GetLink(
+            uks.Labeled("otter"), uks.Labeled("has.4"), uks.Labeled("leg")));
+        Assert.NotNull(uks.GetLink(
+            uks.Labeled("badger"), uks.Labeled("has.4"), uks.Labeled("leg")));
+    }
+
+    [Fact]
+    public void AddPhrasePreservesAOneWordPhrase()
+    {
+        // A one-word utterance such as "Stop" is still a phrase and must be
+        // available to later template and action learning.
+        UKS.UKS uks = CreateTextUKS();
+
+        string result = ModuleText.AddPhrase("stop");
+
+        Thought phrase = Assert.Single(uks.Labeled("Phrase").Children);
+        SequenceView words = Assert.Single(uks.GetSequenceViews(phrase)
+            .Where(view => view.LinkType?.Label == "hasWords"));
+        Assert.False(result.StartsWith("Error:", StringComparison.Ordinal));
+        Assert.Equal(new[] { "w:stop" },
+            words.Elements.Select(element => element.Label));
+    }
+
+    [Fact]
     public void ProcessedCorpusRecognizesANewPluralClassificationPhrase()
     {
         // After the complete learning pass, a manually entered phrase using

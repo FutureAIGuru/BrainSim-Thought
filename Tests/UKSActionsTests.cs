@@ -40,4 +40,23 @@ public class UKSActionsTests
         Assert.Null(uks.GetLink(fido, location, outside));
         Assert.NotNull(uks.GetLink(fido, location, inside));
     }
+
+    [Fact]
+    public void DottedSetActionPreservesTheCompleteRelationshipType()
+    {
+        // SET.has.4 means to assert has.4, not to discard the numeric
+        // specialization and assert the more general relationship "has".
+        var uks = new UKS(clear: true);
+        uks.CreateInitialStructure();
+        Thought dog = uks.GetOrAddThought("dog");
+        Thought leg = uks.GetOrAddThought("leg");
+        Thought setHasFour = uks.GetOrAddThought("SET.has.4", "LinkType");
+
+        Link result = uks.ApplySetAction(new Link(dog, setHasFour, leg));
+
+        Assert.NotNull(result);
+        Assert.Equal("has.4", result.LinkType.Label);
+        Assert.NotNull(uks.GetLink(dog, uks.Labeled("has.4"), leg));
+        Assert.Null(uks.GetLink(dog, uks.Labeled("has"), leg));
+    }
 }

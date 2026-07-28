@@ -296,9 +296,10 @@ public partial class UKS
         Thought? linkTypeRoot = Labeled("LinkType");
         if (linkTypeRoot is null) return;
 
-        Thought? relationshipType = Labeled(parts[1]);
+        string relationshipLabel = string.Join(".", parts.Skip(1));
+        Thought? relationshipType = Labeled(relationshipLabel);
         if (relationshipType is null)
-            relationshipType = AddThought(parts[1], linkTypeRoot);
+            relationshipType = GetOrAddThought(relationshipLabel, linkTypeRoot);
         else if (!relationshipType.HasAncestor(linkTypeRoot))
             relationshipType.AddParent(linkTypeRoot);
 

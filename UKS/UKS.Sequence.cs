@@ -322,7 +322,7 @@ public partial class UKS
     }
     public SeqElement AddSequence(string label, List<Thought> targets, bool allowCompression = true)
     {
-        if (targets.Count < 2) return null;  //a sequence must have at least 2 elements
+        if (targets is null || targets.Count == 0) return null;
 
         List<Thought> resolvedTargets = new(targets);
 
@@ -378,7 +378,7 @@ public partial class UKS
     /// <returns>The first node of the created or reused sequence, or null if insufficient targets.</returns>
     public SeqElement AddSequenceAndLink(Thought source, Thought linkType, List<Thought> targets, float baseWeight = 1.0f)
     {
-        if (targets.Count < 2) return null;  //a sequence must have at least 2 elements
+        if (targets is null || targets.Count == 0) return null;
 
         //clear out any existing sequence links of this type
         source.RemoveLinks(linkType);  //TODO delete the sequence
