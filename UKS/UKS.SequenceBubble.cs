@@ -80,6 +80,9 @@ public partial class UKS
         ArgumentNullException.ThrowIfNull(observations);
         if (minFixedElements < 0) throw new ArgumentOutOfRangeException(nameof(minFixedElements));
 
+        if (SequenceDiscoveryDiagnostics.Enabled)
+            SequenceDiscoveryDiagnostics.FindCommonSequenceCalls++;
+
         List<SequenceView> observationList = observations
             .Where(observation => observation is not null && observation.Elements.Count > 0)
             .ToList();
@@ -115,10 +118,15 @@ public partial class UKS
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(observation);
 
+        if (SequenceDiscoveryDiagnostics.Enabled)
+            SequenceDiscoveryDiagnostics.MatchCalls++;
+
         HashSet<int> activePositions = new() { 0 };
         foreach (CommonSequenceElement patternElement in pattern.Elements)
         {
             HashSet<int> nextPositions = new();
+            if (SequenceDiscoveryDiagnostics.Enabled)
+                SequenceDiscoveryDiagnostics.MatchPositionSteps += activePositions.Count;
             foreach (int position in activePositions)
             {
                 if (!patternElement.IsGap)
@@ -176,6 +184,8 @@ public partial class UKS
         if (minMembers < 2) throw new ArgumentOutOfRangeException(nameof(minMembers));
         if (minFixedElements < 1) throw new ArgumentOutOfRangeException(nameof(minFixedElements));
 
+        long groupingStart = SequenceDiscoveryDiagnostics.Start();
+
         // Do not mix observations which describe different kinds of sequences,
         // such as Phrase hasWords and Word spelled sequences.
         List<(Thought linkType, List<SequenceView> observations, List<SequenceView> allObservations)> relationshipGroups = observations
@@ -196,9 +206,13 @@ public partial class UKS
             .Where(group => group.Item2.Count >= minMembers)
             .ToList();
 
+        SequenceDiscoveryDiagnostics.GroupingMs += SequenceDiscoveryDiagnostics.Elapsed(groupingStart);
+
         List<Thought> results = new();
         foreach (var relationshipGroup in relationshipGroups)
         {
+            long pairStart = SequenceDiscoveryDiagnostics.Start();
+
             // Pairs propose structures without changing the UKS. Only separated
             // singleton gaps are currently allowed into learned templates.
             Dictionary<string, CommonSequencePattern> proposals = new(StringComparer.Ordinal);
@@ -215,6 +229,10 @@ public partial class UKS
                     proposals.TryAdd(CommonSequenceSignature(proposal), proposal);
                 }
             }
+
+            SequenceDiscoveryDiagnostics.PairProposalMs +=
+                SequenceDiscoveryDiagnostics.Elapsed(pairStart);
+            long consolidateStart = SequenceDiscoveryDiagnostics.Start();
 
             List<(HashSet<Thought> owners, CommonSequencePattern pattern)> consolidated = new();
             foreach (CommonSequencePattern proposal in proposals.Values)
@@ -246,24 +264,35 @@ public partial class UKS
                 consolidated.Add((owners, generalized));
             }
 
+            SequenceDiscoveryDiagnostics.ConsolidationMs +=
+                SequenceDiscoveryDiagnostics.Elapsed(consolidateStart);
+            long materializeStart = SequenceDiscoveryDiagnostics.Start();
+
             Thought evidenceType = GetOrAddThought("evidence", "LinkType")
                 ?? throw new InvalidOperationException("The evidence link type could not be created.");
             foreach (var candidate in consolidated.OrderByDescending(candidate => candidate.owners.Count))
             {
                 // Distinct phrase contents determine whether a pattern is
                 // significant. Every occurrence is retained as evidence.
+                long memberStart = SequenceDiscoveryDiagnostics.Start();
                 List<SequenceView> members = relationshipGroup.allObservations
                     .Where(observation => SequenceMatchesPattern(candidate.pattern, observation))
                     .ToList();
+                SequenceDiscoveryDiagnostics.MemberSelectionMs +=
+                    SequenceDiscoveryDiagnostics.Elapsed(memberStart);
 
                 // Each wildcard position gets a class containing the individual
                 // Thoughts observed in that position.
+                long classStart = SequenceDiscoveryDiagnostics.Start();
                 List<Thought> description = MaterializeClassSequence(
                     candidate.pattern, members, fillerClassRoot, classLabel);
+                SequenceDiscoveryDiagnostics.ClassCreationMs +=
+                    SequenceDiscoveryDiagnostics.Elapsed(classStart);
                 if (description.Count < 2) continue;
 
                 // The wildcard sequence belongs to a template. The complete
                 // Phrase/Word owners are evidence, never children of it.
+                long lookupStart = SequenceDiscoveryDiagnostics.Start();
                 Thought? existingTemplate = templateRoot.Children.FirstOrDefault(existing =>
                     GetSequenceViews(existing).Any(view =>
                         view.LinkType == relationshipGroup.linkType &&
@@ -274,12 +303,22 @@ public partial class UKS
                     view.LinkType == relationshipGroup.linkType &&
                     view.Elements.SequenceEqual(description)))
                     AddSequenceAndLink(learnedTemplate, relationshipGroup.linkType, description);
+                SequenceDiscoveryDiagnostics.TemplateLookupMs +=
+                    SequenceDiscoveryDiagnostics.Elapsed(lookupStart);
 
+                long evidenceStart = SequenceDiscoveryDiagnostics.Start();
                 foreach (SequenceView member in members)
                     AddStatement(learnedTemplate, evidenceType, member.Owner);
+                SequenceDiscoveryDiagnostics.EvidenceMs +=
+                    SequenceDiscoveryDiagnostics.Elapsed(evidenceStart);
+                if (SequenceDiscoveryDiagnostics.Enabled)
+                    SequenceDiscoveryDiagnostics.EvidenceStatements += members.Count;
                 learnedTemplate.Weight = Math.Max(learnedTemplate.Weight, members.Count);
                 if (!results.Contains(learnedTemplate)) results.Add(learnedTemplate);
             }
+
+            SequenceDiscoveryDiagnostics.MaterializeMs +=
+                SequenceDiscoveryDiagnostics.Elapsed(materializeStart);
         }
 
         return results;
@@ -289,8 +328,14 @@ public partial class UKS
     {
         // Thought labels are unique in a UKS. Length-prefixing prevents two
         // neighboring labels from producing an ambiguous concatenation.
-        return string.Join("|", observation.Elements.Select(element =>
+        string retVal = string.Join("|", observation.Elements.Select(element =>
             $"{element.Label.Length}:{element.Label}"));
+        if (SequenceDiscoveryDiagnostics.Enabled)
+        {
+            SequenceDiscoveryDiagnostics.SignatureCalls++;
+            SequenceDiscoveryDiagnostics.SignatureChars += retVal.Length;
+        }
+        return retVal;
     }
 
     /// <summary>
@@ -368,6 +413,13 @@ public partial class UKS
         IReadOnlyList<Thought> first,
         IReadOnlyList<Thought> second)
     {
+        if (SequenceDiscoveryDiagnostics.Enabled)
+        {
+            SequenceDiscoveryDiagnostics.LcsCalls++;
+            SequenceDiscoveryDiagnostics.LcsCells +=
+                (long)(first.Count + 1) * (second.Count + 1);
+        }
+
         int[,] lengths = new int[first.Count + 1, second.Count + 1];
         for (int i = first.Count - 1; i >= 0; i--)
         {
@@ -520,9 +572,15 @@ public partial class UKS
 
     private static string CommonSequenceSignature(CommonSequencePattern pattern)
     {
-        return string.Join("\u001f", pattern.Elements.Select(element => element.IsGap
+        string retVal = string.Join("\u001f", pattern.Elements.Select(element => element.IsGap
             ? "G:" + element.GapCardinality
             : "V:" + element.Value!.Label));
+        if (SequenceDiscoveryDiagnostics.Enabled)
+        {
+            SequenceDiscoveryDiagnostics.SignatureCalls++;
+            SequenceDiscoveryDiagnostics.SignatureChars += retVal.Length;
+        }
+        return retVal;
     }
 
 }

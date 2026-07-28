@@ -17,12 +17,33 @@ public partial class UKS
         // Links are stored on their source Thoughts. Scanning the atomic nodes
         // also finds sequence VLU links, wildcard constraints, memberships, and
         // ordinary incoming/outgoing relationships.
-        List<Link> affectedLinks = AtomicThoughts
-            .SelectMany(thought => thought.LinksTo)
-            .Where(link => link.From == redundantThought ||
-                link.LinkType == redundantThought || link.To == redundantThought)
-            .Distinct()
-            .ToList();
+        //
+        // The scan reads each Thought's link list in place. Going through the
+        // LinksTo property instead would copy every list in the UKS and run an
+        // expiry check over each one, which cost far more than the search
+        // itself; a merge should also not be quietly deleting things as a side
+        // effect of looking for references.
+        List<Link> affectedLinks = new();
+        HashSet<Link> alreadyFound = new();
+        lock (AtomicThoughts)
+        {
+            for (int i = 0; i < AtomicThoughts.Count; i++)
+            {
+                List<Link> links = AtomicThoughts[i].LinksToWriteable;
+                lock (links)
+                {
+                    for (int j = 0; j < links.Count; j++)
+                    {
+                        Link link = links[j];
+                        if (!ReferenceEquals(link.From, redundantThought) &&
+                            !ReferenceEquals(link.LinkType, redundantThought) &&
+                            !ReferenceEquals(link.To, redundantThought))
+                            continue;
+                        if (alreadyFound.Add(link)) affectedLinks.Add(link);
+                    }
+                }
+            }
+        }
 
         int replacedCount = 0;
         foreach (Link oldLink in affectedLinks)

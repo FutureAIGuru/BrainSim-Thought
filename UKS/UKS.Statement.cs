@@ -110,16 +110,49 @@ public partial class UKS
 	{
 		if (newSource is null || newLink is null) return;
 
-		List<Link> existingLinks = newSource.LinksTo.ToList();
-		for (int i = 0; i < existingLinks.Count; i++)
+		// A link which is itself a result or a condition never conflicts, so the
+		// comparison against every existing link can be skipped outright.
+		if (newLink.HasProperty("isResult") || newLink.HasProperty("isCondition")) return;
+
+		// Whether the new link's target can take part in an exclusion depends
+		// only on that target, so it is settled once here rather than while
+		// examining each existing link. Every common parent the comparison can
+		// find is a direct parent of this target.
+		bool targetMayExclude = false;
+		if (newLink.To is not null)
 		{
-			Link existingLink = existingLinks[i];
-			if (existingLink == newLink)
-			{
-				newLink.Weight += (1 - newLink.Weight) / 4.0f;
-				newLink.Fire();
-			}
-			else if (LinksAreExclusive(newLink, existingLink))
+			IReadOnlyList<Thought> targetParents = newLink.To.Parents;
+			for (int i = 0; i < targetParents.Count && !targetMayExclude; i++)
+				targetMayExclude = HasProperty(targetParents[i], "isexclusive") ||
+					HasProperty(targetParents[i], "allowMultiple");
+		}
+
+		// Reading LinksTo would copy the whole list and test every link for
+		// expiry on each call, which on a Thought holding thousands of links
+		// cost far more than the comparison being made. The list is examined in
+		// place, and the few links which actually conflict are collected before
+		// anything is changed, so that the changes cannot disturb the scan.
+		List<Link> sourceLinks = newSource.LinksToWriteable;
+		List<Link>? conflicting = null;
+		bool alreadyPresent = false;
+		for (int i = 0; i < sourceLinks.Count; i++)
+		{
+			Link existingLink = sourceLinks[i];
+			if (existingLink == newLink) alreadyPresent = true;
+			else if (LinksAreExclusive(newLink, existingLink, targetMayExclude))
+				(conflicting ??= new List<Link>()).Add(existingLink);
+		}
+
+		if (alreadyPresent)
+		{
+			newLink.Weight += (1 - newLink.Weight) / 4.0f;
+			newLink.Fire();
+		}
+		if (conflicting is null) return;
+
+		for (int i = 0; i < conflicting.Count; i++)
+		{
+			Link existingLink = conflicting[i];
 			{
 				if (existingLink.LinkType is not null && newLink.LinkType?.Children.Contains(existingLink.LinkType) == true && HasAttribute(existingLink.LinkType, "not"))
 				{

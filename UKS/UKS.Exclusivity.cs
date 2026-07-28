@@ -37,7 +37,17 @@ public partial class UKS
 
 
     //TODO: This method has gotten out of hand and needs a rewrite
-    private bool LinksAreExclusive(Link r1, Link r2)
+    private bool LinksAreExclusive(Link r1, Link r2) =>
+        LinksAreExclusive(r1, r2, firstTargetMayExclude: true);
+
+    /// <summary>
+    /// <paramref name="firstTargetMayExclude"/> reports whether any direct
+    /// parent of <paramref name="r1"/>'s target carries an exclusivity
+    /// property. A caller comparing one new link against many existing ones can
+    /// settle that once instead of once per comparison; passing true preserves
+    /// the unconditional behaviour.
+    /// </summary>
+    private bool LinksAreExclusive(Link r1, Link r2, bool firstTargetMayExclude)
     {
         //are two links mutually exclusive?
         //yes if they differ by a single component property
@@ -50,6 +60,17 @@ public partial class UKS
 
         if (r1.To != r2.To && (r1.To is null || r2.To is null)) return false;
         if (r1.To == r2.To && r1.LinkType == r2.LinkType) return false;
+
+        // Every remaining test either requires the two links to share a target,
+        // or looks for an exclusive Thought among the targets' common parents --
+        // and those common parents are drawn from the first target's direct
+        // parents. So when the targets differ and none of those parents is
+        // exclusive, nothing below can succeed. Settling it here, on three
+        // reference comparisons, spares the ancestry walks which follow from
+        // running once for every link the source already holds.
+        if (!ReferenceEquals(r1.To, r2.To) && !firstTargetMayExclude)
+            return false;
+
         //TODO Verify this:
         if (r1.HasProperty("isResult")) return false;
         if (r1.HasProperty("isCondition")) return false;
@@ -147,6 +168,12 @@ public partial class UKS
     private bool LinkTypesAreExclusive(Link r1, Link r2)
     {
         if (r1.LinkType is null || r2.LinkType is null) return false;
+
+        // A true result requires the two links to share a target, so settling
+        // that first avoids gathering the attributes of both link types for
+        // every pair which cannot qualify.
+        if (!ReferenceEquals(r1.To, r2.To)) return false;
+
         IReadOnlyList<Thought> r1RelProps = r1.LinkType.GetAttributes();
         IReadOnlyList<Thought> r2RelProps = r2.LinkType.GetAttributes();
         Thought? r1Not = r1RelProps.FindFirst(x => x.Label == "not" || x.Label == "no");

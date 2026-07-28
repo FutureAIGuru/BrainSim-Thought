@@ -155,34 +155,60 @@ public class UksPerformanceBenchmarks
     [Fact]
     public void StructuralOperationCost()
     {
-        // These are the operations which run while knowledge is being tidied:
-        // merging two classes, and removing what is left over.
+        // A merge consumes the class it merges, so it cannot simply be repeated.
+        // Several independent pairs are prepared and each merge timed on its
+        // own; the median is reported. Timing a single merge measured
+        // compilation and collection as much as the work, and varied fivefold
+        // between runs of identical code.
         UKS.UKS uks = FreshUks();
         Thought root = uks.GetOrAddThought("classRoot", "Thought");
         for (int i = 0; i < 4000; i++) uks.GetOrAddThought("filler" + i, root);
 
-        Thought keep = uks.GetOrAddThought("keepClass", root);
-        Thought drop = uks.GetOrAddThought("dropClass", root);
-        for (int i = 0; i < 200; i++)
+        const int pairs = 7;
+        for (int pair = 0; pair < pairs; pair++)
         {
-            Thought shared = uks.GetOrAddThought("shared" + i, keep);
-            shared.AddParent(drop);
+            Thought keep = uks.GetOrAddThought($"keepClass{pair}", root);
+            Thought drop = uks.GetOrAddThought($"dropClass{pair}", root);
+            for (int i = 0; i < 100; i++)
+            {
+                Thought shared = uks.GetOrAddThought($"shared{pair}_{i}", keep);
+                shared.AddParent(drop);
+            }
         }
 
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        int replaced = uks.ReplaceThoughtReferences(drop, keep);
-        double replace = stopwatch.Elapsed.TotalMilliseconds;
+        int graphSize = uks.AtomicThoughts.Count;
+        List<double> mergeTimes = new();
+        int replaced = 0;
+        for (int pair = 0; pair < pairs; pair++)
+        {
+            Thought keep = uks.Labeled($"keepClass{pair}");
+            Thought drop = uks.Labeled($"dropClass{pair}");
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            replaced = uks.ReplaceThoughtReferences(drop, keep);
+            // The first merge pays for compilation and is discarded.
+            if (pair > 0) mergeTimes.Add(stopwatch.Elapsed.TotalMilliseconds);
+        }
+        mergeTimes.Sort();
+        double merge = mergeTimes[mergeTimes.Count / 2];
 
-        int before = uks.AtomicThoughts.Count;
-        stopwatch.Restart();
-        for (int i = 0; i < 200; i++) uks.Labeled("filler" + i)?.Delete();
-        double deletes = stopwatch.Elapsed.TotalMilliseconds;
+        // Deletion is likewise warmed before being timed.
+        for (int i = 0; i < 50; i++) uks.Labeled("filler" + i)?.Delete();
+        List<double> deleteTimes = new();
+        for (int batch = 0; batch < 3; batch++)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            for (int i = 0; i < 100; i++)
+                uks.Labeled($"filler{50 + batch * 100 + i}")?.Delete();
+            deleteTimes.Add(stopwatch.Elapsed.TotalMilliseconds / 100);
+        }
+        deleteTimes.Sort();
 
-        output.WriteLine($"Structural cost (graph of {before} Thoughts)");
-        output.WriteLine($"  ReplaceThoughtReferences  {replace,9:F1} ms " +
-            $"for one merge ({replaced} links redirected)");
-        output.WriteLine($"  Delete                    {deletes / 200,9:F3} ms per Thought " +
-            $"({deletes:F0} ms for 200)");
+        output.WriteLine($"Structural cost (graph of {graphSize:N0} Thoughts)");
+        output.WriteLine($"  ReplaceThoughtReferences  {merge,9:F1} ms per merge " +
+            $"(median of {mergeTimes.Count}, {replaced} links redirected, " +
+            $"range {mergeTimes[0]:F1}-{mergeTimes[^1]:F1})");
+        output.WriteLine($"  Delete                    {deleteTimes[1] * 1000,9:F0} us per Thought " +
+            $"(median of 3 batches)");
     }
 
     [Fact]

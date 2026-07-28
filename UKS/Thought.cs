@@ -91,9 +91,47 @@ public partial class Thought
     /// 
     public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return new List<Link>(_linksFrom.AsReadOnly()); } } }
     /// <summary>Direct parents (targets of outgoing is-a links).</summary>
-    public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).OfType<Thought>().ToList(); } }
+    public IReadOnlyList<Thought> Parents
+    {
+        get { lock (_linksTo) return CollectInheritance(_linksTo, takeTarget: true); }
+    }
     /// <summary>Direct children (sources of incoming is-a links).</summary>
-    public IReadOnlyList<Thought> Children { get { lock (_linksFrom) return _linksFrom.Where(x => x.LinkType?.Label == "is-a").Select(x => x.From).OfType<Thought>().ToList(); } }
+    public IReadOnlyList<Thought> Children
+    {
+        get { lock (_linksFrom) return CollectInheritance(_linksFrom, takeTarget: false); }
+    }
+
+    /// <summary>
+    /// Gathers the far end of every inheritance link in a list.
+    ///
+    /// These two properties are read constantly, including once per node while
+    /// walking ancestors, so they are written as a plain loop rather than a
+    /// query. Comparing the link type by reference against the one "is-a"
+    /// Thought also avoids fetching and comparing a string for every link a
+    /// Thought has, which on a class with thousands of members was the whole
+    /// cost of asking what its members were.
+    /// </summary>
+    private static List<Thought> CollectInheritance(List<Link> links, bool takeTarget)
+    {
+        // Labels are unique, so the registered "is-a" Thought is the only one
+        // which can carry that label. While it is absent -- during bootstrap,
+        // before the label table is populated -- fall back to the label itself.
+        Thought? isA = ThoughtLabels.GetThought("is-a");
+        List<Thought> result = new();
+        for (int i = 0; i < links.Count; i++)
+        {
+            Thought? linkType = links[i].LinkType;
+            if (linkType is null) continue;
+            bool inherits = isA is null
+                ? linkType.Label == "is-a"
+                : ReferenceEquals(linkType, isA);
+            if (!inherits) continue;
+
+            Thought? far = takeTarget ? links[i].To : links[i].From;
+            if (far is not null) result.Add(far);
+        }
+        return result;
+    }
 
     private string _label = "";
     public string Label
@@ -357,8 +395,31 @@ public partial class Thought
     public bool HasAncestor(Thought? t)
     {
         if (t is null) return false;
-        foreach (var ancestor in AncestorsWithSelf)
-            if (ancestor == t) return true;
+        if (ReferenceEquals(this, t)) return true;
+
+        // Nearly every question of this kind is settled by a direct parent, and
+        // answering those without setting up the bookkeeping for a full search
+        // keeps the common case free of allocation.
+        IReadOnlyList<Thought> direct = Parents;
+        for (int i = 0; i < direct.Count; i++)
+            if (ReferenceEquals(direct[i], t)) return true;
+        if (direct.Count == 0) return false;
+
+        HashSet<Thought> seen = new();
+        Queue<Thought> pending = new();
+        for (int i = 0; i < direct.Count; i++)
+            if (seen.Add(direct[i])) pending.Enqueue(direct[i]);
+
+        while (pending.Count > 0)
+        {
+            IReadOnlyList<Thought> parents = pending.Dequeue().Parents;
+            for (int i = 0; i < parents.Count; i++)
+            {
+                Thought parent = parents[i];
+                if (ReferenceEquals(parent, t)) return true;
+                if (seen.Add(parent)) pending.Enqueue(parent);
+            }
+        }
         return false;
     }
 
@@ -671,14 +732,26 @@ public partial class Thought
     /// </summary>
     public List<Thought> GetAttributes()
     {
+        // Read in place and compare the link types by reference: this is called
+        // from the exclusivity comparisons, where copying the link list and
+        // fetching a label for every link dominated the work being done.
+        Thought? hasAttribute = ThoughtLabels.GetThought("hasAttribute");
+        Thought? isType = ThoughtLabels.GetThought("is");
         List<Thought> retVal = new();
-        foreach (Link r in LinksTo)
+        List<Link> links = LinksToWriteable;
+        for (int i = 0; i < links.Count; i++)
         {
-            if (r.LinkType?.Label != "hasAttribute" && r.LinkType?.Label != "is") continue;
-            if (r.To is not null)
+            Link r = links[i];
+            if (r.To is null || r.LinkType is null) continue;
+            if (Matches(r.LinkType, hasAttribute, "hasAttribute") ||
+                Matches(r.LinkType, isType, "is"))
                 retVal.Add(r.To);
         }
         return retVal;
+
+        // While the registered Thought is absent the label is all there is.
+        static bool Matches(Thought linkType, Thought? registered, string label) =>
+            registered is null ? linkType.Label == label : ReferenceEquals(linkType, registered);
     }
 
     /// <summary>
@@ -702,11 +775,39 @@ public partial class Thought
     public bool HasProperty(Thought? t)  //with inheritance
     {
         if (t is null) return false;
-        if (LinksTo.FindFirst(x => x.LinkType?.Label == "hasProperty" && x.To == t) is not null) return true;
 
-        foreach (Thought t1 in Ancestors)
-            if (t1.LinksTo.FindFirst(x => x.LinkType?.Label == "hasProperty" && x.To == t) is not null) return true;
+        // This is asked repeatedly while comparing one new link against every
+        // link a Thought already has, so it reads the link lists in place. Going
+        // through LinksTo copied each list and tested every link for expiry
+        // before the question could even be considered.
+        Thought? hasProperty = ThoughtLabels.GetThought("hasProperty");
+        if (CarriesProperty(this, t, hasProperty)) return true;
+
+        // Links and other unclassified Thoughts have no parents at all, and
+        // setting up an inheritance walk for them costs more than the walk.
+        if (Parents.Count == 0) return false;
+        foreach (Thought ancestor in Ancestors)
+            if (CarriesProperty(ancestor, t, hasProperty)) return true;
         return false;
+
+        static bool CarriesProperty(Thought owner, Thought property, Thought? hasProperty)
+        {
+            List<Link> links = owner.LinksToWriteable;
+            for (int i = 0; i < links.Count; i++)
+            {
+                Link link = links[i];
+                // Comparing the target first rejects almost every link with one
+                // reference comparison.
+                if (!ReferenceEquals(link.To, property)) continue;
+                Thought? linkType = link.LinkType;
+                if (linkType is null) continue;
+                if (hasProperty is null
+                    ? linkType.Label == "hasProperty"
+                    : ReferenceEquals(linkType, hasProperty))
+                    return true;
+            }
+            return false;
+        }
     }
 
     /// <summary>
