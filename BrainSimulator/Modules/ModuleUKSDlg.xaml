@@ -33,6 +33,7 @@
                   IsTextSearchEnabled="False"
                   Text="Thought"
                   primitives:TextBoxBase.TextChanged="textBoxRoot_TextChanged"
+                  SelectionChanged="ComboRoot_SelectionChanged"
                   PreviewKeyDown="TextBoxRoot_KeyDown"/>
         <Label Content="" x:Name="uksStatusLabel"  HorizontalAlignment="Left" Margin="424,33,0,0" Width="220" FontSize="16" Height="35" VerticalAlignment="Top"/>
         <Button x:Name="InitializeButton" Content="Initialize" VerticalAlignment="Top" Height="25" Click="InitializeButton_Click" Margin="18,19,0,0" FontSize="16" HorizontalAlignment="Left" Width="90"   />

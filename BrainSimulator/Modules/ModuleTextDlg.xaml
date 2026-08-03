@@ -18,8 +18,8 @@
         <Label Content="Enter Phrase" FontWeight="Bold" Margin="10,0,0,0" Height="30" VerticalAlignment="Top" HorizontalAlignment="Left" Width="135"/>
         <Label Content="Load from File" FontWeight="Bold" Margin="0,124,0,0" Height="30" VerticalAlignment="Top" HorizontalAlignment="Left" Width="135"/>
 
-        <Label Content="Phrase:" VerticalAlignment="Top" Width="60" Margin="31,61,469,0"/>
-        <Label Content="File:" VerticalAlignment="Top" Width="60" Margin="16,167,454,0"/>
+        <Label Content="Phrase:" VerticalAlignment="Top" Width="60" Margin="31,61,0,0" HorizontalAlignment="Left"/>
+        <Label Content="File:" VerticalAlignment="Top" Width="60" Margin="26,167,0,0" HorizontalAlignment="Left"/>
         <TextBox x:Name="txtFilePath" Height="24" Margin="81,169,0,0" IsReadOnly="True" 
                VerticalAlignment="Top" Background="#F0F0F0" HorizontalAlignment="Left" Width="250"/>
         <Button x:Name="btnBrowse" Content="Browse..." Click="btnBrowse_Click" Width="75" Height="24"

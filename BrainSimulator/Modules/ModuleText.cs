@@ -170,6 +170,7 @@ public class ModuleText : ModuleBase
         Link action = new(source, setType, target);
         theUKS.AddStatement(exemplar,
             theUKS.GetOrAddThought("demonstrates", "LinkType"), action);
+        //TODO:  do this after figuring out what the template is.
         theUKS.ApplySetAction(action);
         return exemplar;
     }

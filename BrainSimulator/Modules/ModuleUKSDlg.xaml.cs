@@ -283,8 +283,26 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             tviChild.IsExpanded = true;
         tviChild.Expanded += EmptyChild_Expanded;
 
+        //WPF displays an expansion handle only when the item already has content.
+        //Use an empty child as a placeholder until the real content is loaded.
+        if (!tviChild.IsExpanded && HasExpandableContent(child))
+            tviChild.Items.Add(new TreeViewItem());
+
         totalItemCount++;
         return tviChild;
+    }
+
+    private bool HasExpandableContent(Thought t)
+    {
+        bool retVal = t.Children.Count > 0 || t.LinksTo.Count > 0;
+
+        if (!retVal && reverseCB.IsChecked == true)
+            retVal = t.LinksFrom.Count > 0;
+
+        if (!retVal && t is Link link)
+            retVal = theUKS.IsSequenceElement(link.To);
+
+        return retVal;
     }
 
     //if the "details" box is checked, add the details
@@ -649,6 +667,17 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             return;
 
         string searchText = comboRoot.Text;
+        if (comboRoot.SelectedItem is string selectedRoot &&
+            !selectedRoot.Equals(searchText, StringComparison.OrdinalIgnoreCase))
+        {
+            // Editing the text does not automatically clear the ComboBox
+            // selection. Without this, the old history item remains selected
+            // and choosing it from the dropdown produces no selection change.
+            _isTextChangingInternally = true;
+            comboRoot.SelectedIndex = -1;
+            comboRoot.Text = searchText;
+            _isTextChangingInternally = false;
+        }
         if (!string.IsNullOrEmpty(searchText))
         {
             var suggestion = ThoughtLabels.LabelList.Keys
@@ -671,12 +700,30 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 _isTextChangingInternally = false;
             }
         }
-        ModuleUKS parent = (ModuleUKS)ParentModule;
-        if (parent is null) return;
-        parent.SetSavedDlgAttribute("Root", comboRoot.Text); //why?
-        Refresh();
-
+        CommitRoot(comboRoot.Text);
     }
+
+    private void ComboRoot_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isTextChangingInternally) return;
+        string selectedRoot = comboRoot.SelectedItem as string;
+        if (string.IsNullOrWhiteSpace(selectedRoot)) return;
+
+        _isTextChangingInternally = true;
+        comboRoot.Text = selectedRoot;
+        _isTextChangingInternally = false;
+        CommitRoot(selectedRoot);
+    }
+
+    private void CommitRoot(string root)
+    {
+        ModuleUKS parent = ParentModule as ModuleUKS;
+        if (parent is null) return;
+
+        parent.SetSavedDlgAttribute("Root", root);
+        Refresh();
+    }
+
     //using the mouse-wheel while pressing ctrl key changes the font size
     private void theTreeView_MouseWheel(object sender, MouseWheelEventArgs e)
     {
@@ -939,9 +986,12 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void UpdateRootHistoryItems()
     {
+        string currentText = comboRoot.Text;
         _isTextChangingInternally = true;
         comboRoot.ItemsSource = null;
         comboRoot.ItemsSource = _rootHistory.ToList();
+        comboRoot.SelectedIndex = -1;
+        comboRoot.Text = currentText;
         _isTextChangingInternally = false;
     }
 

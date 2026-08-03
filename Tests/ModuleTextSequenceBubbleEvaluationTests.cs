@@ -171,6 +171,39 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
+    public void FrenchCorpusLearnsFrenchFormsWithEnglishMeanings()
+    {
+        // Language elements remain French, while supervised actions point to
+        // the same language-independent English concepts used by other corpora.
+        UKS.UKS uks = CreateTextUKS();
+        string corpusPath = Path.Combine(
+            FindRepositoryRoot(), "BrainSimulator", "WordFIles",
+            "bst_true_template_corpus_fr.txt");
+        int expectedPhrases = File.ReadLines(corpusPath)
+            .Count(line => !string.IsNullOrWhiteSpace(line));
+        var module = new ModuleText { theUKS = uks };
+
+        int loadedPhrases = module.LoadTextFromFile(
+            corpusPath, expectedPhrases + 1);
+        int learnedActions = ModuleText.LearnActionsFromExemplars();
+
+        Assert.Equal(expectedPhrases, loadedPhrases);
+        Assert.True(learnedActions > 0);
+        Assert.NotNull(uks.Labeled("w:chien"));
+        Assert.NotNull(uks.Labeled("w:bêler"));
+        Assert.NotNull(uks.GetLink(
+            uks.Labeled("dog"), uks.Labeled("is-a"), uks.Labeled("animal")));
+        Assert.NotNull(uks.GetLink(
+            uks.Labeled("raven"), uks.Labeled("can"), uks.Labeled("fly")));
+        Assert.NotNull(uks.GetLink(
+            uks.Labeled("dog"), uks.Labeled("eats"), uks.Labeled("grain")));
+        Assert.Same(uks.Labeled("4"),
+            uks.Labeled("w:quatre").GetTargetOfFirstLinkOfType("means"));
+        Assert.Same(uks.Labeled("4"),
+            uks.Labeled("w:4").GetTargetOfFirstLinkOfType("means"));
+    }
+
+    [Fact]
     public void AddPhrasePreservesAOneWordPhrase()
     {
         // A one-word utterance such as "Stop" is still a phrase and must be
