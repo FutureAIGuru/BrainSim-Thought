@@ -422,6 +422,11 @@ public class UKSTextFileTests : IDisposable
         
         Link link = dog.AddLink(hasType, tail);
         link.Weight = 2.5f;
+        link.maxWeight = 3.5f;
+        link.isPlastic = true;
+        dog.Weight = 0.42f;
+        dog.maxWeight = 0.8f;
+        dog.isPlastic = true;
         
         // Export and reimport
         uks.ExportTextFile("Thought", testFilePath);
@@ -433,6 +438,11 @@ public class UKSTextFileTests : IDisposable
         Link reimportedLink = reimportedDog.HasLink(uks.Labeled("has"), uks.Labeled("tail"));
         Assert.NotNull(reimportedLink);
         Assert.Equal(2.5f, reimportedLink.Weight, 2);
+        Assert.Equal(3.5f, reimportedLink.maxWeight, 2);
+        Assert.True(reimportedLink.isPlastic);
+        Assert.Equal(0.42f, reimportedDog.Weight, 2);
+        Assert.Equal(0.8f, reimportedDog.maxWeight, 2);
+        Assert.True(reimportedDog.isPlastic);
     }
 
     [Fact]

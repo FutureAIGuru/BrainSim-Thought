@@ -60,9 +60,8 @@ public class ModuleClassCreate : ModuleBase
     public void DoTheWork()
     {
         debugString = "Agent Started\n";
-        for (int i = 0; i < theUKS.AtomicThoughts.Count; i++)
+        foreach (Thought t in new List<Thought>(theUKS.AtomicThoughts))
         {
-            Thought t = theUKS.AtomicThoughts[i];
             if (t.HasAncestor("Object") && !t.Label.Contains(".") && !t.Label.Contains("unknown"))
             {
                 HandleClassWithCommonAttributes(t);

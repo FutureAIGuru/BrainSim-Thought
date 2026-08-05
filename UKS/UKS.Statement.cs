@@ -233,18 +233,24 @@ public partial class UKS
 		if (lnk.To is null)
 		{
 			lock (lnk.From.LinksToWriteable)
+			lock (lnk.LinkType.LinksAsTypeWriteable)
 			{
 				if (!lnk.From.LinksToWriteable.Contains(lnk))
 					lnk.From.LinksToWriteable.Add(lnk);
+				if (!lnk.LinkType.LinksAsTypeWriteable.Contains(lnk))
+					lnk.LinkType.LinksAsTypeWriteable.Add(lnk);
 			}
 		}
 		else
 		{
 			lock (lnk.From.LinksToWriteable)
+			lock (lnk.LinkType.LinksAsTypeWriteable)
 			lock (lnk.To.LinksFromWriteable)
 			{
 				if (!lnk.From.LinksToWriteable.Contains(lnk))
 					lnk.From.LinksToWriteable.Add(lnk);
+				if (!lnk.LinkType.LinksAsTypeWriteable.Contains(lnk))
+					lnk.LinkType.LinksAsTypeWriteable.Add(lnk);
 				if (!lnk.To.LinksFromWriteable.Contains(lnk))
 					lnk.To.LinksFromWriteable.Add(lnk);
 			}

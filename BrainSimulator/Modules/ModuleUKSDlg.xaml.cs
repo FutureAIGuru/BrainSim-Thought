@@ -96,9 +96,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         }
         else //search for unattached Thoughts
         {
-            for (int i = 0; i < theUKS.AtomicThoughts.Count; i++)
+            foreach (Thought t1 in theUKS.AtomicThoughts)
             {
-                Thought t1 = theUKS.AtomicThoughts[i];
                 if (t1.Parents.Count == 0 && t1 is not Link)
                 {
                     TreeViewItem tvi = new() { Header = t1.Label };
@@ -294,7 +293,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private bool HasExpandableContent(Thought t)
     {
-        bool retVal = t.Children.Count > 0 || t.LinksTo.Count > 0;
+        bool retVal = t.Children.Count > 0 || t.LinksTo.Count > 1; //The 1 assumse a single is-a relationship
 
         if (!retVal && reverseCB.IsChecked == true)
             retVal = t.LinksFrom.Count > 0;
@@ -379,12 +378,11 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         ContextMenu menu = new ContextMenu();
         menu.SetValue(ThoughtObjectProperty, t);
         menu.SetValue(TreeViewItemProperty, tvi);
-        int ID = theUKS.AtomicThoughts.IndexOf(t);
         MenuItem mi = new();
         string thoughtLabel = "___";
         if (t is not null)
             thoughtLabel = t.Label;
-        mi.Header = "Name: " + thoughtLabel + "  Index: " + ID;
+        mi.Header = "Name: " + thoughtLabel;
         mi.IsEnabled = false;
         menu.Items.Add(mi);
 
@@ -599,7 +597,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                         ActionModule.TakeActrion(t);
                     break;
                 case "Delete":
-                    theUKS.DeleteAllChildrenAndLinks(t);
+                    //theUKS.DeleteAllChildrenAndLinks(t);
                     t.Delete();
                     break;
                 case "Delete Child":

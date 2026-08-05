@@ -47,7 +47,10 @@ public class ModuleText : ModuleBase
 
     }
 
-    public static string AddPhrase(string phrase, bool applyExistingTemplates = false)
+    public static string AddPhrase(
+        string phrase,
+        bool applyExistingTemplates = false,
+        bool learnIncrementally = false)
     {
         var theUKS = MainWindow.theUKS;
         char[] trimChars = { '.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}' };
@@ -87,15 +90,27 @@ public class ModuleText : ModuleBase
             if (wordsInPhrase.Count > 0)
             {
                 theUKS.AddSequenceAndLink(thePhrase, "hasWords", wordsInPhrase);
+                Thought theTemplate = null;
                 if (applyExistingTemplates)
                 {
-                    Thought theTemplate = ApplyExistingTemplatesToPhrase(thePhrase);
+                    theTemplate = ApplyExistingTemplatesToPhrase(thePhrase);
                     if (theTemplate is not null)
-                    {
                         ApplyLearnedTemplateAction(theTemplate, thePhrase);
-                        string retVal = $"Template: {theTemplate?.Label ?? "unknown"}: {theTemplate.GetTargetOfFirstLinkOfType("hasWords")}.";
-                        return retVal;
-                    }
+                }
+
+                Thought incrementalTemplate = null;
+                if (learnIncrementally)
+                    incrementalTemplate = theUKS.IncrementalSequenceBubble(thePhrase);
+
+                if (theTemplate is not null)
+                {
+                    string retVal = $"Template: {theTemplate?.Label ?? "unknown"}: {theTemplate.GetTargetOfFirstLinkOfType("hasWords")}.";
+                    return retVal;
+                }
+                if (incrementalTemplate is not null)
+                {
+                    string retVal = $"Learned template: {incrementalTemplate.Label}: {incrementalTemplate.GetTargetOfFirstLinkOfType("hasWords")}.";
+                    return retVal;
                 }
             }
             return $"Processed {attempted} tokens; ingested {ingested} words.";
@@ -106,7 +121,10 @@ public class ModuleText : ModuleBase
         }
     }
 
-    public static string AddText(string text, bool applyExistingTemplates = true)
+    public static string AddText(
+        string text,
+        bool applyExistingTemplates = true,
+        bool learnIncrementally = false)
     {
         var theUKS = MainWindow.theUKS;
         theUKS.GetOrAddThought("Word", "Thought");
@@ -118,7 +136,7 @@ public class ModuleText : ModuleBase
             string trimmed = sentence.Trim();
             if (trimmed.Length == 0) continue;
 
-            string retVal = AddPhrase(trimmed, applyExistingTemplates);
+            string retVal = AddPhrase(trimmed, applyExistingTemplates, learnIncrementally);
             if (sentences.Length == 1)
                 return retVal;  
         }
@@ -587,15 +605,16 @@ public class ModuleText : ModuleBase
 
     /// <summary>
     /// Incrementally loads up to <paramref name="phrasesPerCall"/> phrases from <paramref name="filePath"/>.
-    /// Each line is treated as a phrase. A tab-delimited SET action is retained
-    /// as a supervised action exemplar. Returns phrases ingested this call.
+    /// Each line is passed through AddText and the incremental sequence bubbler.
+    /// A tab-delimited SET action is retained as a supervised action exemplar.
+    /// Returns phrases ingested this call.
     /// When it returns 0, the file is finished or unreadable.
     /// </summary>
     /// 
     // Incremental file-load state
     private StreamReader _phraseReader;
     private string _phraseReaderPath;
-    public int LoadTextFromFile(string filePath, int phrasesPerCall = 500)
+    public int LoadTextFromFile(string filePath, int phrasesPerCall = 20)
     {
         if (phrasesPerCall <= 0) phrasesPerCall = 1;
         if (!File.Exists(filePath))
@@ -646,7 +665,10 @@ public class ModuleText : ModuleBase
                     string trimmed = sentence.Trim();
                     if (trimmed.Length == 0) continue;
 
-                    string result = AddPhrase(trimmed);
+                    //string result = AddPhrase(trimmed);
+                    string result = AddText(trimmed,
+                        applyExistingTemplates: true,
+                        learnIncrementally: true);
                     if (result.StartsWith("Error:", StringComparison.Ordinal))
                         throw new InvalidOperationException(result);
                     if (!string.IsNullOrWhiteSpace(actionText))

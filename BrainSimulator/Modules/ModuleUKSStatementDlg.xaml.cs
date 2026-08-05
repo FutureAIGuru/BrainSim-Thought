@@ -190,20 +190,24 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
 
         Thought tLink = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(linkTypeString, true);
 
+        bool isNewStatement = UKSStatement.theUKS.GetLink(tSource, tLink, tTarget) is null;
+        bool sourceWasNeverFired = tSource.LastFiredTime == DateTime.MinValue;
+        bool linkTypeWasNeverFired = tLink.LastFiredTime == DateTime.MinValue;
+        bool targetWasNeverFired = tTarget?.LastFiredTime == DateTime.MinValue;
         var r1 = UKSStatement.theUKS.AddStatement(tSource, tLink, tTarget);
         //Link r1 = UKSStatement.AddTheLink(tSource, linkTypeString, toString);
 
         //set the timeToLive
         if (r1 is not null && setConfCB.IsChecked == true)
         {
-            if (r1.UseCount == 1)
+            if (isNewStatement)
             {
                 r1.Weight = confidence;
                 r1.TimeToLive = timeToLive;
             }
-            if (r1.From.UseCount == 1) r1.From.TimeToLive = timeToLive;
-            if (r1.LinkType.UseCount == 1) r1.LinkType.TimeToLive = timeToLive;
-            if (r1.To?.UseCount == 1) r1.To.TimeToLive = timeToLive;
+            if (sourceWasNeverFired) r1.From.TimeToLive = timeToLive;
+            if (linkTypeWasNeverFired) r1.LinkType.TimeToLive = timeToLive;
+            if (targetWasNeverFired && r1.To is not null) r1.To.TimeToLive = timeToLive;
         }
         if (r1 is not null && eventCB.IsChecked == true)
         {

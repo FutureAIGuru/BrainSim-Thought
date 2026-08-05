@@ -45,8 +45,9 @@ public partial class ModuleTextDlg : ModuleBaseDlg
     {
         string phrase = tbPhrase.Text ?? string.Empty;
 
-        tbPhrase.Text = string.Empty; tbPhrase.Focus();
-        string message = ModuleText.AddText(phrase);
+        tbPhrase.Text = string.Empty; 
+        tbPhrase.Focus();
+        string message = ModuleText.AddText(phrase, learnIncrementally: true);
         SetStatus(message);
     }
 
@@ -123,6 +124,7 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         if (e.Key is Key.Enter)
         {
             BtnAdd_Click(null, null);
+            e.Handled = true;
         }
     }
 }

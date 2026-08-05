@@ -37,6 +37,10 @@ public partial class UKS
         public int target = -1;
         [DefaultValue(1)]
         public float weight = 1;
+        [DefaultValue(1)]
+        public float maxWeight = 1;
+        [DefaultValue(false)]
+        public bool isPlastic;
         [DefaultValue(null)]
         public object? V;
         public override string ToString()
@@ -108,6 +112,8 @@ public partial class UKS
                 index = UKSTemp.Count,
                 label = t.Label,
                 weight = t.Weight,
+                maxWeight = t.maxWeight,
+                isPlastic = t.isPlastic,
                 V = t.V,
             };
             if (t is Link lnk)
@@ -311,6 +317,8 @@ public partial class UKS
                 {
                     Label = st.label,
                     Weight = st.weight,
+                    maxWeight = st.maxWeight,
+                    isPlastic = st.isPlastic,
                     V = st.V,
                 };
                 t.TimeToLive = TimeSpan.MaxValue;
@@ -322,6 +330,8 @@ public partial class UKS
                 {
                     Label = st.label,
                     Weight = st.weight,
+                    maxWeight = st.maxWeight,
+                    isPlastic = st.isPlastic,
                     V = st.V,
                 };
                 l.TimeToLive = TimeSpan.MaxValue;
@@ -345,6 +355,8 @@ public partial class UKS
                 theLink.From = from;
                 theLink.LinkType = linkType;
                 theLink.Weight = st.weight;
+                theLink.maxWeight = st.maxWeight;
+                theLink.isPlastic = st.isPlastic;
                 theLink.V = st.V;
                 theLink.TimeToLive = TimeSpan.MaxValue;
                 if (theLink.From is null || theLink.LinkType is null)
@@ -353,6 +365,8 @@ public partial class UKS
                 if (newLink is null)
                     continue;
                 newLink.Weight = st.weight;
+                newLink.maxWeight = st.maxWeight;
+                newLink.isPlastic = st.isPlastic;
                 if (!AtomicThoughts.Contains(newLink))
                     AtomicThoughts.Add(newLink);
                 if (linkType?.Label == "VLU")

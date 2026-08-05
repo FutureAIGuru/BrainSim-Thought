@@ -21,9 +21,15 @@ namespace BrainSimulator.Modules;
 
 public class ModuleWord : ModuleBase
 {
+    private const float ObservationWeightIncrease = 1f;
+    private const float ObservationDecayFactor = 0.9999f;
+    private const float ConsolidationWeight = 10f;
+    private const int PlasticWordCapacity =50;
+
     //to put letters one by one into the mental Model
     DateTime lastLetterTime = DateTime.Now;
     readonly Queue<Thought> letterQueue = new();
+
     public ModuleWord()
     {
         Label = "Word";
@@ -58,6 +64,7 @@ public class ModuleWord : ModuleBase
     public override void UKSInitializedNotification()
     {
         theUKS.GetOrAddThought("letter", "Object");
+        EnsureWordRoot();
     }
 
 
@@ -102,12 +109,23 @@ public class ModuleWord : ModuleBase
         if (streamOnly)
             return null;
 
-        // Get or create the word thought
-        Thought wordThought = theUKS.GetOrAddThought("w:" + word, "Word");
+        // Get or create the word thought. Words are observations, so their
+        // persistent weights are plastic. Letters and spelling sequences are
+        // structural and retain their fixed weights.
+        Thought wordRoot = EnsureWordRoot();
+        Thought existingWord = theUKS.Labeled("w:" + word);
+        bool isNewWord = existingWord is null;
+        Thought wordThought = existingWord ?? theUKS.GetOrAddThought("w:" + word, wordRoot);
+        bool wordWasRetained = ObserveWord(wordThought, isNewWord);
+        Thought retVal = wordThought;
+        if (!wordWasRetained)
+        {
+            retVal = null;
+            return retVal;
+        }
         if (wordThought.LinksTo.FindFirst(x => x.LinkType.Label == "spelled") is not null)
         {
-            wordThought.Fire();
-            return wordThought; // Spelling already exists, no need to add again
+            return retVal; // Spelling already exists, no need to add again
         }
         // Create list of letter thoughts
         List<Thought> letters = new();
@@ -124,7 +142,61 @@ public class ModuleWord : ModuleBase
         var t = theUKS.AddSequenceAndLink(wordThought, spelledLinkType, letters);
         //wordThought.TimeToLive = TimeSpan.FromSeconds(10);
 
-        return wordThought;
+        return retVal;
+    }
+
+    /// <summary>
+    /// Treats each word observation as one time step. All word evidence decays
+    /// exponentially, the observed word gains one unit of evidence, and only
+    /// the strongest ten unconsolidated words are retained.
+    /// </summary>
+    private bool ObserveWord(Thought observedWord, bool isNewWord)
+    {
+        Thought wordRoot = EnsureWordRoot();
+        DecayWordWeights(wordRoot);
+
+        if (isNewWord)
+        {
+            observedWord.isPlastic = true;
+            observedWord.Weight = ObservationWeightIncrease;
+        }
+        else
+        {
+            observedWord.Weight += ObservationWeightIncrease;
+        }
+
+        observedWord.Fire();
+        if (observedWord.isPlastic && observedWord.Weight >= ConsolidationWeight)
+            observedWord.isPlastic = false;
+
+        int plasticChildCount = wordRoot.Children.Count(child => child.isPlastic);
+        bool observedWordWasPruned = false;
+        while (plasticChildCount > PlasticWordCapacity)
+        {
+            Thought prunedChild = theUKS.PruneLowestScoringChild(wordRoot);
+            if (prunedChild is null) break;
+
+            if (prunedChild == observedWord)
+                observedWordWasPruned = true;
+            plasticChildCount--;
+        }
+
+        bool retVal = !observedWordWasPruned;
+        return retVal;
+    }
+
+    private static void DecayWordWeights(Thought wordRoot)
+    {
+        foreach (Thought word in wordRoot.Children)
+            word.Weight *= ObservationDecayFactor;
+    }
+
+    private Thought EnsureWordRoot()
+    {
+        Thought wordRoot = theUKS.Labeled("Word");
+        wordRoot ??= theUKS.GetOrAddThought("Word", "Object");
+        Thought retVal = wordRoot;
+        return retVal;
     }
 
     public int LoadWordsFromFile(string filePath)
@@ -133,16 +205,30 @@ public class ModuleWord : ModuleBase
             return 0;
 
         int count = 0;
+        char[] trimChars = { '.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}' };
         try
         {
             string[] lines = File.ReadAllLines(filePath);
+            Random.Shared.Shuffle(lines);
             foreach (string line in lines)
             {
-                string word = line.Trim();
-                var splits = word.Split("\t");
-                word = splits[0];
-                if (!string.IsNullOrWhiteSpace(word))
+                string text = line.Trim();
+                if (string.IsNullOrWhiteSpace(text) || text.StartsWith("#")) continue;
+
+                // Existing dictionary files use a tab after the word. Corpus
+                // files may instead contain ordinary phrases to provide a
+                // realistic stream of scattered word observations.
+                string[] words = text.Contains('\t')
+                    ? new[] { text.Split('\t')[0] }
+                    : text.Split(new[] { ' ', '\t', '\r', '\n' },
+                        StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (string rawWord in words)
                 {
+                    string word = rawWord.Trim(trimChars).ToLowerInvariant();
+                    if (string.IsNullOrWhiteSpace(word)) continue;
+                    if (word.Any(ch => !char.IsLetterOrDigit(ch))) continue;
+
                     AddWordSpelling(word);
                     count++;
                 }

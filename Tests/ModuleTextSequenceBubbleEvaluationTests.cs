@@ -185,9 +185,11 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         int loadedPhrases = module.LoadTextFromFile(
             corpusPath, expectedPhrases + 1);
+        int incrementallyLearnedTemplates = uks.Labeled("LearnedTemplate")?.Children.Count ?? 0;
         int learnedActions = ModuleText.LearnActionsFromExemplars();
 
         Assert.Equal(expectedPhrases, loadedPhrases);
+        Assert.True(incrementallyLearnedTemplates > 0);
         Assert.True(learnedActions > 0);
         Assert.NotNull(uks.Labeled("w:chien"));
         Assert.NotNull(uks.Labeled("w:bêler"));

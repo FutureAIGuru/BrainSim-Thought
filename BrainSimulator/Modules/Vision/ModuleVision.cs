@@ -742,7 +742,7 @@ public partial class ModuleVision : ModuleBase
         //    Thought t = theUKS.UKSList[i];
         //    if (t.Children.Count > 0) continue;
         //    if (!t.HasAncestor("UnknownObject")) continue;
-        //    if (t.useCount == 1)
+        //    if this is the first observation
         //    {
         //        theUKS.DeleteThought(t);
         //        i--;

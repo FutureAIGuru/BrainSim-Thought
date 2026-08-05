@@ -35,16 +35,14 @@ public partial class UKS
     public void CreateInitialStructure()
     {
         //this hack is needed to preserve the info relating to module layout
-        for (int i = 0; i < AtomicThoughts.Count; i++)
+        foreach (Thought t in AtomicThoughts.ToList())
         {
-            Thought t = AtomicThoughts[i];
             if (t.Label == "BrainSim") continue;
             if (t.HasAncestor("BrainSim")) continue;
             if (t.Label == "is-a") continue;
             if (t.Label == "hasAttribute") continue;
 
             t.Delete();
-            i--;
         }
 
         //This deletes all the labels then adds back in the ones still in the AtomicThoughts list

@@ -123,8 +123,8 @@ namespace BrainSimulator.Modules
                 //draw the patch centers
                 if (cbShowCenterPts.IsChecked == true && parent.boundaryArray != null)
                 {
-                    List<Thought> patchesRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.StartsWith("patch") &&
-                        x.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10));
+                    List<Thought> patchesRecentlyFired = theUKS.AtomicThoughts.Where(x => x.Label.StartsWith("patch") &&
+                        x.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10)).ToList();
 
                     for (int x = 2; x < parent.boundaryArray.GetLength(0) - 2; x++)
                         for (int y = 2; y < parent.boundaryArray.GetLength(1) - 2; y++)
@@ -175,16 +175,16 @@ namespace BrainSimulator.Modules
                 //draw the patches & contents
                 if (cbShowPatches.IsChecked == true && parent.boundaryArray != null)
                 {
-                    List<Thought> thingsRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.ToLower().StartsWith("patch") &&
-                        x.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(3));
+                    List<Thought> thingsRecentlyFired = theUKS.AtomicThoughts.Where(x => x.Label.ToLower().StartsWith("patch") &&
+                        x.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(3)).ToList();
                     foreach (Thought t in thingsRecentlyFired)
                         DrawAPatch(t);
                 }
                 //draw the corner content
                 if (cbShowCorners.IsChecked == true && parent.boundaryArray != null)
                 {
-                    List<Thought> cornersRecentlyFired = theUKS.AtomicThoughts.FindAll(x => x.Label.StartsWith("corner") &&
-                        x.LastFiredTime != new DateTime(0)); //> DateTime.Now - TimeSpan.FromSeconds(10));
+                    List<Thought> cornersRecentlyFired = theUKS.AtomicThoughts.Where(x => x.Label.StartsWith("corner") &&
+                        x.LastFiredTime != new DateTime(0)).ToList(); //> DateTime.Now - TimeSpan.FromSeconds(10));
 
                     foreach (Thought t in cornersRecentlyFired)
                     {

@@ -38,9 +38,31 @@ public partial class UKS
             using (var writer = new StreamWriter(path))
             {
                 if (writer is null) throw new ArgumentNullException(nameof(writer));
-                foreach (var t in Root.EnumerateSubThoughts())
+                List<Thought> thoughtsToWrite = new();
+                HashSet<Thought> collectedThoughts = new();
+
+                void Collect(Thought? thought)
                 {
-                    string s = FormatThought(t) + " " + t.Weight.ToString("F2");
+                    if (thought is not null && collectedThoughts.Add(thought))
+                        thoughtsToWrite.Add(thought);
+                }
+
+                Collect(Root);
+                foreach (Thought thought in Root.EnumerateSubThoughts())
+                {
+                    Collect(thought);
+                    if (thought is Link link)
+                    {
+                        Collect(link.From);
+                        Collect(link.LinkType);
+                        Collect(link.To);
+                    }
+                }
+
+                foreach (Thought t in thoughtsToWrite)
+                {
+                    string s = FormatThought(t) + " " + t.Weight.ToString("F2") +
+                        " " + t.maxWeight.ToString("F2") + " " + t.isPlastic;
                     if (!alreadyWritten.Contains(s))
                     {
                         writer.WriteLine(s);
@@ -61,13 +83,9 @@ public partial class UKS
     private void RemoveTempLabels(Thought Root)
     {
         if (Root is null) return;
-        var v = AtomicThoughts;
-
         //remove unnecessary "unl_..."  labels
         foreach (var t in Root.EnumerateSubThoughts())
         {
-            int i = AtomicThoughts.IndexOf(t);
-
             if (t.Label.StartsWith("unl_"))
                 t.Label = "";
         }
@@ -115,17 +133,18 @@ public partial class UKS
         var lines = File.ReadAllLines(filePath);
 
         // The 3-pass is needed to handle forward label references
-        // FIRST PASS: Find all defined labels
-        List<string> definedLabels = new();
+        // FIRST PASS: Find labels which define links. Standalone Thought metadata
+        // lines must remain ordinary Thoughts rather than unwired Link placeholders.
+        List<string> definedLinkLabels = new();
         foreach (var line in lines)
         {
             string code = StripEolComment(line);
             if (string.IsNullOrWhiteSpace(code)) continue;
             var tokens = TokenizeTopLevel(code);
-            if (tokens.Count == 0) continue;
+            if (tokens.Count < 2 || !tokens[1].TrimStart().StartsWith("[")) continue;
             string label = tokens[0].Trim();
-                if (!string.IsNullOrEmpty(label))
-                definedLabels.Add(label);
+            if (!string.IsNullOrEmpty(label))
+                definedLinkLabels.Add(label);
         }
 
         // SECOND PASS: Find all referenced labels (in bracket parts)
@@ -135,7 +154,7 @@ public partial class UKS
             string code = StripEolComment(line);
             if (string.IsNullOrWhiteSpace(code)) continue;
             var tokens = TokenizeTopLevel(code);
-            if (tokens.Count < 2) continue;
+            if (tokens.Count < 2 || !tokens[1].TrimStart().StartsWith("[")) continue;
             
             var stmt = ParseBracketStmt(tokens[1], 0);
             foreach (var part in stmt)
@@ -147,7 +166,7 @@ public partial class UKS
         }
 
         // Keep only labels that are referenced
-        List<string> labelsToPreAllocate = definedLabels
+        List<string> labelsToPreAllocate = definedLinkLabels
             .Where(label => referencedLabels.Contains(label))
             .ToList();
 
@@ -193,13 +212,31 @@ public partial class UKS
         var tokens = TokenizeTopLevel(code);
         if (tokens.Count < 2) return null;
 
+        if (!tokens[1].TrimStart().StartsWith("["))
+        {
+            Thought? thought = Labeled(tokens[0]) ?? GetOrAddThought(tokens[0]);
+            ApplyTrailingPersistenceMetadata(thought, tokens, 1);
+            Thought? thoughtRetVal = thought;
+            return thoughtRetVal;
+        }
+
         var stmt = ParseBracketStmt(tokens[1], 0);
         if (stmt.Count < 2) return null;
 
-        return AddLinkStmt(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
+        Thought? linkRetVal = AddLinkStmt(
+            tokens[0], stmt,
+            tokens.Count > 2 ? tokens[2] : null,
+            tokens.Count > 3 ? tokens[3] : null,
+            tokens.Count > 4 ? tokens[4] : null);
+        return linkRetVal;
     }
     // Adds a link, handling nested links in src, type, or target
-    private Thought? AddLinkStmt(string label, List<string> linkParts, string? sWeight)
+    private Thought? AddLinkStmt(
+        string label,
+        List<string> linkParts,
+        string? sWeight,
+        string? sMaxWeight,
+        string? sIsPlastic)
     {
         if (linkParts.Count < 2) return null;
 
@@ -246,11 +283,7 @@ public partial class UKS
             // This must be a sequence element, promote it to one
             PromoteToSeqElement(from);
         }
-        if (sWeight is { } n)
-        {
-            if (float.TryParse(n, out float weight))
-                r.Weight = weight;
-        }
+        ApplyPersistenceMetadata(r, sWeight, sMaxWeight, sIsPlastic);
         return r;
     }
 
@@ -273,14 +306,32 @@ public partial class UKS
         var tokens = TokenizeTopLevel(code);
         if (tokens.Count < 2) return null;
 
+        if (!tokens[1].TrimStart().StartsWith("["))
+        {
+            Thought? thought = Labeled(tokens[0]) ?? GetOrAddThought(tokens[0]);
+            ApplyTrailingPersistenceMetadata(thought, tokens, 1);
+            Thought? thoughtRetVal = thought;
+            return thoughtRetVal;
+        }
+
         var stmt = ParseBracketStmt(tokens[1], 0);
         if (stmt.Count < 2) return null;
 
-        return AddLinkStmtWithNesting(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
+        Thought? linkRetVal = AddLinkStmtWithNesting(
+            tokens[0], stmt,
+            tokens.Count > 2 ? tokens[2] : null,
+            tokens.Count > 3 ? tokens[3] : null,
+            tokens.Count > 4 ? tokens[4] : null);
+        return linkRetVal;
     }
 
     // Adds a link, handling nested links in src, type, or target
-    private Thought? AddLinkStmtWithNesting(string label, List<string> linkParts, string? sWeight)
+    private Thought? AddLinkStmtWithNesting(
+        string label,
+        List<string> linkParts,
+        string? sWeight,
+        string? sMaxWeight,
+        string? sIsPlastic)
     {
         if (linkParts.Count < 2) return null;
 
@@ -337,11 +388,7 @@ public partial class UKS
             // This must be a sequence element, promote it to one
             PromoteToSeqElement(from);
         }
-        if (sWeight is { } n)
-        {
-            if (float.TryParse(n, out float weight))
-                r.Weight = weight;
-        }
+        ApplyPersistenceMetadata(r, sWeight, sMaxWeight, sIsPlastic);
         return r;
     }
 
@@ -367,13 +414,57 @@ public partial class UKS
             if (nestedStmt.Count >= 2)
             {
                 // Recursively create the nested link (with empty label)
-                return AddLinkStmtWithNesting("", nestedStmt, null);
+                Thought? retVal = AddLinkStmtWithNesting("", nestedStmt, null, null, null);
+                return retVal;
             }
             return null;
         }
 
         // Not a nested link, try to find existing thought
         return Labeled(trimmed);
+    }
+
+    private static void ApplyPersistenceMetadata(
+        Thought? thought,
+        string? sWeight,
+        string? sMaxWeight,
+        string? sIsPlastic)
+    {
+        if (thought is null) return;
+
+        if (sWeight is not null && float.TryParse(sWeight, out float weight))
+            thought.Weight = weight;
+        if (sMaxWeight is not null && float.TryParse(sMaxWeight, out float maxWeight))
+            thought.maxWeight = maxWeight;
+        if (sIsPlastic is not null && bool.TryParse(sIsPlastic, out bool isPlastic))
+            thought.isPlastic = isPlastic;
+    }
+
+    private static void ApplyTrailingPersistenceMetadata(
+        Thought? thought,
+        List<string> tokens,
+        int metadataStart)
+    {
+        if (thought is null || tokens.Count <= metadataStart) return;
+
+        string? sWeight;
+        string? sMaxWeight = null;
+        string? sIsPlastic = null;
+        bool hasExtendedMetadata = tokens.Count - metadataStart >= 3 &&
+            bool.TryParse(tokens[^1], out _);
+        if (hasExtendedMetadata)
+        {
+            sWeight = tokens[^3];
+            sMaxWeight = tokens[^2];
+            sIsPlastic = tokens[^1];
+        }
+        else
+        {
+            // Backward compatibility with text files containing only Weight.
+            sWeight = tokens[^1];
+        }
+
+        ApplyPersistenceMetadata(thought, sWeight, sMaxWeight, sIsPlastic);
     }
 
     // Parse "[F->L->T]" or "[S,R,O,N]" (comma separated, quotes allowed around items)
@@ -446,23 +537,32 @@ public partial class UKS
         return sb.ToString().Trim();
     }
 
-    // Tokenize top-level into: [ ... ]  or  connector tokens (whitespace separated)
+    // Tokenize top-level into label, optional [ ... ], and metadata tokens.
     private static List<string> TokenizeTopLevel(string code)
     {
         var tokens = new List<string>();
         if (string.IsNullOrWhiteSpace(code)) return tokens;
 
         int leftBracketPos = code.IndexOf("[");
+        if (leftBracketPos == -1)
+        {
+            tokens.AddRange(code.Split(
+                new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries));
+            return tokens;
+        }
+
         int rightBrackedPos = code.LastIndexOf("]") + 1;
-        if (leftBracketPos == -1 || rightBrackedPos == -1) return tokens;
+        if (rightBrackedPos <= 0) return tokens;
 
         string label = code[..leftBracketPos].Trim();
-        string weight = code[rightBrackedPos..].Trim();
+        string metadata = code[rightBrackedPos..].Trim();
         string body = code[leftBracketPos..rightBrackedPos].Trim();
 
         tokens.Add(label);
         tokens.Add(body);
-        tokens.Add(weight);
+        if (!string.IsNullOrWhiteSpace(metadata))
+            tokens.AddRange(metadata.Split(
+                new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries));
 
         return tokens;
     }

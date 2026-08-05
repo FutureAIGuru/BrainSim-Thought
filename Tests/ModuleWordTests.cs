@@ -1,5 +1,8 @@
 using System.Collections.Generic;
+using System;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using BrainSimulator;
 using BrainSimulator.Modules;
 using UKS;
@@ -74,5 +77,102 @@ public class ModuleWordTests
         SeqElement spelling = Assert.IsType<SeqElement>(spelledLink.To);
         Assert.Equal(new[] { "c:4" },
             uks.FlattenSequence(spelling).Select(element => element.Label));
+    }
+
+    [Fact]
+    public void AddWordSpelling_ReinforcesRepeatedWordsAndWeakensCompetitors()
+    {
+        // A word which is heard repeatedly should become easier to activate,
+        // while a different word which is not heard again should fade.
+        var uks = CreateUKS();
+        var module = new ModuleWord { theUKS = uks };
+
+        Thought fadingWord = module.AddWordSpelling("fading");
+        float initialFadingWeight = fadingWord.Weight;
+        Thought repeatedWord = module.AddWordSpelling("repeated");
+
+        // The first observation starts the word at 0.10; nine more hits bring
+        // it to the permanent upper boundary.
+        for (int i = 0; i < 9; i++)
+            repeatedWord = module.AddWordSpelling("repeated");
+
+        Assert.False(repeatedWord.isPlastic);
+        Assert.Equal(1f, repeatedWord.Weight);
+        Assert.True(fadingWord.Weight < initialFadingWeight,
+            $"Expected fading below {initialFadingWeight}, actual {fadingWord.Weight}; " +
+            $"Word children: {string.Join(",", uks.Labeled("Word").Children.Select(x => x.Label))}");
+        Assert.False(uks.Labeled("spelled").isPlastic);
+    }
+
+    [Fact]
+    public void ConsolidatedWord_StillDrivesForgettingOfPlasticWords()
+    {
+        // Hearing a familiar stable word is still intervening experience. It
+        // should remain fixed while an unrepeated plastic word becomes weaker.
+        var uks = CreateUKS();
+        var module = new ModuleWord { theUKS = uks };
+
+        Thought stableWord = module.AddWordSpelling("familiar");
+        for (int i = 0; i < 9; i++)
+            stableWord = module.AddWordSpelling("familiar");
+        Assert.False(stableWord.isPlastic);
+
+        Thought fadingWord = module.AddWordSpelling("unrepeated");
+        float initialFadingWeight = fadingWord.Weight;
+        stableWord = module.AddWordSpelling("familiar");
+        float expectedFadingWeight = initialFadingWeight - 0.001f;
+
+        Assert.False(stableWord.isPlastic);
+        Assert.Equal(1f, stableWord.Weight);
+        Assert.Equal(expectedFadingWeight, fadingWord.Weight, 5);
+    }
+
+    [Fact]
+    public void WordDurabilityCorpus_LoadsPhraseTokensAndScatteredVocabulary()
+    {
+        // The corpus is a stream of ordinary phrases containing hundreds of
+        // distinct words. This test verifies ingestion rather than prescribing
+        // the durability outcome which the larger corpus is intended to expose.
+        var uks = CreateUKS();
+        var module = new ModuleWord { theUKS = uks };
+        string corpusPath = Path.Combine(
+            FindRepositoryRoot(), "BrainSimulator", "WordFIles",
+            "bst_word_durability_corpus.txt");
+
+        int loadedCount = module.LoadWordsFromFile(corpusPath);
+
+        Thought mostFrequent = uks.Labeled("w:the");
+        Thought frequent = uks.Labeled("w:dog");
+        Thought occasional = uks.Labeled("w:thermometer");
+        int corpusWordCount = File.ReadLines(corpusPath)
+            .SelectMany(line => line.Split(
+                new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries))
+            .Count();
+        Assert.Equal(corpusWordCount, loadedCount);
+        Assert.True(corpusWordCount > 800);
+        Assert.NotNull(mostFrequent);
+        Assert.NotNull(frequent);
+        Assert.NotNull(occasional);
+        Assert.Null(uks.Labeled("w:the dog waits beside the garden gate"));
+
+        foreach (Thought repeatedWord in new[]
+                 { mostFrequent, frequent, occasional })
+        {
+            Assert.Equal(1f, repeatedWord.Weight);
+            Assert.False(repeatedWord.isPlastic);
+        }
+
+    }
+
+    private static string FindRepositoryRoot([CallerFilePath] string sourceFilePath = "")
+    {
+        DirectoryInfo directory = new(Path.GetDirectoryName(sourceFilePath)!);
+        while (directory is not null &&
+               !File.Exists(Path.Combine(directory.FullName, "BrainSim Thought.sln")))
+            directory = directory.Parent;
+
+        string retVal = directory?.FullName ??
+            throw new DirectoryNotFoundException("Repository root not found.");
+        return retVal;
     }
 }

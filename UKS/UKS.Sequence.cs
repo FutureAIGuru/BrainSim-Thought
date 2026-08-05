@@ -274,6 +274,45 @@ public partial class UKS
             current = next;
         }
     }
+
+    internal void DeleteSequencesContainingValue(Thought value)
+    {
+        HashSet<SeqElement> visited = new(ReferenceEqualityComparer.Instance);
+        List<SeqElement> containingSequences = value.LinksFrom
+            .Where(link => link.LinkType?.Label == "VLU" && link.From is SeqElement)
+            .Select(link => ((SeqElement)link.From!).FRST)
+            .Where(first => first is not null)
+            .ToList();
+
+        foreach (SeqElement sequence in containingSequences)
+            DeleteSequenceAndReferences(sequence);
+
+        void DeleteSequenceAndReferences(SeqElement sequence)
+        {
+            if (!visited.Add(sequence)) return;
+
+            List<Link> references = sequence.LinksFrom
+                .Where(link => link.LinkType?.Label != "FRST")
+                .ToList();
+            foreach (Link reference in references)
+            {
+                if (reference.LinkType?.Label == "VLU" && reference.From is SeqElement outerElement)
+                {
+                    SeqElement outerSequence = outerElement.FRST;
+                    if (outerSequence is not null)
+                        DeleteSequenceAndReferences(outerSequence);
+                }
+                else
+                {
+                    reference.From?.RemoveLink(reference);
+                }
+            }
+
+            if (IsSequenceFirstElement(sequence))
+                DeleteSequence(sequence);
+        }
+    }
+
     //This unconditionally creates a sequence of Thoughts
     //No checking for existing sequences, no subsequences detection
     private SeqElement CreateRawSequence(List<Thought> targets, string baseLabel = "seq*")
@@ -748,12 +787,11 @@ public partial class UKS
         //At this time...   Sequence elements are always parentless
         t.RemoveParent("Unknown");
 
-        // Replace in global list
+        // Replace in the global atomic set.
         lock (AtomicThoughts)
         {
-            int idx = AtomicThoughts.IndexOf(t);
-            if (idx >= 0)
-                AtomicThoughts[idx] = seq;
+            if (AtomicThoughts.Remove(t))
+                AtomicThoughts.Add(seq);
         }
         t.Delete();
 

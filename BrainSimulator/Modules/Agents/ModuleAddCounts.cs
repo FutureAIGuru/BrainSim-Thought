@@ -58,9 +58,8 @@ public class ModuleAddCounts : ModuleBase
     public void DoTheWork()
     {
         debugString = "Agent Started\n";
-        for (int i = 0; i < theUKS.AtomicThoughts.Count; i++)
+        foreach (Thought t in theUKS.AtomicThoughts.ToList())
         {
-            Thought t = theUKS.AtomicThoughts[i];
             AddCountLinks(t);
         }
         debugString += "Agent  Finished\n";

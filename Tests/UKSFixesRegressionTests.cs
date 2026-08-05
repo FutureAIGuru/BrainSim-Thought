@@ -70,7 +70,10 @@ public class UKSFixesRegressionTests
     {
         var uks = CreateUks();
         uks.AddStatement("dog", "is-a", "Object");
-        uks.AddStatement("Fido", "is-a", "dog");
+        Link original = uks.AddStatement("Fido", "is-a", "dog");
+        original.Weight = 0.42f;
+        original.maxWeight = 0.8f;
+        original.isPlastic = true;
 
         string path = Path.Combine(Path.GetTempPath(), $"uks_roundtrip_{Guid.NewGuid():N}.xml");
         try
@@ -81,7 +84,12 @@ public class UKSFixesRegressionTests
             Assert.True(uks2.LoadUKSfromXMLFile(path));
 
             Assert.NotNull(uks2.Labeled("Fido"));
-            Assert.NotNull(uks2.GetLink(uks2.Labeled("Fido"), uks2.Labeled("is-a"), uks2.Labeled("dog")));
+            Link restored = uks2.GetLink(
+                uks2.Labeled("Fido"), uks2.Labeled("is-a"), uks2.Labeled("dog"));
+            Assert.NotNull(restored);
+            Assert.Equal(0.42f, restored.Weight, 2);
+            Assert.Equal(0.8f, restored.maxWeight, 2);
+            Assert.True(restored.isPlastic);
         }
         finally
         {

@@ -3,6 +3,50 @@ namespace UKS;
 public partial class UKS
 {
     /// <summary>
+    /// Removes the least-supported direct child of a Thought.
+    /// </summary>
+    /// <param name="parent">The Thought whose children compete for retention.</param>
+    /// <param name="plasticOnly">    /// When true, only plastic children are eligible for removal.</param>
+    /// <returns>The removed child, or null when no eligible child exists.</returns>
+    public Thought? PruneLowestScoringChild(
+        Thought parent,
+        bool plasticOnly = true)
+    {
+        ArgumentNullException.ThrowIfNull(parent);
+
+        Thought? lowestScoringChild = null;
+        float lowestScore = float.MaxValue;
+        foreach (Thought child in parent.Children)
+        {
+            if (plasticOnly && !child.isPlastic) continue;
+
+            float score = GetRetentionScore(child);
+            bool lowerScore = score < lowestScore;
+            bool equallyLowButOlder = score == lowestScore &&
+                lowestScoringChild is not null &&
+                child.LastFiredTime < lowestScoringChild.LastFiredTime;
+            bool shouldReplaceSelection = lowestScoringChild is null ||
+                lowerScore || equallyLowButOlder;
+            if (!shouldReplaceSelection) continue;
+
+            lowestScoringChild = child;
+            lowestScore = score;
+        }
+
+        Thought? retVal = lowestScoringChild;
+        lowestScoringChild?.Delete();
+        return retVal;
+    }
+
+    private static float GetRetentionScore(Thought child)
+    {
+        float retVal = float.IsNaN(child.Weight)
+            ? float.MinValue
+            : child.Weight;
+        return retVal;
+    }
+
+    /// <summary>
     /// Replaces every graph reference to <paramref name="redundantThought"/>
     /// with <paramref name="canonicalThought"/>, transfers the redundant
     /// Thought's relationships and reinforcement, then removes it.
@@ -44,6 +88,7 @@ public partial class UKS
                 {
                     replacement.Weight = Math.Max(replacement.Weight, oldLink.Weight);
                     replacement.maxWeight = Math.Max(replacement.maxWeight, oldLink.maxWeight);
+                    replacement.isPlastic |= oldLink.isPlastic;
                     replacement.LastFiredTime = replacement.LastFiredTime > oldLink.LastFiredTime
                         ? replacement.LastFiredTime : oldLink.LastFiredTime;
                     replacement.TimeToLive = replacement.TimeToLive > oldLink.TimeToLive
@@ -57,11 +102,11 @@ public partial class UKS
 
         canonicalThought.Weight = Math.Max(canonicalThought.Weight, redundantThought.Weight);
         canonicalThought.maxWeight = Math.Max(canonicalThought.maxWeight, redundantThought.maxWeight);
+        canonicalThought.isPlastic |= redundantThought.isPlastic;
         canonicalThought.LastFiredTime = canonicalThought.LastFiredTime > redundantThought.LastFiredTime
             ? canonicalThought.LastFiredTime : redundantThought.LastFiredTime;
         canonicalThought.TimeToLive = canonicalThought.TimeToLive > redundantThought.TimeToLive
             ? canonicalThought.TimeToLive : redundantThought.TimeToLive;
-        canonicalThought.UseCount += redundantThought.UseCount;
         canonicalThought.V ??= redundantThought.V;
         redundantThought.Delete();
         return replacedCount;
@@ -109,14 +154,12 @@ public partial class UKS
             }
             if (bestPair is null) break;
 
-            // Preserve the older node as the canonical identity. This keeps
-            // labels and existing external references as stable as possible.
+            // Children are returned in relationship-creation order. Preserve
+            // the first member of the selected pair as the canonical node.
             Thought first = bestPair.Value.first;
             Thought second = bestPair.Value.second;
-            int firstAge = AtomicThoughts.IndexOf(first);
-            int secondAge = AtomicThoughts.IndexOf(second);
-            Thought canonical = firstAge <= secondAge ? first : second;
-            Thought redundant = canonical == first ? second : first;
+            Thought canonical = first;
+            Thought redundant = second;
             ReplaceThoughtReferences(redundant, canonical);
             mergeCount++;
         }

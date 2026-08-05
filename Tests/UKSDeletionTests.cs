@@ -156,28 +156,70 @@ public class UKSDeletionTests
     }
 
     [Fact]
-    public void DeleteThought_RemovesLabelAndReparentsChildrenToUnknown()
+    public void DeleteThought_WithNoParents_ReparentsChildrenToUnknown()
+    {
+        var uks = CreateUKS();
+        Thought temporaryClass = uks.GetOrAddThought("temporaryClass");
+        Thought member = uks.GetOrAddThought("member");
+        temporaryClass.RemoveParent("Unknown");
+        member.AddParent(temporaryClass);
+        member.RemoveParent("Unknown");
+
+        // Sanity: present in label cache
+        Assert.Same(temporaryClass, ThoughtLabels.GetThought("temporaryClass"));
+        Thought unknown = ThoughtLabels.GetThought("Unknown");
+        Assert.NotNull(unknown);
+
+        // A child whose only parent is deleted must remain reachable under Unknown.
+        temporaryClass.Delete();
+
+        // Assert: removed from storage and label cache
+        Assert.DoesNotContain(temporaryClass, uks.AtomicThoughts);
+        Assert.Null(ThoughtLabels.GetThought("temporaryClass"));
+
+        Assert.Contains(unknown, member.Parents);
+        Assert.DoesNotContain(member.Parents, parent => parent?.Label == "temporaryClass");
+    }
+
+    [Fact]
+    public void DeleteThought_ReparentsChildrenToItsParents()
     {
         var uks = CreateUKS();
         Thought animal = uks.GetOrAddThought("animal");
         Thought dog = uks.GetOrAddThought("dog");
+        Thought fido = uks.GetOrAddThought("Fido");
         dog.AddParent(animal);
+        dog.RemoveParent("Unknown");
+        fido.AddParent(dog);
+        fido.RemoveParent("Unknown");
 
-        // Sanity: present in label cache
-        Assert.Same(animal, ThoughtLabels.GetThought("animal"));
-        Thought unknown = ThoughtLabels.GetThought("Unknown");
-        Assert.NotNull(unknown);
+        // Fido was known to be an animal through dog. Deleting the intermediate
+        // classification must preserve that already-established implication.
+        dog.Delete();
 
-        // Act
-        animal.Delete();
+        Assert.Contains(animal, fido.Parents);
+        Assert.DoesNotContain(dog, fido.Parents);
+        Assert.DoesNotContain(fido.Parents, parent => parent.Label == "Unknown");
+    }
 
-        // Assert: removed from storage and label cache
-        Assert.DoesNotContain(animal, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought("animal"));
+    [Fact]
+    public void RemoveParentLink_DoesNotPromoteTheChildToGrandparent()
+    {
+        var uks = CreateUKS();
+        Thought animal = uks.GetOrAddThought("animal");
+        Thought dog = uks.GetOrAddThought("dog");
+        Thought fido = uks.GetOrAddThought("Fido");
+        dog.AddParent(animal);
+        dog.RemoveParent("Unknown");
+        fido.AddParent(dog);
+        fido.RemoveParent("Unknown");
 
-        // Dog survives but now has Unknown as parent, not animal
-        Assert.Contains(unknown, dog.Parents);
-        Assert.DoesNotContain(dog.Parents, p => p?.Label == "animal");
+        // Removing an assertion is different from deleting its target Thought.
+        // It must not manufacture the transitive relationship Fido is-a animal.
+        fido.RemoveParent(dog);
+
+        Assert.DoesNotContain(dog, fido.Parents);
+        Assert.DoesNotContain(animal, fido.Parents);
     }
 
     [Fact]
@@ -207,5 +249,111 @@ public class UKSDeletionTests
         // Owner is gone from storage and labels
         Assert.DoesNotContain(a, uks.AtomicThoughts);
         Assert.Null(ThoughtLabels.GetThought("a"));
+    }
+
+    [Fact]
+    public void DeleteThought_UsedAsSequenceValue_RemovesTheDamagedSequence()
+    {
+        var uks = CreateUKS();
+        Thought phrase = uks.GetOrAddThought("phrase");
+        Thought hasWords = uks.GetOrAddThought("hasWords", "LinkType");
+        Thought pigs = uks.GetOrAddThought("pigs", "word");
+        Thought are = uks.GetOrAddThought("are", "word");
+        Thought animals = uks.GetOrAddThought("animals", "word");
+        SeqElement sequence = uks.AddSequenceAndLink(phrase, hasWords, new() { pigs, are, animals });
+
+        // A phrase must not survive as a structurally valid-looking sequence after one
+        // of its values has been deleted. The phrase Thought itself may remain.
+        pigs.Delete();
+
+        Assert.Contains(phrase, uks.AtomicThoughts);
+        Assert.Null(ThoughtLabels.GetThought(sequence.Label));
+        Assert.DoesNotContain(phrase.LinksTo, link => link.To == sequence);
+    }
+
+    [Fact]
+    public void DeleteThought_UsedAsLinkType_RemovesLinksOfThatType()
+    {
+        var uks = CreateUKS();
+        Thought dog = uks.GetOrAddThought("dog");
+        Thought cat = uks.GetOrAddThought("cat");
+        Thought likes = uks.GetOrAddThought("likes", "LinkType");
+        Link relationship = dog.AddLink(likes, cat);
+
+        // No surviving relationship may refer to a deleted link type.
+        likes.Delete();
+
+        Assert.DoesNotContain(relationship, dog.LinksTo);
+        Assert.DoesNotContain(relationship, cat.LinksFrom);
+    }
+
+    [Fact]
+    public void DeleteLinkThought_DetachesItFromItsEndpointsAndDeletesNestedLinks()
+    {
+        var uks = CreateUKS();
+        Thought fido = uks.GetOrAddThought("Fido");
+        Thought wet = uks.GetOrAddThought("wet");
+        Thought outside = uks.GetOrAddThought("outside");
+        Thought isType = uks.GetOrAddThought("is", "LinkType");
+        Thought ifType = uks.GetOrAddThought("if", "LinkType");
+        Link assertion = fido.AddLink(isType, wet);
+        Link condition = assertion.AddLink(ifType, outside);
+
+        // A Link is also a Thought. Deleting it directly must remove both the base
+        // relationship and relationships which use that Link as their source.
+        assertion.Delete();
+
+        Assert.DoesNotContain(assertion, fido.LinksTo);
+        Assert.DoesNotContain(assertion, wet.LinksFrom);
+        Assert.DoesNotContain(condition, assertion.LinksTo);
+        Assert.DoesNotContain(condition, outside.LinksFrom);
+    }
+
+    [Fact]
+    public void DeleteOneOwner_LeavesASequenceUsedByAnotherOwner()
+    {
+        var uks = CreateUKS();
+        Thought firstPhrase = uks.GetOrAddThought("firstPhrase");
+        Thought secondPhrase = uks.GetOrAddThought("secondPhrase");
+        Thought hasWords = uks.GetOrAddThought("hasWords", "LinkType");
+        Thought dogs = uks.GetOrAddThought("dogs", "word");
+        Thought bark = uks.GetOrAddThought("bark", "word");
+        SeqElement sharedSequence = uks.AddSequenceAndLink(firstPhrase, hasWords, new() { dogs, bark });
+        secondPhrase.AddLink(hasWords, sharedSequence);
+
+        // Deleting one owner must not delete sequence data still owned elsewhere.
+        firstPhrase.Delete();
+
+        Assert.Same(sharedSequence, ThoughtLabels.GetThought(sharedSequence.Label));
+        Assert.Contains(secondPhrase.LinksTo, link => link.To == sharedSequence);
+    }
+
+    [Fact]
+    public void DeleteThought_CanBeCalledTwice()
+    {
+        var uks = CreateUKS();
+        Thought temporary = uks.GetOrAddThought("temporary");
+
+        // Forgetting and cleanup can converge on the same Thought. Repeated deletion
+        // should be harmless rather than corrupting neighboring data or throwing.
+        temporary.Delete();
+        temporary.Delete();
+
+        Assert.DoesNotContain(temporary, uks.AtomicThoughts);
+        Assert.Null(ThoughtLabels.GetThought("temporary"));
+    }
+
+    [Fact]
+    public void AtomicThoughts_UsesReferenceIdentityWhenAThoughtIsRenamed()
+    {
+        var uks = CreateUKS();
+        Thought renamed = uks.GetOrAddThought("beforeRename");
+
+        // Atomic membership must remain valid when a mutable label changes.
+        renamed.Label = "afterRename";
+
+        Assert.Contains(renamed, uks.AtomicThoughts);
+        renamed.Delete();
+        Assert.DoesNotContain(renamed, uks.AtomicThoughts);
     }
 }
