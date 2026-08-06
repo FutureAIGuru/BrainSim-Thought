@@ -223,6 +223,25 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
+    public void RepeatedPhraseInputReusesTheExistingPhraseThought()
+    {
+        // Repeating an observation should reinforce the existing phrase. It must
+        // not create p1, p2, and so on which all point to the same sequence.
+        UKS.UKS uks = CreateTextUKS();
+
+        ModuleText.AddText("dogs are animals", learnIncrementally: true);
+        Thought originalPhrase = Assert.Single(uks.Labeled("Phrase").Children);
+        Thought originalSequence = originalPhrase.GetTargetOfFirstLinkOfType("hasWords");
+
+        ModuleText.AddText("dogs are animals", learnIncrementally: true);
+
+        Thought repeatedPhrase = Assert.Single(uks.Labeled("Phrase").Children);
+        Assert.Same(originalPhrase, repeatedPhrase);
+        Assert.Same(originalSequence,
+            repeatedPhrase.GetTargetOfFirstLinkOfType("hasWords"));
+    }
+
+    [Fact]
     public void ProcessedCorpusRecognizesANewPluralClassificationPhrase()
     {
         // After the complete learning pass, a manually entered phrase using

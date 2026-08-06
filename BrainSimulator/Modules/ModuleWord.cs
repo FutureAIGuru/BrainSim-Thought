@@ -193,8 +193,9 @@ public class ModuleWord : ModuleBase
 
     private Thought EnsureWordRoot()
     {
-        Thought wordRoot = theUKS.Labeled("Word");
-        wordRoot ??= theUKS.GetOrAddThought("Word", "Object");
+        Thought wordRoot = theUKS.GetOrAddThought("Word", "LanguageElement");
+        wordRoot.RemoveParent("Thought");
+        wordRoot.RemoveParent("Object");
         Thought retVal = wordRoot;
         return retVal;
     }

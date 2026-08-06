@@ -131,7 +131,7 @@ public partial class Thought
 
         if (this is not Link)
         {
-            UKS.theUKS.DeleteSequencesContainingValue(this);
+            UKS.theUKS.ReplaceDeletedSequenceValues(this);
 
             foreach (Link typedLink in _linksAsType.ToList())
                 typedLink.From?.RemoveLink(typedLink);
@@ -153,6 +153,15 @@ public partial class Thought
 
         foreach (Thought child in childrenToReparent)
         {
+            // A class-specific wildcard has no meaning after its class is
+            // deleted. Promoting it to the class's parent turns an internal
+            // matcher into an ordinary sibling, so remove it instead.
+            if (child.HasProperty("isWildcard"))
+            {
+                child.Delete();
+                continue;
+            }
+
             foreach (Thought parent in replacementParents)
                 if (!ReferenceEquals(child, parent) && !ReferenceEquals(parent, this))
                     child.AddParent(parent);

@@ -24,6 +24,9 @@ namespace BrainSimulator.Modules;
 
 public class ModuleText : ModuleBase
 {
+    private const float PhraseObservationDecayFactor = 0.9999f;
+    private const float PhraseObservationIncrease = 1f;
+    private const int PlasticPhraseCapacity = 50;
 
     // Fill this method in with code which will execute
     // once for each cycle of the engine
@@ -83,13 +86,20 @@ public class ModuleText : ModuleBase
                 }
             }
 
-            theUKS.GetOrAddThought("Phrase");
-            theUKS.GetOrAddThought("hasWords", "LinkType");
-            Thought thePhrase = theUKS.GetOrAddThought("p*", "Phrase");
-            //thePhrase.TimeToLive = TimeSpan.FromSeconds(30); // adjust as needed
+            Thought phraseRoot = theUKS.GetOrAddThought("Phrase");
+            Thought hasWords = theUKS.GetOrAddThought("hasWords", "LinkType");
             if (wordsInPhrase.Count > 0)
             {
-                theUKS.AddSequenceAndLink(thePhrase, "hasWords", wordsInPhrase);
+                Thought thePhrase = FindPhraseWithWords(
+                    theUKS, phraseRoot, hasWords, wordsInPhrase);
+                bool isNewPhrase = thePhrase is null;
+                if (thePhrase is null)
+                {
+                    thePhrase = theUKS.GetOrAddThought("p*", phraseRoot);
+                    theUKS.AddSequenceAndLink(thePhrase, hasWords, wordsInPhrase);
+                }
+                ObservePhrase(phraseRoot, thePhrase, isNewPhrase);
+
                 Thought theTemplate = null;
                 if (applyExistingTemplates)
                 {
@@ -101,6 +111,8 @@ public class ModuleText : ModuleBase
                 Thought incrementalTemplate = null;
                 if (learnIncrementally)
                     incrementalTemplate = theUKS.IncrementalSequenceBubble(thePhrase);
+
+                PruneStoredPhrases(phraseRoot);
 
                 if (theTemplate is not null)
                 {
@@ -121,13 +133,78 @@ public class ModuleText : ModuleBase
         }
     }
 
+    private static Thought FindPhraseWithWords(
+        UKS.UKS theUKS,
+        Thought phraseRoot,
+        Thought hasWords,
+        List<Thought> words)
+    {
+        List<(SeqElement seqNode, float confidence)> exactSequences =
+            theUKS.FindSequencesByActivation(words, "ExactSequenceSearch");
+        foreach ((SeqElement sequence, float _) in exactSequences)
+        {
+            Link ownerLink = sequence.LinksFrom.FirstOrDefault(link =>
+                ReferenceEquals(link.LinkType, hasWords) &&
+                link.From?.Parents.Any(parent => ReferenceEquals(parent, phraseRoot)) == true);
+            if (ownerLink?.From is Thought existingPhrase)
+            {
+                Thought retVal = existingPhrase;
+                return retVal;
+            }
+        }
+
+        Thought noPhraseFound = null;
+        return noPhraseFound;
+    }
+
+    private static void ObservePhrase(
+        Thought phraseRoot,
+        Thought observedPhrase,
+        bool isNewPhrase)
+    {
+        foreach (Thought storedPhrase in phraseRoot.Children)
+        {
+            if (!storedPhrase.isPlastic || HasMeaning(storedPhrase)) continue;
+            storedPhrase.Weight *= PhraseObservationDecayFactor;
+        }
+
+        observedPhrase.isPlastic = true;
+        if (isNewPhrase)
+            observedPhrase.Weight = PhraseObservationIncrease;
+        else
+            observedPhrase.Weight += PhraseObservationIncrease;
+        observedPhrase.Fire();
+    }
+
+    private static void PruneStoredPhrases(Thought phraseRoot)
+    {
+        List<Thought> deletablePhrases = phraseRoot.Children
+            .Where(phrase => phrase.isPlastic && !HasMeaning(phrase))
+            .OrderBy(phrase => phrase.Weight)
+            .ThenBy(phrase => phrase.LastFiredTime)
+            .ToList();
+
+        int deleteCount = deletablePhrases.Count - PlasticPhraseCapacity;
+        for (int index = 0; index < deleteCount; index++)
+            deletablePhrases[index].Delete();
+    }
+
+    private static bool HasMeaning(Thought phrase)
+    {
+        bool retVal = phrase.LinksTo.Any(link => link.LinkType?.Label == "means") ||
+            phrase.LinksFrom.Any(link => link.LinkType?.Label == "means");
+        return retVal;
+    }
+
     public static string AddText(
         string text,
         bool applyExistingTemplates = true,
         bool learnIncrementally = false)
     {
         var theUKS = MainWindow.theUKS;
-        theUKS.GetOrAddThought("Word", "Thought");
+        Thought wordRoot = theUKS.GetOrAddThought("Word", "LanguageElement");
+        wordRoot.RemoveParent("Thought");
+        wordRoot.RemoveParent("Object");
         if (string.IsNullOrWhiteSpace(text)) return "Null input";
 
         string[] sentences = Regex.Split(text, @"(?<=[\.!\?])\s+");
@@ -606,7 +683,7 @@ public class ModuleText : ModuleBase
     /// <summary>
     /// Incrementally loads up to <paramref name="phrasesPerCall"/> phrases from <paramref name="filePath"/>.
     /// Each line is passed through AddText and the incremental sequence bubbler.
-    /// A tab-delimited SET action is retained as a supervised action exemplar.
+    /// Tab-delimited grounding/action text is ignored for now.
     /// Returns phrases ingested this call.
     /// When it returns 0, the file is finished or unreadable.
     /// </summary>
@@ -646,11 +723,9 @@ public class ModuleText : ModuleBase
                 if (phrase.ToLower().Contains("what")) continue;
 
 
-                string actionText = null;
                 int tabIdx = phrase.IndexOf('\t');
                 if (tabIdx >= 0)
                 {
-                    actionText = phrase[(tabIdx + 1)..].Trim();
                     phrase = phrase[..tabIdx].Trim();
                 }
 
@@ -667,12 +742,10 @@ public class ModuleText : ModuleBase
 
                     //string result = AddPhrase(trimmed);
                     string result = AddText(trimmed,
-                        applyExistingTemplates: true,
+                        applyExistingTemplates: false,
                         learnIncrementally: true);
                     if (result.StartsWith("Error:", StringComparison.Ordinal))
                         throw new InvalidOperationException(result);
-                    if (!string.IsNullOrWhiteSpace(actionText))
-                        AddActionExemplar(trimmed, actionText);
                     count++;
                 }
             }

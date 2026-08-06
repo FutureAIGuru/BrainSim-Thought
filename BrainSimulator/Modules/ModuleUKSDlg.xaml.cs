@@ -73,10 +73,10 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         ModuleUKS parent = (ModuleUKS)ParentModule;
         expandAll = parent.GetSavedDlgAttribute("ExpandAll");
         string root = parent.GetSavedDlgAttribute("Root");
-        //root = "BrainSim";
         Thought Root = theUKS.Labeled(root);
 
         if (Root is null) Root = (Thought)"Thought";
+        if (Root is null) return;
         string sizeString = parent.GetSavedDlgAttribute("fontSize");
         int.TryParse(sizeString, out int fontSize);
         if (fontSize != 0)
@@ -265,6 +265,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         //create the treeview entry
         TreeViewItem tviChild = new() { Header = header };
 
+        if (detailsCB.IsChecked != true)
+            SetLearnedStructureBackground(tviChild, child);
+
         //change color of thoughts which just fired or are about to expire
         tviChild.SetValue(ThoughtObjectProperty, child);
         if (child.LastFiredTime > DateTime.Now - TimeSpan.FromMilliseconds(500))
@@ -289,6 +292,33 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
         totalItemCount++;
         return tviChild;
+    }
+
+    private static void SetLearnedStructureBackground(
+        TreeViewItem treeItem,
+        Thought thought)
+    {
+        Thought learnedParent = thought.Parents.FirstOrDefault(parent =>
+            parent.Label == "LearnedClass" || parent.Label == "LearnedTemplate");
+        if (learnedParent is null) return;
+
+        if (!thought.isPlastic)
+        {
+            //treeItem.Background = new SolidColorBrush(Colors.LightBlue);
+            return;
+        }
+
+        List<Thought> plasticSiblings = learnedParent.Children
+            .Where(sibling => sibling.isPlastic)
+            .OrderBy(sibling => sibling.Weight)
+            .ThenBy(sibling => sibling.LastFiredTime)
+            .ToList();
+        bool isLowestScoring = plasticSiblings.Count > 1 &&
+            ReferenceEquals(plasticSiblings[0], thought);
+        if (isLowestScoring)
+            treeItem.Background = new SolidColorBrush(Colors.LightYellow);
+        if (thought.Weight > 10)
+            treeItem.Background = new SolidColorBrush(Colors.MediumAquamarine);
     }
 
     private bool HasExpandableContent(Thought t)

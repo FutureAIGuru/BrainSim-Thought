@@ -13,6 +13,7 @@
 
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
@@ -22,6 +23,10 @@ namespace BrainSimulator.Modules;
 
 public partial class ModuleTextDlg : ModuleBaseDlg
 {
+    private readonly List<string> phraseHistory = new();
+    private int phraseHistoryIndex;
+    private string phraseHistoryDraft = string.Empty;
+
     public ModuleTextDlg()
     {
         InitializeComponent();
@@ -45,7 +50,15 @@ public partial class ModuleTextDlg : ModuleBaseDlg
     {
         string phrase = tbPhrase.Text ?? string.Empty;
 
-        tbPhrase.Text = string.Empty; 
+        if (!string.IsNullOrWhiteSpace(phrase))
+        {
+            phraseHistory.Remove(phrase);
+            phraseHistory.Add(phrase);
+        }
+        phraseHistoryIndex = phraseHistory.Count;
+        phraseHistoryDraft = string.Empty;
+
+        tbPhrase.Text = string.Empty;
         tbPhrase.Focus();
         string message = ModuleText.AddText(phrase, learnIncrementally: true);
         SetStatus(message);
@@ -121,10 +134,49 @@ public partial class ModuleTextDlg : ModuleBaseDlg
 
     private void tbPhrase_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if (e.Key is Key.Enter)
+        if (e.Key == Key.Up)
+        {
+            ShowPreviousPhrase();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Down)
+        {
+            ShowNextPhrase();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
         {
             BtnAdd_Click(null, null);
             e.Handled = true;
         }
+    }
+
+    private void ShowPreviousPhrase()
+    {
+        if (phraseHistory.Count == 0) return;
+
+        if (phraseHistoryIndex == phraseHistory.Count)
+            phraseHistoryDraft = tbPhrase.Text ?? string.Empty;
+        if (phraseHistoryIndex > 0)
+            phraseHistoryIndex--;
+
+        ShowPhraseHistoryEntry(phraseHistory[phraseHistoryIndex]);
+    }
+
+    private void ShowNextPhrase()
+    {
+        if (phraseHistory.Count == 0 || phraseHistoryIndex == phraseHistory.Count) return;
+
+        phraseHistoryIndex++;
+        string phrase = phraseHistoryIndex < phraseHistory.Count
+            ? phraseHistory[phraseHistoryIndex]
+            : phraseHistoryDraft;
+        ShowPhraseHistoryEntry(phrase);
+    }
+
+    private void ShowPhraseHistoryEntry(string phrase)
+    {
+        tbPhrase.Text = phrase;
+        tbPhrase.CaretIndex = tbPhrase.Text.Length;
     }
 }

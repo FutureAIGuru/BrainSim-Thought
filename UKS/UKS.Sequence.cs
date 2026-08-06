@@ -275,41 +275,43 @@ public partial class UKS
         }
     }
 
-    internal void DeleteSequencesContainingValue(Thought value)
+    internal void ReplaceDeletedSequenceValues(Thought value)
     {
-        HashSet<SeqElement> visited = new(ReferenceEqualityComparer.Instance);
-        List<SeqElement> containingSequences = value.LinksFrom
+        Thought unknownSequenceValue = GetOrAddThought("--");
+        List<SeqElement> affectedElements = value.LinksFrom
             .Where(link => link.LinkType?.Label == "VLU" && link.From is SeqElement)
-            .Select(link => ((SeqElement)link.From!).FRST)
-            .Where(first => first is not null)
+            .Select(link => (SeqElement)link.From!)
             .ToList();
 
-        foreach (SeqElement sequence in containingSequences)
-            DeleteSequenceAndReferences(sequence);
+        HashSet<SeqElement> affectedSequences = new(ReferenceEqualityComparer.Instance);
+        foreach (SeqElement element in affectedElements)
+            CollectAffectedSequence(element.FRST);
 
-        void DeleteSequenceAndReferences(SeqElement sequence)
+        Dictionary<SeqElement, List<Thought>> oldCacheKeys =
+            new(ReferenceEqualityComparer.Instance);
+        foreach (SeqElement sequence in affectedSequences)
+            oldCacheKeys[sequence] = FlattenSequence(sequence);
+
+        foreach (SeqElement element in affectedElements)
+            element.VLU = unknownSequenceValue;
+
+        foreach ((SeqElement sequence, List<Thought> oldCacheKey) in oldCacheKeys)
         {
-            if (!visited.Add(sequence)) return;
+            if (sequence.Label.StartsWith("thequery")) continue;
+            SequenceCache.Remove(oldCacheKey);
+            SequenceCache[FlattenSequence(sequence)] = sequence;
+        }
 
-            List<Link> references = sequence.LinksFrom
-                .Where(link => link.LinkType?.Label != "FRST")
-                .ToList();
-            foreach (Link reference in references)
+        void CollectAffectedSequence(SeqElement sequence)
+        {
+            if (sequence is null || !affectedSequences.Add(sequence)) return;
+
+            foreach (Link reference in sequence.LinksFrom
+                .Where(link => link.LinkType?.Label == "VLU" && link.From is SeqElement))
             {
-                if (reference.LinkType?.Label == "VLU" && reference.From is SeqElement outerElement)
-                {
-                    SeqElement outerSequence = outerElement.FRST;
-                    if (outerSequence is not null)
-                        DeleteSequenceAndReferences(outerSequence);
-                }
-                else
-                {
-                    reference.From?.RemoveLink(reference);
-                }
+                SeqElement outerSequence = ((SeqElement)reference.From!).FRST;
+                CollectAffectedSequence(outerSequence);
             }
-
-            if (IsSequenceFirstElement(sequence))
-                DeleteSequence(sequence);
         }
     }
 

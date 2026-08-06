@@ -252,7 +252,7 @@ public class UKSDeletionTests
     }
 
     [Fact]
-    public void DeleteThought_UsedAsSequenceValue_RemovesTheDamagedSequence()
+    public void DeleteThought_UsedAsSequenceValue_PreservesSequenceWithUnknownValue()
     {
         var uks = CreateUKS();
         Thought phrase = uks.GetOrAddThought("phrase");
@@ -262,13 +262,16 @@ public class UKSDeletionTests
         Thought animals = uks.GetOrAddThought("animals", "word");
         SeqElement sequence = uks.AddSequenceAndLink(phrase, hasWords, new() { pigs, are, animals });
 
-        // A phrase must not survive as a structurally valid-looking sequence after one
-        // of its values has been deleted. The phrase Thought itself may remain.
+        // Partial recall preserves the phrase structure. The forgotten position is
+        // represented by -- rather than turning the observation into a wildcard.
         pigs.Delete();
 
         Assert.Contains(phrase, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought(sequence.Label));
-        Assert.DoesNotContain(phrase.LinksTo, link => link.To == sequence);
+        Assert.Same(sequence, ThoughtLabels.GetThought(sequence.Label));
+        Assert.Contains(phrase.LinksTo, link => link.To == sequence);
+        Assert.Equal(new[] { "--", "are", "animals" },
+            uks.FlattenSequence(sequence).Select(value => value.Label));
+        Assert.Same(uks.Labeled("--"), uks.FlattenSequence(sequence)[0]);
     }
 
     [Fact]

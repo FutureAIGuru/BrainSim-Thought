@@ -41,6 +41,7 @@ public partial class UKS
             if (t.HasAncestor("BrainSim")) continue;
             if (t.Label == "is-a") continue;
             if (t.Label == "hasAttribute") continue;
+            if (t is Link) continue;
 
             t.Delete();
         }
@@ -205,7 +206,7 @@ public partial class UKS
         AddStatement("isSimilarTo", "hasProperty", "isCommutative");
         AddStatement("hasDigit", "is-a", "has");
 
-
+        
        //put in digits
         GetOrAddThought("some", "number");
         GetOrAddThought("many", "number");
