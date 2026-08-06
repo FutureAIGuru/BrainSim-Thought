@@ -55,6 +55,38 @@ public class UKSIncrementalSequenceBubbleTests
             learnedClass.Children.Any(member => member.Label == "w:happy"));
     }
 
+    [Fact]
+    public void UnequalLengthPhrasesCreateAndReuseAVariableLengthTemplate()
+    {
+        // An article-bearing noun phrase and a proper name have different
+        // lengths but still share the useful "is a dog" structure.
+        UKS uks = new(clear: true);
+        uks.CreateInitialStructure();
+        Thought phraseRoot = uks.GetOrAddThought("Phrase", "LanguageElement");
+        Thought hasWords = uks.GetOrAddThought("hasWords", "LinkType");
+
+        Thought articlePhrase = AddPhrase(uks, phraseRoot, hasWords,
+            "a", "terrier", "is", "a", "dog");
+        Assert.Null(uks.IncrementalSequenceBubble(articlePhrase));
+
+        Thought namePhrase = AddPhrase(uks, phraseRoot, hasWords,
+            "fido", "is", "a", "dog");
+        Thought learnedTemplate = uks.IncrementalSequenceBubble(namePhrase);
+
+        Assert.NotNull(learnedTemplate);
+        SequenceView templateSequence = Assert.Single(uks.GetSequenceViews(learnedTemplate));
+        Assert.Contains(templateSequence.Elements,
+            element => element.HasProperty("is+Wildcard"));
+
+        Thought anotherName = AddPhrase(uks, phraseRoot, hasWords,
+            "rex", "is", "a", "dog");
+        Thought reusedTemplate = uks.IncrementalSequenceBubble(anotherName);
+
+        Assert.Same(learnedTemplate, reusedTemplate);
+        Assert.Equal(3, learnedTemplate.LinksTo.Count(link =>
+            link.LinkType?.Label == "evidence"));
+    }
+
     private static Thought AddPhrase(
         UKS uks,
         Thought phraseRoot,

@@ -187,6 +187,9 @@ public partial class UKS
                     continue;
                 if (link.LinkType.Label.Equals("hasProperty", StringComparison.OrdinalIgnoreCase))
                     continue;
+                if (link.LinkType.Label.Equals("hasImage", StringComparison.OrdinalIgnoreCase) ||
+                    link.LinkType.HasProperty("isGrounding"))
+                    continue;
 
                 var key = (link.LinkType, link.To);
                 if (!itemCounts.TryGetValue(key, out List<Link> links))
@@ -251,8 +254,6 @@ public partial class UKS
             float newWeight = Math.Min(currentWeight + targetWeight, 0.99f);
 
             if (positiveCount <= totalCount * minFraction) continue;
-            if (newWeight == currentWeight && existing is not null) continue;
-
             if (newWeight < 0.5f)
             {
                 if (existing is not null)
@@ -263,10 +264,22 @@ public partial class UKS
                 continue;
             }
 
-            Link bubbled = parent.AddLink(linkType, target)!;
-            bubbled.Weight = newWeight;
-            bubbled.Fire();
-            changed = true;
+            Link bubbled = existing ?? parent.AddLink(linkType, target)!;
+            if (existing is null || newWeight != currentWeight)
+            {
+                bubbled.Weight = newWeight;
+                bubbled.Fire();
+                changed = true;
+            }
+
+            // Once the parent represents this attribute, remove the redundant
+            // direct copies. Children continue to expose it through inheritance.
+            foreach (Link childLink in links.ToList())
+            {
+                if (childLink.From is null) continue;
+                childLink.From.RemoveLink(childLink);
+                changed = true;
+            }
 
             for (int j = 0; j < parent.LinksTo.Count; j++)
             {

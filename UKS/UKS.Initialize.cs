@@ -99,6 +99,8 @@ public partial class UKS
         AddStatement("conditional", "is-a", "Property");
         AddStatement("isCondition", "is-a", "Property");
         AddStatement("isResult", "is-a", "Property");
+        AddStatement("isGrounding", "is-a", "Property");
+        AddStatement("isAnonymousClass", "is-a", "Property");
         AddStatement("?", "is-a", "LinkType");
         AddStatement("?", "hasProperty", "conditional");
 

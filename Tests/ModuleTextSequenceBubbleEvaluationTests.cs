@@ -171,10 +171,11 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
-    public void FrenchCorpusLearnsFrenchFormsWithEnglishMeanings()
+    public void FrenchCorpusLearnsFrenchFormsWithoutLoadingGrounding()
     {
-        // Language elements remain French, while supervised actions point to
-        // the same language-independent English concepts used by other corpora.
+        // File ingestion currently learns only the observed language forms.
+        // Tab-delimited grounding remains in the corpus for later use, but it
+        // must not create action exemplars or semantic assertions yet.
         UKS.UKS uks = CreateTextUKS();
         string corpusPath = Path.Combine(
             FindRepositoryRoot(), "BrainSimulator", "WordFIles",
@@ -186,23 +187,15 @@ public class ModuleTextSequenceBubbleEvaluationTests
         int loadedPhrases = module.LoadTextFromFile(
             corpusPath, expectedPhrases + 1);
         int incrementallyLearnedTemplates = uks.Labeled("LearnedTemplate")?.Children.Count ?? 0;
-        int learnedActions = ModuleText.LearnActionsFromExemplars();
 
         Assert.Equal(expectedPhrases, loadedPhrases);
         Assert.True(incrementallyLearnedTemplates > 0);
-        Assert.True(learnedActions > 0);
+        Assert.Null(uks.Labeled("ActionExemplar"));
+        Assert.True(uks.Labeled("Phrase").Children.Count <= 50);
         Assert.NotNull(uks.Labeled("w:chien"));
         Assert.NotNull(uks.Labeled("w:bêler"));
-        Assert.NotNull(uks.GetLink(
-            uks.Labeled("dog"), uks.Labeled("is-a"), uks.Labeled("animal")));
-        Assert.NotNull(uks.GetLink(
-            uks.Labeled("raven"), uks.Labeled("can"), uks.Labeled("fly")));
-        Assert.NotNull(uks.GetLink(
-            uks.Labeled("dog"), uks.Labeled("eats"), uks.Labeled("grain")));
-        Assert.Same(uks.Labeled("4"),
-            uks.Labeled("w:quatre").GetTargetOfFirstLinkOfType("means"));
-        Assert.Same(uks.Labeled("4"),
-            uks.Labeled("w:4").GetTargetOfFirstLinkOfType("means"));
+        Assert.Null(uks.Labeled("w:quatre").GetTargetOfFirstLinkOfType("means"));
+        Assert.Null(uks.Labeled("w:4").GetTargetOfFirstLinkOfType("means"));
     }
 
     [Fact]
@@ -232,6 +225,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         ModuleText.AddText("dogs are animals", learnIncrementally: true);
         Thought originalPhrase = Assert.Single(uks.Labeled("Phrase").Children);
         Thought originalSequence = originalPhrase.GetTargetOfFirstLinkOfType("hasWords");
+        float originalWeight = originalPhrase.Weight;
 
         ModuleText.AddText("dogs are animals", learnIncrementally: true);
 
@@ -239,6 +233,31 @@ public class ModuleTextSequenceBubbleEvaluationTests
         Assert.Same(originalPhrase, repeatedPhrase);
         Assert.Same(originalSequence,
             repeatedPhrase.GetTargetOfFirstLinkOfType("hasWords"));
+        Assert.True(repeatedPhrase.Weight > originalWeight);
+    }
+
+    [Fact]
+    public void PhraseStoragePrunesWeakPhrasesButPreservesMeaningfulOnes()
+    {
+        // Ordinary observations compete within bounded short-term phrase
+        // memory. A phrase with an attached meaning is no longer disposable,
+        // even when many newer phrases arrive.
+        UKS.UKS uks = CreateTextUKS();
+        ModuleText.AddPhrase("special phrase");
+        Thought meaningfulPhrase = Assert.Single(uks.Labeled("Phrase").Children);
+        Thought means = uks.GetOrAddThought("means", "LinkType");
+        Thought meaning = uks.GetOrAddThought("remembered meaning", "Thought");
+        uks.AddStatement(meaningfulPhrase, means, meaning);
+
+        for (int index = 0; index < 60; index++)
+            ModuleText.AddPhrase($"ordinary phrase {index}");
+
+        Thought phraseRoot = uks.Labeled("Phrase");
+        Assert.Contains(meaningfulPhrase, phraseRoot.Children);
+        Assert.Equal(50, phraseRoot.Children.Count(phrase =>
+            !phrase.LinksTo.Any(link => link.LinkType?.Label == "means") &&
+            !phrase.LinksFrom.Any(link => link.LinkType?.Label == "means")));
+        Assert.Equal(51, phraseRoot.Children.Count);
     }
 
     [Fact]

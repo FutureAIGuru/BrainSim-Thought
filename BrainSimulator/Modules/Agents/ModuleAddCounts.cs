@@ -14,47 +14,29 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Web;
 using UKS;
 
 namespace BrainSimulator.Modules;
 
-public class ModuleAddCounts : ModuleBase
+public class ModuleAddCounts : ModuleBase, IManualAgent
 {
+    public string AgentName => "Add Counts";
+    public string DebugLog => debugString;
+
+    public void RunOnce(UKS.UKS uks)
+    {
+        theUKS = uks;
+        DoTheWork();
+    }
     // Fill this method in with code which will execute
     // once for each cycle of the engine
     public override void Fire()
     {
-        //This agent works on a timer and "Fire" is not used
-
         Init();
-
         UpdateDialog();
     }
-
-    public new bool isEnabled { get; set; }
-
-    private Timer timer;
-    //private UKS.UKS theUKS1;
     public string debugString = "Initialized\n";
-    private void Setup()
-    {
-        if (timer is null)
-        {
-            timer = new Timer(SameThreadCallback, null, 0, 10000);
-        }
-    }
-    private void SameThreadCallback(object state)
-    {
-        if (!isEnabled) return;
-        new Thread(() =>
-        {
-            DoTheWork();
-        }).Start();
-    }
-
-
     public void DoTheWork()
     {
         debugString = "Agent Started\n";
@@ -128,7 +110,6 @@ public class ModuleAddCounts : ModuleBase
     // or when the engine restart button is pressed
     public override void Initialize()
     {
-        Setup();
     }
 
     // The following can be used to massage public data to be different in the xml file
@@ -138,7 +119,6 @@ public class ModuleAddCounts : ModuleBase
     }
     public override void SetUpAfterLoad()
     {
-        Setup();
     }
 
     // called whenever the UKS performs an Initialize()

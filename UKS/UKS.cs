@@ -224,8 +224,17 @@ public partial class UKS
 
             return thoughtToReturn;
         }
-        //. are used to indicate attributes to be added
-        if (label.Contains(".") && label != "." && !label.Contains(".py"))
+        //. are used to indicate attributes to be added. Common image-file
+        //extensions are kept atomic so a hasImage target can use the actual
+        //portable filename as its Thought label.
+        string extension = Path.GetExtension(label);
+        bool isImageFileName = extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".gif", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".webp", StringComparison.OrdinalIgnoreCase);
+        if (label.Contains(".") && label != "." && !label.Contains(".py") && !isImageFileName)
         {
             string[] attribs = label.Split(".");
             Thought? baseThought = Labeled(attribs[0]) ?? AddThought(attribs[0], "Unknown");

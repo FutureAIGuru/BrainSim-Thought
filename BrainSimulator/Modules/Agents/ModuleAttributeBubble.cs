@@ -12,16 +12,20 @@
  */
 
 using UKS;
-using System.Threading;
 
 namespace BrainSimulator.Modules;
 
-public class ModuleAttributeBubble : ModuleBase
+public class ModuleAttributeBubble : ModuleBase, IManualAgent
 {
-    public string debugString = "Initialized\n";
-    public new bool isEnabled { get; set; }
-    private Timer? timer;
+    public string AgentName => "Attribute Bubble";
+    public string DebugLog => debugString;
 
+    public void RunOnce(UKS.UKS uks)
+    {
+        theUKS = uks;
+        DoTheWork();
+    }
+    public string debugString = "Initialized\n";
     public override void Fire()
     {
         Init();
@@ -43,21 +47,6 @@ public class ModuleAttributeBubble : ModuleBase
 
     public override void Initialize()
     {
-        Setup();
-    }
-
-    private void Setup()
-    {
-        timer ??= new Timer(_ =>
-        {
-            if (isEnabled)
-                DoTheWork();
-        }, null, 0, 10000);
-    }
-
-    public override void SetUpAfterLoad()
-    {
-        Setup();
     }
 
     public override void UKSInitializedNotification()

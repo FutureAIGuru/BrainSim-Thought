@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"      
         xmlns:local="clr-namespace:BrainSimulator.Modules"
         mc:Ignorable="d"
-        Title="MentelModel Dialog Template" Height="220" Width="620" Background="Gray" ShowInTaskbar="False" >
+        Title="Mental Model Representation" Height="220" Width="750" Background="Gray" ShowInTaskbar="False" >
 
     <Grid>
         <Border Grid.Row="0" Background="DarkGray" ClipToBounds="True" Margin="0,0,0,65">
@@ -29,7 +29,7 @@
         <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="20,0,0,35">
             <TextBlock Text="Zoom" Margin="0,0,6,0" VerticalAlignment="Center"/>
             <Slider x:Name="ZoomSlider"
-                    Width="180"
+                    Width="80"
                     Minimum="0.25"
                     Maximum="4"
                     Value="1"
@@ -38,10 +38,11 @@
                     ValueChanged="ZoomSlider_ValueChanged" />
             <Button Content="Reset" Width="70" Margin="10,0,0,0" Click="ResetView_Click"/>
             <Button Content="←" Width="32" Margin="10,0,0,0" Click="RotateLeft_Click"/>
-            <Button Content="↑" Width="32" Margin="6,0,0,0" Click="RotateUp_Click"/>
-            <Button Content="↓" Width="32" Margin="6,0,0,0" Click="RotateDown_Click"/>
-            <Button Content="→" Width="32" Margin="6,0,0,0" Click="RotateRight_Click"/>
-            <TextBlock Text="Pan: drag   Zoom: wheel/slider" Margin="14,0,0,0" VerticalAlignment="Center"/>
+            <Button Content="↑" Width="32" Margin="4,0,0,0" Click="RotateUp_Click"/>
+            <Button Content="↓" Width="32" Margin="4,0,0,0" Click="RotateDown_Click"/>
+            <Button Content="→" Width="32" Margin="4,0,0,0" Click="RotateRight_Click"/>
+            <TextBlock Text="Pan: drag Zoom: wheel   Visual Field:" Margin="14,0,0,0" VerticalAlignment="Center"/>
+            <Rectangle HorizontalAlignment="Left" Margin="0,0,0,0" Stroke="DarkBlue" StrokeThickness="4" Fill="SteelBlue" Width="40" Height="20" VerticalAlignment="Bottom"/>
         </StackPanel>
     </Grid>
 </local:ModuleBaseDlg>

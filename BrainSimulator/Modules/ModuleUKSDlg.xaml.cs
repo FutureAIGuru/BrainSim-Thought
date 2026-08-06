@@ -86,7 +86,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (!string.IsNullOrEmpty(root?.Trim()))
         {
             totalItemCount = 0;
-            TreeViewItem tvi = new() { Header = Root.ToString() };
+            TreeViewItem tvi = new() { Header = CreateThoughtHeader(Root, Root.ToString()) };
             tvi.ContextMenu = GetContextMenu(Root, tvi);
             tvi.IsExpanded = true; //always expand the top-level item
             theTreeView.Items.Add(tvi);
@@ -100,7 +100,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             {
                 if (t1.Parents.Count == 0 && t1 is not Link)
                 {
-                    TreeViewItem tvi = new() { Header = t1.Label };
+                    TreeViewItem tvi = new() { Header = CreateThoughtHeader(t1, t1.Label) };
                     tvi.ContextMenu = GetContextMenu(t1, tvi);
                     theTreeView.Items.Add(tvi);
                 }
@@ -263,7 +263,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         header = AddDetails(t, header);
 
         //create the treeview entry
-        TreeViewItem tviChild = new() { Header = header };
+        TreeViewItem tviChild = new() { Header = CreateThoughtHeader(child, header) };
 
         if (detailsCB.IsChecked != true)
             SetLearnedStructureBackground(tviChild, child);
@@ -292,6 +292,28 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
         totalItemCount++;
         return tviChild;
+    }
+
+    private static object CreateThoughtHeader(Thought thought, string text)
+    {
+        ImageSource imageSource = GroundedImageResolver.LoadImage(thought);
+        if (imageSource is null) return text;
+
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        panel.Children.Add(new Image
+        {
+            Source = imageSource,
+            Width = 32,
+            Height = 32,
+            Stretch = Stretch.UniformToFill,
+            Margin = new Thickness(0, 1, 6, 1),
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = text,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        return panel;
     }
 
     private static void SetLearnedStructureBackground(

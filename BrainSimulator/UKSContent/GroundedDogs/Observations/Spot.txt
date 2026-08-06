@@ -1,0 +1,9 @@
+# subject: Spot
+# This file is not imported until Spot is presented by Visual Input.
+
+[Spot.png->is-a->Image] 1.00
+[Spot->hasImage->Spot.png] 1.00
+[Spot->has->fur] 1.00
+[Spot->has.4->leg] 1.00
+[Spot->can->bark] 1.00
+[Spot->is->spotted] 1.00

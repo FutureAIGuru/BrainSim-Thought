@@ -50,7 +50,7 @@ public class InheritanceCh5PhaseERegressionTests
 
         Assert.True(uks.BubbleSharedAttributes(animal));
         Assert.NotNull(animal.HasLink(has, fur));
-        Assert.NotNull(dog.HasLink(has, fur));
+        Assert.Null(dog.HasLink(has, fur));
     }
 
     [Fact]

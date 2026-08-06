@@ -79,11 +79,22 @@ public class ModuleAttention : ModuleBase
         var mm = GetMentalModel();
         if (mm is null) return;
 
-        CenterAzimuthDeg = azimuthDeg;
-        CenterElevationDeg = elevationDeg;
         Thought targetCell = mm.GetCell(azimuthDeg, elevationDeg);
-        Link l = mm.BindThoughtToMentalModel("attention", targetCell);
-        l.TimeToLive = TimeSpan.MaxValue;
+        SetCenterOfAttention(targetCell);
+    }
+
+    public void SetCenterOfAttention(Thought targetCell)
+    {
+        var mm = GetMentalModel();
+        if (mm is null) return;
+
+        targetCell = mm.SetAttentionCell(targetCell);
+        if (targetCell is null) return;
+
+        var position = mm.GetAnglesFromCell(targetCell);
+        CenterAzimuthDeg = position.azimuth;
+        CenterElevationDeg = position.elevation;
+        _attentionCell = targetCell;
     }
 
     private void UpdateAttentionPositionInMentalModel(Thought focus = null)
@@ -97,10 +108,7 @@ public class ModuleAttention : ModuleBase
         Thought targetCell = ResolveAttentionCell(focus, mm);
         if (targetCell is null) return;
 
-        theUKS.GetOrAddThought("attention", "Abstract");
-        Link l = mm.BindThoughtToMentalModel("attention", targetCell);
-        l.TimeToLive = TimeSpan.MaxValue;
-        _attentionCell = targetCell;
+        SetCenterOfAttention(targetCell);
 
     }
 

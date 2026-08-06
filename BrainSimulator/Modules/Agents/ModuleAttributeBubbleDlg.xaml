@@ -9,6 +9,5 @@
     <Grid Name="theGrid" SizeChanged="TheGrid_SizeChanged" >
         <Button Content="Run Once" HorizontalAlignment="Left" Margin="100,0,0,29" Width="105" Click="Button_Click" Height="30" VerticalAlignment="Bottom"/>
         <TextBox x:Name="tbMessages" Margin="25,24,20,86" TextWrapping="Wrap" Text="" VerticalScrollBarVisibility="Auto"/>
-        <CheckBox x:Name="Enable" HorizontalAlignment="Left" Margin="18,0,0,34" Content="Enabled" IsChecked="False" Checked="Enable_Checked" Unchecked="Enable_Checked" Height="19" VerticalAlignment="Bottom" />
     </Grid>
 </local:ModuleBaseDlg>

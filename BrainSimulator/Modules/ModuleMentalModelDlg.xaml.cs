@@ -43,18 +43,21 @@ public partial class ModuleMentalModelDlg : ModuleBaseDlg
         //only updates 10x per second
         ModuleMentalModel parent = (ModuleMentalModel)base.ParentModule;
         DrawCells(parent);
+        if (parent.AttentionCell is not null)
+        {
+            var position = parent.GetAnglesFromCell(parent.AttentionCell);
+            SetStatus(
+                $"Attn: Horiz {position.azimuth.Degrees:0.#}° Vert {position.elevation.Degrees:0.#}°",
+                Colors.Black);
+        }
         return true;
     }
-    private void DrawCells(ModuleMentalModel parent)
+    private void DrawCells(ModuleMentalModel parent, bool ignoreMousePause = false)
     {
         if (theCanvas is null) return;
-        if (theCanvas.IsMouseOver && Mouse.RightButton != MouseButtonState.Pressed)
-        {
-            SetStatus("Paused");
+        if (!ignoreMousePause && theCanvas.IsMouseOver &&
+            Mouse.RightButton != MouseButtonState.Pressed)
             return;
-        }
-        if (GetStatus() == "Paused")
-            SetStatus("OK");
         theCanvas.Children.Clear();
 
         var cells = parent._cells;
@@ -109,22 +112,86 @@ public partial class ModuleMentalModelDlg : ModuleBaseDlg
                 ToolTipService.SetHorizontalOffset(rect, 22);
                 ToolTipService.SetVerticalOffset(rect, 22);
 
+                if (parent.IsInVisualField(t))
+                    rect.Fill = Brushes.SteelBlue;
                 if (cells[r][k] == parent.Center)
                     rect.Fill = Brushes.Pink;
                 if (t.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(1))
                     rect.Fill = Brushes.AliceBlue;
-                Link ThoughtAtLocation = t.LinksTo.FindFirst(x => x.LinkType.Label == "_mm:contains");
-                if (ThoughtAtLocation is not null)
+                var containsLinks = t.LinksTo
+                    .Where(x => x.LinkType.Label == "_mm:contains")
+                    .ToList();
+                if (containsLinks.Count > 0)
                 {
                     rect.Fill = Brushes.Yellow;
-                    if (ThoughtAtLocation.To.Label == "attention") rect.Fill = Brushes.Green;
+                    if (containsLinks.Any(link => link.To?.Label == "attention"))
+                        rect.Fill = Brushes.Green;
 
-                    var containsLinks = t.LinksTo.Where(x => x.LinkType.Label == "_mm:contains").ToList();
                     rect.ToolTip = string.Join("\r\n", containsLinks.Select(FormatContainsTooltip));
                 }
                 Canvas.SetLeft(rect, xLeft);
                 Canvas.SetTop(rect, y);
                 theCanvas.Children.Add(rect);
+
+                int markerIndex = 0;
+                foreach (Link containsLink in t.LinksTo.Where(link =>
+                    link.LinkType?.Label == "_mm:contains"))
+                {
+                    ImageSource imageSource = GroundedImageResolver.LoadImage(containsLink.To);
+                    if (imageSource is null) continue;
+
+                    double markerScale = MarkerScaleForDistance(GetDistanceFromLink(containsLink));
+                    double markerWidth = 56 * markerScale;
+                    double markerHeight = 66 * markerScale;
+                    float opacity = 1;
+                    if (containsLink.TimeToLive < TimeSpan.MaxValue)
+                    {
+                        TimeSpan timeRemaining = (containsLink.LastFiredTime + containsLink.TimeToLive - DateTime.Now);
+                        if (timeRemaining < TimeSpan.FromSeconds(5))
+                            opacity = (float)(timeRemaining.TotalSeconds / 5.0);
+                    }
+                    var marker = new Border
+                    {
+                        Width = markerWidth,
+                        Height = markerHeight,
+                        Padding = new Thickness(2),
+                        Background = Brushes.White,
+                        BorderBrush = Brushes.DimGray,
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(3),
+                        IsHitTestVisible = false,
+                        Opacity = opacity,
+                        Child = new StackPanel
+                        {
+                            Children =
+                            {
+                                new Image
+                                {
+                                    Source = imageSource,
+                                    Width = 50 * markerScale,
+                                    Height = 48 * markerScale,
+                                    Stretch = Stretch.UniformToFill,
+                                },
+                                new TextBlock
+                                {
+                                    Text = containsLink.To.Label,
+                                    Foreground = Brushes.Black,
+                                    FontSize = Math.Clamp(10 * markerScale, 7, 14),
+                                    TextAlignment = TextAlignment.Center,
+                                    TextTrimming = TextTrimming.CharacterEllipsis,
+                                },
+                            },
+                        },
+                    };
+
+                    double markerLeft = xLeft + (cellWidth - markerWidth) / 2 + markerIndex * 14;
+                    double markerTop = y + (ringHeight - markerHeight) / 2 + markerIndex * 8;
+                    Canvas.SetLeft(marker, Math.Clamp(markerLeft, 0, Math.Max(0, canvasWidth - markerWidth)));
+                    Canvas.SetTop(marker, Math.Clamp(markerTop, 0, Math.Max(0, canvasHeight - markerHeight)));
+                    Panel.SetZIndex(marker, 10 + markerIndex);
+                    theCanvas.Children.Add(marker);
+                    markerIndex++;
+                }
             }
         }
     }
@@ -162,6 +229,20 @@ public partial class ModuleMentalModelDlg : ModuleBaseDlg
         Thought t = module.theUKS.Labeled(r.Tag.ToString());
         if (t != null)
         {
+            ModuleAttention attention = MainWindow.theWindow?.activeModules
+                .OfType<ModuleAttention>()
+                .FirstOrDefault();
+            if (attention is not null)
+                attention.SetCenterOfAttention(t);
+            else
+                module.SetAttentionCell(t);
+
+            var position = module.GetAnglesFromCell(t);
+            SetStatus(
+                $"Horiz: {position.azimuth.Degrees:0.#}°   Vert: {position.elevation.Degrees:0.#}°",
+                Colors.Black);
+            DrawCells(module, ignoreMousePause: true);
+            e.Handled = true;
             t.Fire();
             t.LinksTo.FindFirst(x => x.LinkType.Label == "above")?.To.Fire();
             t.LinksTo.FindFirst(x => x.LinkType.Label == "rightOf")?.To.Fire();
@@ -303,5 +384,11 @@ public partial class ModuleMentalModelDlg : ModuleBaseDlg
             double.TryParse(dLink.To.Label["distance:".Length..], out double val))
             return val;
         return 0;
+    }
+
+    internal static double MarkerScaleForDistance(double distance)
+    {
+        if (distance <= 0) return 1;
+        return Math.Clamp(1.0 / distance, 0.25, 2.0);
     }
 }

@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <None Include="..\BrainSimulator\UKSContent\Algorithm.xml" Link="UKSContent\Algorithm.xml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\BrainSimulator\UKSContent\GroundedDogs\**\*.*" Link="UKSContent\GroundedDogs\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

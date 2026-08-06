@@ -23,6 +23,9 @@ namespace BrainSimulator.Modules;
 
 public class ModuleMentalModel : ModuleBase
 {
+    public const double VisualFieldHalfWidthDegrees = 56;
+    public const double VisualFieldHalfHeightDegrees = 30;
+
     // Root marker (so you can find all mental-model nodes quickly)
     public Thought Root { get; private set; }
 
@@ -32,6 +35,7 @@ public class ModuleMentalModel : ModuleBase
     // Cells indexed by (ring, rayIndexWithinRing)
     public Thought[][] _cells = Array.Empty<Thought[]>();
     public Thought Center { get; private set; } = null!;
+    public Thought AttentionCell { get; private set; } = null!;
 
     // Internal link types (Thoughts used as LinkType identifiers, or however you model link types)
     private Thought _ltContains;
@@ -40,6 +44,7 @@ public class ModuleMentalModel : ModuleBase
     public override void Fire()
     {
         Init();
+        RefreshVisibleContents();
         UpdateDialog();
     }
 
@@ -64,6 +69,7 @@ public class ModuleMentalModel : ModuleBase
 
         cfg = new SpatialSheetConfig();
         BuildOrLoad(cfg);
+        SetAttentionCell(Center);
     }
 
 
@@ -78,7 +84,8 @@ public class ModuleMentalModel : ModuleBase
         var existingLink = t.LinksFrom.FindFirst(x => x.LinkType == _ltContains);
         if (existingLink is not null && mmPosition == existingLink.From)
         {
-            existingLink.TimeToLive += TimeSpan.FromSeconds(5);
+            if (existingLink.TimeToLive != TimeSpan.MaxValue)
+                existingLink.TimeToLive += TimeSpan.FromSeconds(5);
             return existingLink;
         }
         if (existingLink is not null)
@@ -89,9 +96,15 @@ public class ModuleMentalModel : ModuleBase
         if (t.Label == "attention")
             l.TimeToLive = TimeSpan.FromSeconds(3);
         if (!imagined)
+        {
+            t.RemoveLink("is-a", "inActiveThought");
             t.AddLink("is-a", "activeThought");
+        }
         else
+        {
+            t.RemoveLink("is-a", "inActiveThought");
             t.AddLink("is-a", "imaginedThought");
+        }
 //        Debug.WriteLine("Binding: " + t.Label);
         return l;
     }
@@ -109,6 +122,78 @@ public class ModuleMentalModel : ModuleBase
         t.RemoveLink("is-a", "imaginedThought");
         Link l = t.AddLink("is-a", "inActiveThought");
         l.TimeToLive = TimeSpan.FromSeconds(1);
+    }
+
+    /// <summary>
+    /// Returns the Thoughts which make up the Mental Model's current scene.
+    /// Attention is an overlay rather than scene content and is omitted by
+    /// default.
+    /// </summary>
+    public IReadOnlyList<Thought> GetCurrentContents(bool includeAttention = false)
+    {
+        if (_cells is null || _ltContains is null)
+            return Array.Empty<Thought>();
+
+        return _cells
+            .SelectMany(ring => ring ?? Array.Empty<Thought>())
+            .SelectMany(cell => cell.LinksTo.Where(link => link.LinkType == _ltContains))
+            .Select(link => link.To)
+            .Where(thought => thought is not null &&
+                (includeAttention || !thought.Label.Equals(
+                    "attention", StringComparison.OrdinalIgnoreCase)))
+            .Distinct()
+            .ToList();
+    }
+
+    /// <summary>
+    /// Replaces the current scene while preserving the attention overlay.
+    /// This is the common handoff point for visual input and, later, language
+    /// grounding against "what is in view now".
+    /// </summary>
+    public IReadOnlyList<Link> ReplaceCurrentContents(
+        IEnumerable<Thought> contents,
+        TimeSpan? timeToLive = null,
+        Thought location = null)
+    {
+        if (Center is null) return Array.Empty<Link>();
+
+        List<Thought> nextContents = (contents ?? Enumerable.Empty<Thought>())
+            .Where(thought => thought is not null)
+            .Distinct()
+            .ToList();
+
+        foreach (Thought current in GetCurrentContents().ToList())
+        {
+            if (!nextContents.Contains(current))
+                UnbindThought(current);
+        }
+
+        Thought targetCell = location ?? Center;
+        List<Link> bindings = new();
+        foreach (Thought thought in nextContents)
+        {
+            Link binding = BindThoughtToMentalModel(thought, targetCell);
+            if (timeToLive.HasValue)
+                binding.TimeToLive = timeToLive.Value;
+            bindings.Add(binding);
+        }
+        return bindings;
+    }
+
+    /// <summary>
+    /// Moves the persistent Attention marker to a Mental Model cell. The center
+    /// cell is used whenever the requested location is unavailable.
+    /// </summary>
+    public Thought SetAttentionCell(Thought cell)
+    {
+        Thought targetCell = cell ?? Center;
+        if (targetCell is null) return null;
+
+        Thought attention = theUKS.GetOrAddThought("attention", "Abstract");
+        Link binding = BindThoughtToMentalModel(attention, targetCell);
+        binding.TimeToLive = TimeSpan.MaxValue;
+        AttentionCell = targetCell;
+        return targetCell;
     }
 
     internal double ComputeProximity(Thought t)
@@ -137,6 +222,46 @@ public class ModuleMentalModel : ModuleBase
         double diff = Math.Abs(a - b) % 360.0;
         if (diff > 180.0) diff = 360.0 - diff;
         return diff;
+    }
+
+    /// <summary>
+    /// The fixed visual field currently used by the demo. Cell-center angles
+    /// are used so the display and visibility lifetime share one definition.
+    /// </summary>
+    public bool IsInVisualField(Thought cell)
+    {
+        if (cell is null || cfg is null || _cells.Length == 0)
+            return false;
+
+        var position = GetAnglesFromCell(cell);
+        return Math.Abs(position.azimuth.Degrees) <= VisualFieldHalfWidthDegrees &&
+            Math.Abs(position.elevation.Degrees) <= VisualFieldHalfHeightDegrees;
+    }
+
+    /// <summary>
+    /// Seeing a scene entry again renews its volatile Mental Model binding.
+    /// Once it is outside the visual field, renewal stops and its normal TTL
+    /// removes it. Attention is persistent and does not need renewal.
+    /// </summary>
+    private void RefreshVisibleContents()
+    {
+        if (_ltContains is null || _cells.Length == 0)
+            return;
+
+        DateTime now = DateTime.Now;
+        foreach (Thought cell in _cells
+            .SelectMany(ring => ring ?? Array.Empty<Thought>())
+            .Where(IsInVisualField))
+        {
+            foreach (Link binding in cell.LinksTo
+                .Where(link => link.LinkType == _ltContains &&
+                    link.To is not null &&
+                    !link.To.Label.Equals("attention", StringComparison.OrdinalIgnoreCase)))
+            {
+                if (binding.TimeToLive != TimeSpan.MaxValue)
+                    binding.LastFiredTime = now;
+            }
+        }
     }
 
     public Thought GetCell(Angle azimuth, Angle elevation)
@@ -220,7 +345,7 @@ public class ModuleMentalModel : ModuleBase
         return Angle.FromDegrees(deg);
     }
 
-    (Angle azimuth, Angle elevation) GetAnglesFromCell(Thought t)
+    public (Angle azimuth, Angle elevation) GetAnglesFromCell(Thought t)
     {
         var m = Regex.Match(t.Label, @"^_mm:cell:r(?<r>-?\d+):k(?<k>\d+)$");
         int r = m.Success ? int.Parse(m.Groups["r"].Value) : -1;
@@ -429,6 +554,7 @@ public sealed class SpatialSheetConfig
     {
         double rays = BaseRays * Math.Pow(Growth, ring);
         int r = (int)Math.Round(rays);
+        if (r % 2 == 0) r++;
         return Math.Clamp(r, 8, 128);
     }
 }

@@ -187,6 +187,14 @@ Works together with SpeechParser, PhraseRecognizer, QueryResolution and SpeechOu
 Given a number of dogs, some of which are defined as having 4 legs, the having-4-legs attributes  can be added to the "Dog" node. This makes the original link(s) redundant and they can subsequently be removed by the "Remove Redundancy"  Agent.</description>
   </ModuleDescription>
   <ModuleDescription>
+    <moduleName>ModuleAgents</moduleName>
+    <description>Runs UKS maintenance and learning agents manually. Each button performs exactly one pass so the UKS can be inspected before and after the operation.</description>
+  </ModuleDescription>
+  <ModuleDescription>
+    <moduleName>ModuleVisualInput</moduleName>
+    <description>Lists external visual-observation files without importing them. Present creates the selected subject in the UKS and places it at the Mental Model's current Attention location using the entered distance.</description>
+  </ModuleDescription>
+  <ModuleDescription>
     <moduleName>ModuleTextFile</moduleName>
     <description>This module imports and exports UKS content to/from a text file in an easy-to-read format.  
 

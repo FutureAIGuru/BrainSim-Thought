@@ -13,7 +13,6 @@
  
 
 using System.Windows;
-using System.Windows.Controls;
 
 namespace BrainSimulator.Modules
 {
@@ -44,12 +43,6 @@ namespace BrainSimulator.Modules
         {
             ModuleAttributeBubble parent = (ModuleAttributeBubble)base.ParentModule;
             parent.DoTheWork();
-        }
-
-        private void Enable_Checked(object sender, RoutedEventArgs e)
-        {
-            if (sender is CheckBox cb && base.ParentModule is ModuleAttributeBubble parent)
-                parent.isEnabled = cb.IsChecked == true;
         }
 
     }

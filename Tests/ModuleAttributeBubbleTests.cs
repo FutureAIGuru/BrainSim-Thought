@@ -104,7 +104,7 @@ public class ModuleAttributeBubbleTests
     }
 
     [Fact]
-    public void BubbleChildAttributes_LeavesEvidenceOnChildren()
+    public void BubbleChildAttributes_RemovesRedundantDirectChildAttributes()
     {
         // Arrange
         var uks = CreateUKS();
@@ -124,8 +124,33 @@ public class ModuleAttributeBubbleTests
         module.DoTheWork();
 
         // Assert
-        Assert.Contains(dog.LinksTo, l => l.LinkType == breathes && l.To == air);
-        Assert.Contains(cat.LinksTo, l => l.LinkType == breathes && l.To == air);
+        Assert.DoesNotContain(dog.LinksTo, l => l.LinkType == breathes && l.To == air);
+        Assert.DoesNotContain(cat.LinksTo, l => l.LinkType == breathes && l.To == air);
+        Assert.NotNull(animal.HasLink(breathes, air));
+        Assert.Contains(uks.GetAttributes(dog), l => l.LinkType == breathes && l.To == air);
+        Assert.Contains(uks.GetAttributes(cat), l => l.LinkType == breathes && l.To == air);
+    }
+
+    [Fact]
+    public void BubbleChildAttributes_ExistingParentAttributeStillRemovesChildCopies()
+    {
+        var uks = CreateUKS();
+        var module = new ModuleAttributeBubble { theUKS = uks };
+        var animal = uks.GetOrAddThought("Animal", "Object");
+        var dog = uks.GetOrAddThought("Dog", animal);
+        var cat = uks.GetOrAddThought("Cat", animal);
+        var breathes = uks.GetOrAddThought("breathes", "LinkType");
+        var air = uks.GetOrAddThought("air", "Object");
+
+        animal.AddLink(breathes, air).Weight = 0.99f;
+        dog.AddLink(breathes, air).Weight = 1.0f;
+        cat.AddLink(breathes, air).Weight = 1.0f;
+
+        module.DoTheWork();
+
+        Assert.NotNull(animal.HasLink(breathes, air));
+        Assert.Null(dog.HasLink(breathes, air));
+        Assert.Null(cat.HasLink(breathes, air));
     }
 
 }
