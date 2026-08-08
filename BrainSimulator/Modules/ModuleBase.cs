@@ -244,9 +244,8 @@ abstract public class ModuleBase
 
     private void Dlg_Closed(object sender, EventArgs e)
     {
-        if (dlg is null)
-            dlgIsOpen = false;
-        SetSavedDlgAttribute("Open", "True");
+        dlgIsOpen = false;
+        SetSavedDlgAttribute("Open", "");
     }
 
     private void Dlg_Closing(object sender, System.ComponentModel.CancelEventArgs e)

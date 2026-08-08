@@ -1,0 +1,16 @@
+# Demo-only scene composition. Show is additive; only the first step clears.
+
+# One sky Thought spans every visible cell above +20 degrees. Grass spans the
+# lower band. These are multiple spatial appearances, not duplicate Thoughts.
+fill O7.txt distance 8 above 20
+fill O8.txt distance 6 below -20
+
+show O4.txt distance 3 horiz -42 vert 5
+show O5.txt distance 4 horiz 0 vert 6
+show O6.txt distance 3 horiz 42 vert 5
+
+show O1.txt distance 2 horiz -22 vert -10
+show O2.txt distance 2 horiz 4 vert -11
+show O3.txt distance 2 horiz 28 vert -10
+
+attention horiz 0 vert 0

@@ -16,6 +16,19 @@ public class ModuleMentelModelTests
     }
 
     [Fact]
+    public void InitializationPlacesAttentionAtZeroZero()
+    {
+        CreateUKS();
+        var module = new ModuleMentalModel();
+
+        module.UKSInitializedNotification();
+
+        var position = module.GetAnglesFromCell(module.AttentionCell);
+        Assert.Equal(0, position.azimuth.Degrees, 3);
+        Assert.Equal(0, position.elevation.Degrees, 3);
+    }
+
+    [Fact]
     public void RotateMentalModel_MovesContainsLinkToNewCell()
     {
         // arrange
@@ -40,5 +53,75 @@ public class ModuleMentelModelTests
 
         Assert.NotNull(containsAfter);
         Assert.Same(expectedCell, containsAfter!.From);
+    }
+
+    [Fact]
+    public void BindingState_DistinguishesImaginedFromPerceivedAtSameLocation()
+    {
+        var uks = CreateUKS();
+        var module = new ModuleMentalModel();
+        module.UKSInitializedNotification();
+        Thought obj = uks.GetOrAddThought("O1", "Object");
+
+        module.ImagineThought(obj, module.Center);
+
+        Assert.Contains(uks.Labeled("imaginedThought")!, obj.Parents);
+        Assert.DoesNotContain(uks.Labeled("activeThought")!, obj.Parents);
+
+        module.BindThoughtToMentalModel(obj, module.Center);
+
+        Assert.Contains(uks.Labeled("activeThought")!, obj.Parents);
+        Assert.DoesNotContain(uks.Labeled("imaginedThought")!, obj.Parents);
+    }
+
+    [Fact]
+    public void ConceptCard_ListsKnownAttributesWithoutGroundingMetadata()
+    {
+        var uks = CreateUKS();
+        Thought dogClass = uks.GetOrAddThought("class0", "Object");
+        dogClass.AddLink(
+            uks.GetOrAddThought("can", "LinkType"),
+            uks.GetOrAddThought("bark", "Unknown"));
+        dogClass.AddLink(
+            uks.GetOrAddThought("has", "LinkType"),
+            uks.GetOrAddThought("fur", "Unknown"));
+        Thought hasImage = uks.GetOrAddThought("hasImage", "LinkType");
+        hasImage.AddProperty(uks.GetOrAddThought("isGrounding", "Property"));
+        dogClass.AddLink(hasImage, uks.GetOrAddThought("Fido.png", "Unknown"));
+
+        string summary = ModuleMentalModelDlg.FormatKnownAttributes(uks, dogClass);
+
+        Assert.Contains("[can->bark]", summary);
+        Assert.Contains("[has->fur]", summary);
+        Assert.DoesNotContain("hasImage", summary);
+    }
+
+    [Fact]
+    public void RefreshVisibleContents_DoesNotRenewImaginedItems()
+    {
+        var uks = CreateUKS();
+        var module = new ModuleMentalModel();
+        module.UKSInitializedNotification();
+        Thought imagined = uks.GetOrAddThought("imagined", "Object");
+        Thought perceived = uks.GetOrAddThought("perceived", "Object");
+        Link imaginedBinding = module.ImagineThought(imagined, module.Center);
+        Link perceivedBinding = module.BindThoughtToMentalModel(perceived, module.Center);
+        DateTime oldTime = DateTime.Now - TimeSpan.FromSeconds(3);
+        imaginedBinding.LastFiredTime = oldTime;
+        perceivedBinding.LastFiredTime = oldTime;
+
+        module.RefreshVisibleContents();
+
+        Assert.Equal(oldTime, imaginedBinding.LastFiredTime);
+        Assert.True(perceivedBinding.LastFiredTime > oldTime);
+    }
+
+    [Fact]
+    public void NearerMentalModelMarkersPaintAboveFartherMarkers()
+    {
+        int far = ModuleMentalModelDlg.MarkerZIndexForDistance(8);
+        int near = ModuleMentalModelDlg.MarkerZIndexForDistance(2);
+
+        Assert.True(near > far);
     }
 }

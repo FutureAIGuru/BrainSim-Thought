@@ -80,6 +80,22 @@ public class ModuleWordTests
     }
 
     [Fact]
+    public void LetterRoot_IsAbstractAndNeverAnObject()
+    {
+        var uks = new UKS.UKS(clear: true);
+        uks.CreateInitialStructure();
+        MainWindow.theUKS = uks;
+        var module = new ModuleWord { theUKS = uks };
+
+        module.UKSInitializedNotification();
+        uks.CreateThoughtFromMultipleAttributes("^A B", attributesFollow: true);
+
+        Thought letter = uks.Labeled("letter")!;
+        Assert.Contains(uks.Labeled("Abstract")!, letter.Parents);
+        Assert.DoesNotContain(uks.Labeled("Object")!, letter.Parents);
+    }
+
+    [Fact]
     public void AddWordSpelling_ReinforcesRepeatedWordsAndWeakensCompetitors()
     {
         // A word which is heard repeatedly should become easier to activate,

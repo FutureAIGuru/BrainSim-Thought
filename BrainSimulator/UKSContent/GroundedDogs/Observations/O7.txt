@@ -1,0 +1,8 @@
+# subject: O7
+# Anonymous demo-scene observation; no spoken name is stored here.
+
+[Sky.png->is-a->Image] 1.00
+[O7->hasImage->Sky.png] 1.00
+[O7->has->cloud] 1.00
+[O7->is->blue] 1.00
+[O7->is->overhead] 1.00

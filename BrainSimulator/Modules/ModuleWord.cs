@@ -63,7 +63,8 @@ public class ModuleWord : ModuleBase
     }
     public override void UKSInitializedNotification()
     {
-        theUKS.GetOrAddThought("letter", "Object");
+        Thought letterRoot = theUKS.GetOrAddThought("letter", "Abstract");
+        letterRoot.RemoveParent("Object");
         EnsureWordRoot();
     }
 
@@ -193,6 +194,7 @@ public class ModuleWord : ModuleBase
 
     private Thought EnsureWordRoot()
     {
+        theUKS.GetOrAddThought("LanguageElement", "Thought");
         Thought wordRoot = theUKS.GetOrAddThought("Word", "LanguageElement");
         wordRoot.RemoveParent("Thought");
         wordRoot.RemoveParent("Object");

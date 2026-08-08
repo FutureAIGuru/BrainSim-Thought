@@ -134,66 +134,157 @@ public partial class ModuleMentalModelDlg : ModuleBaseDlg
                 theCanvas.Children.Add(rect);
 
                 int markerIndex = 0;
-                foreach (Link containsLink in t.LinksTo.Where(link =>
-                    link.LinkType?.Label == "_mm:contains"))
+                foreach (Link containsLink in t.LinksTo
+                    .Where(link => link.LinkType?.Label == "_mm:contains")
+                    .OrderByDescending(GetDistanceFromLink))
                 {
-                    ImageSource imageSource = GroundedImageResolver.LoadImage(containsLink.To);
-                    if (imageSource is null) continue;
+                    Thought content = containsLink.To;
+                    if (content is null) continue;
+                    if (content.Label.Equals(
+                        "attention", StringComparison.OrdinalIgnoreCase))
+                        continue;
 
-                    double markerScale = MarkerScaleForDistance(GetDistanceFromLink(containsLink));
-                    double markerWidth = 56 * markerScale;
-                    double markerHeight = 66 * markerScale;
-                    float opacity = 1;
-                    if (containsLink.TimeToLive < TimeSpan.MaxValue)
-                    {
-                        TimeSpan timeRemaining = (containsLink.LastFiredTime + containsLink.TimeToLive - DateTime.Now);
-                        if (timeRemaining < TimeSpan.FromSeconds(5))
-                            opacity = (float)(timeRemaining.TotalSeconds / 5.0);
-                    }
+                    double markerDistance = GetDistanceFromLink(containsLink);
+                    double markerScale = MarkerScaleForDistance(markerDistance);
+                    bool imagined = ModuleMentalModel.IsImaginedThought(content);
+                    ImageSource imageSource = GroundedImageResolver.LoadImage(content);
+                    bool hasImage = imageSource is not null;
+                    double conceptScale = Math.Clamp(markerScale, 0.75, 1);
+                    double markerWidth = hasImage
+                        ? 108 * markerScale
+                        : 210 * conceptScale;
+                    double markerHeight = hasImage
+                        ? 124 * markerScale
+                        : 92 * conceptScale;
+                    UIElement markerContent = hasImage
+                        ? CreateImageMarkerContent(
+                            content, imageSource, markerScale, imagined)
+                        : CreateConceptMarkerContent(
+                            parent.theUKS, content, conceptScale, imagined,
+                            parent.ConceptCardMaximumAttributes);
                     var marker = new Border
                     {
                         Width = markerWidth,
                         Height = markerHeight,
-                        Padding = new Thickness(2),
-                        Background = Brushes.White,
-                        BorderBrush = Brushes.DimGray,
+                        Padding = hasImage ? new Thickness(2) : new Thickness(7, 5, 7, 5),
+                        Background = hasImage ? Brushes.White : Brushes.LightGoldenrodYellow,
+                        BorderBrush = imagined ? Brushes.SlateGray : Brushes.DimGray,
                         BorderThickness = new Thickness(1),
                         CornerRadius = new CornerRadius(3),
                         IsHitTestVisible = false,
-                        Opacity = opacity,
-                        Child = new StackPanel
-                        {
-                            Children =
-                            {
-                                new Image
-                                {
-                                    Source = imageSource,
-                                    Width = 50 * markerScale,
-                                    Height = 48 * markerScale,
-                                    Stretch = Stretch.UniformToFill,
-                                },
-                                new TextBlock
-                                {
-                                    Text = containsLink.To.Label,
-                                    Foreground = Brushes.Black,
-                                    FontSize = Math.Clamp(10 * markerScale, 7, 14),
-                                    TextAlignment = TextAlignment.Center,
-                                    TextTrimming = TextTrimming.CharacterEllipsis,
-                                },
-                            },
-                        },
+                        Opacity = GetMarkerOpacity(
+                            containsLink, imagined, parent.ImaginedOpacity),
+                        Child = markerContent,
                     };
 
                     double markerLeft = xLeft + (cellWidth - markerWidth) / 2 + markerIndex * 14;
                     double markerTop = y + (ringHeight - markerHeight) / 2 + markerIndex * 8;
                     Canvas.SetLeft(marker, Math.Clamp(markerLeft, 0, Math.Max(0, canvasWidth - markerWidth)));
                     Canvas.SetTop(marker, Math.Clamp(markerTop, 0, Math.Max(0, canvasHeight - markerHeight)));
-                    Panel.SetZIndex(marker, 10 + markerIndex);
+                    Panel.SetZIndex(marker,
+                        MarkerZIndexForDistance(markerDistance, markerIndex));
                     theCanvas.Children.Add(marker);
                     markerIndex++;
                 }
             }
         }
+    }
+
+    private static UIElement CreateImageMarkerContent(
+        Thought content,
+        ImageSource imageSource,
+        double scale,
+        bool imagined)
+    {
+        var panel = new StackPanel();
+        panel.Children.Add(new Image
+        {
+            Source = imageSource,
+            Width = 100 * scale,
+            Height = 100 * scale,
+            Stretch = Stretch.UniformToFill,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = content.Label + (imagined ? " (imagined)" : string.Empty),
+            Foreground = Brushes.Black,
+            FontSize = Math.Clamp(14 * scale, 7, 14),
+            TextAlignment = TextAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        return panel;
+    }
+
+    private static UIElement CreateConceptMarkerContent(
+        UKS.UKS uks,
+        Thought content,
+        double scale,
+        bool imagined,
+        int maximumAttributes)
+    {
+        var panel = new StackPanel();
+        panel.Children.Add(new TextBlock
+        {
+            Text = content.Label + (imagined ? " (imagined)" : string.Empty),
+            Foreground = Brushes.Black,
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 13 * scale,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = FormatKnownAttributes(uks, content, maximumAttributes),
+            Foreground = Brushes.Black,
+            FontSize = 11 * scale,
+            Margin = new Thickness(0, 4, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        return panel;
+    }
+
+    internal static string FormatKnownAttributes(
+        UKS.UKS uks,
+        Thought thought,
+        int maximumAttributes = 8)
+    {
+        if (uks is null || thought is null)
+            return "No known attributes";
+
+        List<string> attributes = uks.GetAttributes(thought)
+            .Where(link => link.LinkType is not null && link.To is not null)
+            .Where(link => link.LinkType.HasProperty("isGrounding") != true)
+            .Where(link => !link.LinkType.Label.Equals(
+                "hasProperty", StringComparison.OrdinalIgnoreCase))
+            .Where(link => !link.LinkType.Label.StartsWith(
+                "_mm:", StringComparison.OrdinalIgnoreCase))
+            .Select(link => $"[{link.LinkType.Label}->{link.To.Label}]")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(text => text, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (attributes.Count == 0)
+            return "No known attributes";
+
+        int take = Math.Max(1, maximumAttributes);
+        string summary = string.Join(" ", attributes.Take(take));
+        return attributes.Count > take ? summary + " ..." : summary;
+    }
+
+    private static double GetMarkerOpacity(
+        Link containsLink,
+        bool imagined,
+        double imaginedOpacity)
+    {
+        double opacity = imagined ? Math.Clamp(imaginedOpacity, 0, 1) : 1;
+        if (containsLink.TimeToLive >= TimeSpan.MaxValue)
+            return opacity;
+
+        TimeSpan remaining = containsLink.LastFiredTime +
+            containsLink.TimeToLive - DateTime.Now;
+        if (remaining < TimeSpan.FromSeconds(5))
+            opacity *= Math.Clamp(remaining.TotalSeconds / 5.0, 0, 1);
+        return opacity;
     }
 
     private static List<double> BuildElevationEdges(ModuleMentalModel parent, int ringCount)
@@ -389,6 +480,15 @@ public partial class ModuleMentalModelDlg : ModuleBaseDlg
     internal static double MarkerScaleForDistance(double distance)
     {
         if (distance <= 0) return 1;
-        return Math.Clamp(1.0 / distance, 0.25, 2.0);
+        return Math.Clamp(1.0 / Math.Max(1, distance), 0.25, 1.0);
+    }
+
+    internal static int MarkerZIndexForDistance(
+        double distance,
+        int sameCellIndex = 0)
+    {
+        double effectiveDistance = distance <= 0 ? 1 : distance;
+        effectiveDistance = Math.Clamp(effectiveDistance, 1, 10000);
+        return 10 + (int)Math.Round(100000 / effectiveDistance) + sameCellIndex;
     }
 }

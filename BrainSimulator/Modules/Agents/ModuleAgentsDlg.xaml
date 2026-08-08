@@ -11,7 +11,7 @@
         </Grid.RowDefinitions>
 
         <WrapPanel x:Name="AgentButtons" HorizontalAlignment="Left"/>
-        <TextBox x:Name="StatusText" Grid.Row="1" Margin="0,14,0,0"
+        <TextBox x:Name="StatusText" Grid.Row="1" Margin="0,14,0,20"
                  IsReadOnly="True" TextWrapping="Wrap"
                  VerticalScrollBarVisibility="Auto"/>
     </Grid>

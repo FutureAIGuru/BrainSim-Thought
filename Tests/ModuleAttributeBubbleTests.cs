@@ -46,6 +46,23 @@ public class ModuleAttributeBubbleTests
     }
 
     [Fact]
+    public void BubbleChildAttributes_SingleChild_DoesNotBubble()
+    {
+        var uks = CreateUKS();
+        var parent = uks.GetOrAddThought("SingleChildParent", "Object");
+        var fido = uks.GetOrAddThought("Fido", parent);
+        var has = uks.GetOrAddThought("has", "LinkType");
+        var fur = uks.GetOrAddThought("fur", "Object");
+        fido.AddLink(has, fur).Weight = 1.0f;
+
+        bool changed = uks.BubbleSharedAttributes(parent);
+
+        Assert.False(changed);
+        Assert.Null(parent.HasLink(has, fur));
+        Assert.NotNull(fido.HasLink(has, fur));
+    }
+
+    [Fact]
     public void BubbleChildAttributes_MajorityHaveAttribute_BubblesUp()
     {
         // Arrange

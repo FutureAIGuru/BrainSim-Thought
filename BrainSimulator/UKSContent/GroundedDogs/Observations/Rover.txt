@@ -1,9 +1,0 @@
-# subject: Rover
-# This file is not imported until Rover is presented by Visual Input.
-
-[Rover.png->is-a->Image] 1.00
-[Rover->hasImage->Rover.png] 1.00
-[Rover->has->fur] 1.00
-[Rover->has.4->leg] 1.00
-[Rover->can->bark] 1.00
-[Rover->is->black] 1.00

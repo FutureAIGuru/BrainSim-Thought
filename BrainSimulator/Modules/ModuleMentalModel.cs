@@ -23,8 +23,10 @@ namespace BrainSimulator.Modules;
 
 public class ModuleMentalModel : ModuleBase
 {
-    public const double VisualFieldHalfWidthDegrees = 56;
-    public const double VisualFieldHalfHeightDegrees = 30;
+    public double VisualFieldHalfWidthDegrees { get; set; } = 56;
+    public double VisualFieldHalfHeightDegrees { get; set; } = 30;
+    public double ImaginedOpacity { get; set; } = 0.58;
+    public int ConceptCardMaximumAttributes { get; set; } = 8;
 
     // Root marker (so you can find all mental-model nodes quickly)
     public Thought Root { get; private set; }
@@ -69,7 +71,9 @@ public class ModuleMentalModel : ModuleBase
 
         cfg = new SpatialSheetConfig();
         BuildOrLoad(cfg);
-        SetAttentionCell(Center);
+        SetAttentionCell(GetCell(
+            Angle.FromDegrees(0),
+            Angle.FromDegrees(0)));
     }
 
 
@@ -81,32 +85,71 @@ public class ModuleMentalModel : ModuleBase
     public Link BindThoughtToMentalModel(Thought t, Thought mmPosition, float weight = 1f,bool imagined = false)
     {
         //this rebuilds the link instead of strengthening
-        var existingLink = t.LinksFrom.FindFirst(x => x.LinkType == _ltContains);
-        if (existingLink is not null && mmPosition == existingLink.From)
+        List<Link> existingLinks = t.LinksFrom
+            .Where(link => link.LinkType == _ltContains)
+            .ToList();
+        Link existingLink = existingLinks.FirstOrDefault(link =>
+            link.From == mmPosition);
+        if (existingLinks.Count == 1 && existingLink is not null)
         {
+            SetActivationState(t, imagined);
             if (existingLink.TimeToLive != TimeSpan.MaxValue)
                 existingLink.TimeToLive += TimeSpan.FromSeconds(5);
             return existingLink;
         }
-        if (existingLink is not null)
-            existingLink.From.RemoveLink(_ltContains, t);
+        foreach (Link oldBinding in existingLinks)
+            oldBinding.From?.RemoveLink(_ltContains, t);
         Link l = mmPosition.AddLink(_ltContains, t);
         l.Weight = weight;
         l.TimeToLive = TimeSpan.FromSeconds(100);
         if (t.Label == "attention")
             l.TimeToLive = TimeSpan.FromSeconds(3);
-        if (!imagined)
+        SetActivationState(t, imagined);
+//        Debug.WriteLine("Binding: " + t.Label);
+        return l;
+    }
+
+    /// <summary>
+    /// Adds another spatial appearance of the same Thought without moving its
+    /// existing appearances. This is useful for extended scene elements such
+    /// as sky or grass which occupy several Mental Model cells.
+    /// </summary>
+    public Link BindThoughtAppearanceToMentalModel(
+        Thought thought,
+        Thought mmPosition,
+        float weight = 1f,
+        bool imagined = false)
+    {
+        Link existing = mmPosition.LinksTo.FindFirst(link =>
+            link.LinkType == _ltContains && link.To == thought);
+        if (existing is not null)
         {
-            t.RemoveLink("is-a", "inActiveThought");
-            t.AddLink("is-a", "activeThought");
+            SetActivationState(thought, imagined);
+            if (existing.TimeToLive != TimeSpan.MaxValue)
+                existing.TimeToLive += TimeSpan.FromSeconds(5);
+            return existing;
+        }
+
+        Link binding = mmPosition.AddLink(_ltContains, thought);
+        binding.Weight = weight;
+        binding.TimeToLive = TimeSpan.FromSeconds(100);
+        SetActivationState(thought, imagined);
+        return binding;
+    }
+
+    private static void SetActivationState(Thought thought, bool imagined)
+    {
+        thought.RemoveLink("is-a", "inActiveThought");
+        if (imagined)
+        {
+            thought.RemoveLink("is-a", "activeThought");
+            thought.AddLink("is-a", "imaginedThought");
         }
         else
         {
-            t.RemoveLink("is-a", "inActiveThought");
-            t.AddLink("is-a", "imaginedThought");
+            thought.RemoveLink("is-a", "imaginedThought");
+            thought.AddLink("is-a", "activeThought");
         }
-//        Debug.WriteLine("Binding: " + t.Label);
-        return l;
     }
     public Link ImagineThought(Thought t, Thought mmPosition, float weight = 1f)
     {
@@ -115,9 +158,10 @@ public class ModuleMentalModel : ModuleBase
     public void UnbindThought(Thought t)
     {
         //Debug.WriteLine("UnBinding: " + t.Label);
-        var existingLink = t.LinksFrom.FindFirst(x => x.LinkType == _ltContains);
-        if (existingLink is not null)
-            existingLink.From.RemoveLink(_ltContains, t);
+        foreach (Link existingLink in t.LinksFrom
+            .Where(link => link.LinkType == _ltContains)
+            .ToList())
+            existingLink.From?.RemoveLink(_ltContains, t);
         t.RemoveLink("is-a", "activeThought");
         t.RemoveLink("is-a", "imaginedThought");
         Link l = t.AddLink("is-a", "inActiveThought");
@@ -141,6 +185,25 @@ public class ModuleMentalModel : ModuleBase
             .Where(thought => thought is not null &&
                 (includeAttention || !thought.Label.Equals(
                     "attention", StringComparison.OrdinalIgnoreCase)))
+            .Distinct()
+            .ToList();
+    }
+
+    /// <summary>
+    /// Returns the scene contents occupying the current Attention cell.
+    /// This is the grounding context shared by visual and language input.
+    /// </summary>
+    public IReadOnlyList<Thought> GetAttendedContents()
+    {
+        Thought attentionCell = AttentionCell ?? Center;
+        if (attentionCell is null || _ltContains is null)
+            return Array.Empty<Thought>();
+
+        return attentionCell.LinksTo
+            .Where(link => link.LinkType == _ltContains &&
+                link.To is not null &&
+                !link.To.Label.Equals("attention", StringComparison.OrdinalIgnoreCase))
+            .Select(link => link.To)
             .Distinct()
             .ToList();
     }
@@ -243,7 +306,7 @@ public class ModuleMentalModel : ModuleBase
     /// Once it is outside the visual field, renewal stops and its normal TTL
     /// removes it. Attention is persistent and does not need renewal.
     /// </summary>
-    private void RefreshVisibleContents()
+    internal void RefreshVisibleContents()
     {
         if (_ltContains is null || _cells.Length == 0)
             return;
@@ -258,10 +321,18 @@ public class ModuleMentalModel : ModuleBase
                     link.To is not null &&
                     !link.To.Label.Equals("attention", StringComparison.OrdinalIgnoreCase)))
             {
+                if (IsImaginedThought(binding.To))
+                    continue;
                 if (binding.TimeToLive != TimeSpan.MaxValue)
                     binding.LastFiredTime = now;
             }
         }
+    }
+
+    internal static bool IsImaginedThought(Thought thought)
+    {
+        return thought?.Parents.Any(parent => parent.Label.Equals(
+            "imaginedThought", StringComparison.OrdinalIgnoreCase)) == true;
     }
 
     public Thought GetCell(Angle azimuth, Angle elevation)

@@ -1,0 +1,25 @@
+# Run this lesson after presenting O1, O2, and O3 and then running
+# Class Create followed by Attribute Bubble. Show is additive; clear is explicit.
+
+language English
+
+clear
+attention horiz -15 vert 0
+show O1.txt distance 1 horiz -15 vert 0
+hear This is Fido.
+hear Good dog.
+hear Fido wants out.
+
+clear
+attention horiz 0 vert 0
+show O2.txt distance 1 horiz 0 vert 0
+hear This is Rover.
+hear Rover is a good dog.
+hear Look at the dog.
+
+clear
+attention horiz 15 vert 0
+show O3.txt distance 1 horiz 15 vert 0
+hear This is Spot.
+hear Spot is our dog.
+hear Good dog.

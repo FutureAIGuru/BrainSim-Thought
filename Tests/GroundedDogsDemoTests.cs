@@ -1,6 +1,5 @@
 using BrainSimulator;
 using BrainSimulator.Modules;
-using System.IO;
 using UKS;
 using Xunit;
 
@@ -16,18 +15,19 @@ public class GroundedDogsDemoTests
         MainWindow.theUKS = uks;
         var visualInput = new ModuleVisualInput { theUKS = uks };
         visualInput.EnsureVocabulary();
-        foreach (string observation in new[] { "Fido.txt", "Rover.txt", "Spot.txt" })
+        var mentalModel = new ModuleMentalModel { theUKS = uks };
+        mentalModel.UKSInitializedNotification();
+        foreach (string observation in new[] { "O1.txt", "O2.txt", "O3.txt" })
         {
-            string subjectLabel = Path.GetFileNameWithoutExtension(observation);
-            bool subjectAlreadyExisted = uks.Labeled(subjectLabel) is not null;
-            uks.ImportTextFile(LocateObservationFile(observation));
-            if (!subjectAlreadyExisted)
-                uks.GetOrAddThought(subjectLabel, "Object");
+            visualInput.ClearPresentation(mentalModel);
+            visualInput.SelectObservationFile(observation);
+            Assert.NotNull(visualInput.PresentSelected(1, mentalModel));
         }
+        visualInput.ClearPresentation(mentalModel);
 
-        Thought fido = uks.Labeled("Fido")!;
-        Thought rover = uks.Labeled("Rover")!;
-        Thought spot = uks.Labeled("Spot")!;
+        Thought fido = uks.Labeled("O1")!;
+        Thought rover = uks.Labeled("O2")!;
+        Thought spot = uks.Labeled("O3")!;
         Thought imageRoot = uks.Labeled("Image")!;
         Thought visualElementRoot = uks.Labeled("VisualElement")!;
         Thought propertyRoot = uks.Labeled("Property")!;
@@ -79,22 +79,10 @@ public class GroundedDogsDemoTests
     [InlineData("..\\Fido.png")]
     [InlineData("folder/Fido.png")]
     [InlineData("C:\\Dogs\\Fido.png")]
-    [InlineData("Fido.txt")]
+    [InlineData("O1.txt")]
     public void ResolverRejectsPathsAndUnsupportedFiles(string label)
     {
         Assert.False(GroundedImageResolver.IsSafeImageFileName(label));
     }
 
-    private static string LocateObservationFile(string fileName)
-    {
-        string[] candidates =
-        {
-            Path.Combine(AppContext.BaseDirectory, "UKSContent", "GroundedDogs",
-                "Observations", fileName),
-            Path.Combine(Directory.GetCurrentDirectory(), "BrainSimulator", "UKSContent",
-                "GroundedDogs", "Observations", fileName),
-        };
-
-        return candidates.First(File.Exists);
-    }
 }

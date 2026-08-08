@@ -1,9 +1,0 @@
-# subject: Fido
-# This file is not imported until Fido is presented by Visual Input.
-
-[Fido.png->is-a->Image] 1.00
-[Fido->hasImage->Fido.png] 1.00
-[Fido->has->fur] 1.00
-[Fido->has.4->leg] 1.00
-[Fido->can->bark] 1.00
-[Fido->is->brown] 1.00

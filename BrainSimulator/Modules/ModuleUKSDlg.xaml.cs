@@ -49,6 +49,12 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private DispatcherTimer dt;
     private string expandAll = "";  //all the children below this named node will be expanded
     private UKS.UKS theUKS = null;
+    private readonly Dictionary<Thought, List<(ProgressBar Bar, TextBlock Value)>>
+        _weightDisplays = new();
+
+    public double DefaultPlasticThoughtWeightMaximum { get; set; } = 10;
+    public double WeightBarWidth { get; set; } = 64;
+    public double WeightBarHeight { get; set; } = 12;
 
 
     public ModuleUKSDlg()
@@ -294,26 +300,88 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         return tviChild;
     }
 
-    private static object CreateThoughtHeader(Thought thought, string text)
+    private object CreateThoughtHeader(Thought thought, string text)
     {
         ImageSource imageSource = GroundedImageResolver.LoadImage(thought);
-        if (imageSource is null) return text;
+        bool showWeight = weightBarsCB?.IsChecked == true &&
+            (thought.isPlastic || thought.Weight != 1f);
+        if (imageSource is null && !showWeight) return text;
 
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
-        panel.Children.Add(new Image
+        if (imageSource is not null)
         {
-            Source = imageSource,
-            Width = 32,
-            Height = 32,
-            Stretch = Stretch.UniformToFill,
-            Margin = new Thickness(0, 1, 6, 1),
-        });
+            panel.Children.Add(new Image
+            {
+                Source = imageSource,
+                Width = 32,
+                Height = 32,
+                Stretch = Stretch.UniformToFill,
+                Margin = new Thickness(0, 1, 6, 1),
+            });
+        }
+        if (showWeight)
+        {
+            var thermometer = new ProgressBar
+            {
+                Minimum = 0,
+                Width = Math.Max(20, WeightBarWidth),
+                Height = Math.Max(6, WeightBarHeight),
+                Margin = new Thickness(0, 0, 4, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            var weightValue = new TextBlock
+            {
+                Width = 38,
+                Margin = new Thickness(0, 0, 7, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Right,
+                FontSize = Math.Max(10, theTreeView.FontSize - 3),
+            };
+            UpdateWeightDisplay(thought, thermometer, weightValue);
+            if (!_weightDisplays.TryGetValue(thought, out var displays))
+            {
+                displays = new List<(ProgressBar Bar, TextBlock Value)>();
+                _weightDisplays.Add(thought, displays);
+            }
+            displays.Add((thermometer, weightValue));
+            panel.Children.Add(thermometer);
+            panel.Children.Add(weightValue);
+        }
         panel.Children.Add(new TextBlock
         {
             Text = text,
             VerticalAlignment = VerticalAlignment.Center,
         });
         return panel;
+    }
+
+    private void UpdateWeightDisplays()
+    {
+        foreach (var entry in _weightDisplays)
+            foreach (var display in entry.Value)
+                UpdateWeightDisplay(entry.Key, display.Bar, display.Value);
+    }
+
+    private void UpdateWeightDisplay(
+        Thought thought,
+        ProgressBar thermometer,
+        TextBlock weightValue)
+    {
+        double maximum = Math.Max(0.01, thought.maxWeight);
+        if (thought is not Link && thought.isPlastic && maximum <= 1)
+            maximum = Math.Max(maximum, DefaultPlasticThoughtWeightMaximum);
+        double value = Math.Clamp(thought.Weight, 0, maximum);
+        double fraction = value / maximum;
+
+        thermometer.Maximum = maximum;
+        thermometer.Value = value;
+        thermometer.Foreground = fraction >= 0.7
+            ? Brushes.SeaGreen
+            : fraction >= 0.3
+                ? Brushes.DodgerBlue
+                : Brushes.DarkOrange;
+        thermometer.ToolTip = $"Weight {thought.Weight:0.00} / {maximum:0.00}";
+        weightValue.Text = thought.Weight.ToString("0.00");
     }
 
     private static void SetLearnedStructureBackground(
@@ -809,6 +877,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         if (!mouseInWindow)
             Draw(true);
+        else if (weightBarsCB?.IsChecked == true)
+            UpdateWeightDisplays();
         if (RefreshButton is not null)
             RefreshButton.Visibility = Visibility.Hidden;
     }
@@ -821,12 +891,25 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void CheckBox_Checked(object sender, RoutedEventArgs e)
     {
+        SaveWeightBarsPreference(sender);
         Draw(false);
     }
 
     private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
     {
+        SaveWeightBarsPreference(sender);
         Draw(false);
+    }
+
+    private void SaveWeightBarsPreference(object sender)
+    {
+        if (!ReferenceEquals(sender, weightBarsCB) ||
+            ParentModule is not ModuleUKS parent)
+            return;
+
+        parent.SetSavedDlgAttribute(
+            "WeightBars",
+            weightBarsCB.IsChecked == true ? "True" : "");
     }
 
     private void TheTreeView_MouseEnter(object sender, MouseEventArgs e)
@@ -861,6 +944,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
             UpdateStatusLabel();
 
+            _weightDisplays.Clear();
             theTreeView.Items.Clear();
             LoadContentToTreeView();
         }
@@ -912,6 +996,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         ModuleUKS parent = (ModuleUKS)ParentModule;
         LoadRootHistory(parent.GetSavedDlgAttribute("RootHistory"));
         comboRoot.Text = parent.GetSavedDlgAttribute("Root");
+        weightBarsCB.IsChecked =
+            parent.GetSavedDlgAttribute("WeightBars") == "True";
     }
 
     private string Browse(bool open)

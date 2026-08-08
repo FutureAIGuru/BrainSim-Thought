@@ -1,0 +1,9 @@
+# subject: O1
+# Anonymous visual observation; the spoken name is not stored here.
+
+[Fido.png->is-a->Image] 1.00
+[O1->hasImage->Fido.png] 1.00
+[O1->has->fur] 1.00
+[O1->has.4->leg] 1.00
+[O1->can->bark] 1.00
+[O1->is->brown] 1.00

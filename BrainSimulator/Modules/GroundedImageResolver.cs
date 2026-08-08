@@ -23,11 +23,9 @@ namespace BrainSimulator.Modules;
 /// </summary>
 public static class GroundedImageResolver
 {
-    public const string GroundingLinkType = "hasImage";
-    public const string VisualElementRootLabel = "VisualElement";
-    public const string ImageRootLabel = "Image";
-    public static readonly string RelativeImageDirectory =
-        Path.Combine("UKSContent", "GroundedDogs", "Images");
+    public static string GroundingLinkType { get; set; } = "hasImage";
+    public static string VisualElementRootLabel { get; set; } = "VisualElement";
+    public static string ImageRootLabel { get; set; } = "Image";
 
     private static readonly HashSet<string> SupportedExtensions = new(
         StringComparer.OrdinalIgnoreCase)
@@ -117,11 +115,39 @@ public static class GroundedImageResolver
 
     private static IEnumerable<string> CandidateImageDirectories()
     {
-        yield return Path.Combine(AppContext.BaseDirectory, RelativeImageDirectory);
-        yield return Path.Combine(Directory.GetCurrentDirectory(), RelativeImageDirectory);
-        yield return Path.Combine(
-            Directory.GetCurrentDirectory(),
-            "BrainSimulator",
-            RelativeImageDirectory);
+        return GroundedContentLocator.CandidateDirectories("Images");
+    }
+}
+
+/// <summary>
+/// Shared, extensible locations for grounded observation, image, and lesson
+/// content. The original dog directory remains valid while broader demos can
+/// be added beneath GroundedExperiences.
+/// </summary>
+public static class GroundedContentLocator
+{
+    public static IList<string> RelativeContentRoots { get; } = new List<string>
+    {
+        Path.Combine("UKSContent", "GroundedDogs"),
+        Path.Combine("UKSContent", "GroundedExperiences"),
+    };
+
+    public static IEnumerable<string> CandidateDirectories(string contentType)
+    {
+        foreach (string configuredRoot in RelativeContentRoots
+            .Where(root => !string.IsNullOrWhiteSpace(root)))
+        {
+            string relativeDirectory = Path.Combine(configuredRoot, contentType);
+            if (Path.IsPathRooted(relativeDirectory))
+            {
+                yield return relativeDirectory;
+                continue;
+            }
+
+            yield return Path.Combine(AppContext.BaseDirectory, relativeDirectory);
+            yield return Path.Combine(Directory.GetCurrentDirectory(), relativeDirectory);
+            yield return Path.Combine(
+                Directory.GetCurrentDirectory(), "BrainSimulator", relativeDirectory);
+        }
     }
 }

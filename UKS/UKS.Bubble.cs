@@ -175,7 +175,9 @@ public partial class UKS
 
     public bool BubbleSharedAttributes(Thought parent, float minFraction = 0.6f)
     {
-        if (parent is null || parent.Children.Count == 0) return false;
+        // Bubbling represents a generalization shared by multiple examples.
+        // A single child can never provide evidence for a shared attribute.
+        if (parent is null || parent.Children.Count < 2) return false;
         if (parent.Label.Equals("Unknown", StringComparison.OrdinalIgnoreCase)) return false;
 
         Dictionary<(Thought linkType, Thought target), List<Link>> itemCounts = new();
