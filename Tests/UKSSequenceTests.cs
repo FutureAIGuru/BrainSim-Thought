@@ -390,7 +390,7 @@ public class UKSSequenceTests
     [Fact]
     public void FindSequencesByActivation_ConcreteInputFindsStoredGenericTemplate()
     {
-        // ModuleTextIn searches in this direction: the input is concrete while
+        // Interactive text input searches in this direction: the input is concrete while
         // the sequence already in the UKS contains unconstrained wildcards.
         UKS uks = CreateUKS();
         Thought wildcard = uks.Labeled("??");
@@ -446,6 +446,39 @@ public class UKSSequenceTests
         pigs.AddParent(otherClass);
         Assert.Contains(
             uks.FindSequencesByActivation(input, uks.Labeled("TemplateLearningSearch")),
+            match => ReferenceEquals(match.seqNode, template));
+    }
+
+    [Fact]
+    public void FindSequencesByActivation_LearningSearchAcceptsAnyAnonymousClassWildcard()
+    {
+        UKS uks = CreateUKS();
+        Thought anonymousClassRoot = uks.GetOrAddThought("AnonymousClass", "Thought");
+        Thought actionClass = uks.GetOrAddThought("actionClass0", anonymousClassRoot);
+        Thought subject = uks.CreateWildcard(
+            "??actionClass0", new List<Thought> { actionClass });
+        Thought what = uks.GetOrAddThought("w:what", "Word");
+        Thought does = uks.GetOrAddThought("w:does", "Word");
+        Thought article = uks.GetOrAddThought("w:a", "Word");
+        Thought have = uks.GetOrAddThought("w:have", "Word");
+        Thought dog = uks.GetOrAddThought("w:dog", "Word");
+        SeqElement template = uks.AddSequenceAndLink(
+            uks.GetOrAddThought("questionTemplate"),
+            "hasWords",
+            new List<Thought> { what, does, article, subject, have });
+
+        List<(SeqElement seqNode, float confidence)> strictMatches =
+            uks.FindSequencesByActivation(
+                new List<Thought> { what, does, article, dog, have },
+                uks.Labeled("TemplateSequenceSearch"));
+        List<(SeqElement seqNode, float confidence)> learningMatches =
+            uks.FindSequencesByActivation(
+                new List<Thought> { what, does, article, dog, have },
+                uks.Labeled("TemplateLearningSearch"));
+
+        Assert.DoesNotContain(strictMatches,
+            match => ReferenceEquals(match.seqNode, template));
+        Assert.Contains(learningMatches,
             match => ReferenceEquals(match.seqNode, template));
     }
 

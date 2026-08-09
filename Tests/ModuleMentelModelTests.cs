@@ -117,6 +117,34 @@ public class ModuleMentelModelTests
     }
 
     [Fact]
+    public void RefreshVisibleContents_GroundsOnlyCurrentPerceivedVisualContents()
+    {
+        var uks = CreateUKS();
+        var module = new ModuleMentalModel();
+        module.UKSInitializedNotification();
+        Thought dog = uks.GetOrAddThought("O1", "Object");
+        Thought tree = uks.GetOrAddThought("tree1", "Object");
+        Thought imagined = uks.GetOrAddThought("imaginedDog", "Object");
+        module.BindThoughtToMentalModel(dog, module.Center);
+        module.BindThoughtToMentalModel(
+            tree, module.GetCell(Angle.FromDegrees(120), Angle.FromDegrees(0)));
+        module.ImagineThought(imagined, module.Center);
+
+        module.RefreshVisibleContents();
+
+        Thought self = uks.Labeled("self")!;
+        Thought sees = uks.Labeled("sees")!;
+        Assert.NotNull(uks.GetLink(self, sees, dog));
+        Assert.Null(uks.GetLink(self, sees, tree));
+        Assert.Null(uks.GetLink(self, sees, imagined));
+
+        module.UnbindThought(dog);
+        module.RefreshVisibleContents();
+
+        Assert.Null(uks.GetLink(self, sees, dog));
+    }
+
+    [Fact]
     public void NearerMentalModelMarkersPaintAboveFartherMarkers()
     {
         int far = ModuleMentalModelDlg.MarkerZIndexForDistance(8);

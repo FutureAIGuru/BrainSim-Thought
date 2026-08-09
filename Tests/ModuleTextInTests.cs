@@ -8,7 +8,7 @@ using Xunit;
 
 namespace BrainSimulator.Tests;
 
-public class ModuleTextInTests
+public class ModuleTextInteractionTests
 {
     private static UKS.UKS CreateUKS()
     {
@@ -51,7 +51,7 @@ public class ModuleTextInTests
         uks.ImportTextFile(Path.Combine(contentPath, "BasicWords.txt"));
         uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
         uks.CreateWildcard("w:??", new List<Thought> { "languageElement" });
-        var module = new ModuleTextIn { theUKS = uks };
+        var module = new ModuleText { theUKS = uks };
 
         string answer = module.SubmitText("What is fido")?.ToLower();
 
@@ -66,11 +66,58 @@ public class ModuleTextInTests
         uks.ImportTextFile(Path.Combine(contentPath, "BasicWords.txt"));
         uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
         uks.CreateWildcard("w:??", new List<Thought> { "languageElement" });
-        var module = new ModuleTextIn { theUKS = uks };
+        var module = new ModuleText { theUKS = uks };
 
         module.SubmitText("Fifi is a cat");
         string answer = module.SubmitText("what is Fifi");
 
         Assert.Equal("Fifi is a cat", answer);
+    }
+
+    [Fact]
+    public void ActionExemplarUsesGroundedAnonymousMeanings()
+    {
+        UKS.UKS uks = CreateUKS();
+        Thought means = uks.GetOrAddThought("means", "LinkType");
+        Thought dogClass = uks.GetOrAddThought("class0", "Object");
+        Thought fidoObject = uks.GetOrAddThought("O1", dogClass);
+        Thought dogWord = uks.GetOrAddThought("w:dog", "Word");
+        Thought fidoWord = uks.GetOrAddThought("w:fido", "Word");
+        uks.AddStatement(dogWord, means, dogClass);
+        uks.AddStatement(fidoWord, means, fidoObject);
+
+        Thought exemplar = ModuleText.AddActionExemplar(
+            "Fido is a dog", "[fido->SET.is-a->dog]");
+
+        Link action = Assert.IsType<Link>(
+            exemplar.GetTargetOfFirstLinkOfType("demonstrates"));
+        Assert.Same(fidoObject, action.From);
+        Assert.Same(dogClass, action.To);
+        Assert.Null(uks.Labeled("fido"));
+        Assert.Null(uks.Labeled("dog"));
+    }
+
+    [Fact]
+    public void SeedTemplateStatementUsesGroundedAnonymousMeanings()
+    {
+        UKS.UKS uks = CreateUKS();
+        string contentPath = Path.Combine(
+            FindRepositoryRoot(), "BrainSimulator", "UKSContent");
+        uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
+        uks.CreateWildcard("w:??", new List<Thought> { "languageElement" });
+        Thought means = uks.GetOrAddThought("means", "LinkType");
+        Thought dogClass = uks.GetOrAddThought("class0", "Object");
+        Thought fidoObject = uks.GetOrAddThought("O1", dogClass);
+        uks.AddStatement(uks.GetOrAddThought("w:dog", "Word"), means, dogClass);
+        uks.AddStatement(uks.GetOrAddThought("w:fido", "Word"), means, fidoObject);
+        ModuleText module = new() { theUKS = uks };
+
+        module.SubmitText("Fido is a dog");
+
+        Assert.Same(fidoObject, module.LastRelationship?.From);
+        Assert.Same(dogClass, module.LastRelationship?.To);
+        Assert.NotNull(uks.GetLink(fidoObject, uks.Labeled("is-a"), dogClass));
+        Assert.Null(uks.Labeled("fido"));
+        Assert.Null(uks.Labeled("dog"));
     }
 }

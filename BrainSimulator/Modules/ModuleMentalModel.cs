@@ -312,6 +312,7 @@ public class ModuleMentalModel : ModuleBase
             return;
 
         DateTime now = DateTime.Now;
+        HashSet<Thought> perceivedContents = new();
         foreach (Thought cell in _cells
             .SelectMany(ring => ring ?? Array.Empty<Thought>())
             .Where(IsInVisualField))
@@ -323,10 +324,39 @@ public class ModuleMentalModel : ModuleBase
             {
                 if (IsImaginedThought(binding.To))
                     continue;
+                perceivedContents.Add(binding.To);
                 if (binding.TimeToLive != TimeSpan.MaxValue)
                     binding.LastFiredTime = now;
             }
         }
+
+        SynchronizeVisibleRelationships(perceivedContents);
+    }
+
+    /// <summary>
+    /// Grounds the current visual field as ordinary, queryable UKS knowledge.
+    /// These links describe the current scene and are replaced on every visual
+    /// refresh; imagined contents are deliberately not observations.
+    /// </summary>
+    internal void SynchronizeVisibleRelationships(IEnumerable<Thought> perceivedContents)
+    {
+        Thought self = theUKS.GetOrAddThought("self", "Object");
+        Thought sees = theUKS.GetOrAddThought("sees", "LinkType");
+        HashSet<Thought> visible = (perceivedContents ?? Enumerable.Empty<Thought>())
+            .Where(thought => thought is not null &&
+                !thought.Label.Equals("attention", StringComparison.OrdinalIgnoreCase) &&
+                !IsImaginedThought(thought))
+            .ToHashSet();
+
+        foreach (Link oldObservation in self.LinksTo
+            .Where(link => link.LinkType == sees &&
+                (link.To is null || !visible.Contains(link.To)))
+            .ToList())
+            self.RemoveLink(oldObservation);
+
+        foreach (Thought seen in visible)
+            if (theUKS.GetLink(self, sees, seen) is null)
+                theUKS.AddStatement(self, sees, seen);
     }
 
     internal static bool IsImaginedThought(Thought thought)

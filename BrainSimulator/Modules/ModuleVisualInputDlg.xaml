@@ -96,7 +96,7 @@
                    HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
         <ComboBox x:Name="IntervalBox" Margin="67,0,0,5"
                   Width="58" Height="27" HorizontalAlignment="Left"
-                  VerticalAlignment="Bottom" SelectedIndex="3"
+                  VerticalAlignment="Bottom" SelectedIndex="0"
                   SelectionChanged="IntervalBox_SelectionChanged">
             <ComboBoxItem Content=".1"/>
             <ComboBoxItem Content=".25"/>

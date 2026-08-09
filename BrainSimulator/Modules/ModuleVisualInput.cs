@@ -82,30 +82,52 @@ public class ModuleVisualInput : ModuleBase
     public static string HasImageLabel { get; set; } = "hasImage";
 
     public TimeSpan PresentationLifetime { get; set; } = TimeSpan.FromSeconds(10);
-    public double LessonStepIntervalSeconds { get; set; } = 2;
-    public float MeaningInitialWeight { get; set; } = 0.1f;
-    public float MeaningReinforcement { get; set; } = 0.1f;
-    public float MeaningDecayFactor { get; set; } = 0.9f;
-    public float MeaningPruneThreshold { get; set; } = 0.05f;
-    public float MeaningMaximumWeight { get; set; } = 1f;
-    public float MeaningResolutionTieTolerance { get; set; } = 0.001f;
-    public float MeaningConsolidationThreshold { get; set; } = 0.9f;
-    public float MeaningConsolidationDiscardThreshold { get; set; } = 0.5f;
+    public double LessonStepIntervalSeconds { get; set; } = 0.1;
+    // Compatibility forwarding properties. The language module now owns the
+    // mutable learning policy used by every text input path.
+    public float MeaningInitialWeight
+    {
+        get => ModuleText.MeaningInitialWeight;
+        set => ModuleText.MeaningInitialWeight = value;
+    }
+    public float MeaningReinforcement
+    {
+        get => ModuleText.MeaningReinforcement;
+        set => ModuleText.MeaningReinforcement = value;
+    }
+    public float MeaningDecayFactor
+    {
+        get => ModuleText.MeaningDecayFactor;
+        set => ModuleText.MeaningDecayFactor = value;
+    }
+    public float MeaningPruneThreshold
+    {
+        get => ModuleText.MeaningPruneThreshold;
+        set => ModuleText.MeaningPruneThreshold = value;
+    }
+    public float MeaningMaximumWeight
+    {
+        get => ModuleText.MeaningMaximumWeight;
+        set => ModuleText.MeaningMaximumWeight = value;
+    }
+    public float MeaningResolutionTieTolerance
+    {
+        get => ModuleText.MeaningResolutionTieTolerance;
+        set => ModuleText.MeaningResolutionTieTolerance = value;
+    }
+    public float MeaningConsolidationThreshold
+    {
+        get => ModuleText.MeaningConsolidationThreshold;
+        set => ModuleText.MeaningConsolidationThreshold = value;
+    }
+    public float MeaningConsolidationDiscardThreshold
+    {
+        get => ModuleText.MeaningConsolidationDiscardThreshold;
+        set => ModuleText.MeaningConsolidationDiscardThreshold = value;
+    }
     public string AnonymousObjectPrefix { get; set; } = "O";
     public TimeSpan ImaginationLifetime { get; set; } = TimeSpan.FromSeconds(10);
-    public ISet<string> BlockedMeaningLabels { get; } =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Object",
-            "Thought",
-            "Unknown",
-            "mentalModel",
-            "Abstract",
-            "activeThought",
-            "imaginedThought",
-            "inActiveThought",
-            "attention",
-        };
+    public ISet<string> BlockedMeaningLabels => ModuleText.BlockedMeaningLabels;
     private static string SubjectHeader => "# subject:";
     private readonly List<LessonEvent> _lessonEvents = new();
     private readonly List<string> _lastGroundingChanges = new();
@@ -243,7 +265,7 @@ public class ModuleVisualInput : ModuleBase
                         return false;
                     }
                     CurrentLessonLanguage = tokens[1];
-                    EnsureLanguage(CurrentLessonLanguage);
+                    ModuleText.EnsureLanguage(CurrentLessonLanguage);
                     continue;
                 }
 
@@ -825,7 +847,7 @@ public class ModuleVisualInput : ModuleBase
 
         var position = mentalModel.GetAnglesFromCell(targetCell);
         CurrentVisualLabel = subject.Label;
-        CurrentWord = GetBestWordFor(subject);
+        CurrentWord = ModuleText.GetBestWordFor(subject);
         string recognition = recognized ? "Recognized" : "Created";
         string wordStatus = string.IsNullOrWhiteSpace(CurrentWord)
             ? string.Empty
@@ -868,7 +890,7 @@ public class ModuleVisualInput : ModuleBase
         Thought word = string.IsNullOrWhiteSpace(token)
             ? null
             : theUKS.Labeled("w:" + token);
-        Link meaning = GetBestMeaning(word);
+        Link meaning = ModuleText.GetBestMeaning(word);
         if (meaning?.To is null)
         {
             Status = $"No known meaning for \"{text?.Trim()}\".";
@@ -922,136 +944,23 @@ public class ModuleVisualInput : ModuleBase
             return Array.Empty<Link>();
         }
 
-        string textStatus = ModuleText.AddText(
-            phrase,
-            applyExistingTemplates: false,
-            learnIncrementally: false);
-        Thought means = theUKS.GetOrAddThought("means", "LinkType");
-        HashSet<Thought> heardWords = GetPhraseWords(phrase).ToHashSet();
-        Thought currentLanguage = EnsureLanguage(languageLabel);
-        Thought usedInLanguage = currentLanguage is null
-            ? null
-            : theUKS.GetOrAddThought("usedInLanguage", "LinkType");
-        if (currentLanguage is not null)
-        {
-            foreach (Thought heardWord in heardWords)
-                heardWord.AddLink(usedInLanguage, currentLanguage);
-        }
-        HashSet<Thought> activeCandidates = candidates.ToHashSet();
-        HashSet<Link> newLinks = new();
-
-        foreach (Thought word in heardWords)
-        foreach (Thought candidate in activeCandidates)
-        {
-            Link meaning = word.HasLink(means, candidate);
-            if (meaning is not null) continue;
-
-            meaning = word.AddLink(means, candidate);
-            if (meaning is null) continue;
-            meaning.isPlastic = true;
-            meaning.maxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
-            meaning.Weight = Math.Clamp(
-                MeaningInitialWeight, 0, meaning.maxWeight);
-            meaning.Fire();
-            newLinks.Add(meaning);
-        }
-
-        List<Link> plasticMeanings = theUKS.AtomicThoughts
-            .SelectMany(thought => thought.LinksTo)
-            .Where(link => link.LinkType == means && link.isPlastic)
-            .Distinct()
-            .ToList();
-        List<Link> changedLinks = new();
-
-        foreach (Link meaning in plasticMeanings)
-        {
-            bool wordObserved = meaning.From is not null &&
-                heardWords.Contains(meaning.From);
-            bool targetActive = meaning.To is not null &&
-                activeCandidates.Contains(meaning.To);
-            bool targetBlocked = meaning.To is null ||
-                BlockedMeaningLabels.Contains(meaning.To.Label);
-            bool supported = wordObserved && targetActive && !targetBlocked;
-            bool wordUsesCurrentLanguage = currentLanguage is null ||
-                meaning.From?.HasLink(usedInLanguage, currentLanguage) is not null;
-            float oldWeight = newLinks.Contains(meaning) ? 0 : meaning.Weight;
-
-            if (supported)
-            {
-                if (!newLinks.Contains(meaning))
-                {
-                    meaning.maxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
-                    meaning.Weight = Math.Clamp(
-                        meaning.Weight + Math.Max(0, MeaningReinforcement),
-                        0,
-                        meaning.maxWeight);
-                    meaning.Fire();
-                }
-            }
-            else if (wordObserved ||
-                (targetActive && wordUsesCurrentLanguage) || targetBlocked)
-            {
-                meaning.Weight *= Math.Clamp(MeaningDecayFactor, 0, 1);
-            }
-
-            if (meaning.Weight != oldWeight)
-            {
-                changedLinks.Add(meaning);
-                _lastGroundingChanges.Add(
-                    $"{meaning.From?.Label} -> {meaning.To?.Label}: " +
-                    $"{oldWeight:0.00} -> {meaning.Weight:0.00}");
-            }
-        }
-
-        foreach (Link weakMeaning in plasticMeanings
-            .Where(link => link.Weight < Math.Max(0, MeaningPruneThreshold))
-            .ToList())
-        {
-            _lastGroundingChanges.Add(
-                $"{weakMeaning.From?.Label} -> {weakMeaning.To?.Label}: removed");
-            weakMeaning.From?.RemoveLink(weakMeaning);
-        }
-
-        ConsolidateMeanings(plasticMeanings);
+        ModuleText.MeaningLearningResult learning =
+            ModuleText.ObservePhraseMeanings(phrase, candidates, languageLabel);
+        _lastGroundingChanges.AddRange(learning.Changes);
 
         Thought attendedObject = mentalModel.GetAttendedContents()
             .FirstOrDefault(IsAnonymousObject);
         if (attendedObject is not null)
-            CurrentWord = GetBestWordFor(attendedObject);
+            CurrentWord = ModuleText.GetBestWordFor(attendedObject);
 
         Status = $"Heard \"{phrase}\"; updated " +
-            $"{changedLinks.Distinct().Count()} candidate meanings" +
-            (currentLanguage is null ? ". " : $" in {currentLanguage.Label}. ") +
-            textStatus;
+            $"{learning.ChangedLinks.Count} candidate meanings" +
+            (string.IsNullOrWhiteSpace(languageLabel)
+                ? ". "
+                : $" in {languageLabel.Trim()}. ") +
+            learning.TextStatus;
         UpdateDialog();
-        return changedLinks.Distinct().ToList();
-    }
-
-    private void ConsolidateMeanings(IEnumerable<Link> plasticMeanings)
-    {
-        float winnerThreshold = Math.Max(0, MeaningConsolidationThreshold);
-        float discardThreshold = Math.Max(0, MeaningConsolidationDiscardThreshold);
-
-        foreach (IGrouping<Thought, Link> wordMeanings in plasticMeanings
-            .Where(link => link.From is not null)
-            .GroupBy(link => link.From))
-        {
-            List<Link> currentMeanings = wordMeanings
-                .Where(link => link.From?.LinksTo.Contains(link) == true)
-                .ToList();
-            if (!currentMeanings.Any(link => link.Weight >= winnerThreshold))
-                continue;
-
-            foreach (Link weakMeaning in currentMeanings
-                .Where(link => link.Weight < discardThreshold)
-                .ToList())
-            {
-                _lastGroundingChanges.Add(
-                    $"{weakMeaning.From?.Label} -> {weakMeaning.To?.Label}: " +
-                    "removed after consolidation");
-                weakMeaning.From?.RemoveLink(weakMeaning);
-            }
-        }
+        return learning.ChangedLinks;
     }
 
     public void ClearPresentation()
@@ -1290,55 +1199,6 @@ public class ModuleVisualInput : ModuleBase
             RegexOptions.IgnoreCase);
     }
 
-    private string GetBestWordFor(Thought subject)
-    {
-        Thought means = theUKS.Labeled("means");
-        if (means is null) return string.Empty;
-
-        List<Link> directWords = subject.LinksFrom
-            .Where(link => link.LinkType == means &&
-                link.From?.Label.StartsWith("w:",
-                    StringComparison.OrdinalIgnoreCase) == true)
-            .ToList();
-        Link best = directWords
-            .Where(link => GetBestMeaning(link.From)?.To == subject)
-            .OrderByDescending(link => link.Weight)
-            .FirstOrDefault() ?? directWords
-            .OrderByDescending(link => link.Weight)
-            .FirstOrDefault();
-        return best?.From?.Label.StartsWith("w:",
-            StringComparison.OrdinalIgnoreCase) == true
-            ? best.From.Label[2..]
-            : string.Empty;
-    }
-
-    private Link GetBestMeaning(Thought word)
-    {
-        Thought means = theUKS.Labeled("means");
-        if (word is null || means is null) return null;
-
-        List<Link> candidates = word.LinksTo
-            .Where(link => link.LinkType == means && link.To is not null &&
-                !BlockedMeaningLabels.Contains(link.To.Label))
-            .OrderByDescending(link => link.Weight)
-            .ToList();
-        if (candidates.Count == 0) return null;
-
-        float highestWeight = candidates[0].Weight;
-        float tolerance = Math.Max(0, MeaningResolutionTieTolerance);
-        List<Link> tied = candidates
-            .Where(link => Math.Abs(link.Weight - highestWeight) <= tolerance)
-            .ToList();
-        if (tied.Count == 1) return tied[0];
-
-        // When a category and one or more of its instances tie, the category
-        // is the meaning shared by all tied candidates. Unrelated ties remain
-        // unresolved rather than selecting an arbitrary individual.
-        return tied.FirstOrDefault(candidate => tied.All(other =>
-            other == candidate ||
-            other.To.HasAncestor(candidate.To)));
-    }
-
     private List<Thought> GetMeaningCandidates(ModuleMentalModel mentalModel)
     {
         return mentalModel.GetAttendedContents()
@@ -1346,28 +1206,6 @@ public class ModuleVisualInput : ModuleBase
             .Where(thought => thought is not null &&
                 !BlockedMeaningLabels.Contains(thought.Label))
             .Distinct()
-            .ToList();
-    }
-
-    private Thought EnsureLanguage(string languageLabel)
-    {
-        if (theUKS is null || string.IsNullOrWhiteSpace(languageLabel))
-            return null;
-
-        Thought languageElement = theUKS.GetOrAddThought(
-            "LanguageElement", "Thought");
-        Thought languageRoot = theUKS.GetOrAddThought(
-            "Language", languageElement);
-        return theUKS.GetOrAddThought(languageLabel.Trim(), languageRoot);
-    }
-
-    private List<Thought> GetPhraseWords(string phrase)
-    {
-        if (theUKS is null) return new List<Thought>();
-
-        return Regex.Matches(phrase.ToLowerInvariant(), @"[\p{L}\p{Nd}]+")
-            .Select(match => theUKS.Labeled("w:" + match.Value))
-            .Where(word => word is not null)
             .ToList();
     }
 

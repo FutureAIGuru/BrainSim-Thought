@@ -107,7 +107,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         int learnedActionTemplates = ModuleText.LearnActionsFromExemplars();
 
         Assert.True(learnedActionTemplates >= 4);
-        HashSet<string> learnedActionTypes = uks.Labeled("LearnedTemplate").Children
+        HashSet<string> learnedActionTypes = uks.Labeled("Assertion").Children
             .SelectMany(template => template.LinksTo)
             .Where(link => link.LinkType?.Label == "means")
             .Select(link => link.To)
@@ -171,11 +171,11 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
-    public void FrenchCorpusLearnsFrenchFormsWithoutLoadingGrounding()
+    public void FrenchCorpusRetainsAnnotatedActionExemplars()
     {
-        // File ingestion currently learns only the observed language forms.
-        // Tab-delimited grounding remains in the corpus for later use, but it
-        // must not create action exemplars or semantic assertions yet.
+        // File ingestion learns the observed language forms, retains the
+        // tab-delimited SET annotations, and completes the shared template and
+        // action-learning pass without requiring a separate Process click.
         UKS.UKS uks = CreateTextUKS();
         string corpusPath = Path.Combine(
             FindRepositoryRoot(), "BrainSimulator", "WordFIles",
@@ -186,16 +186,291 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         int loadedPhrases = module.LoadTextFromFile(
             corpusPath, expectedPhrases + 1);
-        int incrementallyLearnedTemplates = uks.Labeled("LearnedTemplate")?.Children.Count ?? 0;
+        int incrementallyLearnedTemplates = uks.Labeled("Assertion")?.Children.Count ?? 0;
 
         Assert.Equal(expectedPhrases, loadedPhrases);
         Assert.True(incrementallyLearnedTemplates > 0);
-        Assert.Null(uks.Labeled("ActionExemplar"));
+        Assert.NotNull(uks.Labeled("ActionExemplar"));
+        Assert.NotEmpty(uks.Labeled("ActionExemplar").Children);
         Assert.True(uks.Labeled("Phrase").Children.Count <= 50);
         Assert.NotNull(uks.Labeled("w:chien"));
         Assert.NotNull(uks.Labeled("w:bêler"));
-        Assert.Null(uks.Labeled("w:quatre").GetTargetOfFirstLinkOfType("means"));
-        Assert.Null(uks.Labeled("w:4").GetTargetOfFirstLinkOfType("means"));
+        Assert.Same(uks.Labeled("4"),
+            uks.Labeled("w:quatre").GetTargetOfFirstLinkOfType("means"));
+        Assert.Same(uks.Labeled("4"),
+            uks.Labeled("w:4").GetTargetOfFirstLinkOfType("means"));
+    }
+
+    [Fact]
+    public void LoadingAFileAlsoLearnsItsActionTemplates()
+    {
+        UKS.UKS uks = CreateTextUKS();
+        string corpusPath = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllLines(corpusPath, new[]
+            {
+                "A dog is an animal.\t[dog->SET.is-a->animal]",
+                "A cat is an animal.\t[cat->SET.is-a->animal]",
+            });
+            var module = new ModuleText { theUKS = uks };
+
+            int loadedPhrases = module.LoadTextFromFile(corpusPath, 10);
+
+            Assert.Equal(2, loadedPhrases);
+            Assert.Contains(uks.Labeled("Assertion").Children, template =>
+                template.LinksTo.Any(link =>
+                    link.LinkType?.Label == "means" &&
+                    link.To is Link action &&
+                    action.LinkType?.Label == "SET.is-a"));
+        }
+        finally
+        {
+            File.Delete(corpusPath);
+        }
+    }
+
+    [Fact]
+    public void TestExemplarsTeachAQueryTemplateWithoutAssertingTheTest()
+    {
+        UKS.UKS uks = CreateTextUKS();
+        ModuleText.AddActionExemplar(
+            "A bird is an animal", "[bird->SET.is-a->animal]");
+        ModuleText.AddActionExemplar(
+            "What is a dog", "[dog->TEST.is-a->??]");
+        ModuleText.AddActionExemplar(
+            "What is a cat", "[cat->TEST.is-a->??]");
+
+        Assert.True(ModuleText.LearnActionsFromExemplars() > 0);
+        var module = new ModuleText { theUKS = uks };
+
+        string answer = module.SubmitText("What is a bird");
+
+        Assert.Contains("animal", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(module.LastTemplate);
+        Assert.True(module.LastTemplate.HasAncestor("Query"));
+        Assert.Equal(new[] { "Assertion", "Query" },
+            uks.Labeled("LearnedTemplate").Children
+                .Select(child => child.Label)
+                .OrderBy(label => label));
+        Assert.Null(uks.Labeled("LearnedQuestionTemplate"));
+        Assert.Null(uks.Labeled(".is-a"));
+        Assert.DoesNotContain(uks.AtomicThoughts,
+            thought => string.IsNullOrEmpty(thought.Label));
+        Assert.Equal("is-a", module.LastRelationship.LinkType.Label);
+        Assert.Null(uks.GetLink(
+            uks.Labeled("bird"), uks.Labeled("TEST.is-a"), uks.Labeled("??")));
+    }
+
+    [Fact]
+    public void ActionExemplarAssignsTheRelationshipMeaningToItsConnectorPhrase()
+    {
+        UKS.UKS uks = CreateTextUKS();
+        Thought means = uks.GetOrAddThought("means", "LinkType");
+        Thought dog = uks.GetOrAddThought("class0", "Object");
+        Thought fido = uks.GetOrAddThought("O1", dog);
+        Thought rover = uks.GetOrAddThought("O2", dog);
+        uks.AddStatement(uks.GetOrAddThought("w:fido", "Word"), means, fido);
+        uks.AddStatement(uks.GetOrAddThought("w:rover", "Word"), means, rover);
+        uks.AddStatement(uks.GetOrAddThought("w:dog", "Word"), means, dog);
+        ModuleText.AddActionExemplar(
+            "Fido is a dog", "[fido->SET.is-a->dog]");
+        ModuleText.AddActionExemplar(
+            "Rover is a dog", "[rover->SET.is-a->dog]");
+
+        ModuleText.LearnActionsFromExemplars();
+
+        Thought connector = Assert.Single(uks.Labeled("MeaningPhrase").Children);
+        SequenceView words = Assert.Single(uks.GetSequenceViews(connector)
+            .Where(view => view.LinkType?.Label == "hasWords"));
+        Assert.Equal(new[] { "w:is", "w:a" },
+            words.Elements.Select(word => word.Label));
+        Assert.NotNull(uks.GetLink(connector, means, uks.Labeled("is-a")));
+        Assert.Null(uks.GetLink(uks.Labeled("w:is"), means, uks.Labeled("is-a")));
+        Assert.Null(uks.GetLink(uks.Labeled("w:a"), means, uks.Labeled("is-a")));
+    }
+
+    [Fact]
+    public void ActionExemplarPrefersAnExistingSemanticEndpointOverAWeakWordMeaning()
+    {
+        UKS.UKS uks = CreateTextUKS();
+        Thought means = uks.GetOrAddThought("means", "LinkType");
+        Thought dog = uks.GetOrAddThought("class0", "Object");
+        Thought rover = uks.GetOrAddThought("O2", dog);
+        Thought bark = uks.GetOrAddThought("bark", "Object");
+        uks.AddStatement(uks.GetOrAddThought("w:dog", "Word"), means, dog);
+        Link misleadingMeaning = uks.AddStatement(
+            uks.GetOrAddThought("w:bark", "Word"), means, rover);
+        misleadingMeaning.Weight = 0.26f;
+
+        Thought exemplar = ModuleText.AddActionExemplar(
+            "A dog can bark", "[dog->SET.can->bark]");
+
+        Link demonstrated = Assert.IsType<Link>(
+            exemplar.GetTargetOfFirstLinkOfType("demonstrates"));
+        Assert.Same(dog, demonstrated.From);
+        Assert.Same(bark, demonstrated.To);
+        Assert.NotNull(uks.GetLink(dog, uks.Labeled("can"), bark));
+        Assert.Null(uks.GetLink(dog, uks.Labeled("can"), rover));
+    }
+
+    [Fact]
+    public void FullEnglishCorpusKeepsTheQuerySubjectAtTheNounPosition()
+    {
+        var uks = new UKS.UKS(clear: true);
+        MainWindow.theUKS = uks;
+        uks.LoadUKSfromXMLFile(Path.Combine(
+            FindRepositoryRoot(), "BrainSimulator", "UKSContent",
+            "DemoText.xml"));
+        string corpusPath = Path.Combine(
+            FindRepositoryRoot(), "BrainSimulator", "WordFIles",
+            "bst_true_template_corpus.txt");
+        var module = new ModuleText { theUKS = uks };
+        Thought means = uks.Labeled("means");
+        Thought animal = uks.Labeled("animal");
+        Thought class0 = uks.GetOrAddThought("class0", "Object");
+        class0.AddParent(animal);
+        uks.Labeled("w:dog").RemoveLinks(means);
+        uks.Labeled("w:is").RemoveLinks(means);
+        uks.AddStatement(uks.Labeled("w:dog"), means, class0);
+        uks.AddStatement(uks.Labeled("w:is"), means, class0);
+        Thought fido = uks.GetOrAddThought("O1", class0);
+        Thought fidoWord = uks.Labeled("w:fido") ??
+            uks.GetOrAddThought("w:fido", "Word");
+        uks.AddStatement(fidoWord, means, fido);
+
+        int loaded = module.LoadTextFromFile(corpusPath, 1000);
+
+        Thought isA = uks.Labeled("is-a");
+        Thought meansRelationship = uks.Labeled("means");
+        Assert.Null(uks.GetLink(uks.Labeled("w:is"), meansRelationship, isA));
+        Assert.Null(uks.GetLink(uks.Labeled("w:are"), meansRelationship, isA));
+        Assert.Null(uks.GetLink(uks.Labeled("w:a"), meansRelationship, isA));
+        Assert.Null(uks.GetLink(uks.Labeled("w:an"), meansRelationship, isA));
+        AssertPhraseMeans(isA, "w:is", "w:a");
+        AssertPhraseMeans(isA, "w:is", "w:an");
+        AssertPhraseMeans(isA, "w:are");
+        Thought dogsWord = uks.Labeled("w:dogs");
+        Assert.True(ReferenceEquals(class0, ModuleText.GetBestMeaning(dogsWord)?.To),
+            "w:dogs means: " + string.Join(", ", dogsWord.LinksTo
+                .Where(link => link.LinkType == meansRelationship)
+                .Select(link => $"{link.To?.Label}:{link.Weight:0.00}")));
+
+        string dogAnswer = module.SubmitText("What is a dog?");
+
+        Assert.Equal(910, loaded);
+        Assert.Same(class0, module.LastRelationship?.From);
+        Assert.Contains("dog is an animal", dogAnswer,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("dog are", dogAnswer,
+            StringComparison.OrdinalIgnoreCase);
+
+        string fidoAnswer = module.SubmitText("What is Fido?");
+
+        Assert.NotNull(module.LastTemplate);
+        Assert.True(module.LastRelationship is not null,
+            $"{module.LastStatus} Template: {module.LastTemplate?.Label}; Answer: {fidoAnswer}");
+        Assert.True(ReferenceEquals(fido, module.LastRelationship.From),
+            $"From: {module.LastRelationship.From?.Label ?? "null"}; " +
+            "w:fido means: " + string.Join(", ", fidoWord.LinksTo
+                .Where(link => link.LinkType == means)
+                .Select(link => $"{link.To?.Label}:{link.Weight:0.00}")));
+        Assert.Equal("Fido is a dog", fidoAnswer, ignoreCase: true);
+
+        string hasAnswer = module.SubmitText("What does a dog have?");
+        Assert.False(string.IsNullOrWhiteSpace(hasAnswer), module.LastStatus);
+        Assert.Equal("Dog has a tail", hasAnswer, ignoreCase: true);
+
+        string canAnswer = module.SubmitText("What can a dog do?");
+        Assert.False(string.IsNullOrWhiteSpace(canAnswer), module.LastStatus);
+        Assert.Equal("Dog can bark", canAnswer, ignoreCase: true);
+
+        string pluralDogAnswer = module.SubmitText("What are dogs?");
+        Assert.Contains("dogs are animals", pluralDogAnswer,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("dogs are objects", pluralDogAnswer,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("dogs is", pluralDogAnswer,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Dogs have tails",
+            module.SubmitText("What do dogs have?"), ignoreCase: true);
+        Assert.Equal("Dogs can bark",
+            module.SubmitText("What can dogs do?"), ignoreCase: true);
+        string singularCatAnswer = module.SubmitText("What is a cat?");
+        Assert.Contains("cat is an animal", singularCatAnswer,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cat are", singularCatAnswer,
+            StringComparison.OrdinalIgnoreCase);
+        string pluralCatAnswer = module.SubmitText("What are cats?");
+        Assert.Contains("cats are animals", pluralCatAnswer,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cats is", pluralCatAnswer,
+            StringComparison.OrdinalIgnoreCase);
+
+        module.SubmitText("An animal is an object.");
+        Assert.Same(uks.Labeled("animal"), module.LastRelationship?.From);
+        Assert.Same(uks.Labeled("is-a"), module.LastRelationship?.LinkType);
+        Assert.Same(uks.Labeled("Object"), module.LastRelationship?.To);
+
+        void AssertPhraseMeans(Thought meaning, params string[] expectedWords)
+        {
+            Thought phrase = uks.Labeled("MeaningPhrase").Children.FirstOrDefault(candidate =>
+            {
+                SequenceView sequence = uks.GetSequenceViews(candidate)
+                    .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+                return sequence is not null && sequence.Elements
+                    .Select(word => word.Label)
+                    .SequenceEqual(expectedWords);
+            });
+            Assert.True(phrase is not null,
+                "Meaning phrases: " + string.Join(" | ",
+                    uks.Labeled("MeaningPhrase").Children.Select(candidate =>
+                        string.Join(" ", uks.GetSequenceViews(candidate)
+                            .First(view => view.LinkType?.Label == "hasWords")
+                            .Elements.Select(word => word.Label)) + " -> " +
+                        string.Join(",", candidate.LinksTo
+                            .Where(link => link.LinkType == meansRelationship)
+                            .Select(link => link.To?.Label)))));
+            Assert.NotNull(uks.GetLink(phrase, meansRelationship, meaning));
+        }
+    }
+
+    [Fact]
+    public void DemoDogsCorpusLearnsTheProperNameQueryForm()
+    {
+        var uks = new UKS.UKS(clear: true);
+        MainWindow.theUKS = uks;
+        string repositoryRoot = FindRepositoryRoot();
+        uks.LoadUKSfromXMLFile(Path.Combine(
+            repositoryRoot, "BrainSimulator", "UKSContent", "DemoDogs.xml"));
+        var module = new ModuleText { theUKS = uks };
+        module.LoadTextFromFile(Path.Combine(
+            repositoryRoot, "BrainSimulator", "WordFIles",
+            "bst_true_template_corpus.txt"), 1000);
+        Thought fido = ModuleText.GetBestMeaning(uks.Labeled("w:fido"))?.To;
+
+        string answer = module.SubmitText("What is Fido?");
+
+        Assert.False(string.IsNullOrWhiteSpace(answer), module.LastStatus);
+        Assert.Same(fido, module.LastRelationship?.From);
+        Assert.True(module.LastTemplate?.HasAncestor("Query") == true);
+
+        Thought dog = uks.Labeled("class0");
+        Thought rover = uks.Labeled("O2");
+        Thought can = uks.Labeled("can");
+        Assert.Null(uks.GetLink(dog, can, rover));
+        string capabilityAnswer = module.SubmitText("What can a dog do?");
+        Assert.Contains("dog can bark", capabilityAnswer,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("rover", capabilityAnswer,
+            StringComparison.OrdinalIgnoreCase);
+
+        module.SubmitText("An animal is an object.");
+        Assert.True(module.LastTemplate?.HasAncestor("Assertion") == true,
+            module.LastStatus);
+        Assert.Same(uks.Labeled("animal"), module.LastRelationship?.From);
+        Assert.Same(uks.Labeled("is-a"), module.LastRelationship?.LinkType);
+        Assert.Same(uks.Labeled("Object"), module.LastRelationship?.To);
     }
 
     [Fact]
@@ -207,12 +482,27 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         string result = ModuleText.AddPhrase("stop");
 
-        Thought phrase = Assert.Single(uks.Labeled("Phrase").Children);
+        Thought phrase = Assert.Single(ModuleText.GetPhrasesOfKind("Statement"));
         SequenceView words = Assert.Single(uks.GetSequenceViews(phrase)
             .Where(view => view.LinkType?.Label == "hasWords"));
         Assert.False(result.StartsWith("Error:", StringComparison.Ordinal));
         Assert.Equal(new[] { "w:stop" },
             words.Elements.Select(element => element.Label));
+    }
+
+    [Fact]
+    public void StatementsAndQuestionsAreStoredAsSeparateObservations()
+    {
+        UKS.UKS uks = CreateTextUKS();
+
+        ModuleText.AddPhrase("dogs are animals");
+        ModuleText.AddPhrase("what are dogs?");
+
+        Thought statement = Assert.Single(ModuleText.GetPhrasesOfKind("Statement"));
+        Thought question = Assert.Single(ModuleText.GetPhrasesOfKind("Question"));
+        Assert.Contains(uks.Labeled("Statement"), statement.Parents);
+        Assert.Contains(uks.Labeled("Question"), question.Parents);
+        Assert.NotSame(statement, question);
     }
 
     [Fact]
@@ -223,13 +513,13 @@ public class ModuleTextSequenceBubbleEvaluationTests
         UKS.UKS uks = CreateTextUKS();
 
         ModuleText.AddText("dogs are animals", learnIncrementally: true);
-        Thought originalPhrase = Assert.Single(uks.Labeled("Phrase").Children);
+        Thought originalPhrase = Assert.Single(ModuleText.GetPhrasesOfKind("Statement"));
         Thought originalSequence = originalPhrase.GetTargetOfFirstLinkOfType("hasWords");
         float originalWeight = originalPhrase.Weight;
 
         ModuleText.AddText("dogs are animals", learnIncrementally: true);
 
-        Thought repeatedPhrase = Assert.Single(uks.Labeled("Phrase").Children);
+        Thought repeatedPhrase = Assert.Single(ModuleText.GetPhrasesOfKind("Statement"));
         Assert.Same(originalPhrase, repeatedPhrase);
         Assert.Same(originalSequence,
             repeatedPhrase.GetTargetOfFirstLinkOfType("hasWords"));
@@ -244,7 +534,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         // even when many newer phrases arrive.
         UKS.UKS uks = CreateTextUKS();
         ModuleText.AddPhrase("special phrase");
-        Thought meaningfulPhrase = Assert.Single(uks.Labeled("Phrase").Children);
+        Thought meaningfulPhrase = Assert.Single(ModuleText.GetPhrasesOfKind("Statement"));
         Thought means = uks.GetOrAddThought("means", "LinkType");
         Thought meaning = uks.GetOrAddThought("remembered meaning", "Thought");
         uks.AddStatement(meaningfulPhrase, means, meaning);
@@ -252,12 +542,12 @@ public class ModuleTextSequenceBubbleEvaluationTests
         for (int index = 0; index < 60; index++)
             ModuleText.AddPhrase($"ordinary phrase {index}");
 
-        Thought phraseRoot = uks.Labeled("Phrase");
-        Assert.Contains(meaningfulPhrase, phraseRoot.Children);
-        Assert.Equal(50, phraseRoot.Children.Count(phrase =>
+        List<Thought> phrases = ModuleText.GetPhrasesOfKind("Statement");
+        Assert.Contains(meaningfulPhrase, phrases);
+        Assert.Equal(50, phrases.Count(phrase =>
             !phrase.LinksTo.Any(link => link.LinkType?.Label == "means") &&
             !phrase.LinksFrom.Any(link => link.LinkType?.Label == "means")));
-        Assert.Equal(51, phraseRoot.Children.Count);
+        Assert.Equal(51, phrases.Count);
     }
 
     [Fact]
@@ -331,7 +621,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         int firstResult = ModuleText.ProcessTheExistingText();
         int learnedClassCount = uks.Labeled("LearnedClass").Children.Count;
-        int learnedTemplateCount = uks.Labeled("LearnedTemplate").Children.Count;
+        int learnedTemplateCount = uks.Labeled("Assertion").Children.Count;
         int thoughtCount = uks.AtomicThoughts.Count;
 
         int secondResult = ModuleText.ProcessTheExistingText();
@@ -339,7 +629,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         Assert.True(firstResult > 0);
         Assert.Equal(firstResult, secondResult);
         Assert.Equal(learnedClassCount, uks.Labeled("LearnedClass").Children.Count);
-        Assert.Equal(learnedTemplateCount, uks.Labeled("LearnedTemplate").Children.Count);
+        Assert.Equal(learnedTemplateCount, uks.Labeled("Assertion").Children.Count);
         Assert.Equal(thoughtCount, uks.AtomicThoughts.Count);
     }
 
@@ -376,7 +666,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
             Assert.False(result.StartsWith("Error:", StringComparison.Ordinal), result);
         }
 
-        Assert.All(uks.Labeled("Phrase").Children, phrase =>
+        Assert.All(ModuleText.GetPhrasesOfKind("Statement"), phrase =>
             Assert.NotNull(phrase.GetTargetOfFirstLinkOfType("hasWords")));
         Assert.Null(uks.Labeled("LearnedClass"));
         Assert.Null(uks.Labeled("LearnedTemplate"));
@@ -384,7 +674,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         ModuleText.ProcessTheExistingText();
 
         Assert.NotEmpty(uks.Labeled("LearnedClass").Children);
-        Assert.NotEmpty(uks.Labeled("LearnedTemplate").Children);
+        Assert.NotEmpty(uks.Labeled("Assertion").Children);
     }
 
     [Fact]
@@ -731,15 +1021,15 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         Assert.NotEmpty(ModuleText.DiscoverPhraseTemplates());
         int learnedClassCount = uks.Labeled("LearnedClass").Children.Count;
-        int learnedTemplateCount = uks.Labeled("LearnedTemplate").Children.Count;
+        int learnedTemplateCount = uks.Labeled("Assertion").Children.Count;
 
         for (int i = 0; i < 44; i++)
             AddPhrase(uks, "the", "subject" + i, "runs");
         ModuleText.DiscoverPhraseTemplates();
 
         Assert.Equal(learnedClassCount, uks.Labeled("LearnedClass").Children.Count);
-        Assert.Equal(learnedTemplateCount, uks.Labeled("LearnedTemplate").Children.Count);
-        Assert.All(uks.Labeled("LearnedTemplate").Children, template =>
+        Assert.Equal(learnedTemplateCount, uks.Labeled("Assertion").Children.Count);
+        Assert.All(uks.Labeled("Assertion").Children, template =>
             Assert.Equal(88, template.LinksTo.Count(link => link.LinkType?.Label == "evidence")));
     }
 

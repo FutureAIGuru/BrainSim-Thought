@@ -98,6 +98,44 @@ public class UKSFixesRegressionTests
     }
 
     [Fact]
+    public void XmlRoundTrip_DoesNotPromoteSequenceNodesToAtomicThoughts()
+    {
+        var uks = CreateUks();
+        Thought word = uks.GetOrAddThought("roundTripWord", "Word");
+        Thought spelled = uks.GetOrAddThought("spelled", "LinkType");
+        List<Thought> letters = new[] { "R", "O", "U", "N", "D" }
+            .Select(label => uks.GetOrAddThought(label, "letter"))
+            .ToList();
+        SeqElement originalSequence = uks.AddSequenceAndLink(word, spelled, letters);
+
+        Assert.DoesNotContain(originalSequence, uks.AtomicThoughts);
+
+        string path = Path.Combine(
+            Path.GetTempPath(), $"uks_sequence_roundtrip_{Guid.NewGuid():N}.xml");
+        try
+        {
+            Assert.True(uks.SaveUKStoXMLFile(path));
+
+            var restored = new UKS(clear: true);
+            Assert.True(restored.LoadUKSfromXMLFile(path));
+
+            Thought restoredWord = restored.Labeled("roundTripWord");
+            SeqElement restoredSequence = Assert.IsType<SeqElement>(
+                restoredWord.GetTargetOfFirstLinkOfType("spelled"));
+            Assert.Equal(
+                new[] { "R", "O", "U", "N", "D" },
+                restored.FlattenSequence(restoredSequence)
+                    .Select(element => element.Label));
+            Assert.DoesNotContain(
+                restored.AtomicThoughts, thought => thought is SeqElement);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void ExportTextFile_ThrowsOnInvalidPath()
     {
         var uks = CreateUks();

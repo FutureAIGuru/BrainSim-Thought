@@ -16,20 +16,20 @@
                   PreviewMouseWheel="theTreeView_MouseWheel"
                   >
         </TreeView>
-        <CheckBox x:Name="detailsCB" Content="Show Details" HorizontalAlignment="Left" Margin="131,10,0,0" Width="120" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" FontSize="16" Height="19" VerticalAlignment="Top"/>
-        <CheckBox x:Name="checkBoxAuto" IsChecked="True" Content="Auto-Refresh" HorizontalAlignment="Left" Margin="131,39,0,0" Width="120" Checked="CheckBoxAuto_Checked" Unchecked="CheckBoxAuto_Unchecked" FontSize="16" Height="19" VerticalAlignment="Top"/>
-        <CheckBox x:Name="reverseCB" IsChecked="False" Content="Reverse Links." HorizontalAlignment="Left" Margin="256,10,0,0" Width="161" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" FontSize="16" RenderTransformOrigin="1.073,-0.658" Height="19" VerticalAlignment="Top"/>
-        <CheckBox x:Name="showConditionals" IsChecked="False" Content="Show Conditionals" HorizontalAlignment="Left" Margin="256,39,0,0" Width="161" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" FontSize="16" RenderTransformOrigin="1.073,-0.658" Height="19" VerticalAlignment="Top"/>
+        <CheckBox x:Name="detailsCB" Content="Details" HorizontalAlignment="Left" Margin="117,2,0,0" Width="120" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" FontSize="16" Height="19" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBoxAuto" IsChecked="True" Content="Auto" HorizontalAlignment="Left" Margin="3,39,0,0" Width="120" Checked="CheckBoxAuto_Checked" Unchecked="CheckBoxAuto_Unchecked" FontSize="16" Height="19" VerticalAlignment="Top"/>
+        <CheckBox x:Name="reverseCB" IsChecked="False" Content="Reverse Links" HorizontalAlignment="Left" Margin="117,50,0,0" Width="161" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" FontSize="16" RenderTransformOrigin="1.073,-0.658" Height="18" VerticalAlignment="Top"/>
+        <CheckBox x:Name="showConditionals" IsChecked="False" Content="Conditionals" HorizontalAlignment="Left" Margin="117,35,0,0" Width="161" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" FontSize="16" RenderTransformOrigin="1.073,-0.658" Height="20" VerticalAlignment="Top"/>
         <CheckBox x:Name="weightBarsCB" IsChecked="False" Content="Weight Bars"
-                  HorizontalAlignment="Left" Margin="10,47,0,0" Width="120"
+                  HorizontalAlignment="Left" Margin="117,18,0,0" Width="120"
                   Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked"
                   FontSize="16" Height="19" VerticalAlignment="Top"/>
 
-        <Label Content="Root:" HorizontalAlignment="Left" Margin="424,4,0,0" Width="90" FontSize="16" Height="35" VerticalAlignment="Top"/>
+        <Label Content="Root:" HorizontalAlignment="Left" Margin="242,3,0,0" Width="90" FontSize="16" Height="35" VerticalAlignment="Top"/>
         <ComboBox x:Name="comboRoot"
                   IsEditable="True"
                   HorizontalAlignment="Left"
-                  Margin="467,8,0,0"
+                  Margin="285,7,0,0"
                   Width="170"
                   FontSize="16"
                   Height="25"
@@ -39,11 +39,11 @@
                   primitives:TextBoxBase.TextChanged="textBoxRoot_TextChanged"
                   SelectionChanged="ComboRoot_SelectionChanged"
                   PreviewKeyDown="TextBoxRoot_KeyDown"/>
-        <Label Content="" x:Name="uksStatusLabel"  HorizontalAlignment="Left" Margin="424,33,0,0" Width="220" FontSize="16" Height="35" VerticalAlignment="Top"/>
-        <Button x:Name="InitializeButton" Content="Initialize" VerticalAlignment="Top" Height="25" Click="InitializeButton_Click" Margin="18,19,0,0" FontSize="16" HorizontalAlignment="Left" Width="90"   />
-        <Button Content="Import" Height="25" HorizontalAlignment="Left" Margin="645,8,0,0" VerticalAlignment="Top" FontSize="16" Width="70" Click="ImportButton_Click"/>
-        <Button Content="Export" Height="25"  HorizontalAlignment="Left" Margin="645,39,0,0" VerticalAlignment="Top" FontSize="16" Width="70" Click="ExportButton_Click"/>
-        <Button x:Name="RefreshButton" Click="RefreshButton_Click" HorizontalAlignment="Left" Margin="108,8,0,0" Width="26" Height="26" VerticalAlignment="Top">
+        <Label Content="" x:Name="uksStatusLabel"  HorizontalAlignment="Left" Margin="242,32,0,0" Width="220" FontSize="16" Height="35" VerticalAlignment="Top"/>
+        <Button x:Name="InitializeButton" Content="Initialize" VerticalAlignment="Top" Height="25" Click="InitializeButton_Click" Margin="10,7,0,0" FontSize="16" HorizontalAlignment="Left" Width="90"   />
+        <Button Content="Import" Height="25" HorizontalAlignment="Left" Margin="463,7,0,0" VerticalAlignment="Top" FontSize="16" Width="70" Click="ImportButton_Click"/>
+        <Button Content="Export" Height="25"  HorizontalAlignment="Left" Margin="463,38,0,0" VerticalAlignment="Top" FontSize="16" Width="70" Click="ExportButton_Click"/>
+        <Button x:Name="RefreshButton" Click="RefreshButton_Click" HorizontalAlignment="Left" Margin="74,36,0,0" Width="26" Height="26" VerticalAlignment="Top">
             <Image Width="22" Height="22" Source="/Resources/icons/refresh-3104.png" />
         </Button>
     </Grid>

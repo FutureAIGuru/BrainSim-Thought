@@ -789,11 +789,14 @@ public partial class UKS
         //At this time...   Sequence elements are always parentless
         t.RemoveParent("Unknown");
 
-        // Replace in the global atomic set.
+        // Sequence nodes are implementation details, not atomic Thoughts.  A
+        // promoted node commonly started life in AtomicThoughts while an XML or
+        // text loader was resolving forward references, but it must leave that
+        // collection once its VLU link identifies it as a sequence element.
         lock (AtomicThoughts)
         {
-            if (AtomicThoughts.Remove(t))
-                AtomicThoughts.Add(seq);
+            AtomicThoughts.Remove(t);
+            AtomicThoughts.Remove(seq);
         }
         t.Delete();
 
@@ -1131,7 +1134,7 @@ public partial class UKS
             // belong to another learned class; that other observation must not
             // prevent it from acquiring an additional syntactic role.
             if (searchOptions.HasProperty("allowNewClassMembers") &&
-                IsLearnedClassWildcard(sequenceElementValue))
+                HasClassConstraint(sequenceElementValue))
                 return true;
         }
         if (patternElement.HasAncestor("Wildcard"))
@@ -1142,11 +1145,11 @@ public partial class UKS
         return false;
     }
 
-    private static bool IsLearnedClassWildcard(Thought wildcard)
+    private static bool HasClassConstraint(Thought wildcard)
     {
-        Thought learnedClassRoot = ThoughtLabels.GetThought("LearnedClass");
-        return learnedClassRoot is not null &&
-            wildcard.Parents.Any(learnedClassRoot.Children.Contains);
+        Thought wildcardRoot = ThoughtLabels.GetThought("Wildcard");
+        return wildcard is not null && wildcard.Parents.Any(parent =>
+            !ReferenceEquals(parent, wildcardRoot));
     }
 
     private bool IsWildcardPatternElement(Thought patternElement, Thought searchOptions)

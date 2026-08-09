@@ -240,6 +240,7 @@ public partial class UKS
         //more hacks for compatibility old file formatting
         //this does nothought on updated file content
         AddStatement("inheritable", "is-a", "Property");
+        EnsureSequenceSearchDefinitions();
         if (Labeled("has-child") is Thought hasChild)
         {
             Thought? inverseOf = "inverseOf";

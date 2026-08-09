@@ -8,13 +8,16 @@ attention horiz -15 vert 0
 show O1.txt distance 1 horiz -15 vert 0
 hear This is Fido.
 hear Good dog.
+hear Fido can bark.
 hear Fido wants out.
+hear Dog.
 
 clear
 attention horiz 0 vert 0
 show O2.txt distance 1 horiz 0 vert 0
 hear This is Rover.
 hear Rover is a good dog.
+hear Rover can bark.
 hear Look at the dog.
 
 clear

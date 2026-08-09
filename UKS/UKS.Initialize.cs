@@ -105,34 +105,7 @@ public partial class UKS
         AddStatement("?", "hasProperty", "conditional");
 
         //sequence search options
-        AddStatement("Wildcard", "is-a", "abstract");
-        CreateWildcard("??", new List<Thought>());
-        AddStatement("SearchOption", "is-a", "Property");
-        AddStatement("SequenceSearchOption", "is-a", "SearchOption");
-        AddStatement("mustMatchFirst", "is-a", "SequenceSearchOption");
-        AddStatement("mustMatchLast", "is-a", "SequenceSearchOption");
-        AddStatement("allowWildcards", "is-a", "SequenceSearchOption");
-        AddStatement("allowNestedSequences", "is-a", "SequenceSearchOption");
-        AddStatement("allowCircularSearch", "is-a", "SequenceSearchOption");
-        AddStatement("allowOutOfOrder", "is-a", "SequenceSearchOption");
-        AddStatement("preferFirstLast", "is-a", "SequenceSearchOption");
-        AddStatement("allowPartialMatch", "is-a", "SequenceSearchOption");
-        AddStatement("allowNewClassMembers", "is-a", "SequenceSearchOption");
-        AddStatement("ExactSequenceSearch", "is-a", "SequenceSearchOption");
-        AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
-        AddStatement("TemplateLearningSearch", "is-a", "TemplateSequenceSearch");
-        AddStatement("MelodySearchOptions", "is-a", "SequenceSearchOption");
-        AddStatement("OrderSearchOptions", "is-a", "SequenceSearchOption");
-        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
-        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
-        AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");
-        AddStatement("TemplateSequenceSearch", "hasProperty", "allowWildcards");
-        AddStatement("TemplateLearningSearch", "hasProperty", "allowNewClassMembers");
-        AddStatement("MelodySearchOptions", "hasProperty", "allowNestedSequences");
-        AddStatement("MelodySearchOptions", "hasProperty", "preferFirstLast");
-        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchFirst");
-        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchLast");
-        AddStatement("OrderSearchOptions", "hasProperty", "allowNestedSequences");
+        EnsureSequenceSearchDefinitions();
 
         //colors
         AddStatement("color", "is-a", "Abstract");
@@ -270,5 +243,37 @@ public partial class UKS
             AddThought("BrainSim", null);
         GetOrAddThought("AvailableModule", "BrainSim");
         GetOrAddThought("ActiveModule", "BrainSim");
+    }
+
+    private void EnsureSequenceSearchDefinitions()
+    {
+        AddStatement("Wildcard", "is-a", "abstract");
+        CreateWildcard("??", new List<Thought>());
+        AddStatement("SearchOption", "is-a", "Property");
+        AddStatement("SequenceSearchOption", "is-a", "SearchOption");
+        AddStatement("mustMatchFirst", "is-a", "SequenceSearchOption");
+        AddStatement("mustMatchLast", "is-a", "SequenceSearchOption");
+        AddStatement("allowWildcards", "is-a", "SequenceSearchOption");
+        AddStatement("allowNestedSequences", "is-a", "SequenceSearchOption");
+        AddStatement("allowCircularSearch", "is-a", "SequenceSearchOption");
+        AddStatement("allowOutOfOrder", "is-a", "SequenceSearchOption");
+        AddStatement("preferFirstLast", "is-a", "SequenceSearchOption");
+        AddStatement("allowPartialMatch", "is-a", "SequenceSearchOption");
+        AddStatement("allowNewClassMembers", "is-a", "SequenceSearchOption");
+        AddStatement("ExactSequenceSearch", "is-a", "SequenceSearchOption");
+        AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
+        AddStatement("TemplateLearningSearch", "is-a", "TemplateSequenceSearch");
+        AddStatement("MelodySearchOptions", "is-a", "SequenceSearchOption");
+        AddStatement("OrderSearchOptions", "is-a", "SequenceSearchOption");
+        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
+        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
+        AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");
+        AddStatement("TemplateSequenceSearch", "hasProperty", "allowWildcards");
+        AddStatement("TemplateLearningSearch", "hasProperty", "allowNewClassMembers");
+        AddStatement("MelodySearchOptions", "hasProperty", "allowNestedSequences");
+        AddStatement("MelodySearchOptions", "hasProperty", "preferFirstLast");
+        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchFirst");
+        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchLast");
+        AddStatement("OrderSearchOptions", "hasProperty", "allowNestedSequences");
     }
 }

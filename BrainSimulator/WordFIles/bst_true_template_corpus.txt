@@ -22,17 +22,24 @@ A dog can bark.	[dog->SET.can->bark]
 The dog can bark.
 Dogs can bark.	[dog->SET.can->bark]
 The dogs can bark.
-What is a dog?
+What is a dog?	[dog->TEST.is-a->??]
+What is Fido?	[fido->TEST.is-a->??]
+What is Rover?	[rover->TEST.is-a->??]
+What is Spot?	[spot->TEST.is-a->??]
 What is the dog?
-What are dogs?
-What does a dog have?
+What are dogs?	[dog->TEST.is-a->??]
+What does a dog have?	[dog->TEST.has->??]
 What does the dog have?
-What do dogs have?
-What can a dog do?
+What do dogs have?	[dog->TEST.has->??]
+What can a dog do?	[dog->TEST.can->??]
 What can the dog do?
-What can dogs do?
+What can dogs do?	[dog->TEST.can->??]
 What color is the dog?
 What size is the dog?
+An animal is an object.	[animal->SET.is-a->Object]
+An eagle is an animal.	[eagle->SET.is-a->animal]
+What is an animal?	[animal->TEST.is-a->??]
+What is an eagle?	[eagle->TEST.is-a->??]
 A cat is an animal.	[cat->SET.is-a->animal]
 The cat is an animal.
 Cats are animals.	[cat->SET.is-a->animal]
@@ -59,13 +66,13 @@ Cats can meow.	[cat->SET.can->meow]
 The cats can meow.
 What is a cat?
 What is the cat?
-What are cats?
+What are cats?	[cat->TEST.is-a->??]
 What does a cat have?
 What does the cat have?
-What do cats have?
+What do cats have?	[cat->TEST.has->??]
 What can a cat do?
 What can the cat do?
-What can cats do?
+What can cats do?	[cat->TEST.can->??]
 What color is the cat?
 What size is the cat?
 A bird is an animal.	[bird->SET.is-a->animal]
@@ -126,15 +133,15 @@ The fish are small.
 A fish can swim.	[fish->SET.can->swim]
 The fish can swim.
 Fish can swim.	[fish->SET.can->swim]
-What is a fish?
+What is a fish?	[fish->TEST.is-a->??]
 What is the fish?
-What are fish?
-What does a fish have?
+What are fish?	[fish->TEST.is-a->??]
+What does a fish have?	[fish->TEST.has->??]
 What does the fish have?
-What do fish have?
-What can a fish do?
+What do fish have?	[fish->TEST.has->??]
+What can a fish do?	[fish->TEST.can->??]
 What can the fish do?
-What can fish do?
+What can fish do?	[fish->TEST.can->??]
 What color is the fish?
 What size is the fish?
 A rabbit is an animal.

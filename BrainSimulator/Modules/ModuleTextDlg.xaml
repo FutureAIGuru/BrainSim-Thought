@@ -5,28 +5,57 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BrainSimulator.Modules"
         mc:Ignorable="d"
-        Title="Text Import" Height="300" Width="550" Background="Gray" ShowInTaskbar="False" >
+        Title="Text" Height="427" Width="640" MinHeight="330" MinWidth="500"
+        Background="Gray" ShowInTaskbar="False" FontSize="14">
+    <Grid Margin="8,0,8,23" SizeChanged="TheGrid_SizeChanged">
+        <Label Content="Text Input:" Margin="0,0,0,0"
+               HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <TextBox x:Name="InputBox" Height="28" Margin="0,24,98,0"
+                 VerticalAlignment="Top" VerticalContentAlignment="Center"
+                 Foreground="White" Background="Black" TextWrapping="NoWrap"
+                 AcceptsReturn="False" PreviewKeyDown="InputBox_PreviewKeyDown" />
+        <Button x:Name="btnSubmit" Content="Submit" Width="88" Height="26"
+                Margin="0,25,0,0" HorizontalAlignment="Right"
+                VerticalAlignment="Top" Click="BtnSubmit_Click" />
 
-    <Grid>
-        <TextBox x:Name="tbPhrase" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" PreviewKeyDown="tbPhrase_PreviewKeyDown"
-                 TextWrapping="Wrap" Margin="78,62,0,0" HorizontalAlignment="Left" Width="283" Height="24" VerticalAlignment="Top" />
+        <Label Content="Answer / Status:" Margin="0,50,0,0"
+               HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <TextBox x:Name="OutputBox" Height="28" Margin="0,76,0,0"
+                 VerticalAlignment="Top" VerticalContentAlignment="Center"
+                 Foreground="White" Background="Black" TextWrapping="NoWrap"
+                 AcceptsReturn="False" IsReadOnly="True" />
 
-        <Button x:Name="btnIngest" Content="Add"
-                    Click="BtnAdd_Click" Margin="387,62,0,0" Height="24" Width="75" VerticalAlignment="Top" HorizontalAlignment="Left" />
+        <Label Content="Interpretations:" Margin="-2,103,0,0"
+               HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <ListBox x:Name="ParsedInputBox" Margin="-2,127,320,55"
+                 Foreground="White" Background="Black"
+                 SelectionChanged="ParsedInputBox_SelectionChanged" />
 
-        <!-- File Loading Section -->
-        <Label Content="Enter Phrase" FontWeight="Bold" Margin="10,0,0,0" Height="30" VerticalAlignment="Top" HorizontalAlignment="Left" Width="135"/>
-        <Label Content="Load from File" FontWeight="Bold" Margin="0,124,0,0" Height="30" VerticalAlignment="Top" HorizontalAlignment="Left" Width="135"/>
+        <Label Content="Thought:" Margin="0,116,205,0"
+               HorizontalAlignment="Right" VerticalAlignment="Top" />
+        <TextBox x:Name="AttributesOfBoxInputBox" Height="28" Width="190"
+                 Margin="0,116,0,0" HorizontalAlignment="Right"
+                 VerticalAlignment="Top" VerticalContentAlignment="Center"
+                 Foreground="White" Background="Black" TextWrapping="NoWrap"
+                 AcceptsReturn="False" PreviewKeyDown="AttributeBox_PreviewKeyDown" />
+        <Label Content="Known attributes:" Margin="0,137,180,0"
+               HorizontalAlignment="Right" VerticalAlignment="Top" />
+        <ListBox x:Name="AttributesOutputBox" Margin="316,161,2,55"
+                 Foreground="White" Background="Black" />
 
-        <Label Content="Phrase:" VerticalAlignment="Top" Width="60" Margin="31,61,0,0" HorizontalAlignment="Left"/>
-        <Label Content="File:" VerticalAlignment="Top" Width="60" Margin="26,167,0,0" HorizontalAlignment="Left"/>
-        <TextBox x:Name="txtFilePath" Height="24" Margin="81,169,0,0" IsReadOnly="True" 
-               VerticalAlignment="Top" Background="#F0F0F0" HorizontalAlignment="Left" Width="250"/>
-        <Button x:Name="btnBrowse" Content="Browse..." Click="btnBrowse_Click" Width="75" Height="24"
-              Margin="361,169,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-        <Button x:Name="btnLoad" Content="Load" Click="btnLoad_Click"  Width="75" Height="24"
-              Margin="441,169,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-        <Button x:Name="btnTrigram" Content="Process" Click="btnTrigram_Click"  Width="74" Height="24"
-              Margin="404,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+        <Label Content="File:" Margin="0,0,0,20"
+               HorizontalAlignment="Left" VerticalAlignment="Bottom" />
+        <TextBox x:Name="txtFilePath" Height="26" Margin="38,0,213,20"
+                 IsReadOnly="True" VerticalAlignment="Bottom"
+                 Foreground="White" Background="Black" />
+        <Button x:Name="btnBrowse" Content="Browse" Width="66" Height="25"
+                Margin="0,0,138,20" HorizontalAlignment="Right"
+                VerticalAlignment="Bottom" Click="btnBrowse_Click" />
+        <Button x:Name="btnLoad" Content="Load" Width="50" Height="25"
+                Margin="0,0,82,20" HorizontalAlignment="Right"
+                VerticalAlignment="Bottom" Click="btnLoad_Click" />
+        <Button x:Name="btnProcess" Content="Process" Width="72" Height="25"
+                Margin="0,0,2,20" HorizontalAlignment="Right"
+                VerticalAlignment="Bottom" Click="btnProcess_Click" />
     </Grid>
 </local:ModuleBaseDlg>
