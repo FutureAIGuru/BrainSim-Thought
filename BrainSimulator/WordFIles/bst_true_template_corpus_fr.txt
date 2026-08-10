@@ -13,6 +13,13 @@ Les chiens sont grands.	[dog->SET.is->large]
 Un chien peut aboyer.	[dog->SET.can->bark]
 Les chiens peuvent aboyer.	[dog->SET.can->bark]
 
+Quel animal est le chien ?	[dog->TEST.is-a->??]
+Que possède le chien ?	[dog->TEST.has->??]
+Que peut faire le chien ?	[dog->TEST.can->??]
+Quels animaux sont les chiens ?	[dog->TEST.is-a->??]
+Que possèdent les chiens ?	[dog->TEST.has->??]
+Que peuvent faire les chiens ?	[dog->TEST.can->??]
+
 Un chat est un animal.	[cat->SET.is-a->animal]
 Le chat est un animal.
 Les chats sont des animaux.	[cat->SET.is-a->animal]
@@ -27,6 +34,13 @@ Un chat est petit.	[cat->SET.is->small]
 Les chats sont petits.	[cat->SET.is->small]
 Un chat peut miauler.	[cat->SET.can->meow]
 Les chats peuvent miauler.	[cat->SET.can->meow]
+
+Quel animal est le chat ?	[cat->TEST.is-a->??]
+Que possède le chat ?	[cat->TEST.has->??]
+Que peut faire le chat ?	[cat->TEST.can->??]
+Quels animaux sont les chats ?	[cat->TEST.is-a->??]
+Que possèdent les chats ?	[cat->TEST.has->??]
+Que peuvent faire les chats ?	[cat->TEST.can->??]
 
 Un corbeau est un oiseau.	[raven->SET.is-a->bird]
 Le corbeau est un oiseau.

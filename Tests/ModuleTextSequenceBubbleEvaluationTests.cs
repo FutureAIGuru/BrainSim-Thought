@@ -202,6 +202,61 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
+    public void EnglishAndFrenchCorporaSupportFrenchAssertionsAndQueriesEndToEnd()
+    {
+        UKS.UKS uks = CreateTextUKS();
+        string wordFiles = Path.Combine(
+            FindRepositoryRoot(), "BrainSimulator", "WordFIles");
+        var module = new ModuleText { theUKS = uks };
+
+        LoadEntireCorpus("bst_true_template_corpus.txt");
+        LoadEntireCorpus("bst_true_template_corpus_fr.txt");
+
+        module.SubmitText("Un chien peut aboyer.");
+        Assert.True(module.LastTemplate?.HasAncestor("Assertion") == true,
+            module.LastStatus);
+        Assert.Same(uks.Labeled("dog"), module.LastRelationship?.From);
+        Assert.Same(uks.Labeled("can"), module.LastRelationship?.LinkType);
+        Assert.Same(uks.Labeled("bark"), module.LastRelationship?.To);
+
+        AssertFrenchAnswer(
+            module.SubmitText("Quel animal est le chien ?"),
+            "chien", "est", "animal");
+        AssertFrenchAnswer(
+            module.SubmitText("Que possède le chien ?"),
+            "chien", "a", "queue");
+        AssertFrenchAnswer(
+            module.SubmitText("Que peut faire le chien ?"),
+            "chien", "peut", "aboyer");
+        AssertFrenchAnswer(
+            module.SubmitText("Que peuvent faire les chiens ?"),
+            "chiens", "peuvent", "aboyer");
+
+        void LoadEntireCorpus(string fileName)
+        {
+            string path = Path.Combine(wordFiles, fileName);
+            int phraseCount = File.ReadLines(path)
+                .Count(line => !string.IsNullOrWhiteSpace(line));
+            Assert.Equal(phraseCount,
+                module.LoadTextFromFile(path, phraseCount + 1));
+        }
+
+        void AssertFrenchAnswer(string answer, params string[] expectedWords)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(answer), module.LastStatus);
+            Assert.True(module.LastTemplate?.HasAncestor("Query") == true,
+                module.LastStatus);
+            foreach (string expectedWord in expectedWords)
+                Assert.Contains(expectedWord, answer,
+                    StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("dog", answer,
+                StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("bark", answer,
+                StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
     public void LoadingAFileAlsoLearnsItsActionTemplates()
     {
         UKS.UKS uks = CreateTextUKS();

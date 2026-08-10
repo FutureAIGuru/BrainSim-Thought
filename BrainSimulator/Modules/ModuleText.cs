@@ -11,6 +11,47 @@
  * See the LICENSE file in the project root for full license information.
  */
 
+/* French test phrases
+Un chien est un animal.
+Les chiens sont des animaux.
+Un chien a une queue.
+Les chiens ont des queues.
+Un chien peut aboyer.
+Les chiens peuvent aboyer.
+
+Un corbeau est un oiseau.
+Un corbeau peut voler.
+
+Un poisson est un animal.
+Un poisson peut nager.
+
+Une grenouille est un animal.
+Une grenouille peut sauter.
+
+Une voiture est un objet.
+Un vélo est un véhicule.
+Une pomme est un fruit.
+
+ 
+Un corbeau est un animal.
+Un canard peut voler.
+Une grenouille peut nager.
+Un terrier est un animal.
+
+Un corbeau peut voler
+Une grenouille peut sauter.
+Un canard est un oiseau.
+
+Quel animal est le chien ?
+Que possède le chien ?
+Que peut faire le chien ?
+Quels animaux sont les chiens ?
+Que possèdent les chiens ?
+Que peuvent faire les chiens ?
+
+ */
+
+
 
 using System;
 using System.Collections.Generic;
