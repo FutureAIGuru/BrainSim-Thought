@@ -34,6 +34,18 @@ What do dogs have?	[dog->TEST.has->??]
 What can a dog do?	[dog->TEST.can->??]
 What can the dog do?
 What can dogs do?	[dog->TEST.can->??]
+What is a dog like?	[dog->TEST.??->??]
+What is a sheep like?	[sheep->TEST.??->??]
+How is Mary related to John?	[Mary->TEST.??->John]
+How is Alice related to Bob?	[Alice->TEST.??->Bob]
+Mary loves John.	[Mary->SET.loves->John]
+Alice loves Bob.	[Alice->SET.loves->Bob]
+bob likes Mary.
+Alice likes john.
+What color is Fido?	[[Fido->TEST.is->??]->filterBy->Color]
+What color is Rover?	[[Rover->TEST.is->??]->filterBy->Color]
+How many legs does a dog have?	[[dog->TEST.has->??]->filterBy->leg]
+How many legs does a cat have?	[[cat->TEST.has->??]->filterBy->leg]
 What color is the dog?
 What size is the dog?
 An animal is an object.	[animal->SET.is-a->Object]

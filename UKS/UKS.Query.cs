@@ -655,6 +655,8 @@ public partial class UKS
         Thought? from = l.From?.Label.Contains("??") is true ? null : l.From;
         Thought? linkType = l.LinkType?.Label.Contains("??") is true ? null : l.LinkType;
         Thought? to = l.To?.Label.Contains("??") is true ? null : l.To;
+        Thought? filterTarget = l.GetTargetOfFirstLinkOfType("filterBy");
+        Link? filter = filterTarget is null ? null : new Link { To = filterTarget };
         if (from is null && to is null && linkType is null) return results;
 
         // hack to handle is-a searches
@@ -662,14 +664,15 @@ public partial class UKS
         {
             foreach (Thought child in from.Parents)
             {
+                if (filterTarget is not null && !child.HasAncestor(filterTarget)) continue;
                 results.Add(new Link { From = from, LinkType = linkType, To = child });
             }
             return results;
         }
-           // If from is specified, start there for efficiency (most constrained search)
+        // If from is specified, start there for efficiency (most constrained search)
         if (from is not null)
         {
-            var attribs = GetAttributes(from);
+            var attribs = GetAttributes(from, filter);
             foreach (Link link in attribs)
             {
                 if ((linkType is null || link.LinkType?.HasAncestor(linkType) == true) &&

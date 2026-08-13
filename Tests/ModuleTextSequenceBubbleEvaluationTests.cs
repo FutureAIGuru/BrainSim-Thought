@@ -173,6 +173,68 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
+    public void WildcardQueryTemplatesReturnAttributesAndRelationships()
+    {
+        UKS.UKS uks = CreateTextUKS();
+        ModuleText.AddActionExemplar("What is a dog like", "[dog->TEST.??->??]");
+        ModuleText.AddActionExemplar("What is a sheep like", "[sheep->TEST.??->??]");
+        ModuleText.AddActionExemplar("How is Mary related to John", "[Mary->TEST.??->John]");
+        ModuleText.AddActionExemplar("How is Alice related to Bob", "[Alice->TEST.??->Bob]");
+        ModuleText.LearnActionsFromExemplars();
+
+        uks.AddStatement("cat", "can", "meow");
+        uks.AddStatement("Carol", "knows", "Dave");
+        ModuleText module = new() { theUKS = uks };
+
+        string attributeAnswer = module.SubmitText("What is a cat like");
+        string relationshipAnswer = module.SubmitText("How is Carol related to Dave");
+
+        Assert.Contains("meow", attributeAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("knows", relationshipAnswer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ExactActionExemplarRemainsUsableBeforeAQueryTemplateCanBeLearned()
+    {
+        UKS.UKS uks = CreateTextUKS();
+        ModuleText.AddActionExemplar("How is Mary related to John", "[Mary->TEST.??->John]");
+        uks.AddStatement("Mary", "knows", "John");
+        ModuleText module = new() { theUKS = uks };
+
+        string answer = module.SubmitText("How is mary related to John?");
+
+        Assert.Contains("knows", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.True(module.LastTemplate?.HasAncestor("ActionExemplar") == true);
+    }
+
+    [Fact]
+    public void FilteredQueryTemplatesConstrainTargetsAndRetainNumericLinkTypes()
+    {
+        UKS.UKS uks = CreateTextUKS();
+        Thought color = uks.GetOrAddThought("Color", "Object");
+        uks.GetOrAddThought("brown", color);
+        uks.GetOrAddThought("black", color);
+        uks.GetOrAddThought("large", "Object");
+        uks.GetOrAddThought("leg", "Object");
+        uks.AddStatement("Spot", "is", "brown");
+        uks.AddStatement("Spot", "is", "large");
+        uks.AddStatement("dog", "has.4", "leg");
+        ModuleText.AddActionExemplar("What color is Fido", "[[Fido->TEST.is->??]->filterBy->Color]");
+        ModuleText.AddActionExemplar("What color is Rover", "[[Rover->TEST.is->??]->filterBy->Color]");
+        ModuleText.AddActionExemplar("How many legs does a dog have", "[[dog->TEST.has->??]->filterBy->leg]");
+        ModuleText.AddActionExemplar("How many legs does a cat have", "[[cat->TEST.has->??]->filterBy->leg]");
+        ModuleText.LearnActionsFromExemplars();
+        ModuleText module = new() { theUKS = uks };
+
+        string colorAnswer = module.SubmitText("What color is Spot");
+        string legAnswer = module.SubmitText("How many legs does a dog have");
+
+        Assert.Contains("brown", colorAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("large", colorAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("4", legAnswer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void FrenchCorpusRetainsAnnotatedActionExemplars()
     {
         // File ingestion learns the observed language forms, retains the
@@ -462,7 +524,10 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         string dogAnswer = module.SubmitText("What is a dog?");
 
-        Assert.Equal(910, loaded);
+        Assert.Equal(922, loaded);
+        Assert.Equal(72, module.LastLoadedActionExemplarCount);
+        Assert.Equal(72, module.LastRetainedActionExemplarCount);
+        Assert.Empty(module.LastMissingActionExemplars);
         Assert.Same(class0, module.LastRelationship?.From);
         Assert.Contains("dog is an animal", dogAnswer,
             StringComparison.OrdinalIgnoreCase);
@@ -510,6 +575,16 @@ public class ModuleTextSequenceBubbleEvaluationTests
             StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("cats is", pluralCatAnswer,
             StringComparison.OrdinalIgnoreCase);
+
+        string relationshipAnswer = module.SubmitText("How is mary related to John?");
+        Assert.NotNull(module.LastTemplate);
+        Assert.True(module.LastRelationship is not null,
+            $"{module.LastStatus} Template: {module.LastTemplate?.Label}; Answer: {relationshipAnswer}");
+        Assert.NotNull(uks.GetLink(uks.Labeled("Mary"), uks.Labeled("loves"), uks.Labeled("John")));
+        Assert.Contains("loves", relationshipAnswer, StringComparison.OrdinalIgnoreCase);
+
+        module.SubmitText("Carol loves Dave.");
+        Assert.NotNull(uks.GetLink(uks.Labeled("Carol"), uks.Labeled("loves"), uks.Labeled("Dave")));
 
         module.SubmitText("An animal is an object.");
         Assert.Same(uks.Labeled("animal"), module.LastRelationship?.From);
@@ -575,6 +650,36 @@ public class ModuleTextSequenceBubbleEvaluationTests
         Assert.Same(uks.Labeled("animal"), module.LastRelationship?.From);
         Assert.Same(uks.Labeled("is-a"), module.LastRelationship?.LinkType);
         Assert.Same(uks.Labeled("Object"), module.LastRelationship?.To);
+    }
+
+    [Fact]
+    public void DemoDogsCorpusRetainsEveryAnnotatedExemplarSequence()
+    {
+        var uks = new UKS.UKS(clear: true);
+        MainWindow.theUKS = uks;
+        string repositoryRoot = FindRepositoryRoot();
+        uks.LoadUKSfromXMLFile(Path.Combine(repositoryRoot, "BrainSimulator", "UKSContent", "DemoDogs.xml"));
+        string corpusPath = Path.Combine(
+            repositoryRoot, "BrainSimulator", "WordFIles", "bst_true_template_corpus.txt");
+        var module = new ModuleText { theUKS = uks };
+
+        module.LoadTextFromFile(corpusPath, 1000);
+
+        List<string> expected = File.ReadLines(corpusPath)
+            .Where(line => line.Contains('\t'))
+            .Select(line => ModuleText.GetPhraseWords(line[..line.IndexOf('\t')]))
+            .Select(words => string.Join(" ", words.Select(word => word.Label)))
+            .ToList();
+        Thought exemplarRoot = uks.Labeled("ActionExemplar");
+        List<string> actual = uks.GetSequenceViews(exemplarRoot.Children)
+            .Where(view => view.LinkType?.Label == "hasWords")
+            .Select(view => string.Join(" ", view.Elements.Select(word => word.Label)))
+            .ToList();
+        List<string> missing = expected.Except(actual).ToList();
+
+        Assert.Equal(72, exemplarRoot.Children.Count);
+        Assert.Equal(72, actual.Count);
+        Assert.True(missing.Count == 0, "Missing exemplar sequences: " + string.Join("; ", missing));
     }
 
     [Fact]

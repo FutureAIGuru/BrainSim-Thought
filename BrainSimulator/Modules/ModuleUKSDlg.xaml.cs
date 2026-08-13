@@ -215,7 +215,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         else if (t is Link r)
         {
             //format a link-like line in the treeview
-            header = r.ToString();
+            header = FormatLinkForDisplay(r);
             //show sequence content unless details are selected
             if (r.From is SeqElement)
             {
@@ -300,6 +300,21 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
         totalItemCount++;
         return tviChild;
+    }
+
+    /// <summary>Shows secondary query parameters which Link.ToString does not include.</summary>
+    internal static string FormatLinkForDisplay(Link link)
+    {
+        string fromText = link.From?.ToString() ?? string.Empty;
+        string typeText = link.LinkType?.ToString() ?? string.Empty;
+        string toText = link.To is Link nestedLink
+            ? FormatLinkForDisplay(nestedLink)
+            : link.To?.ToString() ?? string.Empty;
+        string display = $"[{fromText}→{typeText}→{toText}]";
+        Thought filterTarget = link.GetTargetOfFirstLinkOfType("filterBy");
+        if (filterTarget is not null) display = $"[{display}→filterBy→{filterTarget.Label}]";
+        string retVal = display;
+        return retVal;
     }
 
     private object CreateThoughtHeader(Thought thought, string text)

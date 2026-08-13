@@ -76,7 +76,7 @@ public partial class ModuleTextDlg : ModuleBaseDlg
     private void AddParsedOutput(Link relationship, string input)
     {
         if (relationship is null) return;
-        string entry = relationship.ToString();
+        string entry = FormatInterpretation(relationship);
         if (string.IsNullOrWhiteSpace(entry)) return;
 
         parsedInputHistory[entry] = input;
@@ -95,6 +95,16 @@ public partial class ModuleTextDlg : ModuleBaseDlg
             parsedInputHistory.Remove(removed);
             parsedThoughts.Remove(removed);
         }
+    }
+
+    /// <summary>Includes a query's secondary filter in the interpretation shown to the user.</summary>
+    internal static string FormatInterpretation(Link relationship)
+    {
+        string entry = relationship.ToString();
+        Thought filterTarget = relationship.GetTargetOfFirstLinkOfType("filterBy");
+        if (filterTarget is not null) entry = $"[{entry}→filterBy→{filterTarget.Label}]";
+        string retVal = entry;
+        return retVal;
     }
 
     private void ParsedInputBox_SelectionChanged(
@@ -250,7 +260,10 @@ public partial class ModuleTextDlg : ModuleBaseDlg
             int count = await Task.Run(() => module.LoadTextFromFile(filePath,1000));
             string status = module.LastStatus.StartsWith("Error:", StringComparison.Ordinal)
                 ? $"Loaded {count} phrase(s). {module.LastStatus}"
-                : $"Loaded and processed {count} phrase(s) from the file.";
+                : $"Loaded {count} phrase(s): {module.LastRetainedActionExemplarCount} of " +
+                    $"{module.LastLoadedActionExemplarCount} annotated exemplar(s) retained.";
+            if (!string.IsNullOrEmpty(module.LastMissingActionExemplars))
+                status += " Missing: " + module.LastMissingActionExemplars;
             SetStatus(status);
         }
         catch (Exception ex)
