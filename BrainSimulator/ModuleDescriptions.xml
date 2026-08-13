@@ -852,4 +852,8 @@ ffd8ffe000104a46494600010101006000600000ffdb004300030202030202030303030403030405
 }
 }</description>
   </ModuleDescription>
+  <ModuleDescription>
+    <moduleName>ModuleSequenceSegmenter</moduleName>
+    <description>Enter a line with no internal word breaks and press Enter, or browse to a corpus text file and load it. The stream is consumed continuously in random attentional chunks. Established candidates can act as perceptual units and are reinforced when reused; competing overlapping candidates experience interference, and all candidates decay gradually. Corpus metadata beginning with the first tab on each line is ignored. Raw input observations are not retained.</description>
+  </ModuleDescription>
 </ArrayOfModuleDescription>

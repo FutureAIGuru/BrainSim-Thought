@@ -128,8 +128,9 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         void AssertUnderstands(string sentence, string linkType, string target)
         {
-            string result = ModuleText.AddPhrase(sentence, applyExistingTemplates: true);
-            Assert.StartsWith("Template:", result);
+            var module = new ModuleText { theUKS = uks };
+            module.SubmitText(sentence);
+            Assert.True(module.LastTemplate?.HasAncestor("Assertion") == true, module.LastStatus);
             Assert.NotNull(uks.GetLink(
                 uks.Labeled("otter"), uks.Labeled(linkType), uks.Labeled(target)));
         }
@@ -152,14 +153,15 @@ public class ModuleTextSequenceBubbleEvaluationTests
             "horse has 4 legs", "[horse->SET.has.4->leg]");
 
         int learnedActionTemplates = ModuleText.LearnActionsFromExemplars();
-        string wordResult = ModuleText.AddPhrase(
-            "otter has four legs", applyExistingTemplates: true);
-        string digitResult = ModuleText.AddPhrase(
-            "badger has 4 legs", applyExistingTemplates: true);
+        var module = new ModuleText { theUKS = uks };
+        module.SubmitText("otter has four legs");
+        Thought wordTemplate = module.LastTemplate;
+        module.SubmitText("badger has 4 legs");
+        Thought digitTemplate = module.LastTemplate;
 
         Assert.True(learnedActionTemplates > 0);
-        Assert.StartsWith("Template:", wordResult);
-        Assert.StartsWith("Template:", digitResult);
+        Assert.True(wordTemplate?.HasAncestor("Assertion") == true);
+        Assert.True(digitTemplate?.HasAncestor("Assertion") == true);
         Assert.Same(uks.Labeled("4"),
             uks.Labeled("w:four").GetTargetOfFirstLinkOfType("means"));
         Assert.Same(uks.Labeled("4"),
@@ -286,6 +288,45 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
+    public void FileInputBuildsSharedTemplatesInsteadOfOneIncrementalTemplatePerLine()
+    {
+        UKS.UKS uks = CreateTextUKS();
+        string corpusPath = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllLines(corpusPath,
+                Enumerable.Range(0, 40).Select(index => $"The subject{index} is value{index}."));
+            var module = new ModuleText { theUKS = uks };
+
+            int loadedPhrases = module.LoadTextFromFile(corpusPath, 40);
+
+            Assert.Equal(40, loadedPhrases);
+            Assert.InRange(uks.Labeled("Assertion").Children.Count, 1, 3);
+            Assert.NotEmpty(uks.Labeled("LearnedClass").Children);
+            Assert.Contains(uks.Labeled("Assertion").Children, template =>
+                uks.GetSequenceViews(template).Any(sequence =>
+                    sequence.Elements.Count(element => element.HasAncestor("Wildcard")) == 2));
+        }
+        finally
+        {
+            File.Delete(corpusPath);
+        }
+    }
+
+    [Fact]
+    public void TrainingInputConsolidatesWithoutUsingTheFileLoader()
+    {
+        UKS.UKS uks = CreateTextUKS();
+        var module = new ModuleText { theUKS = uks };
+
+        for (int index = 0; index < 40; index++)
+            module.SubmitText($"The subject{index} is value{index}.", answerQueries: false);
+
+        Assert.NotEmpty(uks.Labeled("LearnedClass").Children);
+        Assert.NotEmpty(uks.Labeled("Assertion").Children);
+    }
+
+    [Fact]
     public void TestExemplarsTeachAQueryTemplateWithoutAssertingTheTest()
     {
         UKS.UKS uks = CreateTextUKS();
@@ -315,6 +356,14 @@ public class ModuleTextSequenceBubbleEvaluationTests
         Assert.Equal("is-a", module.LastRelationship.LinkType.Label);
         Assert.Null(uks.GetLink(
             uks.Labeled("bird"), uks.Labeled("TEST.is-a"), uks.Labeled("??")));
+
+        string suppressedAnswer = module.SubmitText("What is a bird", answerQueries: false);
+        Assert.Null(suppressedAnswer);
+        Assert.Empty(module.LastAnswer);
+        Assert.Equal("is-a", module.LastRelationship.LinkType.Label);
+
+        module.SubmitText("A fish is an animal", answerQueries: false, providedAction: "[fish->SET.is-a->animal]");
+        Assert.NotNull(uks.GetLink(uks.Labeled("fish"), uks.Labeled("is-a"), uks.Labeled("animal")));
     }
 
     [Fact]
@@ -567,12 +616,12 @@ public class ModuleTextSequenceBubbleEvaluationTests
         // not create p1, p2, and so on which all point to the same sequence.
         UKS.UKS uks = CreateTextUKS();
 
-        ModuleText.AddText("dogs are animals", learnIncrementally: true);
+        ModuleText.AddText("dogs are animals");
         Thought originalPhrase = Assert.Single(ModuleText.GetPhrasesOfKind("Statement"));
         Thought originalSequence = originalPhrase.GetTargetOfFirstLinkOfType("hasWords");
         float originalWeight = originalPhrase.Weight;
 
-        ModuleText.AddText("dogs are animals", learnIncrementally: true);
+        ModuleText.AddText("dogs are animals");
 
         Thought repeatedPhrase = Assert.Single(ModuleText.GetPhrasesOfKind("Statement"));
         Assert.Same(originalPhrase, repeatedPhrase);
@@ -606,19 +655,20 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
-    public void ProcessedCorpusRecognizesANewPluralClassificationPhrase()
+    public void ConsolidatedCorpusRecognizesANewPluralClassificationPhrase()
     {
         // After the complete learning pass, a manually entered phrase using
         // new words must still match the learned plural classification frame.
         UKS.UKS uks = CreateTextUKS();
         LoadCorpus(uks);
-        Assert.True(ModuleText.ProcessTheExistingText() > 0);
+        Assert.True(ModuleText.ConsolidateLanguageLearning() > 0);
         Assert.Single(uks.Labeled("SpellingPattern").Children);
 
-        string result = ModuleText.AddPhrase(
-            "pigs are animals", applyExistingTemplates: true);
+        var module = new ModuleText { theUKS = uks };
+        module.SubmitText("pigs are animals");
+        string result = module.LastStatus;
 
-        Assert.StartsWith("Template:", result);
+        Assert.True(module.LastTemplate?.HasAncestor("Assertion") == true, result);
         Link learnedAssertion = uks.GetLink(
             uks.Labeled("pig"), uks.Labeled("is-a"), uks.Labeled("animal"));
         string pigAttributes = string.Join(", ", uks.Labeled("pig")?.LinksTo
@@ -667,19 +717,19 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
-    public void ProcessExistingTextCanBeRerunWithoutDuplicatingClasses()
+    public void ConsolidationCanBeRerunWithoutDuplicatingClasses()
     {
         UKS.UKS uks = CreateTextUKS();
         for (int i = 0; i < 44; i++)
             AddPhrase(uks, "the", "subject" + i, "runs");
         AddPhrase(uks, "the", "fish", "swims");
 
-        int firstResult = ModuleText.ProcessTheExistingText();
+        int firstResult = ModuleText.ConsolidateLanguageLearning();
         int learnedClassCount = uks.Labeled("LearnedClass").Children.Count;
         int learnedTemplateCount = uks.Labeled("Assertion").Children.Count;
         int thoughtCount = uks.AtomicThoughts.Count;
 
-        int secondResult = ModuleText.ProcessTheExistingText();
+        int secondResult = ModuleText.ConsolidateLanguageLearning();
 
         Assert.True(firstResult > 0);
         Assert.Equal(firstResult, secondResult);
@@ -689,7 +739,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
     }
 
     [Fact]
-    public void ProcessExistingTextCoalescesSimilarLearnedClassesAfterDiscovery()
+    public void ConsolidationCoalescesSimilarLearnedClassesAfterDiscovery()
     {
         // Class cleanup is a post-processing operation and also runs when there
         // are no new phrase templates to discover.
@@ -702,7 +752,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         foreach (string label in new[] { "b", "c", "d", "e", "f" })
             uks.GetOrAddThought(label, "Word").AddParent(classB);
 
-        ModuleText.ProcessTheExistingText();
+        ModuleText.ConsolidateLanguageLearning();
 
         Assert.Single(root.Children);
         Assert.Null(uks.Labeled("classB"));
@@ -726,7 +776,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         Assert.Null(uks.Labeled("LearnedClass"));
         Assert.Null(uks.Labeled("LearnedTemplate"));
 
-        ModuleText.ProcessTheExistingText();
+        ModuleText.ConsolidateLanguageLearning();
 
         Assert.NotEmpty(uks.Labeled("LearnedClass").Children);
         Assert.NotEmpty(uks.Labeled("Assertion").Children);

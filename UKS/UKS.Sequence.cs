@@ -416,14 +416,20 @@ public partial class UKS
     /// <param name="linkType">The link type to use for the sequence relationship.</param>
     /// <param name="targets">Targets in order; can be sequence start nodes.</param>
     /// <param name="baseWeight">Base weight for the links (currently unused).</param>
+    /// <param name="allowCompression">Whether existing subsequences may replace flat target ranges.</param>
     /// <returns>The first node of the created or reused sequence, or null if insufficient targets.</returns>
-    public SeqElement AddSequenceAndLink(Thought source, Thought linkType, List<Thought> targets, float baseWeight = 1.0f)
+    public SeqElement AddSequenceAndLink(
+        Thought source,
+        Thought linkType,
+        List<Thought> targets,
+        float baseWeight = 1.0f,
+        bool allowCompression = true)
     {
         if (targets is null || targets.Count == 0) return null;
 
         //clear out any existing sequence links of this type
         source.RemoveLinks(linkType);  //TODO delete the sequence
-        SeqElement rawSequence = AddSequence(source.Label, targets);
+        SeqElement rawSequence = AddSequence(source.Label, targets, allowCompression);
         source.AddLink(linkType, rawSequence);
         return rawSequence;
     }

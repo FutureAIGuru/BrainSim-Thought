@@ -1,0 +1,33 @@
+<local:ModuleBaseDlg x:Class="BrainSimulator.Modules.ModuleSequenceSegmenterDlg"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BrainSimulator.Modules"
+        mc:Ignorable="d"
+        Title="Sequence Segmenter" Height="165" Width="850"
+        MinHeight="165" MinWidth="500" Background="Gray"
+        ShowInTaskbar="False" FontSize="16">
+    <Grid Margin="10,10,10,28">
+        <TextBox x:Name="InputBox"
+                 Height="32"
+                 VerticalAlignment="Top"
+                 VerticalContentAlignment="Center"
+                 Foreground="White"
+                 Background="Black"
+                 AcceptsReturn="False"
+                 PreviewKeyDown="InputBox_PreviewKeyDown" />
+
+        <Label Content="Corpus:" Margin="0,42,0,0"
+               HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <TextBox x:Name="txtFilePath" Height="27" Margin="65,46,135,0"
+                 IsReadOnly="True" VerticalAlignment="Top"
+                 Foreground="White" Background="Black" />
+        <Button x:Name="btnBrowse" Content="Browse" Width="66" Height="26"
+                Margin="0,46,64,0" HorizontalAlignment="Right"
+                VerticalAlignment="Top" Click="btnBrowse_Click" />
+        <Button x:Name="btnLoad" Content="Load" Width="56" Height="26"
+                Margin="0,46,2,0" HorizontalAlignment="Right"
+                VerticalAlignment="Top" Click="btnLoad_Click" />
+    </Grid>
+</local:ModuleBaseDlg>

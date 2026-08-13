@@ -163,6 +163,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             sortedLinks = t.LinksTo.Where(x => x.LinkType.Label != "is-a").OrderBy(x => x?.LinkType?.Label).ToList();
         foreach (Link l in sortedLinks)
         {
+            //FOR DEMO ONLY...
+            //if (l.LinkType.Label != "means") continue;
             if (showConditionals.IsChecked != true && l.LinkType.Label == "evidence") continue;
             if (showConditionals.IsChecked != true)
                 if (l.HasProperty("isCondition") || l.HasProperty("isResult")) continue; //hide conditionals

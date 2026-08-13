@@ -8,6 +8,10 @@
         Title="Text" Height="427" Width="640" MinHeight="330" MinWidth="500"
         Background="Gray" ShowInTaskbar="False" FontSize="14">
     <Grid Margin="8,0,8,23" SizeChanged="TheGrid_SizeChanged">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="61*"/>
+            <RowDefinition Height="36*"/>
+        </Grid.RowDefinitions>
         <Label Content="Text Input:" Margin="0,0,0,0"
                HorizontalAlignment="Left" VerticalAlignment="Top" />
         <TextBox x:Name="InputBox" Height="28" Margin="0,24,98,0"
@@ -25,11 +29,11 @@
                  Foreground="White" Background="Black" TextWrapping="NoWrap"
                  AcceptsReturn="False" IsReadOnly="True" />
 
-        <Label Content="Interpretations:" Margin="-2,103,0,0"
+        <Label Content="Interpretations:" Margin="0,103,0,0"
                HorizontalAlignment="Left" VerticalAlignment="Top" />
-        <ListBox x:Name="ParsedInputBox" Margin="-2,127,320,55"
+        <ListBox x:Name="ParsedInputBox" Margin="0,127,320,55"
                  Foreground="White" Background="Black"
-                 SelectionChanged="ParsedInputBox_SelectionChanged" />
+                 SelectionChanged="ParsedInputBox_SelectionChanged" Grid.RowSpan="2" />
 
         <Label Content="Thought:" Margin="0,116,205,0"
                HorizontalAlignment="Right" VerticalAlignment="Top" />
@@ -40,22 +44,19 @@
                  AcceptsReturn="False" PreviewKeyDown="AttributeBox_PreviewKeyDown" />
         <Label Content="Known attributes:" Margin="0,137,180,0"
                HorizontalAlignment="Right" VerticalAlignment="Top" />
-        <ListBox x:Name="AttributesOutputBox" Margin="316,161,2,55"
-                 Foreground="White" Background="Black" />
+        <ListBox x:Name="AttributesOutputBox" Margin="0,161,2,55"
+                 Foreground="White" Background="Black" Grid.RowSpan="2" HorizontalAlignment="Right" Width="306" />
 
-        <Label Content="File:" Margin="0,0,0,20"
-               HorizontalAlignment="Left" VerticalAlignment="Bottom" />
-        <TextBox x:Name="txtFilePath" Height="26" Margin="38,0,213,20"
+        <Label Content="Corpus:" Margin="0,0,0,20"
+               HorizontalAlignment="Left" VerticalAlignment="Bottom" Grid.Row="1" />
+        <TextBox x:Name="txtFilePath" Height="26" Margin="55,0,137,20"
                  IsReadOnly="True" VerticalAlignment="Bottom"
-                 Foreground="White" Background="Black" />
+                 Foreground="White" Background="Black" Grid.Row="1" />
         <Button x:Name="btnBrowse" Content="Browse" Width="66" Height="25"
-                Margin="0,0,138,20" HorizontalAlignment="Right"
-                VerticalAlignment="Bottom" Click="btnBrowse_Click" />
+                Margin="0,0,66,20" HorizontalAlignment="Right"
+                VerticalAlignment="Bottom" Click="btnBrowse_Click" Grid.Row="1" />
         <Button x:Name="btnLoad" Content="Load" Width="50" Height="25"
-                Margin="0,0,82,20" HorizontalAlignment="Right"
-                VerticalAlignment="Bottom" Click="btnLoad_Click" />
-        <Button x:Name="btnProcess" Content="Process" Width="72" Height="25"
-                Margin="0,0,2,20" HorizontalAlignment="Right"
-                VerticalAlignment="Bottom" Click="btnProcess_Click" />
+                Margin="0,0,10,20" HorizontalAlignment="Right"
+                VerticalAlignment="Bottom" Click="btnLoad_Click" Grid.Row="1" />
     </Grid>
 </local:ModuleBaseDlg>

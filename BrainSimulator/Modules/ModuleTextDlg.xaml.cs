@@ -248,18 +248,14 @@ public partial class ModuleTextDlg : ModuleBaseDlg
         try
         {
             int count = await Task.Run(() => module.LoadTextFromFile(filePath,1000));
-            SetStatus($"Loaded and processed {count} phrase(s) from the file.");
+            string status = module.LastStatus.StartsWith("Error:", StringComparison.Ordinal)
+                ? $"Loaded {count} phrase(s). {module.LastStatus}"
+                : $"Loaded and processed {count} phrase(s) from the file.";
+            SetStatus(status);
         }
         catch (Exception ex)
         {
             SetStatus($"Error loading file: {ex.Message}");
         }
-    }
-
-    private void btnProcess_Click(object sender, RoutedEventArgs e)
-    {
-        SetStatus("Discovering common phrase structures...");
-        int count = ModuleText.ProcessTheExistingText();
-        SetStatus($"Found {count} learned phrase templates.");
     }
 }
