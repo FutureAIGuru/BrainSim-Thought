@@ -743,7 +743,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     DependencyObject parent1 = VisualTreeHelper.GetParent((DependencyObject)tvi);
                     while (parent1 is not null && !(parent1 is TreeViewItem))
                         parent1 = VisualTreeHelper.GetParent(parent1);
-                    Thought parentThought = (Thought)parent1.GetValue(ThoughtObjectProperty);
+                    Thought parentThought = (Thought)parent1?.GetValue(ThoughtObjectProperty);
                     //now delete the link
                     if (parentThought is not null && t is not null)
                         parentThought.RemoveChild(t);

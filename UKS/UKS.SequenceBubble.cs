@@ -490,6 +490,7 @@ public partial class UKS
 
     private static bool HasOnlySingletonGaps(CommonSequencePattern pattern)
     {
+        if (pattern is null) return false;
         return pattern.Elements.All(element => !element.IsGap ||
             element.GapCardinality == SequenceGapCardinality.ExactlyOne);
     }

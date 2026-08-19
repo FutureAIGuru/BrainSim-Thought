@@ -13,10 +13,12 @@ public class ModuleVisualInputTests
         var uks = new UKS.UKS(clear: true);
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks;
+        var text = new ModuleText { theUKS = uks };
+        text.UKSInitializedNotification();
         var mentalModel = new ModuleMentalModel { theUKS = uks };
         mentalModel.UKSInitializedNotification();
         var visualInput = new ModuleVisualInput { theUKS = uks };
-        visualInput.EnsureVocabulary();
+        visualInput.UKSInitializedNotification();
         return (uks, mentalModel, visualInput);
     }
 
@@ -33,7 +35,7 @@ public class ModuleVisualInputTests
         mentalModel.SetAttentionCell(selectedCell);
 
         var visualInput = new ModuleVisualInput { theUKS = uks };
-        visualInput.EnsureVocabulary();
+        visualInput.UKSInitializedNotification();
 
         Assert.Null(uks.Labeled("O1"));
         Assert.Contains("O1.txt", visualInput.GetObservationFiles());
@@ -81,7 +83,7 @@ public class ModuleVisualInputTests
         uks.CreateInitialStructure();
         var module = new ModuleVisualInput { theUKS = uks };
 
-        module.EnsureVocabulary();
+        module.UKSInitializedNotification();
 
         Assert.Contains(uks.Labeled("Image")!, uks.Labeled("VisualElement")!.Children);
         Assert.Contains(uks.Labeled("isGrounding")!, uks.Labeled("Property")!.Children);

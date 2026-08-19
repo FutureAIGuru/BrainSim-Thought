@@ -61,22 +61,13 @@ public partial class UKS
         // Links are stored on their source Thoughts. Scanning the atomic nodes
         // also finds sequence VLU links, wildcard constraints, memberships, and
         // ordinary incoming/outgoing relationships.
-        List<Link> affectedLinks = AtomicThoughts
-            .SelectMany(thought => thought.LinksTo)
-            .Where(link => link.From == redundantThought ||
-                link.LinkType == redundantThought || link.To == redundantThought)
-            .Distinct()
-            .ToList();
 
         int replacedCount = 0;
-        foreach (Link oldLink in affectedLinks)
+        foreach (Link oldLink in redundantThought.LinksTo.Union(redundantThought.LinksFrom))
         {
-            Thought? newSource = oldLink.From == redundantThought
-                ? canonicalThought : oldLink.From;
-            Thought? newType = oldLink.LinkType == redundantThought
-                ? canonicalThought : oldLink.LinkType;
-            Thought? newTarget = oldLink.To == redundantThought
-                ? canonicalThought : oldLink.To;
+            Thought? newSource = oldLink.From == redundantThought ? canonicalThought : oldLink.From;
+            Thought? newType = oldLink.LinkType == redundantThought ? canonicalThought : oldLink.LinkType;
+            Thought? newTarget = oldLink.To == redundantThought ? canonicalThought : oldLink.To;
             if (newSource is null || newType is null) continue;
 
             // Merging a parent with its child can otherwise manufacture A is-a A.
@@ -89,10 +80,8 @@ public partial class UKS
                     replacement.Weight = Math.Max(replacement.Weight, oldLink.Weight);
                     replacement.maxWeight = Math.Max(replacement.maxWeight, oldLink.maxWeight);
                     replacement.isPlastic |= oldLink.isPlastic;
-                    replacement.LastFiredTime = replacement.LastFiredTime > oldLink.LastFiredTime
-                        ? replacement.LastFiredTime : oldLink.LastFiredTime;
-                    replacement.TimeToLive = replacement.TimeToLive > oldLink.TimeToLive
-                        ? replacement.TimeToLive : oldLink.TimeToLive;
+                    replacement.LastFiredTime = replacement.LastFiredTime > oldLink.LastFiredTime ? replacement.LastFiredTime : oldLink.LastFiredTime; 
+                    replacement.TimeToLive = replacement.TimeToLive > oldLink.TimeToLive ? replacement.TimeToLive : oldLink.TimeToLive;
                 }
             }
 
@@ -108,6 +97,7 @@ public partial class UKS
         canonicalThought.TimeToLive = canonicalThought.TimeToLive > redundantThought.TimeToLive
             ? canonicalThought.TimeToLive : redundantThought.TimeToLive;
         canonicalThought.V ??= redundantThought.V;
+        ClearExtraneousParents(canonicalThought);
         redundantThought.Delete();
         return replacedCount;
     }

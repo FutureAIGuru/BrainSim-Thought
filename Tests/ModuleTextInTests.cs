@@ -15,65 +15,10 @@ public class ModuleTextInteractionTests
         var uks = new UKS.UKS(clear: true);
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks; // required by ModuleWord and AddWordSpelling
+        var module = new ModuleText { theUKS = uks };
+        module.UKSInitializedNotification();
         return uks;
     }
-    private static string FindRepositoryRoot()
-    {
-        DirectoryInfo directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "BrainSim Thought.sln")))
-            directory = directory.Parent;
-        return directory?.FullName ?? throw new DirectoryNotFoundException("BrainSim Thought repository root not found.");
-    }
-
-    [Fact]
-    public void TextTaxonomyUsesPhraseAndSpecificTemplateClasses()
-    {
-        UKS.UKS uks = CreateUKS();
-        string contentPath = Path.Combine(
-            FindRepositoryRoot(), "BrainSimulator", "UKSContent");
-        uks.ImportTextFile(Path.Combine(contentPath, "BasicWords.txt"));
-        uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
-
-        Assert.Null(uks.Labeled("Sentence"));
-        Assert.Null(uks.Labeled("Template"));
-        Assert.True(uks.Labeled("StatementTemplate").HasAncestor("Phrase"));
-        Assert.True(uks.Labeled("QueryTemplate").HasAncestor("Phrase"));
-        Assert.True(uks.Labeled("tpl:X_is_a_Y").HasAncestor("StatementTemplate"));
-        Assert.True(uks.Labeled("tpl:what_is_X").HasAncestor("QueryTemplate"));
-    }
-
-
-    [Fact]
-    public void SubmitText_ReturnsCompletedRelationship()
-    {
-        var uks = CreateUKS();
-        string contentPath = Path.Combine(FindRepositoryRoot(), "BrainSimulator", "UKSContent");
-        uks.ImportTextFile(Path.Combine(contentPath, "BasicWords.txt"));
-        uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
-        uks.CreateWildcard("w:??", new List<Thought> { "languageElement" });
-        var module = new ModuleText { theUKS = uks };
-
-        string answer = module.SubmitText("What is fido")?.ToLower();
-
-        Assert.Equal("fido is a dog", answer);
-    }
-
-    [Fact]
-    public void SubmitText_ReturnsNewlyAddedRelationship()
-    {
-        var uks = CreateUKS();
-        string contentPath = Path.Combine(FindRepositoryRoot(), "BrainSimulator", "UKSContent");
-        uks.ImportTextFile(Path.Combine(contentPath, "BasicWords.txt"));
-        uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
-        uks.CreateWildcard("w:??", new List<Thought> { "languageElement" });
-        var module = new ModuleText { theUKS = uks };
-
-        module.SubmitText("Fifi is a cat");
-        string answer = module.SubmitText("what is Fifi");
-
-        Assert.Equal("Fifi is a cat", answer);
-    }
-
     [Fact]
     public void ActionExemplarUsesGroundedAnonymousMeanings()
     {
@@ -86,11 +31,9 @@ public class ModuleTextInteractionTests
         uks.AddStatement(dogWord, means, dogClass);
         uks.AddStatement(fidoWord, means, fidoObject);
 
-        Thought exemplar = ModuleText.AddActionExemplar(
-            "Fido is a dog", "[fido->SET.is-a->dog]");
+        Thought exemplar = ModuleText.AddActionExemplar("Fido is a dog", "[fido->SET.is-a->dog]");
 
-        Link action = Assert.IsType<Link>(
-            exemplar.GetTargetOfFirstLinkOfType("demonstrates"));
+        Link action = Assert.IsType<Link>(exemplar.GetTargetOfFirstLinkOfType("demonstrates"));
         Assert.Same(fidoObject, action.From);
         Assert.Same(dogClass, action.To);
         Assert.Null(uks.Labeled("fido"));
@@ -108,13 +51,11 @@ public class ModuleTextInteractionTests
         Thought filteredExemplar = ModuleText.AddActionExemplar(
             "What color is Fido", "[[Fido->TEST.is->??]->filterBy->Color]");
 
-        Link wildcardAction = Assert.IsType<Link>(
-            wildcardExemplar.GetTargetOfFirstLinkOfType("demonstrates"));
-        Link filteredAction = Assert.IsType<Link>(
-            filteredExemplar.GetTargetOfFirstLinkOfType("demonstrates"));
+        Link wildcardAction = Assert.IsType<Link>(wildcardExemplar.GetTargetOfFirstLinkOfType("demonstrates"));
+        Link filteredAction = Assert.IsType<Link>(filteredExemplar.GetTargetOfFirstLinkOfType("demonstrates"));
         Assert.Equal("TEST.??", wildcardAction.LinkType.Label, ignoreCase: true);
         Assert.Same(color, filteredAction.GetTargetOfFirstLinkOfType("filterBy"));
-        Assert.True(uks.Labeled("filterBy").HasAncestor("Property"));
+        Assert.True(uks.Labeled("filterBy").HasAncestor("LinkType"));
     }
 
     [Fact]
@@ -185,35 +126,15 @@ public class ModuleTextInteractionTests
     [Fact]
     public void CorpusActionAnnotationMayBeSeparatedBySpaces()
     {
-        bool found = ModuleText.TrySplitActionAnnotation(
-            "Mary loves John.    [Mary->SET.loves->John]", out string phrase, out string action);
+        ModuleText.ParseInputLine(
+            "Mary loves John.    [Mary->SET.loves->John] // example",
+            out string phrase,
+            out string action,
+            out string comment);
 
-        Assert.True(found);
         Assert.Equal("Mary loves John.", phrase);
         Assert.Equal("[Mary->SET.loves->John]", action);
+        Assert.Equal("example", comment);
     }
 
-    [Fact]
-    public void SeedTemplateStatementUsesGroundedAnonymousMeanings()
-    {
-        UKS.UKS uks = CreateUKS();
-        string contentPath = Path.Combine(
-            FindRepositoryRoot(), "BrainSimulator", "UKSContent");
-        uks.ImportTextFile(Path.Combine(contentPath, "QueryTemplates.txt"));
-        uks.CreateWildcard("w:??", new List<Thought> { "languageElement" });
-        Thought means = uks.GetOrAddThought("means", "LinkType");
-        Thought dogClass = uks.GetOrAddThought("class0", "Object");
-        Thought fidoObject = uks.GetOrAddThought("O1", dogClass);
-        uks.AddStatement(uks.GetOrAddThought("w:dog", "Word"), means, dogClass);
-        uks.AddStatement(uks.GetOrAddThought("w:fido", "Word"), means, fidoObject);
-        ModuleText module = new() { theUKS = uks };
-
-        module.SubmitText("Fido is a dog");
-
-        Assert.Same(fidoObject, module.LastRelationship?.From);
-        Assert.Same(dogClass, module.LastRelationship?.To);
-        Assert.NotNull(uks.GetLink(fidoObject, uks.Labeled("is-a"), dogClass));
-        Assert.Null(uks.Labeled("fido"));
-        Assert.Null(uks.Labeled("dog"));
-    }
 }

@@ -68,20 +68,20 @@ public class ModuleSequenceSegmenterTests
     }
 
     [Fact]
-    public void MaximumChunkSize_DefaultsToThreeAndPauseEndsFinalChunk()
+    public void MaximumChunkSize_DefaultsToFourAndPauseEndsFinalChunk()
     {
         UKS.UKS uks = CreateUKS();
         FixedChunkSegmenter module = new() { theUKS = uks };
 
         module.SubmitLine("abcdefghijkl");
 
-        Assert.Equal(3, module.MaximumChunkSize);
-        Assert.Equal("abc def ghi jkl", module.LastSegmentation);
+        Assert.Equal(4, module.MaximumChunkSize);
+        Assert.Equal("abcd efgh ijkl", module.LastSegmentation);
         Assert.All(uks.Labeled("CandidateSequence").Children, candidate =>
         {
             SeqElement sequence = Assert.IsType<SeqElement>(
                 candidate.GetTargetOfFirstLinkOfType("hasSymbols"));
-            Assert.InRange(uks.FlattenSequence(sequence).Count, 1, 3);
+            Assert.InRange(uks.FlattenSequence(sequence).Count, 1, 4);
         });
     }
 

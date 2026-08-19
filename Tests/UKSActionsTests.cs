@@ -28,14 +28,14 @@ public class UKSActionsTests
         // metadata link. Removing that metadata should not affect execution.
         setLocation.RemoveLinks("is");
 
-        uks.ApplySetAction(new Link(fido, setHas, fur));
-        uks.ApplySetAction(new Link(fido, setHas, tail));
+        uks.ApplyTestOrSetAction(new Link(fido, setHas, fur));
+        uks.ApplyTestOrSetAction(new Link(fido, setHas, tail));
 
         Assert.NotNull(uks.GetLink(fido, has, fur));
         Assert.NotNull(uks.GetLink(fido, has, tail));
 
-        uks.ApplySetAction(new Link(fido, setLocation, outside));
-        uks.ApplySetAction(new Link(fido, setLocation, inside));
+        uks.ApplyTestOrSetAction(new Link(fido, setLocation, outside));
+        uks.ApplyTestOrSetAction(new Link(fido, setLocation, inside));
 
         Assert.Null(uks.GetLink(fido, location, outside));
         Assert.NotNull(uks.GetLink(fido, location, inside));
@@ -52,7 +52,8 @@ public class UKSActionsTests
         Thought leg = uks.GetOrAddThought("leg");
         Thought setHasFour = uks.GetOrAddThought("SET.has.4", "LinkType");
 
-        Link result = uks.ApplySetAction(new Link(dog, setHasFour, leg));
+        List<Link> results = uks.ApplyTestOrSetAction(new Link(dog, setHasFour, leg));
+        Link result = Assert.Single(results);
 
         Assert.NotNull(result);
         Assert.Equal("has.4", result.LinkType.Label);

@@ -169,7 +169,7 @@ public class ModuleAlgorithm : ModuleBase
                 if (newLinkType is null) return false;
                 Link existingLink = theUKS.GetLink(newFrom, newLinkType, newTarget);
                 Link fullStatement = new(newFrom, action.LinkType, newTarget);
-                Link newLink = theUKS.ApplySetAction(fullStatement);
+                Link newLink = theUKS.ApplyTestOrSetAction(fullStatement).FirstOrDefault();
                 if (newLink is null) return false;
                 if (existingLink is null)
                 {
@@ -266,7 +266,7 @@ public class ModuleAlgorithm : ModuleBase
             }
             // Link: param1 -> ref -> param1ValueThought
             Link param1Action = new(param1Thought, setRefType, param1ValueThought);
-            theUKS.ApplySetAction(param1Action);
+            theUKS.ApplyTestOrSetAction(param1Action);
         }
 
         // Process param2
@@ -281,7 +281,7 @@ public class ModuleAlgorithm : ModuleBase
             }
             // Link: param2 -> ref -> param2ValueThought
             Link param2Action = new(param2Thought, setRefType, param2ValueThought);
-            theUKS.ApplySetAction(param2Action);
+            theUKS.ApplyTestOrSetAction(param2Action);
         }
 
         // Get the task thought

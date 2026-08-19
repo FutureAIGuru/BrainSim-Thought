@@ -786,11 +786,7 @@ public class ModuleVisualInput : ModuleBase
         return PresentSelected(distance, mentalModel, null);
     }
 
-    public Thought PresentSelected(
-        double distance,
-        ModuleMentalModel mentalModel,
-        Thought location,
-        bool additionalAppearance = false)
+    public Thought PresentSelected(double distance,ModuleMentalModel mentalModel,Thought location,bool additionalAppearance = false)
     {
         if (theUKS is null || mentalModel is null) return null;
         EnsureVocabulary();
@@ -823,8 +819,10 @@ public class ModuleVisualInput : ModuleBase
 
         Thought subject = FindMatchingObject(observation);
         bool recognized = subject is not null;
-        subject ??= theUKS.GetOrAddThought(
-            GetNextAnonymousObjectLabel(), "Object");
+        if (subject is null)
+        {
+            subject = theUKS.GetOrAddThought(GetNextAnonymousObjectLabel(), "Object");
+        }
         if (subject is null)
         {
             Status = $"{SelectedObservationFile} could not create an object.";
@@ -944,8 +942,7 @@ public class ModuleVisualInput : ModuleBase
             return Array.Empty<Link>();
         }
 
-        ModuleText.MeaningLearningResult learning =
-            ModuleText.ObservePhraseMeanings(phrase, candidates, languageLabel);
+        ModuleText.MeaningLearningResult learning = ModuleText.ObservePhraseMeanings(phrase, candidates, languageLabel);
         _lastGroundingChanges.AddRange(learning.Changes);
 
         Thought attendedObject = mentalModel.GetAttendedContents()

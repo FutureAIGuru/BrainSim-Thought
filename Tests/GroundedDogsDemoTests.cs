@@ -13,8 +13,10 @@ public class GroundedDogsDemoTests
         var uks = new UKS.UKS(clear: true);
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks;
+        var text = new ModuleText { theUKS = uks };
+        text.UKSInitializedNotification();
         var visualInput = new ModuleVisualInput { theUKS = uks };
-        visualInput.EnsureVocabulary();
+        visualInput.UKSInitializedNotification();
         var mentalModel = new ModuleMentalModel { theUKS = uks };
         mentalModel.UKSInitializedNotification();
         foreach (string observation in new[] { "O1.txt", "O2.txt", "O3.txt" })

@@ -10,10 +10,6 @@ A dog has four legs.
 The dog has four legs.
 Dogs have four legs.
 The dogs have four legs.
-A dog is brown.	[dog->SET.is->brown]
-The dog is brown.
-Dogs are brown.	[dog->SET.is->brown]
-The dogs are brown.
 A dog is large.
 The dog is large.
 Dogs are large.
@@ -44,6 +40,7 @@ bob likes Mary.
 Alice likes john.
 What color is Fido?	[[Fido->TEST.is->??]->filterBy->Color]
 What color is Rover?	[[Rover->TEST.is->??]->filterBy->Color]
+What color is Spot?	[[Spot->TEST.is->??]->filterBy->Color]
 How many legs does a dog have?	[[dog->TEST.has->??]->filterBy->leg]
 How many legs does a cat have?	[[cat->TEST.has->??]->filterBy->leg]
 What color is the dog?

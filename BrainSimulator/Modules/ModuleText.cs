@@ -43,10 +43,8 @@ Une grenouille peut sauter.
 Un canard est un oiseau.
 
 Quel animal est le chien ?
-Que possÃÂÃÂ¨de le chien ?
 Que peut faire le chien ?
 Quels animaux sont les chiens ?
-Que possÃÂÃÂ¨dent les chiens ?
 Que peuvent faire les chiens ?
 
  */
@@ -56,9 +54,9 @@ Que peuvent faire les chiens ?
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.DirectoryServices.ActiveDirectory;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Pluralize.NET;
 using UKS;
 
@@ -130,199 +128,232 @@ public class ModuleText : ModuleBase
     {
     }
 
-    /// <summary>Provides the UKS reinitialization hook; no cached language state currently needs resetting.</summary>
+    /// <summary>Creates the fixed language structure whenever the UKS is initialized.</summary>
     public override void UKSInitializedNotification()
     {
-
+        (string label, string parent)[] fixedThoughts =
+        {
+            ("LanguageElement", "Thought"),
+            ("Language", "LanguageElement"),
+            ("Word", "LanguageElement"),
+            ("Phrase", "LanguageElement"),
+            ("Statement", "Phrase"),
+            ("Question", "Phrase"),
+            ("MeaningPhrase", "Phrase"),
+            ("LearnedClass", "LanguageElement"),
+            ("LearnedTemplate", "LanguageElement"),
+            ("Assertion", "LearnedTemplate"),
+            ("Query", "LearnedTemplate"),
+            ("ActionExemplar", "LanguageElement"),
+            ("SpellingPattern", "LanguageElement"),
+            ("TEST", "LinkType"),
+            ("SET", "LinkType"),
+            ("hasWords", "LinkType"),
+            ("means", "LinkType"),
+            ("usedInLanguage", "LinkType"),
+            ("evidence", "LinkType"),
+            ("demonstrates", "LinkType"),
+            ("linkTypeParameter", "LinkType"),
+            ("position", "LinkType"),
+            ("adds", "LinkType"),
+            ("classEvidence", "LinkType"),
+            ("correspondsTo", "LinkType"),
+            ("sourceClass", "LinkType"),
+            ("targetClass", "LinkType"),
+            ("filterBy", "LinkType"),
+            ("beginning", "Unknown"),
+            ("end", "Unknown"),
+        };
+        foreach ((string label, string parent) in fixedThoughts)
+            theUKS.GetOrAddThought(label, parent);
     }
 
     // 1. Reading Language In
     /// <summary>
-    /// Stores and interprets one utterance from typed or file input. A supplied
-    /// action provides supervised meaning, while answerQueries controls whether
-    /// a recognized TEST operation is searched and realized as language output.
+    /// Stores and interprets one raw line from typed or file input. Embedded
+    /// actions and comments are separated before the command is processed.
     /// </summary>
-    public string SubmitText(string text, bool answerQueries = true, string providedAction = null)
+    public string SubmitText(string text, bool answerQueries = true)
     {
         LastAnswer = string.Empty;
         LastRelationship = null;
         LastTemplate = null;
         LastActionExemplar = null;
-        string trimmed = text?.Trim();
-        if (string.IsNullOrEmpty(trimmed))
+        ParseInputLine(text, out string command, out string action, out string comment);
+        if (string.IsNullOrEmpty(command))
         {
-            LastStatus = "The phrase is empty.";
+            LastStatus = string.IsNullOrEmpty(comment)
+                ? "The phrase is empty."
+                : "Comment ignored.";
             return null;
         }
 
-        UKS.UKS uks = theUKS ?? MainWindow.theUKS;
-        if (uks is null)
-        {
-            LastStatus = "The UKS is not available.";
-            return null;
-        }
-
-        string ingestStatus = AddText(trimmed, out Thought phraseThought);
+        //Save the phrase (and its word sequence) in the UKS. This is the only step that is always performed.
+        //The phrase (and words) may be forgotten later if they are not reinforced by a meaning or exemplar.
+        string ingestStatus = AddPhrase(command, out Thought phrase);
         if (ingestStatus.StartsWith("Error:", StringComparison.Ordinal))
         {
             LastStatus = ingestStatus;
             return null;
         }
-        if (!string.IsNullOrWhiteSpace(providedAction)) LastActionExemplar = AddActionExemplar(trimmed, providedAction);
+        //learn meanings if a meaning is provided
+        if (!string.IsNullOrEmpty(action))
+            LastActionExemplar = AddActionExemplar(phrase, action);
+        //Sets up output stats on learning.
         if (!answerQueries) ObserveTrainingPhrase();
-        List<Thought> words = GetPhraseWords(trimmed);
-        Thought phraseRoot = GetPhraseKind(trimmed);
-        bool explicitQuestion = phraseRoot?.Label.Equals("Question", StringComparison.OrdinalIgnoreCase) == true;
-        bool matched = TryResolveInput(
-            phraseThought, words, explicitQuestion, out Thought matchedTemplate,
-            out Link matchedRelationship, out bool matchedQuery, out string matchError);
-        if (matched)
-        {
-            LastTemplate = matchedTemplate;
-            LastRelationship = matchedRelationship;
-            if (!string.IsNullOrEmpty(matchError))
-            {
-                LastStatus = matchError;
-                return null;
-            }
-            string templateLabel = matchedTemplate?.Label ?? "seed template";
-            if (!matchedQuery)
-            {
-                LastStatus = $"Understood with {templateLabel}.";
-                return null;
-            }
-            if (!answerQueries)
-            {
-                LastStatus = $"Matched query exemplar with {templateLabel}.";
-                return null;
-            }
 
-            string retVal = GenerateQueryAnswer(matchedRelationship, words, matchedTemplate);
-            return retVal;
-        }
-
-        if (explicitQuestion)
+        Thought matchedTemplate = FindMatchingTemplate(phrase);
+        if (matchedTemplate is null)
         {
-            LastStatus = "No learned query template matched the question.";
+            bool question = phrase.HasAncestor("Question");
+            LastStatus = question ? "No learned query template matched the question." : ingestStatus;
             return null;
         }
 
-        LastStatus = ingestStatus;
-        return null;
-    }
+        //create a full template
+        Link relationship = ApplyTemplate(matchedTemplate, phrase);
 
-    /// <summary>Matches learned templates first, then maps the legacy seed-template representation.</summary>
-    private bool TryResolveInput(
-        Thought phrase,
-        List<Thought> words,
-        bool explicitQuestion,
-        out Thought template,
-        out Link relationship,
-        out bool query,
-        out string error)
-    {
-        template = null;
-        relationship = null;
-        query = false;
-        error = string.Empty;
-
-        // A learned TEST template identifies a query even when its punctuation
-        // is omitted, which also makes direct SubmitText tests possible.
-        Thought learnedQuestionTemplate = ApplyExistingTemplatesToPhrase(phrase, useQuestionTemplates: true);
-        bool learnedQuery = GetParameterizedTemplateOperation(learnedQuestionTemplate)?
-            .LinkType?.HasAncestor("TEST") == true;
-        Thought learnedTemplate = learnedQuery
-            ? learnedQuestionTemplate
-            : explicitQuestion
-                ? null
-                : ApplyExistingTemplatesToPhrase(phrase, useQuestionTemplates: false);
-        Link learnedRelationship = ApplyLearnedTemplateAction(learnedTemplate, phrase);
-        if (learnedRelationship is not null)
-        {
-            template = learnedTemplate;
-            relationship = learnedRelationship;
-            query = learnedQuery;
-            return true;
-        }
-
-        bool exactExemplarMatched = TryResolveExactActionExemplar(
-            phrase, out Thought exactExemplar, out Link exactRelationship, out bool exactQuery);
-        if (exactExemplarMatched)
-        {
-            template = exactExemplar;
-            relationship = exactRelationship;
-            query = exactQuery;
-            return true;
-        }
-
-        List<Thought> mapped = FindAndMapSeedTemplate(words, out Thought seedTemplate);
-        bool seedQuery = mapped?.Any(parameter =>
-            parameter?.Label.Contains(":??", StringComparison.Ordinal) == true) == true;
-        if (seedQuery)
-        {
-            template = seedTemplate;
-            relationship = BuildResolvedLink(mapped, createMissingMeanings: false);
-            query = true;
-            if (relationship?.LinkType is null) error = "The query contains an unresolved word.";
-            return true;
-        }
-
-        if (!explicitQuestion && mapped?.Count >= 3)
-        {
-            Link seedRelationship = BuildResolvedLink(mapped, createMissingMeanings: true);
-            if (seedRelationship?.From is not null && seedRelationship.LinkType is not null &&
-                seedRelationship.To is not null)
-            {
-                UKS.UKS uks = theUKS ?? MainWindow.theUKS;
-                template = seedTemplate;
-                relationship = uks.AddStatement(
-                    seedRelationship.From, seedRelationship.LinkType, seedRelationship.To);
-                return true;
-            }
-        }
-
-        bool retVal = false;
+        //perform the query or SET action
+        string retVal = HandleMatchedInput(phrase, matchedTemplate, relationship, answerQueries);
         return retVal;
     }
 
     /// <summary>
-    /// Uses a memorized supervised exemplar when its generalized template is unavailable. This guarantees that a
-    /// phrase explicitly demonstrated by the corpus remains usable without turning that phrase into a special rule.
+    /// Separates a raw input line into its command, optional bracketed action,
+    /// and optional // comment. Returned strings are always trimmed.
     /// </summary>
-    private static bool TryResolveExactActionExemplar(
-        Thought phrase, out Thought exemplar, out Link relationship, out bool query)
+    internal static void ParseInputLine(string textIn, out string command, out string action, out string comment)
     {
-        exemplar = null;
-        relationship = null;
-        query = false;
+        string remainingText = textIn ?? string.Empty;
+        int commentIndex = remainingText.IndexOf("//", StringComparison.Ordinal);
+        if (commentIndex >= 0)
+        {
+            comment = remainingText[(commentIndex + 2)..].Trim();
+            remainingText = remainingText[..commentIndex];
+        }
+        else comment = string.Empty;
+
+        int actionIndex = remainingText.IndexOf('[', StringComparison.Ordinal);
+        if (actionIndex >= 0)
+        {
+            action = remainingText[actionIndex..].Trim();
+            command = remainingText[..actionIndex].Trim();
+        }
+        else
+        {
+            command = remainingText.Trim();
+            action = string.Empty;
+        }
+    }
+
+    private Thought FindMatchingTemplate(Thought phrase)
+    {
+        bool explicitQuestion = phrase.HasAncestor("Question");
+        // A learned TEST template identifies a query even when its punctuation is omitted.
+        Thought learnedQuestionTemplate = ApplyExistingTemplatesToPhrase(phrase, useQuestionTemplates: true);
+        if (TemplateIsQuery(learnedQuestionTemplate)) return learnedQuestionTemplate;
+
+        if (!explicitQuestion)
+        {
+            Thought learnedTemplate = ApplyExistingTemplatesToPhrase(phrase, useQuestionTemplates: false);
+            if (GetParameterizedTemplateOperation(learnedTemplate) is not null) return learnedTemplate;
+        }
+
+        Thought exactExemplar = FindExactActionExemplar(phrase);
+        return exactExemplar;
+    }
+
+    // A demonstrated phrase remains usable even before its generalized template has been learned.
+    private static Thought FindExactActionExemplar(Thought phrase)
+    {
         UKS.UKS uks = MainWindow.theUKS;
         Thought exemplarRoot = uks?.Labeled("ActionExemplar");
         SequenceView phraseSequence = uks?.GetSequenceViews(phrase)
             .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
-        if (exemplarRoot is null || phraseSequence is null) return false;
+        if (exemplarRoot is null || phraseSequence is null) return null;
 
-        exemplar = exemplarRoot.Children.FirstOrDefault(candidate =>
+        Thought retVal = exemplarRoot.Children.FirstOrDefault(candidate =>
         {
             SequenceView exemplarSequence = uks.GetSequenceViews(candidate)
                 .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
-            bool retVal = exemplarSequence is not null &&
+            bool sequencesMatch = exemplarSequence is not null &&
                 exemplarSequence.Elements.SequenceEqual(phraseSequence.Elements);
-            return retVal;
+            return sequencesMatch;
         });
-        Link demonstratedAction = exemplar?.GetTargetOfFirstLinkOfType("demonstrates") as Link;
-        if (demonstratedAction?.LinkType is null) return false;
+        return retVal;
+    }
 
-        query = demonstratedAction.LinkType.HasAncestor("TEST");
-        if (query)
+    private Link ApplyTemplate(Thought template, Thought phrase)
+    {
+        Link learnedOperation = GetParameterizedTemplateOperation(template);
+        if (learnedOperation is not null)
         {
-            Thought relationshipType = GetOperationRelationshipType(demonstratedAction.LinkType);
-            relationship = new Link(demonstratedAction.From, relationshipType, demonstratedAction.To);
+            Link learnedRelationship = ApplyLearnedTemplateAction(template, phrase);
+            return learnedRelationship;
         }
-        else relationship = uks.ApplySetAction(demonstratedAction);
-        Thought filterTarget = demonstratedAction.GetTargetOfFirstLinkOfType("filterBy");
-        if (relationship is not null && query && filterTarget is not null)
-            relationship.AddLink(GetFilterByRelationship(), filterTarget);
-        bool retVal = relationship is not null;
+
+        Link demonstratedAction = template?.GetTargetOfFirstLinkOfType("demonstrates") as Link;
+        if (demonstratedAction is not null)
+        {
+            bool demonstratedQuery = demonstratedAction.LinkType?.HasAncestor("TEST") == true;
+            Link demonstratedRelationship = demonstratedQuery
+                ? new Link(demonstratedAction.From,
+                    MainWindow.theUKS.GetActionRelationshipType(demonstratedAction.LinkType),
+                    demonstratedAction.To)
+                : MainWindow.theUKS.ApplyTestOrSetAction(demonstratedAction).FirstOrDefault();
+            Thought filterTarget = demonstratedAction.GetTargetOfFirstLinkOfType("filterBy");
+            if (demonstratedRelationship is not null && demonstratedQuery && filterTarget is not null)
+                demonstratedRelationship.AddLink(GetFilterByRelationship(), filterTarget);
+            return demonstratedRelationship;
+        }
+
+        return null;
+    }
+
+    private static bool TemplateIsQuery(Thought template)
+    {
+        if (template is null) return false;
+        Link operation = GetParameterizedTemplateOperation(template) ??
+            template.GetTargetOfFirstLinkOfType("demonstrates") as Link;
+        if (operation?.LinkType?.HasAncestor("TEST") == true) return true;
+
+        bool retVal = template.HasAncestor("QueryTemplate");
+        return retVal;
+    }
+
+    private string HandleMatchedInput(Thought phrase, Thought template, Link relationship, bool answerQueries)
+    {
+        LastTemplate = template;
+        LastRelationship = relationship;
+        bool query = TemplateIsQuery(template);
+        if (relationship?.LinkType is null)
+        {
+            LastStatus = query ? "The query contains an unresolved word." :
+                $"The action for {template.Label} could not be applied.";
+            return null;
+        }
+
+        if (!query)
+        {
+            LastStatus = $"Understood with {template.Label}.";
+            return null;
+        }
+        if (!answerQueries)
+        {
+            LastStatus = $"Matched query exemplar with {template.Label}.";
+            return null;
+        }
+
+        IReadOnlyList<Thought> words = GetPhraseElements(phrase);
+        string retVal = GenerateQueryAnswer(relationship, words, template);
+        return retVal;
+    }
+
+    private static IReadOnlyList<Thought> GetPhraseElements(Thought phrase)
+    {
+        SequenceView sequence = MainWindow.theUKS.GetSequenceViews(phrase)
+            .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+        IReadOnlyList<Thought> retVal = sequence?.Elements ?? Array.Empty<Thought>();
         return retVal;
     }
 
@@ -331,7 +362,7 @@ public class ModuleText : ModuleBase
     private string _phraseReaderPath;
 
     /// <summary>
-    /// Loads phrases incrementally and retains tab-delimited SET or TEST actions as supervised evidence.
+    /// Loads phrases incrementally
     /// </summary>
     public int LoadTextFromFile(string filePath, int phrasesPerCall = 20)
     {
@@ -362,43 +393,17 @@ public class ModuleText : ModuleBase
             {
                 string line = _phraseReader.ReadLine();
                 if (line == null) break; // EOF
+                if (string.IsNullOrEmpty(line)) continue;
 
-                string lineText = line.Trim();
-                TrySplitActionAnnotation(lineText, out string phrase, out string actionText);
-                if (phrase.Length == 0) continue;
-
-                if (phrase.Length == 0) continue;
-
-                // Split into sentences so we cap by phrases, not by lines
-                string[] sentences = Regex.Split(phrase, @"(?<=[\.!\?])\s+");
-                foreach (string sentence in sentences)
+                SubmitText(line, answerQueries: false);
+                if (LastStatus.StartsWith("Error:", StringComparison.Ordinal))
+                    throw new InvalidOperationException(LastStatus);
+                if (LastActionExemplar is not null)
                 {
-                    if (count >= phrasesPerCall) break;
-
-                    string trimmed = sentence.Trim();
-                    if (trimmed.Length == 0) continue;
-
-                    string sentenceAction = sentences.Length == 1 ? actionText : null;
-                    SubmitText(trimmed, answerQueries: false, providedAction: sentenceAction);
-                    if (LastStatus.StartsWith("Error:", StringComparison.Ordinal))
-                        throw new InvalidOperationException(LastStatus);
-                    if (!string.IsNullOrWhiteSpace(sentenceAction))
-                    {
-                        LastLoadedActionExemplarCount++;
-                        loadedExemplars.Add((LastActionExemplar, trimmed));
-                    }
-                    count++;
-                }
-
-                // An annotation describes its complete line. Corpus lines normally
-                // contain one sentence; preserve the old whole-line behavior if a
-                // future annotated line contains more than one sentence.
-                if (sentences.Length > 1 && !string.IsNullOrWhiteSpace(actionText))
-                {
-                    Thought exemplar = AddActionExemplar(phrase, actionText);
                     LastLoadedActionExemplarCount++;
-                    loadedExemplars.Add((exemplar, phrase));
+                    loadedExemplars.Add((LastActionExemplar, line));
                 }
+                count++;
             }
 
             bool reachedEndOfFile = _phraseReader != null && _phraseReader.EndOfStream;
@@ -410,7 +415,7 @@ public class ModuleText : ModuleBase
             }
 
             List<string> missingExemplars = loadedExemplars
-                .Where(item => !ActionExemplarHasWords(item.exemplar, item.phrase))
+                .Where(item => !ActionExemplarHasWords(item.exemplar))
                 .Select(item => item.phrase)
                 .ToList();
             LastRetainedActionExemplarCount = loadedExemplars.Count - missingExemplars.Count;
@@ -427,42 +432,14 @@ public class ModuleText : ModuleBase
         }
     }
 
-    /// <summary>Separates a corpus phrase from a trailing tab- or space-delimited SET or TEST annotation.</summary>
-    internal static bool TrySplitActionAnnotation(string line, out string phrase, out string actionText)
-    {
-        phrase = line?.Trim() ?? string.Empty;
-        actionText = null;
-        int tabIndex = phrase.IndexOf('\t');
-        if (tabIndex >= 0)
-        {
-            actionText = phrase[(tabIndex + 1)..].Trim();
-            phrase = phrase[..tabIndex].Trim();
-        }
-        else
-        {
-            Match annotation = Regex.Match(
-                phrase,
-                @"^(?<phrase>.+?\S)\s+(?<action>\[.*->\s*(?:SET|TEST)\.[^\r\n]*\])\s*$",
-                RegexOptions.IgnoreCase);
-            if (annotation.Success)
-            {
-                phrase = annotation.Groups["phrase"].Value.Trim();
-                actionText = annotation.Groups["action"].Value.Trim();
-            }
-        }
-        bool retVal = !string.IsNullOrWhiteSpace(actionText);
-        return retVal;
-    }
-
     /// <summary>
-    /// Checks that a newly loaded exemplar still owns the exact phrase sequence supplied by the corpus.
+    /// Checks that a newly loaded exemplar still owns its phrase sequence.
     /// </summary>
-    private static bool ActionExemplarHasWords(Thought exemplar, string phrase)
+    private static bool ActionExemplarHasWords(Thought exemplar)
     {
         if (exemplar is null) return false;
-        List<Thought> expected = GetPhraseWords(phrase);
         bool retVal = MainWindow.theUKS.GetSequenceViews(exemplar)
-            .Any(view => view.LinkType?.Label == "hasWords" && view.Elements.SequenceEqual(expected));
+            .Any(view => view.LinkType?.Label == "hasWords");
         return retVal;
     }
 
@@ -482,40 +459,6 @@ public class ModuleText : ModuleBase
         _phraseReaderPath = null;
     }
 
-    /// <summary>Splits text into sentences and sends each nonempty sentence through phrase ingestion.</summary>
-    public static string AddText(string text)
-    {
-        string retVal = AddText(text, out Thought _);
-        return retVal;
-    }
-
-    /// <summary>Splits text into sentences and also returns the final phrase observation created or reused.</summary>
-    private static string AddText(string text, out Thought ingestedPhrase)
-    {
-        ingestedPhrase = null;
-        var theUKS = MainWindow.theUKS;
-        Thought wordRoot = theUKS.GetOrAddThought("Word", "LanguageElement");
-        wordRoot.RemoveParent("Thought");
-        wordRoot.RemoveParent("Object");
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            string emptyResult = "Null input";
-            return emptyResult;
-        }
-
-        string[] sentences = Regex.Split(text, @"(?<=[\.!\?])\s+");
-        string retVal = "OK";
-        foreach (string sentence in sentences)
-        {
-            string trimmed = sentence.Trim();
-            if (trimmed.Length == 0) continue;
-
-            retVal = AddPhrase(trimmed, out ingestedPhrase);
-            if (sentences.Length == 1) return retVal;
-        }
-        return retVal;
-    }
-
     /// <summary>Tokenizes one phrase and stores or reinforces its word sequence.</summary>
     public static string AddPhrase(string phrase)
     {
@@ -528,6 +471,13 @@ public class ModuleText : ModuleBase
     {
         ingestedPhrase = null;
         var theUKS = MainWindow.theUKS;
+        Thought wordRoot = theUKS.Labeled("Word");
+        if (string.IsNullOrEmpty(phrase))
+        {
+            string retVal = "Null input";
+            return retVal;
+        }
+
         char[] trimChars = { '.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}' };
 
         int attempted = 0;
@@ -535,8 +485,7 @@ public class ModuleText : ModuleBase
         try
         {
             List<Thought> wordsInPhrase = new();
-            foreach (string token in phrase.Split(
-                new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            foreach (string token in phrase.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 string clean = token.Trim(trimChars).ToLowerInvariant();
                 if (string.IsNullOrEmpty(clean)) continue;
@@ -559,20 +508,19 @@ public class ModuleText : ModuleBase
             }
 
             Thought phraseRoot = GetPhraseKind(phrase);
-            Thought hasWords = theUKS.GetOrAddThought("hasWords", "LinkType");
+            Thought hasWords = theUKS.Labeled("hasWords");
             if (wordsInPhrase.Count > 0)
             {
                 Thought thePhrase = FindPhraseWithWords(theUKS, phraseRoot, hasWords, wordsInPhrase);
                 bool isNewPhrase = thePhrase is null;
                 if (thePhrase is null)
                 {
+                    PruneStoredPhrases(phraseRoot);
                     thePhrase = theUKS.GetOrAddThought("p*", phraseRoot);
                     theUKS.AddSequenceAndLink(thePhrase, hasWords, wordsInPhrase);
                 }
                 ingestedPhrase = thePhrase;
                 ObservePhrase(phraseRoot, thePhrase, isNewPhrase);
-
-                PruneStoredPhrases(phraseRoot);
             }
             string retVal = $"Processed {attempted} tokens; ingested {ingested} words.";
             return retVal;
@@ -585,24 +533,6 @@ public class ModuleText : ModuleBase
     }
 
     /// <summary>
-    /// Tokenizes a phrase into existing or newly created word Thoughts without storing a phrase observation.
-    /// </summary>
-    public static List<Thought> GetPhraseWords(string phrase)
-    {
-        char[] trimChars = { '.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}' };
-        var theUKS = MainWindow.theUKS;
-        List<Thought> retVal = phrase.Split(new[] { ' ', '\t', '\r', '\n' },
-                StringSplitOptions.RemoveEmptyEntries)
-            .Select(token => token.Trim(trimChars).ToLowerInvariant())
-            .Where(token => token.Length > 0 && token.All(char.IsLetterOrDigit))
-            .Select(token => theUKS.Labeled("w:" + token) ??
-                theUKS.GetOrAddThought("w:" + token, "Word"))
-            .Where(word => word is not null)
-            .ToList();
-        return retVal;
-    }
-
-    /// <summary>
     /// Keeps observations of statements and questions in separate populations.
     /// The punctuation supplies only the observation kind; it supplies no
     /// grammatical or semantic interpretation.
@@ -610,9 +540,8 @@ public class ModuleText : ModuleBase
     private static Thought GetPhraseKind(string phrase)
     {
         var theUKS = MainWindow.theUKS;
-        theUKS.GetOrAddThought("Phrase");
-        bool interrogative = phrase.TrimEnd().EndsWith("?", StringComparison.Ordinal);
-        Thought retVal = theUKS.GetOrAddThought(interrogative ? "Question" : "Statement", "Phrase");
+        bool interrogative = phrase.EndsWith("?", StringComparison.Ordinal);
+        Thought retVal = theUKS.Labeled(interrogative ? "Question" : "Statement");
         return retVal;
     }
 
@@ -663,6 +592,7 @@ public class ModuleText : ModuleBase
     /// </summary>
     private static void ObservePhrase(Thought phraseRoot, Thought observedPhrase, bool isNewPhrase)
     {
+        if (phraseRoot == null) return;
         foreach (Thought storedPhrase in phraseRoot.Children)
         {
             if (!storedPhrase.isPlastic || HasMeaning(storedPhrase)) continue;
@@ -675,19 +605,17 @@ public class ModuleText : ModuleBase
         observedPhrase.Fire();
     }
 
-    /// <summary>
-    /// Limits ungrounded plastic phrase observations while retaining phrases which have acquired meanings.
-    /// </summary>
     private static void PruneStoredPhrases(Thought phraseRoot)
     {
-        List<Thought> deletablePhrases = phraseRoot.Children
-            .Where(phrase => phrase.isPlastic && !HasMeaning(phrase))
-            .OrderBy(phrase => phrase.Weight)
-            .ThenBy(phrase => phrase.LastFiredTime)
-            .ToList();
-
-        int deleteCount = deletablePhrases.Count - PlasticPhraseCapacity;
-        for (int index = 0; index < deleteCount; index++) deletablePhrases[index].Delete();
+        if (phraseRoot is null) return;
+        List<Thought> phrases = phraseRoot.Children.Where(phrase => phrase.isPlastic && !HasMeaning(phrase))
+            .OrderBy(phrase => phrase.Weight).ThenBy(phrase => phrase.LastFiredTime).ToList();
+        int deleteCount = phrases.Count - PlasticPhraseCapacity + 1;
+        for (int index = 0; index < deleteCount; index++)
+        {
+            phrases[index].RemoveLinks("hasWords");
+            phrases[index].Delete();
+        }
     }
 
     /// <summary>Reports whether a phrase participates in a means relationship in either direction.</summary>
@@ -698,96 +626,26 @@ public class ModuleText : ModuleBase
         return retVal;
     }
 
-    // Legacy seed-template compatibility. QueryTemplates.txt is still useful
-    // when a UKS has not learned enough templates from annotated exemplars.
 
-    /// <summary>Matches the legacy input/output template format and substitutes its positional parameters.</summary>
-    private List<Thought> FindAndMapSeedTemplate(List<Thought> words, out Thought foundTemplate)
-    {
-        foundTemplate = null;
-        UKS.UKS uks = theUKS ?? MainWindow.theUKS;
-        if (uks is null || words is null) return null;
-
-        for (int length = words.Count; length >= 2; length--)
-        for (int start = 0; start <= words.Count - length; start++)
-        {
-            List<Thought> subsequence = words.GetRange(start, length);
-            List<(SeqElement seqNode, float confidence)> matches =
-                uks.FindSequencesByActivation(subsequence, "TemplateSequenceSearch");
-            foreach ((SeqElement seqNode, float _) in matches)
-            foreach (Thought template in seqNode.LinksFrom
-                .Where(link => link.LinkType?.Label == "hasWords" &&
-                    link.From is not null)
-                .Select(link => link.From)
-                .Distinct())
-            {
-                SeqElement inputSequence = template?.GetTargetOfFirstLinkOfType("hasWords") as SeqElement;
-                SeqElement outputSequence = template?.GetTargetOfFirstLinkOfType("outputs") as SeqElement;
-                if (template is null || inputSequence is null || outputSequence is null) continue;
-
-                List<Thought> inputParameters = uks.FlattenSequence(inputSequence);
-                List<Thought> outputParameters = uks.FlattenSequence(outputSequence).ToList();
-                for (int outputIndex = 0;
-                    outputIndex < outputParameters.Count;
-                    outputIndex++)
-                {
-                    string label = outputParameters[outputIndex].Label;
-                    if (!label.Contains("??", StringComparison.Ordinal) ||
-                        !int.TryParse(label[4..], out int parameterNumber))
-                        continue;
-
-                    int inputPosition = inputParameters
-                        .Select((word, position) => (word, position))
-                        .Where(item => item.word.Label == "w:??")
-                        .ElementAt(parameterNumber - 1)
-                        .position;
-                    outputParameters[outputIndex] = subsequence[inputPosition];
-                }
-
-                foundTemplate = template;
-                return outputParameters;
-            }
-        }
-        return null;
-    }
-
-    /// <summary>Resolves three template parameters into an ordinary semantic relationship.</summary>
-    private Link BuildResolvedLink(IReadOnlyList<Thought> parameters, bool createMissingMeanings)
-    {
-        UKS.UKS uks = theUKS ?? MainWindow.theUKS;
-        if (uks is null || parameters?.Count < 3) return null;
-
-        Thought Resolve(Thought parameter)
-        {
-            if (parameter is null || parameter.Label.Contains(":??", StringComparison.Ordinal)) return null;
-            bool isWord = parameter.Label.StartsWith(
-                "w:", StringComparison.OrdinalIgnoreCase) ||
-                parameter.HasAncestor("word") ||
-                parameter.HasAncestor("Word");
-            if (!isWord) return parameter;
-
-            Thought meaning = GetBestMeaning(parameter)?.To;
-            if (meaning is not null || !createMissingMeanings) return meaning;
-            string label = parameter.Label.StartsWith(
-                "w:", StringComparison.OrdinalIgnoreCase)
-                ? parameter.Label[2..]
-                : parameter.Label;
-            meaning = uks.GetOrAddThought(label);
-            uks.AddStatement(parameter, uks.GetOrAddThought("means", "LinkType"), meaning);
-            return meaning;
-        }
-
-        Link retVal = new(Resolve(parameters[0]), Resolve(parameters[1]), Resolve(parameters[2]));
-        return retVal;
-    }
-
+    /********************************************************************************************
     // 2. Generating Language Out
+    ********************************************************************************************/
 
     /// <summary>Searches a resolved TEST relationship and converts its results into language.</summary>
     private string GenerateQueryAnswer(Link query, IReadOnlyList<Thought> inputWords, Thought template)
     {
         UKS.UKS uks = theUKS ?? MainWindow.theUKS;
-        List<Link> results = uks.SearchForRelationships(query);
+        Link operation = GetParameterizedTemplateOperation(template) ??
+            template?.GetTargetOfFirstLinkOfType("demonstrates") as Link;
+        List<Link> results;
+        if (operation?.LinkType?.HasAncestor("TEST") == true)
+        {
+            Link testAction = new(query.From, operation.LinkType, query.To);
+            Thought filterTarget = query.GetTargetOfFirstLinkOfType("filterBy");
+            if (filterTarget is not null) testAction.AddLink(GetFilterByRelationship(), filterTarget);
+            results = uks.ApplyTestOrSetAction(testAction);
+        }
+        else results = uks.SearchForRelationships(query);
         Thought preferredSurfaceWord = GetPreferredSurfaceThought(inputWords, query.From);
         LastAnswer = ConvertRelationshipsToText(
             results, query.From, GetSurfaceText(preferredSurfaceWord), preferredSurfaceWord, template);
@@ -797,7 +655,6 @@ public class ModuleText : ModuleBase
         string retVal = LastAnswer;
         return retVal;
     }
-
     /// <summary>
     /// Converts query results to clauses using learned assertion templates, with a direct-label fallback.
     /// </summary>
@@ -866,12 +723,12 @@ public class ModuleText : ModuleBase
             .Select(template =>
             {
                 Link operation = GetParameterizedTemplateOperation(template);
-                Thought operationRelationship = GetOperationRelationshipType(
+                Thought operationRelationship = theUKS.GetActionRelationshipType(
                     operation?.LinkType);
                 SequenceView sequence = MainWindow.theUKS.GetSequenceViews(template)
                     .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
-                if (operation?.From is null || operation.To is null ||
-                    operationRelationship != relationship.LinkType || sequence is null)
+                if (operation?.From is null || operation.To is null || operationRelationship is null ||
+                    relationship.LinkType.HasAncestor(operationRelationship) != true || sequence is null)
                     return default;
 
                 int sourcePosition = sequence.Elements.ToList().FindIndex(element => element == operation.From);
@@ -1084,8 +941,9 @@ public class ModuleText : ModuleBase
         int Evidence,
         Thought TargetWord);
 
+    /*******************************************************************************
     // 3. Attaching Meanings
-
+    *******************************************************************************/
     /// <summary>
     /// Learns weighted word meanings from a phrase and a set of meanings which
     /// are simultaneously active in the current sensory context.
@@ -1114,11 +972,11 @@ public class ModuleText : ModuleBase
             return noAttentionResult;
         }
 
-        string textStatus = AddText(phrase);
-        Thought means = theUKS.GetOrAddThought("means", "LinkType");
-        HashSet<Thought> heardWords = GetPhraseWords(phrase).ToHashSet();
+        string textStatus = AddPhrase(phrase, out Thought heardPhrase);
+        Thought means = theUKS.Labeled("means");
+        HashSet<Thought> heardWords = GetPhraseElements(heardPhrase).ToHashSet();
         Thought currentLanguage = EnsureLanguage(languageLabel);
-        Thought usedInLanguage = currentLanguage is null ? null : theUKS.GetOrAddThought("usedInLanguage", "LinkType");
+        Thought usedInLanguage = currentLanguage is null ? null : theUKS.Labeled("usedInLanguage");
         if (currentLanguage is not null)
         {
             foreach (Thought heardWord in heardWords) heardWord.AddLink(usedInLanguage, currentLanguage);
@@ -1128,19 +986,19 @@ public class ModuleText : ModuleBase
         HashSet<Link> newLinks = new();
         List<string> changes = new();
         foreach (Thought word in heardWords)
-        foreach (Thought candidate in activeCandidates)
-        {
-            Link meaning = word.HasLink(means, candidate);
-            if (meaning is not null) continue;
+            foreach (Thought candidate in activeCandidates)
+            {
+                Link meaning = word.HasLink(means, candidate);
+                if (meaning is not null) continue;
 
-            meaning = word.AddLink(means, candidate);
-            if (meaning is null) continue;
-            meaning.isPlastic = true;
-            meaning.maxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
-            meaning.Weight = Math.Clamp(MeaningInitialWeight, 0, meaning.maxWeight);
-            meaning.Fire();
-            newLinks.Add(meaning);
-        }
+                meaning = word.AddLink(means, candidate);
+                if (meaning is null) continue;
+                meaning.isPlastic = true;
+                meaning.maxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
+                meaning.Weight = Math.Clamp(MeaningInitialWeight, 0, meaning.maxWeight);
+                meaning.Fire();
+                newLinks.Add(meaning);
+            }
 
         List<Link> plasticMeanings = theUKS.AtomicThoughts
             .SelectMany(thought => thought.LinksTo)
@@ -1273,9 +1131,7 @@ public class ModuleText : ModuleBase
         if (theUKS is null || string.IsNullOrWhiteSpace(languageLabel))
             return null;
 
-        Thought languageElement = theUKS.GetOrAddThought("LanguageElement", "Thought");
-        Thought languageRoot = theUKS.GetOrAddThought("Language", languageElement);
-        Thought retVal = theUKS.GetOrAddThought(languageLabel.Trim(), languageRoot);
+        Thought retVal = theUKS.GetOrAddThought(languageLabel.Trim(), "Language");
         return retVal;
     }
 
@@ -1311,7 +1167,7 @@ public class ModuleText : ModuleBase
     private static Thought GetOrCreateMeaning(Thought word)
     {
         var theUKS = MainWindow.theUKS;
-        Thought meansType = theUKS.GetOrAddThought("means", "LinkType");
+        Thought meansType = theUKS.Labeled("means");
         string label = word.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase)
             ? word.Label[2..]
             : word.Label;
@@ -1639,7 +1495,7 @@ public class ModuleText : ModuleBase
             .FirstOrDefault();
         if (foundTemplate is null) return null;
 
-        Thought evidenceType = theUKS.GetOrAddThought("evidence", "LinkType");
+        Thought evidenceType = theUKS.Labeled("evidence");
         SequenceView templateSequence = theUKS.GetSequenceViews(foundTemplate)
             .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
         if (templateSequence is null ||
@@ -1649,7 +1505,7 @@ public class ModuleText : ModuleBase
         for (int position = 0; position < templateSequence.Elements.Count; position++)
         {
             Thought wildcard = templateSequence.Elements[position];
-            if (!wildcard.HasAncestor("Wildcard") || !wildcard.HasProperty("isWildcard"))
+            if (!wildcard.HasProperty("isWildcard"))
                 continue;
             Thought valueClass = wildcard.Parents.FirstOrDefault(
                 parent => learnedClassRoot.Children.Contains(parent));
@@ -1737,8 +1593,8 @@ public class ModuleText : ModuleBase
             return noClasses;
         }
 
-        Thought classRoot = theUKS.GetOrAddThought("LearnedClass", "LanguageElement");
-        Thought evidenceType = theUKS.GetOrAddThought("evidence", "LinkType");
+        Thought classRoot = theUKS.Labeled("LearnedClass");
+        Thought evidenceType = theUKS.Labeled("evidence");
         HashSet<Thought> boundaryMembers = new();
         HashSet<Thought> connectorMembers = new();
         HashSet<Thought> boundaryEvidence = new();
@@ -1818,35 +1674,10 @@ public class ModuleText : ModuleBase
         }
     }
 
-    /// <summary>Finds or creates the Assertion or Query branch beneath the common LearnedTemplate root.</summary>
     private static Thought GetLearnedTemplateCategory(bool query)
     {
         var theUKS = MainWindow.theUKS;
-        Thought root = theUKS.GetOrAddThought("LearnedTemplate", "LanguageElement");
-        Thought assertionRoot = theUKS.GetOrAddThought("Assertion", root);
-        Thought queryRoot = theUKS.GetOrAddThought("Query", root);
-
-        // Migrate templates created by the previous two-root layout.
-        foreach (Thought template in root.Children
-            .Where(child => child != assertionRoot && child != queryRoot)
-            .ToList())
-        {
-            template.AddParent(assertionRoot);
-            template.RemoveParent(root);
-        }
-
-        Thought oldQueryRoot = theUKS.Labeled("LearnedQuestionTemplate");
-        if (oldQueryRoot is not null && oldQueryRoot != queryRoot)
-        {
-            foreach (Thought template in oldQueryRoot.Children.ToList())
-            {
-                template.AddParent(queryRoot);
-                template.RemoveParent(oldQueryRoot);
-            }
-            oldQueryRoot.Delete();
-        }
-
-        Thought retVal = query ? queryRoot : assertionRoot;
+        Thought retVal = theUKS.Labeled(query ? "Query" : "Assertion");
         return retVal;
     }
 
@@ -1867,7 +1698,9 @@ public class ModuleText : ModuleBase
         return retVal;
     }
 
+    /***************************************************************************************
     // 5. Building Grammar Rules from Exemplars
+    *****************************************************************************************/
 
     /// <summary>
     /// Records a supervised example which pairs an observed phrase with the
@@ -1879,65 +1712,73 @@ public class ModuleText : ModuleBase
     {
         if (string.IsNullOrWhiteSpace(phrase))
             throw new ArgumentException("An action exemplar requires a phrase.", nameof(phrase));
-        if (string.IsNullOrWhiteSpace(actionText))
-            throw new ArgumentException("An action exemplar requires an action.", nameof(actionText));
+        AddPhrase(phrase, out Thought phraseThought);
+        Thought retVal = AddActionExemplar(phraseThought, actionText);
+        return retVal;
+    }
 
-        string trimmedAction = actionText.Trim();
-        Match filteredActionParts = Regex.Match(trimmedAction,
-            @"^\[\s*\[\s*(.*?)\s*->\s*(.*?)\s*->\s*(.*?)\s*\]\s*->\s*filterBy\s*->\s*(.*?)\s*\]$",
-            RegexOptions.IgnoreCase);
-        Match actionParts = filteredActionParts.Success
-            ? filteredActionParts
-            : Regex.Match(trimmedAction, @"^\[\s*(.*?)\s*->\s*(.*?)\s*->\s*(.*?)\s*\]$");
-        if (!actionParts.Success)
-            throw new FormatException(
-                $"Action exemplar '{actionText}' must use " +
-                "[source->SET.type->target], [source->TEST.type->target], or a filtered TEST relationship.");
-
-        string sourceLabel = actionParts.Groups[1].Value.Trim();
-        string setTypeLabel = actionParts.Groups[2].Value.Trim();
-        string targetLabel = actionParts.Groups[3].Value.Trim();
-        string filterTargetLabel = filteredActionParts.Success ? filteredActionParts.Groups[4].Value.Trim() : null;
-        bool isSet = setTypeLabel.StartsWith("SET.", StringComparison.OrdinalIgnoreCase);
-        bool isTest = setTypeLabel.StartsWith("TEST.", StringComparison.OrdinalIgnoreCase);
-        if (sourceLabel.Length == 0 || targetLabel.Length == 0 ||
-            (!isSet && !isTest) || (filteredActionParts.Success && (!isTest || filterTargetLabel.Length == 0)))
-            throw new FormatException(
-                $"Action exemplar '{actionText}' must use " +
-                "[source->SET.type->target], [source->TEST.type->target], or a filtered TEST relationship.");
-
+    /// <summary>Attaches an action to a phrase which has already been stored.</summary>
+    private static Thought AddActionExemplar(Thought phrase, string actionText)
+    {
+        if (phrase is null) throw new ArgumentException("An action exemplar requires a stored phrase.", nameof(phrase));
+        if (string.IsNullOrWhiteSpace(actionText)) throw new ArgumentException("An action exemplar requires an action.", nameof(actionText));
         var theUKS = MainWindow.theUKS;
-        Thought exemplarRoot = theUKS.GetOrAddThought("ActionExemplar", "LanguageElement");
-        Thought exemplar = theUKS.GetOrAddThought("actionExemplar*", exemplarRoot);
-        List<Thought> words = GetPhraseWords(phrase);
+
+        //Inconveniently, ProcessSingleLineWithNesting creates a Link which is not added to the UKS.  
+        //But, all its component parts ARE added to the UKS.
+        Link action = (Link)theUKS.ProcessSingleLineWithNesting(actionText.Trim());
+        
+        ReplaceThoughtMeaningsInRelationship(action);
+        Thought exemplar = theUKS.GetOrAddThought("actionExemplar*", "ActionExemplar");
+        IReadOnlyList<Thought> words = GetPhraseElements(phrase);
         if (words.Count < 2) throw new FormatException("An action exemplar phrase requires at least two words.");
+
         // Supervised evidence must remain reproducible. A plastic word can otherwise be pruned by ModuleWord and
         // every sequence position which referenced it is then repaired to "--".
         foreach (Thought word in words) word.isPlastic = false;
-        Thought hasWords = theUKS.GetOrAddThought("hasWords", "LinkType");
-        theUKS.AddSequenceAndLink(exemplar, hasWords, words);
+        theUKS.AddSequenceAndLink(exemplar, "hasWords", words.ToList());
 
-        // Creating the operation root first ensures dotted operation types
-        // inherit from LinkType through SET or TEST and from the relationship
-        // type they operate on.
-        theUKS.GetOrAddThought(isSet ? "SET" : "TEST", "LinkType");
-        int operationSeparator = setTypeLabel.IndexOf('.');
-        string relationshipLabel = setTypeLabel[(operationSeparator + 1)..];
-        theUKS.GetOrAddThought(relationshipLabel, "LinkType");
-        Thought setType = theUKS.GetOrAddThought(setTypeLabel, "LinkType");
-        Thought source = ResolveActionEndpoint(sourceLabel);
-        Thought target = ResolveActionEndpoint(targetLabel);
-        Link action = new(source, setType, target);
-        if (filterTargetLabel is not null)
-        {
-            Thought filterBy = GetFilterByRelationship();
-            Thought filterTarget = ResolveActionEndpoint(filterTargetLabel);
-            action.AddLink(filterBy, filterTarget);
-        }
-        theUKS.AddStatement(exemplar, theUKS.GetOrAddThought("demonstrates", "LinkType"), action);
-        if (isSet) theUKS.ApplySetAction(action);
+        if (action.From is Link l)  //  the UKS stores just part of a compound query.  WEi'll fix that someday
+            theUKS.AddStatement(exemplar, theUKS.Labeled("demonstrates"), action.From);
+        else
+            theUKS.AddStatement(exemplar, theUKS.Labeled("demonstrates"), action);
+        if (action.LinkType.HasAncestor("SET")) theUKS.ApplyTestOrSetAction(action);
+        //action.From.RemoveLink(action); //likely does nothing
         return exemplar;
     }
+    static void ReplaceThoughtMeaningsInRelationship(Link action)
+    {
+        //check each of the components of the action for meanings.
+        //If a component has no meaning, replace it with the meaning based on w: of the same label.
+        if (action.From is Link l)
+            ReplaceThoughtMeaningsInRelationship(l);
+        else
+        {
+            Thought newMeaning = GetNewMeaning(action.From);
+            if (newMeaning is not null) // there is already a meaning, we don't need to do anything.
+            { Thought old = action.From; action.From = newMeaning; if (old.LinksFrom.Count == 0) old.Delete(); }
+        }
+        if (action.To is Link l1)
+            ReplaceThoughtMeaningsInRelationship(l1);
+        else
+        {
+            Thought newMeaning = GetNewMeaning(action.To);
+            if (newMeaning is not null) // there is already a meaning, we don't need to do anything.
+            { Thought old = action.To; action.To = newMeaning; if (old.LinksFrom.Count == 1) old.Delete(); } ; 
+        }
+    }
+    static Thought GetNewMeaning(Thought t)
+    {
+        Thought meaning = t.LinksFrom.FindFirst(x => x.LinkType?.Label == "means")?.To;
+        if (meaning is null)
+        {
+            Thought word = MainWindow.theUKS.Labeled("w:" + t.Label);
+            meaning = word?.GetTargetOfHighestWeightLinkOfType("means");
+        }
+        return meaning;
+    }
+
+
 
     /// <summary>
     /// Learns phrase-to-action mappings from ActionExemplar observations.
@@ -1947,15 +1788,14 @@ public class ModuleText : ModuleBase
     /// <returns>The number of learned templates which now produce an action.</returns>
     public static int LearnActionsFromExemplars(int minExamples = 2)
     {
-        if (minExamples < 2)
-            throw new ArgumentOutOfRangeException(nameof(minExamples));
+        if (minExamples < 2) throw new ArgumentOutOfRangeException(nameof(minExamples));
 
         var theUKS = MainWindow.theUKS;
         Thought exemplarRoot = theUKS.Labeled("ActionExemplar");
         if (exemplarRoot is null) return 0;
 
-        Thought meansType = theUKS.GetOrAddThought("means", "LinkType");
-        Thought evidenceType = theUKS.GetOrAddThought("evidence", "LinkType");
+        Thought meansType = theUKS.Labeled("means");
+        Thought evidenceType = theUKS.Labeled("evidence");
         Dictionary<Thought, Dictionary<Thought, HashSet<Thought>>> relationshipPhraseEvidence = new();
         HashSet<(Thought relationship, Thought exemplar, Thought phrase)> recordedEvidence = new();
         int learnedCount = 0;
@@ -1980,6 +1820,8 @@ public class ModuleText : ModuleBase
             .ToList();
         foreach (var example in actionExamples)
         {
+            if (example.action.Label.Contains("21"))
+            { }
             SequenceView sequence = theUKS.GetSequenceViews(example.exemplar)
                 .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
             RecordRelationshipPhraseEvidence(
@@ -1999,7 +1841,7 @@ public class ModuleText : ModuleBase
             Thought templateRoot = GetLearnedTemplateCategory(isQuestionAction);
             // Questions and statements may share lexical populations even
             // though their templates must never compete.
-            Thought classRoot = theUKS.GetOrAddThought("LearnedClass", "LanguageElement");
+            Thought classRoot = theUKS.Labeled("LearnedClass");
             HashSet<Thought> groupExemplars = actionGroup
                 .Select(item => item.exemplar)
                 .ToHashSet();
@@ -2083,9 +1925,7 @@ public class ModuleText : ModuleBase
                 theUKS.AddStatement(template, meansType, parameterizedAction);
                 if (modifierParameter is not null)
                 {
-                    theUKS.AddStatement(parameterizedAction,
-                        theUKS.GetOrAddThought("linkTypeParameter", "LinkType"),
-                        modifierParameter);
+                    theUKS.AddStatement(parameterizedAction, theUKS.Labeled("linkTypeParameter"), modifierParameter);
                 }
                 if (filterParameter is not null)
                     theUKS.AddStatement(parameterizedAction, GetFilterByRelationship(), filterParameter);
@@ -2183,8 +2023,8 @@ public class ModuleText : ModuleBase
 
         Link action = new(source, actionType, target);
         Link retVal = actionType.HasAncestor("TEST")
-            ? new Link(source, GetOperationRelationshipType(actionType), target)
-            : theUKS.ApplySetAction(action);
+            ? new Link(source, theUKS.GetActionRelationshipType(actionType), target)
+            : theUKS.ApplyTestOrSetAction(action).FirstOrDefault();
         Thought filterTarget = parameterizedAction.GetTargetOfFirstLinkOfType("filterBy");
         if (retVal is not null && actionType.HasAncestor("TEST") && filterTarget is not null)
             retVal.AddLink(GetFilterByRelationship(), filterTarget);
@@ -2197,10 +2037,7 @@ public class ModuleText : ModuleBase
         if (meaning is null) return null;
         Thought phrase = GetOrCreateMeaningPhrase(words);
         if (phrase is null) return null;
-        MainWindow.theUKS.AddStatement(
-            phrase,
-            MainWindow.theUKS.GetOrAddThought("means", "LinkType"),
-            meaning);
+        MainWindow.theUKS.AddStatement(phrase, MainWindow.theUKS.Labeled("means"), meaning);
         return phrase;
     }
 
@@ -2224,12 +2061,9 @@ public class ModuleText : ModuleBase
         float minCoverage = 0.5f,
         int minCommonLetters = 3)
     {
-        if (minMatchedPairs < 1)
-            throw new ArgumentOutOfRangeException(nameof(minMatchedPairs));
-        if (minCoverage <= 0 || minCoverage > 1)
-            throw new ArgumentOutOfRangeException(nameof(minCoverage));
-        if (minCommonLetters < 1)
-            throw new ArgumentOutOfRangeException(nameof(minCommonLetters));
+        if (minMatchedPairs < 1) throw new ArgumentOutOfRangeException(nameof(minMatchedPairs));
+        if (minCoverage <= 0 || minCoverage > 1) throw new ArgumentOutOfRangeException(nameof(minCoverage));
+        if (minCommonLetters < 1) throw new ArgumentOutOfRangeException(nameof(minCommonLetters));
 
         var theUKS = MainWindow.theUKS;
         Thought classRoot = theUKS.Labeled("LearnedClass");
@@ -2239,14 +2073,14 @@ public class ModuleText : ModuleBase
             return noPatterns;
         }
 
-        Thought patternRoot = theUKS.GetOrAddThought("SpellingPattern", "LanguageElement");
-        Thought positionType = theUKS.GetOrAddThought("position", "LinkType");
-        Thought addsType = theUKS.GetOrAddThought("adds", "LinkType");
-        Thought evidenceType = theUKS.GetOrAddThought("evidence", "LinkType");
-        Thought classEvidenceType = theUKS.GetOrAddThought("classEvidence", "LinkType");
-        Thought correspondsToType = theUKS.GetOrAddThought("correspondsTo", "LinkType");
-        Thought beginning = theUKS.GetOrAddThought("beginning");
-        Thought end = theUKS.GetOrAddThought("end");
+        Thought patternRoot = theUKS.Labeled("SpellingPattern");
+        Thought positionType = theUKS.Labeled("position");
+        Thought addsType = theUKS.Labeled("adds");
+        Thought evidenceType = theUKS.Labeled("evidence");
+        Thought classEvidenceType = theUKS.Labeled("classEvidence");
+        Thought correspondsToType = theUKS.Labeled("correspondsTo");
+        Thought beginning = theUKS.Labeled("beginning");
+        Thought end = theUKS.Labeled("end");
         ConsolidateSpellingPatterns();
 
         List<Thought> classes = classRoot.Children
@@ -2305,7 +2139,7 @@ public class ModuleText : ModuleBase
                         : end;
                     Thought pattern = FindExistingSpellingPattern(
                         patternRoot, position, key.AddedText);
-                    pattern ??= theUKS.GetOrAddThought("spellingPattern*", patternRoot);
+                    pattern ??= theUKS.GetOrAddThought("spellingPattern*", "SpellingPattern");
                     theUKS.AddStatement(pattern, positionType, position);
                     Link classCorrespondence = theUKS.AddStatement(
                         key.SourceClass, correspondsToType, key.TargetClass);
@@ -2371,15 +2205,11 @@ public class ModuleText : ModuleBase
             return noMerges;
         }
 
-        Thought classEvidenceType = theUKS.GetOrAddThought(
-            "classEvidence", "LinkType");
-        Thought evidenceType = theUKS.GetOrAddThought("evidence", "LinkType");
-        Thought correspondsToType = theUKS.GetOrAddThought(
-            "correspondsTo", "LinkType");
-        Thought sourceClassType = theUKS.GetOrAddThought(
-            "sourceClass", "LinkType");
-        Thought targetClassType = theUKS.GetOrAddThought(
-            "targetClass", "LinkType");
+        Thought classEvidenceType = theUKS.Labeled("classEvidence");
+        Thought evidenceType = theUKS.Labeled("evidence");
+        Thought correspondsToType = theUKS.Labeled("correspondsTo");
+        Thought sourceClassType = theUKS.Labeled("sourceClass");
+        Thought targetClassType = theUKS.Labeled("targetClass");
         int retVal = 0;
 
         var groups = patternRoot.Children
@@ -2449,7 +2279,7 @@ public class ModuleText : ModuleBase
             return noMeanings;
         }
 
-        Thought meansType = theUKS.GetOrAddThought("means", "LinkType");
+        Thought meansType = theUKS.Labeled("means");
         int retVal = 0;
         foreach (Thought pattern in patternRoot.Children)
         {
@@ -2489,46 +2319,11 @@ public class ModuleText : ModuleBase
         return retVal;
     }
 
-    /// <summary>
-    /// Resolves an annotated endpoint label to its established semantic Thought or a new identity meaning.
-    /// </summary>
-    private static Thought ResolveActionEndpoint(string label)
-    {
-        var theUKS = MainWindow.theUKS;
-        if (theUKS is null || string.IsNullOrWhiteSpace(label)) return null;
-
-        Thought word = theUKS.Labeled("w:" + label.ToLowerInvariant());
-        Link groundedMeaning = GetBestMeaning(word);
-        Thought exactMeaning = theUKS.Labeled(label) ??
-            theUKS.AtomicThoughts.FirstOrDefault(thought =>
-                thought is not Link && thought.Label.Equals(
-                    label, StringComparison.OrdinalIgnoreCase));
-        if (exactMeaning is null)
-        {
-            Thought retVal = groundedMeaning?.To ?? theUKS.GetOrAddThought(label);
-            return retVal;
-        }
-
-        // Bracketed action text names semantic Thoughts. A consolidated
-        // grounding may deliberately alias that name to a differently labelled
-        // internal representation (dog -> class0, Fido -> O1), but a weak
-        // co-occurrence such as bark -> O2 must not override an existing bark.
-        if (groundedMeaning?.To is not null &&
-            groundedMeaning.Weight >= Math.Max(0, MeaningConsolidationThreshold))
-        {
-            Thought retVal = groundedMeaning.To;
-            return retVal;
-        }
-        return exactMeaning;
-    }
-
     /// <summary>Returns the relationship used to constrain a query target and keeps it beneath Property.</summary>
     private static Thought GetFilterByRelationship()
     {
         var theUKS = MainWindow.theUKS;
-        Thought filterBy = theUKS.GetOrAddThought("filterBy", "Property");
-        Thought linkType = theUKS.Labeled("LinkType");
-        if (linkType is not null && !filterBy.HasAncestor(linkType)) filterBy.AddParent(linkType);
+        Thought filterBy = theUKS.Labeled("filterBy");
         return filterBy;
     }
 
@@ -2619,15 +2414,13 @@ public class ModuleText : ModuleBase
             concreteAction.To is null || concreteAction.LinkType is null)
             return;
 
-        int sourcePosition = FindExemplarEndpointPosition(
-            exemplarSequence, concreteAction.From);
-        int targetPosition = FindExemplarEndpointPosition(
-            exemplarSequence, concreteAction.To);
+        int sourcePosition = FindExemplarEndpointPosition(exemplarSequence, concreteAction.From);
+        int targetPosition = FindExemplarEndpointPosition(exemplarSequence, concreteAction.To);
         if (sourcePosition < 0 || targetPosition < 0 ||
             sourcePosition == targetPosition)
             return;
 
-        Thought relationship = GetOperationRelationshipType(concreteAction.LinkType);
+        Thought relationship = MainWindow.theUKS.GetActionRelationshipType(concreteAction.LinkType);
         if (relationship is null) return;
 
         int first = Math.Min(sourcePosition, targetPosition) + 1;
@@ -2677,14 +2470,13 @@ public class ModuleText : ModuleBase
     {
         if (words is null || words.Count == 0) return null;
         var theUKS = MainWindow.theUKS;
-        Thought phrase = theUKS.GetOrAddThought("Phrase", "LanguageElement");
-        Thought phraseRoot = theUKS.GetOrAddThought("MeaningPhrase", phrase);
-        Thought hasWords = theUKS.GetOrAddThought("hasWords", "LinkType");
+        Thought phraseRoot = theUKS.Labeled("MeaningPhrase");
+        Thought hasWords = theUKS.Labeled("hasWords");
         Thought meaningPhrase = FindPhraseWithWords(
             theUKS, phraseRoot, hasWords, words.ToList());
         if (meaningPhrase is not null) return meaningPhrase;
 
-        meaningPhrase = theUKS.GetOrAddThought("p*", phraseRoot);
+        meaningPhrase = theUKS.GetOrAddThought("p*", "MeaningPhrase");
         theUKS.AddSequenceAndLink(meaningPhrase, hasWords, words.ToList());
         return meaningPhrase;
     }
@@ -2697,7 +2489,7 @@ public class ModuleText : ModuleBase
         Thought meansType)
     {
         var theUKS = MainWindow.theUKS;
-        Thought evidenceType = theUKS.GetOrAddThought("evidence", "LinkType");
+        Thought evidenceType = theUKS.Labeled("evidence");
 
         foreach ((Thought relationship,
             Dictionary<Thought, HashSet<Thought>> phraseObservations) in evidence)
@@ -2741,18 +2533,6 @@ public class ModuleText : ModuleBase
             .FirstOrDefault(operation =>
                 operation.LinkType?.HasAncestor("SET") == true ||
                 operation.LinkType?.HasAncestor("TEST") == true);
-        return retVal;
-    }
-
-    /// <summary>Resolves the ordinary relationship type represented by a dotted SET or TEST operation type.</summary>
-    private static Thought GetOperationRelationshipType(Thought operationType)
-    {
-        if (operationType is null) return null;
-        int separator = operationType.Label.IndexOf('.');
-        if (separator < 0 || separator == operationType.Label.Length - 1)
-            return null;
-        string relationshipLabel = operationType.Label[(separator + 1)..];
-        Thought retVal = MainWindow.theUKS.GetOrAddThought(relationshipLabel, "LinkType");
         return retVal;
     }
 
@@ -2820,7 +2600,7 @@ public class ModuleText : ModuleBase
         // A written numeral anchors the parameter position. The supervised
         // actions then teach other surface forms at that position: if "4" and
         // "four" both accompany SET.has.4, both words acquire means -> 4.
-        Thought meansType = MainWindow.theUKS.GetOrAddThought("means", "LinkType");
+        Thought meansType = MainWindow.theUKS.Labeled("means");
         foreach (Thought exemplar in exemplars)
         {
             Link concreteAction =
@@ -2992,7 +2772,7 @@ public class ModuleText : ModuleBase
     /// </summary>
     private static List<Thought> ConsolidatePhrasePatterns()
     {
-        List<Thought> learnedTemplates = DiscoverPhraseTemplates(40,1);
+        List<Thought> learnedTemplates = DiscoverPhraseTemplates(40, 1);
         Thought learnedClassRoot = MainWindow.theUKS.Labeled("LearnedClass");
         if (learnedClassRoot is not null)
             MainWindow.theUKS.CoalesceSimilarClasses(learnedClassRoot);

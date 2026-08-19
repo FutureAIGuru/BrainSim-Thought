@@ -34,6 +34,13 @@ public class Link : Thought
         LinkType = linkType;
         To = to;
     }
+    public Link(Link l)
+    {
+        From = l.From;
+        LinkType = l.LinkType;
+        To = l.To;
+    }
+
 
     public Thought? From { get; set; }
     public Thought? LinkType { get; set; }
@@ -68,6 +75,8 @@ public partial class Thought
 {
     private static readonly Queue<Thought> recentlyFired = new();
     private static readonly object recentlyFiredLock = new();
+    private static readonly Queue<Thought> recentlyCreated = new();
+    private static readonly object recentlyCreatedLock = new();
 
     public static Thought IsA => ThoughtLabels.GetThought("is-a")!;  //this is a cache value shortcut for (Thought)"is-a"
     private readonly List<Link> _linksTo = new();   // links to "has", "is", is-a, many others
@@ -171,6 +180,7 @@ public partial class Thought
         }
 
         DeleteFromRecentlyFired(this);
+        DeleteFromRecentlyCreated(this);
         ThoughtLabels.RemoveThoughtLabel(Label);
         lock (UKS.theUKS.AtomicThoughts)
             UKS.theUKS.AtomicThoughts.Remove(this);
@@ -201,6 +211,7 @@ public partial class Thought
     }
 
     public DateTime LastFiredTime = DateTime.MinValue;
+    public DateTime CreatedTime { get; } = DateTime.Now;
 
     private TimeSpan _timeToLive = TimeSpan.MaxValue;
     /// <summary>Makes a Thought transient when set to a finite time.</summary>
@@ -246,7 +257,10 @@ public partial class Thought
     /// <summary>
     /// Default constructor.
     /// </summary>
-    public Thought() { }
+    public Thought()
+    {
+        AddToRecentlyCreated();
+    }
 
     /// <summary>
     /// Copy constructor. For link thoughts, construct a Link instead.
@@ -254,7 +268,7 @@ public partial class Thought
     /// <param name="r">Thought to copy.</param>
     public Thought(Thought r)
     {
-        // Copy only common fields; link-specific fields handled via Link subclass.
+        AddToRecentlyCreated();
         if (r is Link)
             return;
         Weight = r.Weight;
@@ -262,6 +276,7 @@ public partial class Thought
         isPlastic = r.isPlastic;
         V = r.V;
         Label = r.Label;
+        
     }
 
     /// <summary>
@@ -486,6 +501,43 @@ public partial class Thought
             recentlyFired.Clear();
     }
 
+    private void AddToRecentlyCreated()
+    {
+        const int maxCount = 100;
+        lock (recentlyCreatedLock)
+        {
+            recentlyCreated.Enqueue(this);
+            while (recentlyCreated.Count > maxCount) _ = recentlyCreated.Dequeue();
+        }
+    }
+
+    public static void DeleteFromRecentlyCreated(Thought thought)
+    {
+        lock (recentlyCreatedLock)
+        {
+            List<Thought> remaining = recentlyCreated
+                .Where(item => !ReferenceEquals(item, thought)).ToList();
+            recentlyCreated.Clear();
+            foreach (Thought item in remaining) recentlyCreated.Enqueue(item);
+        }
+    }
+
+    public static IReadOnlyList<Thought> GetRecentlyCreatedThoughts(TimeSpan recency)
+    {
+        DateTime cutoff = DateTime.MinValue;
+        if (recency < DateTime.Now - DateTime.MinValue) cutoff = DateTime.Now - recency;
+        Thought[] retVal;
+        lock (recentlyCreatedLock)
+            retVal = recentlyCreated.Where(thought => thought.CreatedTime > cutoff).ToArray();
+        return retVal;
+    }
+
+    public static void ClearRecentlyCreatedQueue()
+    {
+        lock (recentlyCreatedLock)
+            recentlyCreated.Clear();
+    }
+
     private void UpdateTimeToLive()
     {
         float baseSeconds = 10;
@@ -623,6 +675,11 @@ public partial class Thought
     public Thought? GetTargetOfFirstLinkOfType(string linkTypeLabel)
     {
         return LinksTo.FindFirst(x =>
+            string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.To;
+    }
+    public Thought? GetTargetOfHighestWeightLinkOfType(string linkTypeLabel)
+    {
+        return LinksTo.OrderByDescending(x => x.Weight).ToList().FindFirst(x =>
             string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.To;
     }
     private static bool LinkTypesMatch(Thought? a, Thought? b)
