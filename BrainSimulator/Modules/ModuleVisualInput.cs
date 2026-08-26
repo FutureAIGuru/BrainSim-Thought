@@ -83,54 +83,12 @@ public class ModuleVisualInput : ModuleBase
 
     public TimeSpan PresentationLifetime { get; set; } = TimeSpan.FromSeconds(10);
     public double LessonStepIntervalSeconds { get; set; } = 0.1;
-    // Compatibility forwarding properties. The language module now owns the
-    // mutable learning policy used by every text input path.
-    public float MeaningInitialWeight
-    {
-        get => ModuleText.MeaningInitialWeight;
-        set => ModuleText.MeaningInitialWeight = value;
-    }
-    public float MeaningReinforcement
-    {
-        get => ModuleText.MeaningReinforcement;
-        set => ModuleText.MeaningReinforcement = value;
-    }
-    public float MeaningDecayFactor
-    {
-        get => ModuleText.MeaningDecayFactor;
-        set => ModuleText.MeaningDecayFactor = value;
-    }
-    public float MeaningPruneThreshold
-    {
-        get => ModuleText.MeaningPruneThreshold;
-        set => ModuleText.MeaningPruneThreshold = value;
-    }
-    public float MeaningMaximumWeight
-    {
-        get => ModuleText.MeaningMaximumWeight;
-        set => ModuleText.MeaningMaximumWeight = value;
-    }
-    public float MeaningResolutionTieTolerance
-    {
-        get => ModuleText.MeaningResolutionTieTolerance;
-        set => ModuleText.MeaningResolutionTieTolerance = value;
-    }
-    public float MeaningConsolidationThreshold
-    {
-        get => ModuleText.MeaningConsolidationThreshold;
-        set => ModuleText.MeaningConsolidationThreshold = value;
-    }
-    public float MeaningConsolidationDiscardThreshold
-    {
-        get => ModuleText.MeaningConsolidationDiscardThreshold;
-        set => ModuleText.MeaningConsolidationDiscardThreshold = value;
-    }
+
     public string AnonymousObjectPrefix { get; set; } = "O";
     public TimeSpan ImaginationLifetime { get; set; } = TimeSpan.FromSeconds(10);
     public ISet<string> BlockedMeaningLabels => ModuleText.BlockedMeaningLabels;
     private static string SubjectHeader => "# subject:";
     private readonly List<LessonEvent> _lessonEvents = new();
-    private readonly List<string> _lastGroundingChanges = new();
     private DateTime _nextLessonStepTime = DateTime.MaxValue;
 
     public string CurrentVisualLabel { get; private set; } = string.Empty;
@@ -141,9 +99,8 @@ public class ModuleVisualInput : ModuleBase
     public int NextLessonStepIndex { get; private set; }
     public bool IsLessonRunning { get; private set; }
     public string Status { get; private set; } = "Ready";
-    public IReadOnlyList<string> LessonSteps =>
-        _lessonEvents.Select(item => item.Description).ToList();
-    public IReadOnlyList<string> LastGroundingChanges => _lastGroundingChanges;
+    public IReadOnlyList<string> LessonSteps => _lessonEvents.Select(item => item.Description).ToList();
+
 
     public override void Fire()
     {
@@ -512,8 +469,7 @@ public class ModuleVisualInput : ModuleBase
         SelectObservationFile(lessonEvent.Content);
         Thought location = null;
         if (lessonEvent.Horizontal.HasValue || lessonEvent.Vertical.HasValue)
-            location = GetCellAtLessonPosition(
-                mentalModel, lessonEvent.Horizontal, lessonEvent.Vertical);
+            location = GetCellAtLessonPosition(mentalModel, lessonEvent.Horizontal, lessonEvent.Vertical);
         return PresentSelected(
             lessonEvent.Distance,
             mentalModel,
@@ -786,7 +742,7 @@ public class ModuleVisualInput : ModuleBase
         return PresentSelected(distance, mentalModel, null);
     }
 
-    public Thought PresentSelected(double distance,ModuleMentalModel mentalModel,Thought location,bool additionalAppearance = false)
+    public Thought PresentSelected(double distance, ModuleMentalModel mentalModel, Thought location, bool additionalAppearance = false)
     {
         if (theUKS is null || mentalModel is null) return null;
         EnsureVocabulary();
@@ -914,24 +870,20 @@ public class ModuleVisualInput : ModuleBase
     /// initially retains all plausible attended meanings; repetition and decay
     /// determine which candidates survive.
     /// </summary>
-    public IReadOnlyList<Link> HearPhrase(
-        string phrase,
-        ModuleMentalModel mentalModel = null,
-        string languageLabel = null)
+    public void HearPhrase(string phrase, ModuleMentalModel mentalModel = null, string languageLabel = null)
     {
-        _lastGroundingChanges.Clear();
         mentalModel ??= GetMentalModel();
         if (theUKS is null || mentalModel is null)
         {
             Status = "Add a Mental Model module first.";
             UpdateDialog();
-            return Array.Empty<Link>();
+            return;
         }
         if (string.IsNullOrWhiteSpace(phrase))
         {
             Status = "The phrase is empty.";
             UpdateDialog();
-            return Array.Empty<Link>();
+            return;
         }
 
         List<Thought> candidates = GetMeaningCandidates(mentalModel);
@@ -939,11 +891,10 @@ public class ModuleVisualInput : ModuleBase
         {
             Status = "Nothing currently occupies the Attention location.";
             UpdateDialog();
-            return Array.Empty<Link>();
+            return;
         }
 
-        ModuleText.MeaningLearningResult learning = ModuleText.ObservePhraseMeanings(phrase, candidates, languageLabel);
-        _lastGroundingChanges.AddRange(learning.Changes);
+        int changeCount = ObservePhraseMeanings(phrase, candidates, languageLabel);
 
         Thought attendedObject = mentalModel.GetAttendedContents()
             .FirstOrDefault(IsAnonymousObject);
@@ -951,13 +902,11 @@ public class ModuleVisualInput : ModuleBase
             CurrentWord = ModuleText.GetBestWordFor(attendedObject);
 
         Status = $"Heard \"{phrase}\"; updated " +
-            $"{learning.ChangedLinks.Count} candidate meanings" +
+            $"{changeCount} candidate meanings" +
             (string.IsNullOrWhiteSpace(languageLabel)
                 ? ". "
-                : $" in {languageLabel.Trim()}. ") +
-            learning.TextStatus;
+                : $" in {languageLabel.Trim()}. ");
         UpdateDialog();
-        return learning.ChangedLinks;
     }
 
     public void ClearPresentation()
@@ -1133,9 +1082,7 @@ public class ModuleVisualInput : ModuleBase
             : null;
     }
 
-    private void ApplyObservation(
-        Thought subject,
-        ObservationDescription observation)
+    private void ApplyObservation(Thought subject, ObservationDescription observation)
     {
         if (!string.IsNullOrWhiteSpace(observation.ImageFile))
         {
@@ -1217,4 +1164,157 @@ public class ModuleVisualInput : ModuleBase
     {
         return GroundedContentLocator.CandidateDirectories("Observations");
     }
+
+
+    /***********************************************************************************
+     * Grounding parameters
+     * Generalize this learning process and move to UKS 
+     * This is WORD-specific.  It should be a general learning process that can be applied to any type of link.
+     ***********************************************************************************/
+
+    // Mutable so the grounding behavior can be tuned while demonstrating and
+    // debugging without rebuilding the application.
+    public static float MeaningInitialWeight { get; set; } = 0.1f;
+    public static float MeaningReinforcement { get; set; } = 0.1f;
+    public static float MeaningDecayFactor { get; set; } = 0.9f;
+    public static float MeaningPruneThreshold { get; set; } = 0.05f;
+    public static float MeaningMaximumWeight { get; set; } = 1f;
+    public static float MeaningResolutionTieTolerance { get; set; } = 0.001f;
+    public static float MeaningConsolidationThreshold { get; set; } = 0.9f;
+    public static float MeaningConsolidationDiscardThreshold { get; set; } = 0.5f;
+
+
+    /// <summary>
+    /// Learns weighted word meanings from a phrase and a set of meanings which
+    /// are simultaneously active in the current sensory context.
+    /// </summary>
+    public static int ObservePhraseMeanings(string phrase, IEnumerable<Thought> activeMeanings, string languageLabel = null)
+    {
+        var theUKS = MainWindow.theUKS;
+        if (theUKS is null || string.IsNullOrWhiteSpace(phrase)) return 0;
+
+        int changesCount = 0;
+        List<Thought> candidates = (activeMeanings ?? Enumerable.Empty<Thought>())
+            .Where(thought => thought is not null && !ModuleText.BlockedMeaningLabels.Contains(thought.Label))
+            .Distinct()
+            .ToList();
+        if (candidates.Count == 0) return 0;
+
+        string textStatus = ModuleTextNEW.AddPhrase(phrase, out Thought heardPhrase);
+        Thought means = theUKS.Labeled("means");
+        HashSet<Thought> heardWords = theUKS.FlattenSequence(heardPhrase?.GetTargetOfFirstLinkOfType("hasWords") as SeqElement).ToHashSet();
+        Thought currentLanguage = ModuleText.EnsureLanguage(languageLabel);
+        Thought usedInLanguage = currentLanguage is null ? null : theUKS.Labeled("usedInLanguage");
+        if (currentLanguage is not null)
+        {
+            foreach (Thought heardWord in heardWords) heardWord.AddLink(usedInLanguage, currentLanguage);
+        }
+
+        //create a link for each heard word to each candidate meaning if it doesn't already exist,
+        //and set the link weight to the initial value
+        HashSet<Thought> activeCandidates = candidates.ToHashSet();
+        HashSet<Link> newLinks = new();
+        foreach (Thought word in heardWords)
+            foreach (Thought candidate in activeCandidates)
+            {
+                Link meaning = word.HasLink(means, candidate);
+                if (meaning is not null) continue;
+
+                meaning = word.AddLink(means, candidate);
+                if (meaning is null) continue;
+                meaning.isPlastic = true;
+                meaning.maxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
+                meaning.Weight = Math.Clamp(MeaningInitialWeight, 0, meaning.maxWeight);
+                meaning.Fire();
+                newLinks.Add(meaning);
+            }
+
+        //update the weight of every plasticMeaning
+        //first find all the candidate meanings.
+        HashSet<Thought> siblings = new ();
+        HashSet<Thought> seenParents = new();
+        foreach (Thought t in heardWords)
+        {
+            foreach (Thought t1 in t.Parents)
+            {
+                if (seenParents.Contains(t1)) continue;
+                seenParents.Add(t1);
+                foreach (Thought t2 in t1.Children)
+                    if (!siblings.Contains(t2)) siblings.Add(t2);
+            }
+        }
+        List<Link> plasticMeanings = siblings.SelectMany(thought => thought.LinksTo).Where(link => link.LinkType == means && link.isPlastic).ToList();
+
+        //Now update the weights.
+        foreach (Link meaning in plasticMeanings)
+        {
+            bool wordObserved = meaning.From is not null && heardWords.Contains(meaning.From);
+            bool targetActive = meaning.To is not null && activeCandidates.Contains(meaning.To);
+            bool targetBlocked = meaning.To is null || ModuleText.BlockedMeaningLabels.Contains(meaning.To.Label);
+            bool supported = wordObserved && targetActive && !targetBlocked;
+            bool wordUsesCurrentLanguage = currentLanguage is null ||
+                meaning.From?.HasLink(usedInLanguage, currentLanguage) is not null;
+
+            //increase the weight
+            if (supported)
+            {
+                if (!newLinks.Contains(meaning))
+                {
+                    meaning.maxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
+                    meaning.Weight = Math.Clamp(
+                        meaning.Weight + Math.Max(0, MeaningReinforcement),
+                        0,
+                        meaning.maxWeight);
+                    meaning.Fire();
+                    changesCount++;
+                }
+            }
+            //else decrease the weight
+            else if (wordObserved || (targetActive && wordUsesCurrentLanguage) || targetBlocked)
+            {
+                meaning.Weight *= Math.Clamp(MeaningDecayFactor, 0, 1);
+                changesCount++;
+            }
+        }
+
+        //delete links which have dropped below the minimum
+        foreach (Link weakMeaning in plasticMeanings
+            .Where(link => link.Weight < Math.Max(0, MeaningPruneThreshold))
+            .ToList())
+        {
+            weakMeaning.From?.RemoveLink(weakMeaning);
+        }
+
+        //if we have a winner, remove the losers.
+        //We only need to call this if there was a winner--easily detected when strengthening a link.
+        ConsolidateMeanings(plasticMeanings);
+
+        return changesCount;
+    }
+    /// <summary>
+    /// Removes weak competing meanings after one meaning for a word has exceeded the consolidation threshold.
+    /// Once we have a winner, remove the losers
+    /// </summary>
+    private static void ConsolidateMeanings(IEnumerable<Link> plasticMeanings)
+    {
+        float winnerThreshold = Math.Max(0, MeaningConsolidationThreshold);
+        float discardThreshold = Math.Max(0, MeaningConsolidationDiscardThreshold);
+        foreach (IGrouping<Thought, Link> wordMeanings in plasticMeanings
+            .Where(link => link.From is not null)
+            .GroupBy(link => link.From))
+        {
+            List<Link> currentMeanings = wordMeanings
+                .Where(link => link.From?.LinksTo.Contains(link) == true)
+                .ToList();
+            if (!currentMeanings.Any(link => link.Weight >= winnerThreshold)) continue;
+
+            foreach (Link weakMeaning in currentMeanings
+                .Where(link => link.Weight < discardThreshold)
+                .ToList())
+            {
+                weakMeaning.From?.RemoveLink(weakMeaning);
+            }
+        }
+    }
+
 }

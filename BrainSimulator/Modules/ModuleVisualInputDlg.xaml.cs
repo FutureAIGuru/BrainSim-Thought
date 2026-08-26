@@ -37,11 +37,12 @@ public partial class ModuleVisualInputDlg : ModuleBaseDlg
 
         var lessonFiles = module.GetLessonFiles().ToList();
         if (string.IsNullOrWhiteSpace(module.SelectedLessonFile) && lessonFiles.Count > 0)
-            module.SelectLessonFile(lessonFiles[0]);
+            module.SelectLessonFile(lessonFiles[1]);
         LessonBox.ItemsSource = lessonFiles;
-        LessonBox.SelectedItem = lessonFiles.FirstOrDefault(file =>
-            file.Equals(module.SelectedLessonFile,
+        LessonBox.SelectedItem = lessonFiles.FirstOrDefault(file => file.Equals(module.SelectedLessonFile,
                 System.StringComparison.OrdinalIgnoreCase)) ?? lessonFiles.FirstOrDefault();
+        LessonBox.SelectedIndex = 1;
+
         List<string> lessonSteps = module.LessonSteps.ToList();
         if (!_displayedLessonSteps.SequenceEqual(lessonSteps))
         {

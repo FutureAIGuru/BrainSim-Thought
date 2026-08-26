@@ -120,8 +120,8 @@ public class ModuleVisualInputTests
         Link candidate = wordThis.HasLink(means, dogClass)!;
         Assert.NotNull(candidate);
         Assert.True(candidate.isPlastic);
-        Assert.Equal(visualInput.MeaningInitialWeight, candidate.Weight, 3);
-        Assert.Equal(visualInput.MeaningMaximumWeight, candidate.maxWeight, 3);
+        Assert.Equal(ModuleVisualInput.MeaningInitialWeight, candidate.Weight, 3);
+        Assert.Equal(ModuleVisualInput.MeaningMaximumWeight, candidate.maxWeight, 3);
         Assert.NotNull(wordThis.HasLink(means, fido));
         Assert.NotNull(uks.Labeled("w:is")!.HasLink(means, dogClass));
         Assert.Null(wordThis.HasLink(

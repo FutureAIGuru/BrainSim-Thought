@@ -36,9 +36,18 @@ public class Link : Thought
     }
     public Link(Link l)
     {
-        From = l.From;
-        LinkType = l.LinkType;
-        To = l.To;
+        if (l.From is Link l1)
+            From = new(l1);
+        else
+            From = l.From;
+        if (l.LinkType is Link l2)
+            LinkType = new(l2);
+        else
+            LinkType = l.LinkType;
+        if (l.To is Link l3)    
+            To = new(l3);   
+        else
+            To = l.To;
     }
 
 
@@ -676,6 +685,11 @@ public partial class Thought
     {
         return LinksTo.FindFirst(x =>
             string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.To;
+    }
+    public Thought? GetSourceOfFirstLinkOfType(string linkTypeLabel)
+    {
+        return LinksFrom.FindFirst(x =>
+            string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.From;
     }
     public Thought? GetTargetOfHighestWeightLinkOfType(string linkTypeLabel)
     {

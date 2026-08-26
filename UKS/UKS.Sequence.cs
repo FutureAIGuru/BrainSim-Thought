@@ -810,6 +810,7 @@ public partial class UKS
         return seq;
     }
 
+    //This essentially keeps track of the activation of the various sequence elements as the search progresses through the pattern.
     private class SequenceSearchState
     {
         public SeqElement FirstMatchElement;
@@ -817,6 +818,13 @@ public partial class UKS
         public SeqElement CurPos;
         public Stack<SeqElement> ReturnStack = new();
         public float Confidence = 1.0f;
+    }
+
+    //matches with an existing sequence
+    public List<(SeqElement seqNode, float confidence)> FindSequencesByActivation(
+    SeqElement sequence, Thought searchOptions = null)
+    {
+        return FindSequencesByActivation(FlattenSequence(sequence), searchOptions);
     }
 
     public List<(SeqElement seqNode, float confidence)> FindSequencesByActivation(

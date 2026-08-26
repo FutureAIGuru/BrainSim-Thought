@@ -1,0 +1,26 @@
+# Minimal language-learning corpus
+# Format: phrase [grounded exemplar]
+# The semantic endpoint uses the singular concept even when the surface phrase is plural.
+
+Dogs are animals. [dog->SET.is-a->animal]
+Cats are animals. [cat->SET.is-a->animal]
+Horses are animals. [horse->SET.is-a->animal]
+Birds are animals. [bird->SET.is-a->animal]
+
+Dogs have tails. [dog->SET.has->tail]
+Cats have tails. [cat->SET.has->tail]
+Horses have tails. [horse->SET.has->tail]
+Birds have wings. [bird->SET.has->wing]
+
+Dogs can bark. [dog->SET.can->bark]
+Cats can meow. [cat->SET.can->meow]
+Horses can run. [horse->SET.can->run]
+Birds can fly. [bird->SET.can->fly]
+
+What are dogs? [dog->TEST.is-a->??]
+What are cats? [cat->TEST.is-a->??]
+What are horses? [horse->TEST.is-a->??]
+
+What can dogs do? [dog->TEST.can->??]
+What can cats do? [cat->TEST.can->??]
+What can birds do? [bird->TEST.can->??]

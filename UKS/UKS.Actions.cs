@@ -9,6 +9,7 @@ public partial class UKS
     /// <returns>The written relationship for SET, or all matching relationships for TEST.</returns>
     public List<Link> ApplyTestOrSetAction(Link action)
     {
+        //THIS PROBABLY DOESN"T WORK ON COMPOUND ACTIONS, NEED TO TEST AND FIX
         ArgumentNullException.ThrowIfNull(action);
         List<Link> retVal = new();
         Thought? actionType = action.LinkType;

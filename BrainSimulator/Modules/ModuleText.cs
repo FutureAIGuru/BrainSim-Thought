@@ -50,11 +50,9 @@ Que peuvent faire les chiens ?
  */
 
 
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.DirectoryServices.ActiveDirectory;
 using System.IO;
 using System.Linq;
 using Pluralize.NET;
@@ -70,17 +68,7 @@ public class ModuleText : ModuleBase
     private const float PhraseObservationIncrease = 1f;
     private const int PlasticPhraseCapacity = 50;
 
-    // Mutable so the grounding behavior can be tuned while demonstrating and
-    // debugging without rebuilding the application.
-    public static float MeaningInitialWeight { get; set; } = 0.1f;
-    public static float MeaningReinforcement { get; set; } = 0.1f;
-    public static float MeaningDecayFactor { get; set; } = 0.9f;
-    public static float MeaningPruneThreshold { get; set; } = 0.05f;
-    public static float MeaningMaximumWeight { get; set; } = 1f;
-    public static float MeaningResolutionTieTolerance { get; set; } = 0.001f;
-    public static float MeaningConsolidationThreshold { get; set; } = 0.9f;
-    public static float MeaningConsolidationDiscardThreshold { get; set; } = 0.5f;
-
+ 
     public static ISet<string> BlockedMeaningLabels { get; } =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -389,6 +377,7 @@ public class ModuleText : ModuleBase
                 _phraseReaderPath = filePath;
             }
 
+            //read up to phrasesPerCall lines from the file, skipping empty lines
             while (count < phrasesPerCall && _phraseReader != null)
             {
                 string line = _phraseReader.ReadLine();
@@ -467,7 +456,7 @@ public class ModuleText : ModuleBase
     }
 
     /// <summary>Tokenizes one phrase and returns the observation which owns the resulting word sequence.</summary>
-    private static string AddPhrase(string phrase, out Thought ingestedPhrase)
+    public static string AddPhrase(string phrase, out Thought ingestedPhrase)
     {
         ingestedPhrase = null;
         var theUKS = MainWindow.theUKS;
@@ -698,10 +687,7 @@ public class ModuleText : ModuleBase
     /// <summary>
     /// Realizes one relationship with the learned assertion template most compatible with the query surface form.
     /// </summary>
-    private string ConvertRelationshipWithLearnedAssertion(
-        Link relationship,
-        Thought sourceSurfaceWord,
-        Thought queryTemplate)
+    private string ConvertRelationshipWithLearnedAssertion(Link relationship,Thought sourceSurfaceWord,Thought queryTemplate)
     {
         if (relationship?.From is null || relationship.LinkType is null ||
             relationship.To is null || sourceSurfaceWord is null)
@@ -877,11 +863,8 @@ public class ModuleText : ModuleBase
         if (meaning is null || templateElement is null || means is null) return null;
 
         Thought retVal = meaning.LinksFrom
-            .Where(link => link.LinkType == means &&
-                link.From?.Label.StartsWith(
-                    "w:", StringComparison.OrdinalIgnoreCase) == true)
-            .OrderByDescending(link =>
-                SurfaceWordMatchesTemplateElement(link.From, templateElement))
+            .Where(link => link.LinkType == means && link.From?.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase) == true)
+            .OrderByDescending(link => SurfaceWordMatchesTemplateElement(link.From, templateElement))
             .ThenByDescending(link => GetBestMeaning(link.From)?.To == meaning)
             .ThenByDescending(link => link.Weight)
             .Select(link => link.From)
@@ -944,120 +927,7 @@ public class ModuleText : ModuleBase
     /*******************************************************************************
     // 3. Attaching Meanings
     *******************************************************************************/
-    /// <summary>
-    /// Learns weighted word meanings from a phrase and a set of meanings which
-    /// are simultaneously active in the current sensory context.
-    /// </summary>
-    public static MeaningLearningResult ObservePhraseMeanings(
-        string phrase, IEnumerable<Thought> activeMeanings, string languageLabel = null)
-    {
-        var theUKS = MainWindow.theUKS;
-        if (theUKS is null || string.IsNullOrWhiteSpace(phrase))
-        {
-            MeaningLearningResult emptyResult = new() { TextStatus = "The phrase is empty." };
-            return emptyResult;
-        }
-
-        List<Thought> candidates = (activeMeanings ?? Enumerable.Empty<Thought>())
-            .Where(thought => thought is not null &&
-                !BlockedMeaningLabels.Contains(thought.Label))
-            .Distinct()
-            .ToList();
-        if (candidates.Count == 0)
-        {
-            MeaningLearningResult noAttentionResult = new()
-            {
-                TextStatus = "Nothing currently occupies the Attention location."
-            };
-            return noAttentionResult;
-        }
-
-        string textStatus = AddPhrase(phrase, out Thought heardPhrase);
-        Thought means = theUKS.Labeled("means");
-        HashSet<Thought> heardWords = GetPhraseElements(heardPhrase).ToHashSet();
-        Thought currentLanguage = EnsureLanguage(languageLabel);
-        Thought usedInLanguage = currentLanguage is null ? null : theUKS.Labeled("usedInLanguage");
-        if (currentLanguage is not null)
-        {
-            foreach (Thought heardWord in heardWords) heardWord.AddLink(usedInLanguage, currentLanguage);
-        }
-
-        HashSet<Thought> activeCandidates = candidates.ToHashSet();
-        HashSet<Link> newLinks = new();
-        List<string> changes = new();
-        foreach (Thought word in heardWords)
-            foreach (Thought candidate in activeCandidates)
-            {
-                Link meaning = word.HasLink(means, candidate);
-                if (meaning is not null) continue;
-
-                meaning = word.AddLink(means, candidate);
-                if (meaning is null) continue;
-                meaning.isPlastic = true;
-                meaning.maxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
-                meaning.Weight = Math.Clamp(MeaningInitialWeight, 0, meaning.maxWeight);
-                meaning.Fire();
-                newLinks.Add(meaning);
-            }
-
-        List<Link> plasticMeanings = theUKS.AtomicThoughts
-            .SelectMany(thought => thought.LinksTo)
-            .Where(link => link.LinkType == means && link.isPlastic)
-            .Distinct()
-            .ToList();
-        List<Link> changedLinks = new();
-        foreach (Link meaning in plasticMeanings)
-        {
-            bool wordObserved = meaning.From is not null && heardWords.Contains(meaning.From);
-            bool targetActive = meaning.To is not null && activeCandidates.Contains(meaning.To);
-            bool targetBlocked = meaning.To is null || BlockedMeaningLabels.Contains(meaning.To.Label);
-            bool supported = wordObserved && targetActive && !targetBlocked;
-            bool wordUsesCurrentLanguage = currentLanguage is null ||
-                meaning.From?.HasLink(usedInLanguage, currentLanguage) is not null;
-            float oldWeight = newLinks.Contains(meaning) ? 0 : meaning.Weight;
-
-            if (supported)
-            {
-                if (!newLinks.Contains(meaning))
-                {
-                    meaning.maxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
-                    meaning.Weight = Math.Clamp(
-                        meaning.Weight + Math.Max(0, MeaningReinforcement),
-                        0,
-                        meaning.maxWeight);
-                    meaning.Fire();
-                }
-            }
-            else if (wordObserved ||
-                (targetActive && wordUsesCurrentLanguage) || targetBlocked)
-            {
-                meaning.Weight *= Math.Clamp(MeaningDecayFactor, 0, 1);
-            }
-
-            if (meaning.Weight != oldWeight)
-            {
-                changedLinks.Add(meaning);
-                changes.Add($"{meaning.From?.Label} -> {meaning.To?.Label}: {oldWeight:0.00} -> {meaning.Weight:0.00}");
-            }
-        }
-
-        foreach (Link weakMeaning in plasticMeanings
-            .Where(link => link.Weight < Math.Max(0, MeaningPruneThreshold))
-            .ToList())
-        {
-            changes.Add($"{weakMeaning.From?.Label} -> {weakMeaning.To?.Label}: removed");
-            weakMeaning.From?.RemoveLink(weakMeaning);
-        }
-
-        ConsolidateMeanings(plasticMeanings, changes);
-        MeaningLearningResult retVal = new()
-        {
-            ChangedLinks = changedLinks.Distinct().ToList(),
-            Changes = changes,
-            TextStatus = textStatus,
-        };
-        return retVal;
-    }
+    static float MeaningResolutionTieTolerance = 0.0001f;
 
     /// <summary>Selects a word's strongest unblocked meaning and leaves genuinely unrelated ties unresolved.</summary>
     public static Link GetBestMeaning(Thought word)
@@ -1105,11 +975,8 @@ public class ModuleText : ModuleBase
 
         Thought usedInLanguage = language is null ? null : theUKS.Labeled("usedInLanguage");
         List<Link> directWords = meaning.LinksFrom
-            .Where(link => link.LinkType == means &&
-                link.From?.Label.StartsWith("w:",
-                    StringComparison.OrdinalIgnoreCase) == true &&
-                (language is null || usedInLanguage is null ||
-                    link.From.HasLink(usedInLanguage, language) is not null))
+            .Where(link => link.LinkType == means && link.From?.Label.StartsWith("w:",StringComparison.OrdinalIgnoreCase) == true &&
+                (language is null || usedInLanguage is null || link.From.HasLink(usedInLanguage, language) is not null))
             .ToList();
         Link best = directWords
             .Where(link => GetBestMeaning(link.From)?.To == meaning)
@@ -1135,32 +1002,7 @@ public class ModuleText : ModuleBase
         return retVal;
     }
 
-    /// <summary>
-    /// Removes weak competing meanings after one meaning for a word has exceeded the consolidation threshold.
-    /// </summary>
-    private static void ConsolidateMeanings(IEnumerable<Link> plasticMeanings, ICollection<string> changes)
-    {
-        float winnerThreshold = Math.Max(0, MeaningConsolidationThreshold);
-        float discardThreshold = Math.Max(0, MeaningConsolidationDiscardThreshold);
-        foreach (IGrouping<Thought, Link> wordMeanings in plasticMeanings
-            .Where(link => link.From is not null)
-            .GroupBy(link => link.From))
-        {
-            List<Link> currentMeanings = wordMeanings
-                .Where(link => link.From?.LinksTo.Contains(link) == true)
-                .ToList();
-            if (!currentMeanings.Any(link => link.Weight >= winnerThreshold)) continue;
-
-            foreach (Link weakMeaning in currentMeanings
-                .Where(link => link.Weight < discardThreshold)
-                .ToList())
-            {
-                changes?.Add($"{weakMeaning.From?.Label} -> {weakMeaning.To?.Label}: removed after consolidation");
-                weakMeaning.From?.RemoveLink(weakMeaning);
-            }
-        }
-    }
-
+ 
     /// <summary>
     /// Resolves a word meaning or creates a provisional identity meaning when no evidence is available.
     /// </summary>
@@ -1187,6 +1029,7 @@ public class ModuleText : ModuleBase
         List<Link> existingMeanings = word.LinksTo
             .Where(link => link.LinkType == meansType && link.To is not null)
             .ToList();
+
         // Structural nodes are excluded from ordinary co-occurrence grounding,
         // but an action exemplar may explicitly use one as a semantic endpoint
         // (for example, w:object -> Object). Preserve that supervised identity
@@ -1288,12 +1131,8 @@ public class ModuleText : ModuleBase
         string inferredLabel = possibleMeanings[0];
         Thought knownSourceWord = candidates
             .SelectMany(candidate => candidate.sourceClass.Children)
-            .FirstOrDefault(candidate =>
-                GetSpelling(candidate).Equals(
-                    inferredLabel, StringComparison.OrdinalIgnoreCase));
-        Thought retVal = knownSourceWord is not null
-            ? GetOrCreateMeaning(knownSourceWord)
-            : theUKS.GetOrAddThought(inferredLabel.ToLowerInvariant());
+            .FirstOrDefault(candidate => GetSpelling(candidate).Equals(inferredLabel, StringComparison.OrdinalIgnoreCase));
+        Thought retVal = knownSourceWord is not null ? GetOrCreateMeaning(knownSourceWord) : theUKS.GetOrAddThought(inferredLabel.ToLowerInvariant());
         return retVal;
     }
 
@@ -1301,8 +1140,7 @@ public class ModuleText : ModuleBase
     private static string GetSpellingPatternAddition(Thought pattern)
     {
         var theUKS = MainWindow.theUKS;
-        Link addition = pattern.LinksTo.FirstOrDefault(
-            link => link.LinkType?.Label == "adds");
+        Link addition = pattern.LinksTo.FirstOrDefault(link => link.LinkType?.Label == "adds");
         if (addition?.To is null)
         {
             string noAddition = "";
@@ -1407,7 +1245,9 @@ public class ModuleText : ModuleBase
         return retVal;
     }
 
+    /*******************************************************************************
     // 4. Building Phrase Templates
+    *******************************************************************************/
 
     /// <summary>
     /// Applies already learned templates to one manually entered phrase. An
@@ -2744,7 +2584,9 @@ public class ModuleText : ModuleBase
 
     private sealed record WordCorrespondence(Thought Source, Thought Target);
 
-    // 6. Other: Consolidation Orchestration
+    /*******************************************************************************
+    * 6. Other: Consolidation Orchestration
+     **********************************************************************/
 
     /// <summary>
     /// Runs the complete template, action, spelling-pattern, and meaning-normalization learning pass.
@@ -2813,5 +2655,4 @@ public class ModuleText : ModuleBase
         }
         if (consolidate) ConsolidatePhrasePatterns();
     }
-
 }
