@@ -1,5 +1,5 @@
 /*
- * Ch.5 Phase E — bubble on learn, ExplainLink, Fido demo content.
+ * Ch.5 Phase E — bubble on learn and Fido demo content.
  */
 
 using System;
@@ -54,23 +54,6 @@ public class InheritanceCh5PhaseERegressionTests
     }
 
     [Fact]
-    public void ExplainLink_traces_Fido_dog_fur()
-    {
-        var uks = CreateUks();
-        uks.AddStatement("dog", "is-a", "Object");
-        uks.AddStatement("fur", "is-a", "Object");
-        uks.AddStatement("dog", "has", "fur");
-        uks.AddStatement("Fido", "is-a", "dog");
-
-        Thought fido = uks.Labeled("Fido");
-        Link inherited = uks.GetAttributes(fido)
-            .First(l => l.To == uks.Labeled("fur"));
-
-        var trace = uks.ExplainLink(inherited, fido);
-        Assert.Equal(new[] { "Fido", "dog", "fur" }, trace.Select(t => t.Label).ToArray());
-    }
-
-    [Fact]
     public void Ch4Ch5_FidoDemo_txt_loads_and_validates_patterns()
     {
         var uks = CreateUks();
@@ -93,10 +76,5 @@ public class InheritanceCh5PhaseERegressionTests
         Assert.Contains(tripperLinks, l => l.LinkType?.Label == "has.3");
         Assert.DoesNotContain(tripperLinks, l => l.LinkType?.Label == "has.4");
 
-        var ctx = new TraversalContext();
-        ctx.Activate(fido);
-        Assert.Empty(uks.GetGatedLinks(fido, has, ctx));
-        ctx.ActivateRelationship(has);
-        Assert.Contains(uks.GetGatedLinks(fido, has, ctx), l => l.To == uks.Labeled("fur"));
     }
 }

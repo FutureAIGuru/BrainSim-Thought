@@ -97,5 +97,14 @@ public class ModuleUKSStatement : ModuleBase
 
         return retVal;
     }
+
+    public static string ConditionalLinkType(string outerLinkType, string nestedLinkType)
+    {
+        if (!string.Equals(outerLinkType, "IF", StringComparison.OrdinalIgnoreCase))
+            return nestedLinkType;
+        if (Array.IndexOf(nestedLinkType.Split('.'), "?") >= 0)
+            return nestedLinkType;
+        return nestedLinkType + ".?";
+    }
 }
 

@@ -28,18 +28,20 @@ namespace BrainSimulator.Modules;
 
 public partial class ModuleUKSQueryDlg : ModuleBaseDlg
 {
+    private static readonly TimeSpan NormalRequeryInterval = TimeSpan.FromSeconds(3);
     DispatcherTimer requeryTimer = new DispatcherTimer();
 
     public ModuleUKSQueryDlg()
     {
         InitializeComponent();
-        requeryTimer.Interval = TimeSpan.FromSeconds(3);
+        requeryTimer.Interval = NormalRequeryInterval;
         requeryTimer.Tick += RequeryTimer_Tick;
         requeryTimer.Start();
     }
 
     private void RequeryTimer_Tick(object sender, EventArgs e)
     {
+        requeryTimer.Interval = NormalRequeryInterval;
         if (CBAutoRefresh.IsChecked == false) return;
         QueryForAttributes();
         QueryByAttributes();
@@ -57,6 +59,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
 
     private void BtnWhy_Click(object sender, RoutedEventArgs e)
     {
+        DelayRequeryForExplanation();
         ModuleUKSQuery UKSQuery = (ModuleUKSQuery)ParentModule;
         UKS.UKS theUKS = UKSQuery.theUKS;
         Thought? source = theUKS.Labeled(sourceText.Text);
@@ -65,8 +68,25 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             resultText.Text = "Why? — source not found";
             return;
         }
-
         List<Link> links = theUKS.GetAttributes(source);
+        List<Link> whyNot = theUKS.WhyNot()
+            .Where(link => link is not null)
+            .ToList();
+        if (whyNot.Count > 0)
+        {
+            resultText.Text = "Why not?" + Environment.NewLine + FormatWhyNot(whyNot);
+            return;
+        }
+
+        List<Link> why = theUKS.Why()
+            .Where(link => link is not null)
+            .ToList();
+        if (why.Count > 0)
+        {
+            resultText.Text = "Why?" + Environment.NewLine + FormatWhy(why);
+            return;
+        }
+
         Link? match = null;
         if (!string.IsNullOrWhiteSpace(targetText.Text))
             match = links.FirstOrDefault(l => l.To?.Label == targetText.Text);
@@ -81,8 +101,85 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             return;
         }
 
-        List<Thought> trace = theUKS.ExplainLink(match, source);
+        List<Thought> trace = UKSQuery.ExplainInheritance(match, source);
         resultText.Text = "Why? " + string.Join(" → ", trace.Select(t => t.Label));
+    }
+
+    private static string FormatWhy(IEnumerable<Link> links) =>
+        FormatConditionalExplanation(links, conditionWasVerified: true);
+
+    private static string FormatWhyNot(IEnumerable<Link> links) =>
+        FormatConditionalExplanation(links, conditionWasVerified: false);
+
+    private static string FormatConditionalExplanation(IEnumerable<Link> links, bool conditionWasVerified)
+    {
+        List<Link> conditionLinks = links.Where(link => link is not null).ToList();
+        Link ifLink = conditionLinks.FirstOrDefault(link =>
+            string.Equals(link.LinkType?.Label, "IF", StringComparison.OrdinalIgnoreCase) &&
+            link.From is Link && link.To is Link);
+
+        if (ifLink?.From is not Link result || ifLink.To is not Link condition)
+            return FormatLinks(conditionLinks);
+
+        string inclusion = conditionWasVerified ? "included" : "not included";
+        string verification = conditionWasVerified ? "verified" : "not verified";
+        return $"{Capitalize(FormatClause(result))} {inclusion} because " +
+            $"{FormatClause(condition)} was {verification}.";
+    }
+
+    private static string FormatLinks(IEnumerable<Link> links) =>
+        string.Join(Environment.NewLine, links
+            .Where(link => link is not null)
+            .Select(FormatLink)
+            .Distinct());
+
+    private static string FormatLink(Link link) =>
+        $"[{FormatThought(link.From)} → {link.LinkType?.Label ?? "?"} → {FormatThought(link.To)}]";
+
+    private static string FormatThought(Thought thought)
+    {
+        if (thought is null) return "?";
+        return thought is Link link ? FormatLink(link) : thought.Label;
+    }
+
+    private static string FormatClause(Link link)
+    {
+        if (string.Equals(link.LinkType?.Label, "AND", StringComparison.OrdinalIgnoreCase) &&
+            link.From is Link left && link.To is Link right)
+            return $"{FormatClause(left)} and {FormatClause(right)}";
+
+        return $"{FormatThought(link.From)} {NaturalPredicate(link.LinkType?.Label)} {FormatThought(link.To)}";
+    }
+
+    private static string NaturalPredicate(string linkType)
+    {
+        string predicate = string.Join(" ", (linkType ?? "?").Split('.').Where(part => part != "?"));
+        string normalized = predicate.ToLowerInvariant();
+        if (normalized == "is-a") return "is a";
+        if (normalized is "is" or "has" or "can" or "owns" or "goes" or "does" or "must" or "should" or "will")
+            return predicate;
+        if (predicate.EndsWith("s", StringComparison.OrdinalIgnoreCase)) return predicate;
+        if (predicate.EndsWith("y", StringComparison.OrdinalIgnoreCase) && predicate.Length > 1 &&
+            !"aeiou".Contains(char.ToLowerInvariant(predicate[^2])))
+            return predicate[..^1] + "ies";
+        if (predicate.EndsWith("ch", StringComparison.OrdinalIgnoreCase) ||
+            predicate.EndsWith("sh", StringComparison.OrdinalIgnoreCase) ||
+            predicate.EndsWith("x", StringComparison.OrdinalIgnoreCase) ||
+            predicate.EndsWith("z", StringComparison.OrdinalIgnoreCase) ||
+            predicate.EndsWith("o", StringComparison.OrdinalIgnoreCase))
+            return predicate + "es";
+        return predicate + "s";
+    }
+
+    private static string Capitalize(string text) =>
+        string.IsNullOrEmpty(text) ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
+    private void DelayRequeryForExplanation()
+    {
+        if (!requeryTimer.IsEnabled) return;
+        requeryTimer.Stop();
+        requeryTimer.Interval = TimeSpan.FromSeconds(5);
+        requeryTimer.Start();
     }
 
     private void BtnLinks_Click(object sender, RoutedEventArgs e)

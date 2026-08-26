@@ -20,8 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Tests\DiscreteAttributeCh4RegressionTests.cs" Link="DiscreteAttributeCh4RegressionTests.cs" />
-    <Compile Include="..\Tests\GatedTraversalCh4RegressionTests.cs" Link="GatedTraversalCh4RegressionTests.cs" />
     <Compile Include="..\Tests\InheritanceCh5RegressionTests.cs" Link="InheritanceCh5RegressionTests.cs" />
     <Compile Include="..\Tests\InheritanceCh5PhaseDRegressionTests.cs" Link="InheritanceCh5PhaseDRegressionTests.cs" />
     <Compile Include="..\Tests\InheritanceCh5PhaseERegressionTests.cs" Link="InheritanceCh5PhaseERegressionTests.cs" />

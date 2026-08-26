@@ -295,7 +295,6 @@ namespace BrainSimulator
         //THIS IS THE MAIN ENGINE LOOP
         private void Dt_Tick(object sender, EventArgs e)
         {
-            theUKS.BeginTraversalCycle();
             Thought activeModuleParent = theUKS.Labeled("ActiveModule");
             if (activeModuleParent is null) return;
             foreach (Thought module in activeModuleParent.Children)

@@ -94,6 +94,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         var sourceParts = UKSStatement.Singular(fromString.Split(" ", StringSplitOptions.RemoveEmptyEntries));
         if (sourceParts.Length == 3)
         {
+            sourceParts[1] = ModuleUKSStatement.ConditionalLinkType(linkTypeString, sourceParts[1]);
             Link r2 = new()
             {
                 From = UKSStatement.theUKS.GetOrAddThought(sourceParts[0]),
@@ -143,6 +144,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         var targetParts = UKSStatement.Singular(toString.Split(" ", StringSplitOptions.RemoveEmptyEntries));
         if (targetParts.Length == 3 && !targetParts[0].StartsWith("^"))
         {
+            targetParts[1] = ModuleUKSStatement.ConditionalLinkType(linkTypeString, targetParts[1]);
             Link r2 = new()
             {
                 From = UKSStatement.theUKS.GetOrAddThought(targetParts[0]),
@@ -245,6 +247,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             var sourceParts = UKSStatement.Singular(sourceText.Text.Split(" ", StringSplitOptions.RemoveEmptyEntries));
             if (sourceParts.Length == 3)
             {
+                sourceParts[1] = ModuleUKSStatement.ConditionalLinkType(linkText.Text, sourceParts[1]);
                 tSource = UKSStatement.theUKS.AddStatement(sourceParts[0], sourceParts[1], sourceParts[2]);
                 sourceText.Text = tSource.ToString();
             }
@@ -265,6 +268,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             var targetParts = UKSStatement.Singular(targetText.Text.Split(" ", StringSplitOptions.RemoveEmptyEntries));
             if (targetParts.Length == 3)
             {
+                targetParts[1] = ModuleUKSStatement.ConditionalLinkType(linkText.Text, targetParts[1]);
                 tTarget = UKSStatement.theUKS.AddStatement(targetParts[0], targetParts[1], targetParts[2]);
                 targetText.Text = tTarget.ToString();
             }

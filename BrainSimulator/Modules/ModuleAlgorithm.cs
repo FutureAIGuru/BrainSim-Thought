@@ -64,20 +64,29 @@ public class ModuleAlgorithm : ModuleBase
     private bool HandleFiringNeurons()
     {
         var activeSteps = Thought.GetRecentlyFiredThoughts(TimeSpan.MaxValue); //for debug, no timeout
+        Thought.ClearRecentlyFiredQueue();
         foreach (var activeStep in activeSteps)
         {
+            if (activeStep is SeqElement step && !IsExecutableStep(step))
+            {
+                Debug.WriteLine($"Data sequence ignored: {step}");
+                continue;
+            }
+
             Debug.WriteLine($"activeStep: {activeStep}");
-            if (activeStep is SeqElement step)
-                LastExecutedStep = step;  //do display highlighting in UI
-            Thought.DeleteFromRecentlyFired(activeStep); //ensure we detect thought firing only once
+
+            if (activeStep is SeqElement executableStep)
+                LastExecutedStep = executableStep;
+
             CycleCount++;
-            //Cases: EntryPoint, Call, Context, Assignment
             FireNextStatement(activeStep);
+            //Cases: EntryPoint, Call, Context, Assignment
             if (HandledEntryPoint(activeStep)) continue;  //program start
             if (HandledCall(activeStep)) continue;  //program start or call
             if (HandledAssignment(activeStep)) continue;
             if (HandledContext(activeStep)) continue;
             //if we get here...there was nothing to process
+            Debug.WriteLine($"activeStep ignored: {activeStep}");
         }
         if (activeSteps.Count == 0)
         {
@@ -87,7 +96,6 @@ public class ModuleAlgorithm : ModuleBase
         return true;
     }
 
-    //WE COULD REPLACE THESE WITH PROPERTIES
     // Entry point: Thought with a "steps" link to a SeqElement
     private bool IsEntryPoint(Thought t)
     {
@@ -98,16 +106,17 @@ public class ModuleAlgorithm : ModuleBase
     private bool IsCall(Thought t)
     {
         bool retVal = t is not null && t is not Link &&
-            t.GetTargetOfFirstLinkOfType("steps") is not null;
+            t.GetTargetOfFirstLinkOfType("steps") is not null && t.HasAncestor("Task");
         return retVal;
     }
     // Context: Thought with no "steps" link and not a call or assignment
-    private bool IsContext(Thought t)
+    private bool IsContext(Thought value)
     {
-        bool retVal = t is not null && t is not Link && t is not SeqElement &&
-            t.GetTargetOfFirstLinkOfType("steps") is null;
-        return retVal;
+        return value is not null &&
+            value.Children.Any(caseThought =>
+                caseThought.GetTargetOfFirstLinkOfType("response") is not null);
     }
+    
     // Assignment: Link with a "set" ancestor
     private bool IsAssignment(Thought t)
     {
@@ -115,9 +124,17 @@ public class ModuleAlgorithm : ModuleBase
         return retVal;
     }
 
+    private bool IsExecutableStep(SeqElement step)
+    {
+        SeqElement first = step.FRST ?? step;
+        bool retVal = first.LinksFrom.Any(link =>link.LinkType?.Label == "steps");
+        return retVal;
+    }
+
     private void FireNextStatement(Thought activeStep)
     {
         if (IsEntryPoint(activeStep)) { activeStep.GetTargetOfFirstLinkOfType("steps").Fire(); return; }
+        if (activeStep is SeqElement step && !IsExecutableStep(step)) return;
         if (activeStep is SeqElement s)
         {
             //do NOT step next if this is a CALL or a CONTEXT
@@ -370,20 +387,70 @@ public class ModuleAlgorithm : ModuleBase
 
     private Thought EvaluateContext(Thought contextRoot)
     {
-        // Ch.4 AND-gate: activate context root + has relationship before attribute matching.
-        theUKS.CurrentTraversal.Activate(contextRoot);
-        Thought? hasType = theUKS.Labeled("has");
-        if (hasType is not null)
-            theUKS.CurrentTraversal.ActivateRelationship(hasType);
-
-        ContextCaseResult? selected = theUKS.SelectBestContextCase(contextRoot, HandleIndirection);
-        Thought bestResponse = selected?.Response;
+        Thought bestResponse = SelectBestContextResponse(contextRoot);
 
         Debug.WriteLine($"Context: {contextRoot} returned {bestResponse}");
         bestResponse?.Fire();
         LastAction = $"CONTEXT: {contextRoot.Label} JMP: {bestResponse?.Label}";
         return bestResponse;
     }
+
+    private Thought SelectBestContextResponse(Thought contextRoot)
+    {
+        Thought bestResponse = null;
+        float bestWeight = 0;
+
+        foreach (Thought caseThought in contextRoot.Children)
+        {
+            float weight = ScoreContextCase(caseThought);
+            if (weight <= bestWeight) continue;
+
+            bestResponse = caseThought.GetTargetOfFirstLinkOfType("response");
+            bestWeight = weight;
+        }
+
+        return bestResponse;
+    }
+
+    private float ScoreContextCase(Thought caseThought)
+    {
+        float weight = 0;
+
+        foreach (Link l in caseThought.LinksTo.Where(x => x.LinkType?.Label == "has"))
+        {
+            if (l.To is not Link test) continue;
+            if (test.LinkType?.HasAncestor("test") != true) continue;
+
+            bool not = test.LinkType.HasAncestor("not");
+            Thought testType = test.LinkType.LinksTo.FindFirst(x =>
+                string.Equals(x.LinkType?.Label, "is", StringComparison.OrdinalIgnoreCase) &&
+                x.To?.Label != "TEST")?.To;
+            Thought src = HandleIndirection(test.From);
+            if (src is null) continue;
+
+            if (test.LinkType.HasAncestor("same") ||
+                test.LinkType.Label.Contains("same", StringComparison.OrdinalIgnoreCase))
+            {
+                Thought target = HandleIndirection(test.To);
+                if (!not && src == target) weight += l.Weight;
+                if (not && src != target) weight += l.Weight;
+            }
+            else if (test.To?.Label == "??")
+            {
+                if (!not && src.HasLink(testType) is not null) weight += l.Weight * test.Weight;
+                if (not && src.HasLink(testType) is null) weight += l.Weight * test.Weight;
+            }
+            else
+            {
+                Thought target = HandleIndirection(test.To);
+                if (!not && src.HasLink(testType, target) is not null) weight += l.Weight * test.Weight;
+                if (not && src.HasLink(testType, target) is null) weight += l.Weight * test.Weight;
+            }
+        }
+
+        return weight;
+    }
+
     private Thought HandleIndirection(Thought to)
     {
         if (to is null) return null;

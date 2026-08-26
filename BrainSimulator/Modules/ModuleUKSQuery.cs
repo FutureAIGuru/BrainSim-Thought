@@ -13,6 +13,7 @@
 
 
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -32,6 +33,16 @@ public class ModuleUKSQuery : ModuleBase
     }
     public override void Initialize()
     {
+    }
+
+    public List<Thought> ExplainInheritance(Link link, Thought querySource)
+    {
+        List<Thought> trace = new() { querySource };
+        if (link.InheritedFromCategory is not null)
+            trace.Add(link.InheritedFromCategory);
+        if (link.To is not null)
+            trace.Add(link.To);
+        return trace;
     }
 
     /*

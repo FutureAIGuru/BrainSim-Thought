@@ -30,6 +30,9 @@ public partial class UKS
     /// <returns>List of matching links.</returns>
     public List<Link> GetAttributes(Thought source, Link? filter = null, int maxResults = 0) //with inheritance, conflicts, etc
     {
+        succeededConditions.Clear();
+        failedConditions.Clear();
+
         List<Link> result2 = new();
         if (source is null) return result2;
 
@@ -357,7 +360,13 @@ public partial class UKS
             foundIf = true;
 
             if (r1.To is not Link condition || !ConditionIsMet(condition))
+            {
+                failedConditions.Add(r1);
+                failedConditions.Add(r1.To as Link);
                 return false;
+            }
+            succeededConditions.Add(r1);
+            succeededConditions.Add(r1.To as Link);
         }
         return foundIf;
 
