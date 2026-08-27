@@ -80,7 +80,7 @@ public class ModuleWordTests
     }
 
     [Fact]
-    public void LetterRoot_IsAbstractAndNeverAnObject()
+    public void CharacterRoot_IsAbstractAndNeverAnObject()
     {
         var uks = new UKS.UKS(clear: true);
         uks.CreateInitialStructure();
@@ -88,11 +88,15 @@ public class ModuleWordTests
         var module = new ModuleWord { theUKS = uks };
 
         module.UKSInitializedNotification();
-        uks.CreateThoughtFromMultipleAttributes("^A B", attributesFollow: true);
+        SeqElement sequence = (SeqElement)uks.CreateThoughtFromMultipleAttributes(
+            "^A B", attributesFollow: true)!;
 
-        Thought letter = uks.Labeled("letter")!;
-        Assert.Contains(uks.Labeled("Abstract")!, letter.Parents);
-        Assert.DoesNotContain(uks.Labeled("Object")!, letter.Parents);
+        Thought character = uks.Labeled("character")!;
+        Assert.Contains(uks.Labeled("Abstract")!, character.Parents);
+        Assert.DoesNotContain(uks.Labeled("Object")!, character.Parents);
+        Assert.Equal(new[] { "c:A", "c:B" },
+            uks.FlattenSequence(sequence).Select(element => element.Label));
+        Assert.Null(uks.Labeled("letter"));
     }
 
     [Fact]

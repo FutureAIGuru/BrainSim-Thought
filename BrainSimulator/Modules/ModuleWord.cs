@@ -63,26 +63,23 @@ public class ModuleWord : ModuleBase
     }
     public override void UKSInitializedNotification()
     {
-        Thought letterRoot = theUKS.GetOrAddThought("letter", "Abstract");
-        letterRoot.RemoveParent("Object");
+        theUKS.GetOrAddThought("character", "Abstract");
         EnsureWordRoot();
     }
 
 
     public string GetWordSuggestion(string word)
     {
-        List<Thought> letters = new List<Thought>();
+        List<Thought> characters = new List<Thought>();
         foreach (char c in word.ToUpper())
         {
-            string letterLabel = c.ToString();
-            Thought letter = theUKS.GetOrAddThought("c:"+letterLabel, "letter");
-            letters.Add(letter);
+            characters.Add(theUKS.GetOrAddCharacter(c));
         }
         string retVal = word;
 
         // Use FindSequencesByActivation instead of HasSequence
         Thought searchOptions = theUKS.CreateSearchOptions(mustMatchFirst: true);
-        var suggestions = theUKS.FindSequencesByActivation(letters, searchOptions);
+        var suggestions = theUKS.FindSequencesByActivation(characters, searchOptions);
         // Filter by linkType "spelled"
         suggestions = suggestions
             .Where(r => r.seqNode.LinksFrom.Any(l => l.LinkType?.Label == "spelled"))
@@ -91,7 +88,8 @@ public class ModuleWord : ModuleBase
         if (suggestions.Count > 0)
         {
             var suggestionList = theUKS.FlattenSequence(suggestions[0].seqNode);
-            string suggestionString = string.Join("", suggestionList.Select(x => x.Label[2..]));
+            string suggestionString = string.Join("", suggestionList.Select(
+                x => x.Label[UKS.UKS.CharacterPrefix.Length..]));
             retVal = suggestionString;
         }
         return retVal;
@@ -128,19 +126,7 @@ public class ModuleWord : ModuleBase
         {
             return retVal; // Spelling already exists, no need to add again
         }
-        // Create list of letter thoughts
-        List<Thought> letters = new();
-        foreach (char c in word.ToUpper())
-        {
-            Thought letter = theUKS.GetOrAddThought("c:" + c, "letter");
-            letters.Add(letter);
-        }
-
-        // Get or create the "spelled" Linktype
-        Thought spelledLinkType = theUKS.GetOrAddThought("spelled", "LinkType");
-
-        // Add the sequence
-        var t = theUKS.AddSequenceAndLink(wordThought, spelledLinkType, letters);
+        theUKS.CreateSpellingSequence(word, wordThought);
         //wordThought.TimeToLive = TimeSpan.FromSeconds(10);
 
         return retVal;
@@ -257,7 +243,7 @@ public class ModuleWord : ModuleBase
     {
         foreach (char c in added)
         {
-            letterQueue.Enqueue(theUKS.GetOrAddThought("c:" + char.ToUpper(c), "letter"));
+            letterQueue.Enqueue(theUKS.GetOrAddCharacter(c));
         }
     }
     public void RebuildQueueFromCurrentText(string current)
@@ -265,7 +251,7 @@ public class ModuleWord : ModuleBase
         letterQueue.Clear();
         foreach (char c in current.ToUpper())
         {
-            letterQueue.Enqueue(theUKS.GetOrAddThought("c:" + c, "letter"));
+            letterQueue.Enqueue(theUKS.GetOrAddCharacter(c));
         }
     }
 }

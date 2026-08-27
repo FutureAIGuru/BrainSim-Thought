@@ -275,13 +275,7 @@ public class ModuleAlgorithm : ModuleBase
         // Process param1
         if (!string.IsNullOrEmpty(param1Value))
         {
-            Thought param1ValueThought = theUKS.Labeled(param1Value);
-            if (param1ValueThought == null)
-            {
-                // Create new thought with spelling sequence
-                param1ValueThought = theUKS.GetOrAddThought(param1Value, "Thing");
-                CreateSpellingSequence(param1Value, param1ValueThought);
-            }
+            Thought param1ValueThought = GetOrCreateParameterValue(param1Value);
             // Link: param1 -> ref -> param1ValueThought
             Link param1Action = new(param1Thought, setRefType, param1ValueThought);
             theUKS.ApplyTestOrSetAction(param1Action);
@@ -290,13 +284,7 @@ public class ModuleAlgorithm : ModuleBase
         // Process param2
         if (!string.IsNullOrEmpty(param2Value))
         {
-            Thought param2ValueThought = theUKS.Labeled(param2Value);
-            if (param2ValueThought == null)
-            {
-                // Create new thought with spelling sequence
-                param2ValueThought = theUKS.GetOrAddThought(param2Value, "Thing");
-                CreateSpellingSequence(param2Value, param2ValueThought);
-            }
+            Thought param2ValueThought = GetOrCreateParameterValue(param2Value);
             // Link: param2 -> ref -> param2ValueThought
             Link param2Action = new(param2Thought, setRefType, param2ValueThought);
             theUKS.ApplyTestOrSetAction(param2Action);
@@ -332,26 +320,17 @@ public class ModuleAlgorithm : ModuleBase
         return retVal;
     }
 
-    private void CreateSpellingSequence(string word, Thought wordThought)
+    private Thought GetOrCreateParameterValue(string value)
     {
-        List<Thought> letters = new List<Thought>();
-        foreach (char c in word.ToUpper())
-        {
-            string letterName = c.ToString();
-            Thought letterThought = theUKS.GetOrAddThought(letterName, "Letter");
-            letters.Add(letterThought);
-        }
+        if (value.Length == 1)
+            return theUKS.GetOrAddCharacter(value[0]);
 
-        if (letters.Count > 0)
-        {
-            SeqElement spellingSeq = theUKS.AddSequence(word + "-spelling", letters);
-            if (spellingSeq != null)
-            {
-                spellingSeq.Label = word + "-seq0";
-                Thought spelledType = theUKS.GetOrAddThought("spelled", "LinkType");
-                wordThought.AddLink(spelledType, spellingSeq);
-            }
-        }
+        Thought valueThought = theUKS.Labeled(value);
+        if (valueThought is not null) return valueThought;
+
+        valueThought = theUKS.GetOrAddThought(value, "Thing");
+        theUKS.CreateSpellingSequence(value, valueThought);
+        return valueThought;
     }
 
     private bool ExecuteAllSteps()

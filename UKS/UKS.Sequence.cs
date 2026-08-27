@@ -85,6 +85,11 @@ public class SeqElement : Thought
 
 public partial class UKS
 {
+    public const string CharacterPrefix = "c:";
+
+    public static string GetCharacterLabel(char character) =>
+        CharacterPrefix + char.ToUpperInvariant(character);
+
     //The structure of a sequence is a series (linked list) of elements, each with 3 links.
     //"NXT" with a To of the next element in the sequence
     //"VLU" to the actual Thought in the sequence
@@ -433,6 +438,30 @@ public partial class UKS
         source.AddLink(linkType, rawSequence);
         return rawSequence;
     }
+
+    /// <summary>
+    /// Gets the canonical Thought for a written character.
+    /// </summary>
+    public Thought GetOrAddCharacter(char character)
+    {
+        Thought characterRoot = GetOrAddThought("character", "Abstract");
+        return GetOrAddThought(GetCharacterLabel(character), characterRoot);
+    }
+
+    /// <summary>
+    /// Creates a canonical character sequence and links it to its owner as its spelling.
+    /// </summary>
+    public SeqElement CreateSpellingSequence(string spelling, Thought owner)
+    {
+        if (owner is null || string.IsNullOrEmpty(spelling)) return null;
+
+        List<Thought> characters = spelling
+            .Select(GetOrAddCharacter)
+            .ToList();
+        Thought spelled = GetOrAddThought("spelled", "LinkType");
+        return AddSequenceAndLink(owner, spelled, characters);
+    }
+
     public Thought GetReferrer(SeqElement seqNode, Thought linkType)
     {
         var referrers = seqNode.LinksFrom.Where(x => x.LinkType == linkType);

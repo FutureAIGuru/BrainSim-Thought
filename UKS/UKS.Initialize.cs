@@ -216,13 +216,13 @@ public partial class UKS
         if (piThought is not null && hasDigitLink is not null)
             AddSequenceAndLink(piThought, hasDigitLink, piDigits);
 
-        //put in letters
-        GetOrAddThought("letter", "Abstract");
+        //put in characters used by the alphabet
+        GetOrAddThought("character", "Abstract");
         List<Thought> theAlphabet = new();
         for (char c = 'A'; c <= 'Z'; c++)
         {
-            Thought? letter = GetOrAddThought("l:" + c, "Letter");
-            if (letter is not null) theAlphabet.Add(letter);
+            Thought character = GetOrAddCharacter(c);
+            if (character is not null) theAlphabet.Add(character);
         }
         GetOrAddThought("alphabet", "abstract");
         Thought? alphabetThought = GetOrAddThought("alphabet", "abstract");

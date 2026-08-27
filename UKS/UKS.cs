@@ -334,9 +334,7 @@ public partial class UKS
             {
                 if (label1.Length == 1)
                 {
-                    Thought? letterParent = theUKS.GetOrAddThought("letter", "Abstract");
-                    letterParent?.RemoveParent("Object");
-                    Thought? t1 = theUKS.GetOrAddThought(label1.ToUpper(), letterParent!);
+                    Thought? t1 = theUKS.GetOrAddCharacter(label1[0]);
                     if (t1 is not null) targets.Add(t1);
                 }
                 else

@@ -1164,7 +1164,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         {
             Thought word = uks.GetOrAddThought("w:" + spelling, "Word");
             List<Thought> letters = spelling.ToUpperInvariant()
-                .Select(letter => uks.GetOrAddThought("c:" + letter, "letter"))
+                .Select(uks.GetOrAddCharacter)
                 .ToList();
             uks.AddSequenceAndLink(word, "spelled", letters);
             word.AddParent(learnedClass);
@@ -1205,7 +1205,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         Thought classRoot = uks.GetOrAddThought("LearnedClass", "LanguageElement");
         Thought patternRoot = uks.GetOrAddThought("SpellingPattern", "LanguageElement");
         Thought position = uks.GetOrAddThought("end");
-        Thought addedLetter = uks.GetOrAddThought("c:S", "letter");
+        Thought addedLetter = uks.GetOrAddCharacter('S');
         for (int index = 0; index < 3; index++)
         {
             Thought sourceClass = uks.GetOrAddThought($"sourceClass{index}", classRoot);
@@ -1298,7 +1298,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         if (word.GetTargetOfFirstLinkOfType("spelled") is null)
         {
             List<Thought> letters = label.ToUpperInvariant()
-                .Select(letter => uks.GetOrAddThought("c:" + letter, "letter"))
+                .Select(uks.GetOrAddCharacter)
                 .ToList();
             uks.AddSequenceAndLink(word, uks.GetOrAddThought("spelled", "LinkType"), letters);
         }

@@ -68,7 +68,7 @@ public class ModuleSequenceSegmenter : ModuleBase
         EnsureKnowledge();
         List<Thought> symbols = (input ?? string.Empty)
             .Where(char.IsLetter)
-            .Select(letter => theUKS.Labeled("l:" + char.ToUpperInvariant(letter)))
+            .Select(letter => theUKS.Labeled(UKS.UKS.GetCharacterLabel(letter)))
             .Where(letter => letter is not null)
             .ToList();
         if (symbols.Count == 0)
@@ -249,8 +249,8 @@ public class ModuleSequenceSegmenter : ModuleBase
     private static string GetSymbolText(IEnumerable<Thought> symbols)
     {
         return string.Concat(symbols.Select(symbol =>
-            symbol.Label.StartsWith("l:", StringComparison.OrdinalIgnoreCase)
-                ? symbol.Label[2..].ToLowerInvariant()
+            symbol.Label.StartsWith(UKS.UKS.CharacterPrefix, StringComparison.OrdinalIgnoreCase)
+                ? symbol.Label[UKS.UKS.CharacterPrefix.Length..].ToLowerInvariant()
                 : symbol.Label.ToLowerInvariant()));
     }
 

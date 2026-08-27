@@ -117,7 +117,7 @@ public class ModuleSequenceSegmenterTests
     }
 
     [Fact]
-    public void CandidatesUseExistingLetterThoughtsAndAddSequenceAndLink()
+    public void CandidatesUseExistingCharacterThoughtsAndAddSequenceAndLink()
     {
         UKS.UKS uks = CreateUKS();
         FixedChunkSegmenter module = new() { theUKS = uks, FixedSize = 3 };
@@ -130,9 +130,9 @@ public class ModuleSequenceSegmenterTests
         Assert.Equal("DOG", string.Concat(
             uks.FlattenSequence(sequence).Select(symbol => symbol.Label[2..])));
         Assert.All(uks.FlattenSequence(sequence), symbol =>
-            Assert.StartsWith("l:", symbol.Label));
+            Assert.StartsWith("c:", symbol.Label));
         Assert.DoesNotContain(uks.AtomicThoughts, thought =>
-            thought.Label.StartsWith("c:"));
+            thought.Label.StartsWith("l:"));
     }
 
     [Fact]

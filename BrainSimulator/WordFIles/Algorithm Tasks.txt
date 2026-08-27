@@ -527,13 +527,11 @@ unl_3c22e088   [TEST.ref->is-a->ref] 1.00 1.00 False
 unl_5599d77e   [SET.ref->is-a->ref] 1.00 1.00 False
 unl_d4fbae54   [ref->hasProperty->isExclusive] 1.00 1.00 False
 isExclusive     1.00 1.00 False
-unl_5bdde83b   [cat-seq0->VLU->C] 1.00 1.00 False
-C               1.00 1.00 False
+unl_5bdde83b   [cat-seq0->VLU->c:C] 1.00 1.00 False
 unl_a1bb94da   [cat-seq0->FRST->cat-seq0] 1.00 1.00 False
 unl_0dbe2755   [cat-seq0->NXT->cat-seq1] 1.00 1.00 False
 cat-seq1        1.00 1.00 False
-unl_8b9ff6e3   [dog-seq0->VLU->D] 1.00 1.00 False
-D               1.00 1.00 False
+unl_8b9ff6e3   [dog-seq0->VLU->c:D] 1.00 1.00 False
 unl_8ed2438e   [dog-seq0->FRST->dog-seq0] 1.00 1.00 False
 unl_2a709cc0   [dog-seq0->NXT->dog-seq1] 1.00 1.00 False
 dog-seq1        1.00 1.00 False
@@ -586,21 +584,17 @@ unl_379de488   [SET.EQ->IS->EQ] 1.00 1.00 False
 EQ              1.00 1.00 False
 unl_ec6f8a26   [SET.GT->IS->GT] 1.00 1.00 False
 unl_ea340e73   [cat-seq1->FRST->cat-seq0] 1.00 1.00 False
-unl_e231b455   [cat-seq1->VLU->A] 1.00 1.00 False
-A               1.00 1.00 False
+unl_e231b455   [cat-seq1->VLU->c:A] 1.00 1.00 False
 unl_c67ea8c5   [cat-seq1->NXT->cat-seq2] 1.00 1.00 False
 cat-seq2        1.00 1.00 False
 unl_aa477fe9   [cat-seq2->FRST->cat-seq0] 1.00 1.00 False
-unl_8256b21a   [cat-seq2->VLU->T] 1.00 1.00 False
-T               1.00 1.00 False
+unl_8256b21a   [cat-seq2->VLU->c:T] 1.00 1.00 False
 unl_3158da1e   [dog-seq1->FRST->dog-seq0] 1.00 1.00 False
-unl_d56de78a   [dog-seq1->VLU->O] 1.00 1.00 False
-O               1.00 1.00 False
+unl_d56de78a   [dog-seq1->VLU->c:O] 1.00 1.00 False
 unl_25f33205   [dog-seq1->NXT->dog-seq2] 1.00 1.00 False
 dog-seq2        1.00 1.00 False
 unl_8f919e9f   [dog-seq2->FRST->dog-seq0] 1.00 1.00 False
-unl_41159cd4   [dog-seq2->VLU->G] 1.00 1.00 False
-G               1.00 1.00 False
+unl_41159cd4   [dog-seq2->VLU->c:G] 1.00 1.00 False
 unl_dccb8173   [NOT.TEST.same->IS->TEST] 1.00 1.00 False
 TEST            1.00 1.00 False
 unl_f8c69368   [NOT.TEST.same->IS->SAME] 1.00 1.00 False

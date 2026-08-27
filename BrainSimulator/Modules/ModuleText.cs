@@ -1149,7 +1149,7 @@ public class ModuleText : ModuleBase
         if (addition.To is not SeqElement)
         {
             string retVal = addition.To.Label.StartsWith(
-                "c:", StringComparison.OrdinalIgnoreCase)
+                UKS.UKS.CharacterPrefix, StringComparison.OrdinalIgnoreCase)
                 ? addition.To.Label[2..]
                 : addition.To.Label;
             return retVal;
@@ -1160,8 +1160,8 @@ public class ModuleText : ModuleBase
         string sequenceText = additionSequence is null
             ? ""
             : string.Concat(additionSequence.Elements.Select(element =>
-                element.Label.StartsWith("c:", StringComparison.OrdinalIgnoreCase)
-                    ? element.Label[2..]
+                element.Label.StartsWith(UKS.UKS.CharacterPrefix, StringComparison.OrdinalIgnoreCase)
+                    ? element.Label[UKS.UKS.CharacterPrefix.Length..]
                     : element.Label));
         return sequenceText;
     }
@@ -1232,8 +1232,8 @@ public class ModuleText : ModuleBase
         if (spelling is not null)
         {
             retVal = string.Concat(spelling.Elements.Select(element =>
-                element.Label.StartsWith("c:", StringComparison.OrdinalIgnoreCase)
-                    ? element.Label[2..]
+                element.Label.StartsWith(UKS.UKS.CharacterPrefix, StringComparison.OrdinalIgnoreCase)
+                    ? element.Label[UKS.UKS.CharacterPrefix.Length..]
                     : element.Label));
         }
         else
@@ -1991,8 +1991,7 @@ public class ModuleText : ModuleBase
                     if (!alreadyHasAddition)
                     {
                         List<Thought> addedLetters = key.AddedText
-                            .Select(letter => theUKS.GetOrAddThought(
-                                "c:" + char.ToUpperInvariant(letter), "letter"))
+                            .Select(theUKS.GetOrAddCharacter)
                             .ToList();
                         if (addedLetters.Count == 1)
                             theUKS.AddStatement(pattern, addsType, addedLetters[0]);
