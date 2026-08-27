@@ -63,6 +63,7 @@ public class ModuleAlgorithm : ModuleBase
 
     private bool HandleFiringNeurons()
     {
+        //return false;
         var activeSteps = Thought.GetRecentlyFiredThoughts(TimeSpan.MaxValue); //for debug, no timeout
         Thought.ClearRecentlyFiredQueue();
         foreach (var activeStep in activeSteps)

@@ -28,17 +28,18 @@ public class UKSConditionalTests
     [Fact]
     public void Question_mark_component_creates_a_conditional_link_type()
     {
-        // English intent: "is.?" means the semantic relationship "is" used as a clause,
-        // not as an assertion. It therefore inherits from both "is" and the conditional "?" category.
+        // English intent: "play.?" means the semantic relationship "play" used as a clause,
+        // not as an assertion. It therefore inherits from both "play" and the conditional "?" category.
         var uks = new UKS(clear: true);
         uks.CreateInitialStructure();
 
-        Thought conditionalIs = uks.GetOrAddThought("is.?")!;
+        Thought conditionalPlay = uks.GetOrAddThought("play.?")!;
 
-        Assert.Contains(conditionalIs.Parents, parent => parent.Label == "is");
-        Assert.Contains(conditionalIs.Parents, parent => parent.Label == "?");
-        Assert.True(conditionalIs.HasProperty("conditional"));
-        Assert.DoesNotContain(conditionalIs.GetAttributes(), attribute => attribute.Label == "?");
+        Assert.Contains(conditionalPlay.Parents, parent => parent.Label == "play");
+        Assert.Contains(conditionalPlay.Parents, parent => parent.Label == "?");
+        Assert.True(conditionalPlay.HasProperty("isConditional"));
+        Assert.True(UKS.IsConditionalLinkType(conditionalPlay));
+        Assert.DoesNotContain(conditionalPlay.GetAttributes(), attribute => attribute.Label == "?");
     }
 
     [Fact]
@@ -61,27 +62,43 @@ public class UKSConditionalTests
     }
 
     [Fact]
-    public void Previously_loaded_question_mark_types_are_still_recognized_as_conditional()
+    public void Play_result_is_returned_only_when_weather_condition_is_met()
     {
-        // English intent: networks saved before the conditional taxonomy was introduced may contain
-        // "is.?" with ? as an internal attribute rather than a parent. Their rules must still evaluate,
-        // and the full Fido attribute list must still return "is wet" rather than stored clauses.
-        var (uks, fido, _, isType, wet, outside, _) = CreateWeatherFixture();
-        Thought legacyConditionalIs = uks.GetOrAddThought("is.?")!;
-        legacyConditionalIs.RemoveParent("?");
-        legacyConditionalIs.AddLink("is", "?");
-        var outsideCondition = new Link(fido, legacyConditionalIs, outside);
-        Link storedResultClause = uks.AddStatement(fido, legacyConditionalIs, wet)!;
-        var fullStatement = uks.AddStatement(storedResultClause, "IF", outsideCondition);
-        uks.AddStatement(fido, isType, outside);
+        var uks = new UKS(clear: true);
+        uks.CreateInitialStructure();
+        Thought fido = uks.GetOrAddThought("Fido")!;
+        Thought weather = uks.GetOrAddThought("weather")!;
+        Thought outside = uks.GetOrAddThought("outside")!;
+        Thought raining = uks.GetOrAddThought("raining")!;
+        Thought playConditional = uks.GetOrAddThought("play.?")!;
+        Thought isConditional = uks.GetOrAddThought("is.?")!;
+        Thought isType = uks.GetOrAddThought("is", "LinkType")!;
+        var weatherCondition = new Link(weather, isConditional, raining);
+        Link playResult = uks.AddStatement(fido, playConditional, outside)!;
+        uks.AddStatement(playResult, "IF", weatherCondition);
 
-        var attributes = uks.GetAttributes(fido);
+        Assert.DoesNotContain(uks.GetAttributes(fido),
+            link => link.To == outside);
 
-        Assert.Contains(attributes, IsWet);
-        Assert.DoesNotContain(attributes,
-            link => link.LinkType?.Label == "is.?" && link.To == wet);
-        Assert.DoesNotContain(attributes,
-            link => link.LinkType?.Label == "is.?" && link.To == outside);
+        uks.AddStatement(weather, isType, raining);
+
+        Assert.Contains(uks.GetAttributes(fido),
+            link => link.LinkType?.Label == "play" && link.To == outside);
+        Assert.DoesNotContain(uks.GetAttributes(fido),
+            link => link.LinkType?.Label == "play.?" && link.To == outside);
+    }
+
+    [Fact]
+    public void Question_mark_label_without_property_is_not_conditional()
+    {
+        var uks = new UKS(clear: true);
+        uks.CreateInitialStructure();
+        Thought linkType = uks.GetOrAddThought("play.?")!;
+
+        linkType.RemoveParent("?");
+
+        Assert.False(linkType.HasProperty("isConditional"));
+        Assert.False(UKS.IsConditionalLinkType(linkType));
     }
 
     [Fact]

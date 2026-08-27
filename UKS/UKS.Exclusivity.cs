@@ -50,11 +50,8 @@ public partial class UKS
 
         if (r1.To != r2.To && (r1.To is null || r2.To is null)) return false;
         if (r1.To == r2.To && r1.LinkType == r2.LinkType) return false;
-        //TODO Verify this:
-        if (r1.HasProperty("isResult")) return false;
-        if (r1.HasProperty("isCondition")) return false;
-        if (r2.HasProperty("isResult")) return false;
-        if (r2.HasProperty("isCondition")) return false;
+        //Conditional clauses describe rules rather than competing assertions.
+        if (IsConditionalLinkType(r1.LinkType) || IsConditionalLinkType(r2.LinkType)) return false;
 
         if (LinkTypesAreExclusive(r1, r2))
             return true;

@@ -123,4 +123,19 @@ public class UKSExclusivityTests
 
         Assert.False(uks.LinksAreExclusive_ForTests(carHasEngine, fidoHasEars));
     }
+
+    [Fact]
+    public void LinksAreExclusive_ConditionalClauseAndAssertion_NotExclusive()
+    {
+        var uks = CreateUKS();
+        Thought fido = uks.GetOrAddThought("Fido")!;
+        Thought wet = uks.GetOrAddThought("wet")!;
+        Thought conditionalIs = uks.GetOrAddThought("is.?")!;
+        Thought negativeIs = uks.GetOrAddThought("is.not")!;
+        var conditionalClause = new Link(fido, conditionalIs, wet);
+        var negativeAssertion = new Link(fido, negativeIs, wet);
+
+        Assert.True(conditionalIs.HasProperty("isConditional"));
+        Assert.False(uks.LinksAreExclusive_ForTests(conditionalClause, negativeAssertion));
+    }
 }

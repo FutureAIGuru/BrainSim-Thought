@@ -148,12 +148,14 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             link.From is Link left && link.To is Link right)
             return $"{FormatClause(left)} and {FormatClause(right)}";
 
-        return $"{FormatThought(link.From)} {NaturalPredicate(link.LinkType?.Label)} {FormatThought(link.To)}";
+        return $"{FormatThought(link.From)} {NaturalPredicate(link.LinkType)} {FormatThought(link.To)}";
     }
 
-    private static string NaturalPredicate(string linkType)
+    private static string NaturalPredicate(Thought linkType)
     {
-        string predicate = string.Join(" ", (linkType ?? "?").Split('.').Where(part => part != "?"));
+        string predicate = linkType?.Label ?? "?";
+        if (UKS.UKS.IsConditionalLinkType(linkType))
+            predicate = string.Join(" ", predicate.Split('.').Where(part => part != "?"));
         string normalized = predicate.ToLowerInvariant();
         if (normalized == "is-a") return "is a";
         if (normalized is "is" or "has" or "can" or "owns" or "goes" or "does" or "must" or "should" or "will")

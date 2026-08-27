@@ -167,7 +167,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             //if (l.LinkType.Label != "means") continue;
             if (showConditionals.IsChecked != true && l.LinkType.Label == "evidence") continue;
             if (showConditionals.IsChecked != true)
-                if (l.HasProperty("isCondition") || l.HasProperty("isResult")) continue; //hide conditionals
+                if (UKS.UKS.IsConditionalLinkType(l.LinkType)) continue;
             var x = expandedItems;
 
             TreeViewItem tviLink = GetTreeChildFormatted(currentLabel, l);
@@ -196,7 +196,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         foreach (Link r in sortedLinks)
         {
             if (showConditionals.IsChecked != true)
-                if (r.HasProperty("isCondition") || r.HasProperty("isResult")) continue; //hide conditionals
+                if (UKS.UKS.IsConditionalLinkType(r.LinkType)) continue;
 
             TreeViewItem tviLink = GetTreeChildFormatted(parentLabel, r);
             tviLink.ContextMenu = GetLinkContextMenu(r);

@@ -1,0 +1,616 @@
+Task            1.00 1.00 False
+unl_6f381d98   [Task->is-a->Thought] 1.00 1.00 False
+is-a            1.00 1.00 False
+Thought         1.00 1.00 False
+unl_32b44d98   [GetInputParameters->is-a->Task] 1.00 1.00 False
+GetInputParameters 1.00 1.00 False
+unl_cdef0ec2   [CompareLetters->is-a->Task] 1.00 1.00 False
+CompareLetters  1.00 1.00 False
+unl_6a4eae94   [InvertBool->is-a->Task] 1.00 1.00 False
+InvertBool      1.00 1.00 False
+unl_17770771   [variable->is-a->Task] 1.00 1.00 False
+variable        1.00 1.00 False
+unl_e41fc841   [SeqLength->is-a->Task] 1.00 1.00 False
+SeqLength       1.00 1.00 False
+unl_87e68a14   [Alphabetize->is-a->Task] 1.00 1.00 False
+Alphabetize     1.00 1.00 False
+unl_b4f1fa6a   [FollowSequence->is-a->Task] 1.00 1.00 False
+FollowSequence  1.00 1.00 False
+unl_56056429   [GetInputParameters->steps->GetInputParameters-seq0] 1.00 1.00 False
+steps           1.00 1.00 False
+GetInputParameters-seq0 1.00 1.00 False
+unl_22326f21   [GetInputParameters->retVal->Alphabetize_main-seq1] 1.00 1.00 False
+retVal          1.00 1.00 False
+Alphabetize_main-seq1 1.00 1.00 False
+unl_6fed5e33   [advanceA->is-a->CompareLetters] 1.00 1.00 False
+advanceA        1.00 1.00 False
+unl_12618a2c   [ContextAlpha->is-a->CompareLetters] 1.00 1.00 False
+ContextAlpha    1.00 1.00 False
+unl_ad34ca68   [CompareLetters_main->is-a->CompareLetters] 1.00 1.00 False
+CompareLetters_main 1.00 1.00 False
+unl_3256effd   [lettersequal->is-a->CompareLetters] 1.00 1.00 False
+lettersequal    1.00 1.00 False
+unl_cd139d32   [p1First->is-a->CompareLetters] 1.00 1.00 False
+p1First         1.00 1.00 False
+unl_ec1666ce   [p2First->is-a->CompareLetters] 1.00 1.00 False
+p2First         1.00 1.00 False
+unl_f462be6e   [InvertBool_main->is-a->InvertBool] 1.00 1.00 False
+InvertBool_main 1.00 1.00 False
+unl_d7bd91f2   [ContextNot->is-a->InvertBool] 1.00 1.00 False
+ContextNot      1.00 1.00 False
+unl_389f6d38   [writeTrue->is-a->InvertBool] 1.00 1.00 False
+writeTrue       1.00 1.00 False
+unl_fd2e6860   [writeFalse->is-a->InvertBool] 1.00 1.00 False
+writeFalse      1.00 1.00 False
+unl_dba4c78f   [param2->is-a->variable] 1.00 1.00 False
+param2          1.00 1.00 False
+unl_55a084d8   [param1->is-a->variable] 1.00 1.00 False
+param1          1.00 1.00 False
+unl_a66f82ea   [p1->is-a->variable] 1.00 1.00 False
+p1              1.00 1.00 False
+unl_ab7d9578   [p2->is-a->variable] 1.00 1.00 False
+p2              1.00 1.00 False
+unl_d1ded147   [a1->is-a->variable] 1.00 1.00 False
+a1              1.00 1.00 False
+unl_224ff5d1   [retVal->is-a->variable] 1.00 1.00 False
+unl_43b9979a   [SeqLength_main->is-a->SeqLength] 1.00 1.00 False
+SeqLength_main  1.00 1.00 False
+unl_1236535c   [GetInputParameters->is-a->SeqLength] 1.00 1.00 False
+unl_af6cc4d5   [ContextLength->is-a->SeqLength] 1.00 1.00 False
+ContextLength   1.00 1.00 False
+unl_84df852e   [p1Longer->is-a->SeqLength] 1.00 1.00 False
+p1Longer        1.00 1.00 False
+unl_7a85a09b   [p2Longer->is-a->SeqLength] 1.00 1.00 False
+p2Longer        1.00 1.00 False
+unl_b7afada2   [continue->is-a->SeqLength] 1.00 1.00 False
+continue        1.00 1.00 False
+unl_48c7a925   [equal->is-a->SeqLength] 1.00 1.00 False
+equal           1.00 1.00 False
+unl_adbad6fe   [Alphabetize_main->is-a->Alphabetize] 1.00 1.00 False
+Alphabetize_main 1.00 1.00 False
+unl_b9e8fdfb   [cWords->is-a->Alphabetize] 1.00 1.00 False
+cWords          1.00 1.00 False
+unl_27eb427e   [w1First->is-a->Alphabetize] 1.00 1.00 False
+w1First         1.00 1.00 False
+unl_ebcbf8cc   [w2First->is-a->Alphabetize] 1.00 1.00 False
+w2First         1.00 1.00 False
+unl_9c771fd2   [wordsEqual->is-a->Alphabetize] 1.00 1.00 False
+wordsEqual      1.00 1.00 False
+unl_c45f1bf3   [advanceWordLetters->is-a->Alphabetize] 1.00 1.00 False
+advanceWordLetters 1.00 1.00 False
+unl_38f10371   [compare2Letters->is-a->Alphabetize] 1.00 1.00 False
+compare2Letters 1.00 1.00 False
+unl_10c2882e   [cLetters->is-a->Alphabetize] 1.00 1.00 False
+cLetters        1.00 1.00 False
+unl_84095c54   [advanceLetter->is-a->Alphabetize] 1.00 1.00 False
+advanceLetter   1.00 1.00 False
+unl_442cd74b   [FollowSequence_main->is-a->FollowSequence] 1.00 1.00 False
+FollowSequence_main 1.00 1.00 False
+unl_e424b0c1   [FollowSequence_Responses1->is-a->FollowSequence] 1.00 1.00 False
+FollowSequence_Responses1 1.00 1.00 False
+unl_279b3bde   [FollowSequence_Continue->is-a->FollowSequence] 1.00 1.00 False
+FollowSequence_Continue 1.00 1.00 False
+unl_fd3f38c5   [FollowSequence_Done->is-a->FollowSequence] 1.00 1.00 False
+FollowSequence_Done 1.00 1.00 False
+unl_db8b8bec   [is-a->hasProperty->isTransitive] 1.00 1.00 False
+hasProperty     1.00 1.00 False
+isTransitive    1.00 1.00 False
+unl_c6963ddb   [is-a->hasProperty->inheritable] 1.00 1.00 False
+inheritable     1.00 1.00 False
+unl_d0dc8740   [GetInputParameters-seq0->VLU->unl_07abc528] 1.00 1.00 False
+VLU             1.00 1.00 False
+unl_07abc528   [p1->SET.ref->param1.ref] 1.00 1.00 False
+SET.ref         1.00 1.00 False
+param1.ref      1.00 1.00 False
+unl_48551513   [GetInputParameters-seq0->FRST->GetInputParameters-seq0] 1.00 1.00 False
+FRST            1.00 1.00 False
+unl_462e1909   [GetInputParameters-seq0->NXT->GetInputParameters-seq1] 1.00 1.00 False
+NXT             1.00 1.00 False
+GetInputParameters-seq1 1.00 1.00 False
+unl_8fe2a287   [Alphabetize_main-seq1->FRST->Alphabetize_main-seq0] 1.00 1.00 False
+Alphabetize_main-seq0 1.00 1.00 False
+unl_0d0d4934   [Alphabetize_main-seq1->VLU->unl_e333ed93] 1.00 1.00 False
+unl_e333ed93   [p1->SET.ref->p1.ref.spelled] 1.00 1.00 False
+p1.ref.spelled  1.00 1.00 False
+unl_b3d003e2   [Alphabetize_main-seq1->NXT->Alphabetize_main-seq2] 1.00 1.00 False
+Alphabetize_main-seq2 1.00 1.00 False
+unl_3ea5c327   [advanceA->steps->advanceA-seq0] 1.00 1.00 False
+advanceA-seq0   1.00 1.00 False
+unl_bdc580b9   [cf1->is-a->ContextAlpha] 1.00 1.00 False
+cf1             1.00 1.00 False
+unl_23f16de9   [cf2->is-a->ContextAlpha] 1.00 1.00 False
+cf2             1.00 1.00 False
+unl_98f35454   [cEqual->is-a->ContextAlpha] 1.00 1.00 False
+cEqual          1.00 1.00 False
+unl_88ef0eb3   [cP1First->is-a->ContextAlpha] 1.00 1.00 False
+cP1First        1.00 1.00 False
+unl_dd483962   [cp2First->is-a->ContextAlpha] 1.00 1.00 False
+cp2First        1.00 1.00 False
+unl_8b043289   [cContinue->is-a->ContextAlpha] 1.00 1.00 False
+cContinue       1.00 1.00 False
+unl_1a6e7a4e   [CompareLetters_main->steps->CompareLetters_main-seq0] 1.00 1.00 False
+CompareLetters_main-seq0 1.00 1.00 False
+unl_34cac739   [lettersequal->steps->lettersequal-seq0] 1.00 1.00 False
+lettersequal-seq0 1.00 1.00 False
+unl_59718f62   [p1First->steps->p1First-seq0] 1.00 1.00 False
+p1First-seq0    1.00 1.00 False
+unl_7aa74fbc   [p2First->steps->p2First-seq0] 1.00 1.00 False
+p2First-seq0    1.00 1.00 False
+unl_d5a480e5   [InvertBool_main->steps->boolNOT-seq0] 1.00 1.00 False
+boolNOT-seq0    1.00 1.00 False
+unl_7fd20da7   [cTrue->is-a->ContextNot] 1.00 1.00 False
+cTrue           1.00 1.00 False
+unl_2cb4541f   [cFalse->is-a->ContextNot] 1.00 1.00 False
+cFalse          1.00 1.00 False
+unl_52cf4a50   [writeTrue->steps->writeTrue-seq0] 1.00 1.00 False
+writeTrue-seq0  1.00 1.00 False
+unl_4b5f1d07   [writeFalse->steps->writeFalse-seq0] 1.00 1.00 False
+writeFalse-seq0 1.00 1.00 False
+unl_32edaecb   [param2.ref->is-a->param2] 1.00 1.00 False
+param2.ref      1.00 1.00 False
+unl_5869a096   [param2->ref->cat] 1.00 1.00 False
+ref             1.00 1.00 False
+cat             1.00 1.00 False
+unl_b36d813a   [param1.ref->is-a->param1] 1.00 1.00 False
+unl_947d04b6   [param1->ref->dog] 1.00 1.00 False
+dog             1.00 1.00 False
+unl_044cf84e   [p1.ref.NXT->is-a->p1] 1.00 1.00 False
+p1.ref.NXT      1.00 1.00 False
+unl_6139a619   [p1.ref.FRST->is-a->p1] 1.00 1.00 False
+p1.ref.FRST     1.00 1.00 False
+unl_221eb557   [p1.ref.spelled->is-a->p1] 1.00 1.00 False
+unl_aa197901   [p1.ref->is-a->p1] 1.00 1.00 False
+p1.ref          1.00 1.00 False
+unl_31460468   [p1.ref.VLU->is-a->p1] 1.00 1.00 False
+p1.ref.VLU      1.00 1.00 False
+unl_96c5e76d   [p1->SET.ref->param1.ref] 1.00 1.00 False
+unl_ea3f185d   [p1->SET.ref->p1.ref.spelled] 1.00 1.00 False
+unl_7b60d55c   [p1->SET.ref->param1] 1.00 1.00 False
+unl_c261e2af   [p1->SET.ref->p1.ref.NXT] 1.00 1.00 False
+unl_fd5d2f41   [p1->SET.ref->p1.ref] 1.00 1.00 False
+unl_fce3d04d   [p1->SET.ref->p1] 1.00 1.00 False
+unl_790eedd3   [p1->SET.ref->digit.order] 1.00 1.00 False
+digit.order     1.00 1.00 False
+unl_d18df080   [p1->TEST.ref->TRUE] 1.00 1.00 False
+TEST.ref        1.00 1.00 False
+TRUE            1.00 1.00 False
+unl_7ee9b30b   [p1->TEST.ref->FALSE] 1.00 1.00 False
+FALSE           1.00 1.00 False
+unl_8bebb8f8   [p1->SET.ref->TRUE] 1.00 1.00 False
+unl_545218be   [p1->SET.ref->FALSE] 1.00 1.00 False
+unl_587962e9   [p1->TEST.NXT->??] 1.00 1.00 False
+TEST.NXT        1.00 1.00 False
+??              1.00 1.00 False
+unl_edef70a2   [p1->NOT.TEST.NXT->??] 1.00 1.00 False
+NOT.TEST.NXT    1.00 1.00 False
+unl_3cf3e237   [p2.ref.FRST->is-a->p2] 1.00 1.00 False
+p2.ref.FRST     1.00 1.00 False
+unl_59ec55bf   [p2.ref.spelled->is-a->p2] 1.00 1.00 False
+p2.ref.spelled  1.00 1.00 False
+unl_d0bfc5ee   [p2.ref.NXT->is-a->p2] 1.00 1.00 False
+p2.ref.NXT      1.00 1.00 False
+unl_72fef3e6   [p2.ref->is-a->p2] 1.00 1.00 False
+p2.ref          1.00 1.00 False
+unl_d166a3f9   [p2.ref.VLU->is-a->p2] 1.00 1.00 False
+p2.ref.VLU      1.00 1.00 False
+unl_c2cd77fe   [p2->SET.ref->p2.ref.spelled] 1.00 1.00 False
+unl_f39bdf19   [p2->SET.ref->p2.ref.NXT] 1.00 1.00 False
+unl_554c0528   [p2->TEST.NXT->??] 1.00 1.00 False
+unl_1d47127b   [p2->NOT.TEST.NXT->??] 1.00 1.00 False
+unl_f60b2219   [p2->SET.ref->param2] 1.00 1.00 False
+unl_ff479a23   [p2->SET.ref->param2.ref] 1.00 1.00 False
+unl_c73fa8b3   [a1.ref.NXT->is-a->a1] 1.00 1.00 False
+a1.ref.NXT      1.00 1.00 False
+unl_57330442   [a1.ref->is-a->a1] 1.00 1.00 False
+a1.ref          1.00 1.00 False
+unl_3b3c7717   [a1.ref.VLU->is-a->a1] 1.00 1.00 False
+a1.ref.VLU      1.00 1.00 False
+unl_3e831038   [A1.NXT->is-a->a1] 1.00 1.00 False
+A1.NXT          1.00 1.00 False
+unl_64e4b342   [a1->SET.ref->a1.ref.NXT] 1.00 1.00 False
+unl_e72ebbf6   [a1->SET.ref->A1.NXT] 1.00 1.00 False
+unl_a0232654   [a1->SET.ref->Alphabet.order] 1.00 1.00 False
+Alphabet.order  1.00 1.00 False
+unl_a1de1165   [SeqLength_main->steps->SeqLength_main-seq0] 1.00 1.00 False
+SeqLength_main-seq0 1.00 1.00 False
+unl_e8222e72   [clContinue->is-a->ContextLength] 1.00 1.00 False
+clContinue      1.00 1.00 False
+unl_d21bd942   [clEqual->is-a->ContextLength] 1.00 1.00 False
+clEqual         1.00 1.00 False
+unl_cb7d59b1   [clP1Longer->is-a->ContextLength] 1.00 1.00 False
+clP1Longer      1.00 1.00 False
+unl_93615d69   [clP2Longer->is-a->ContextLength] 1.00 1.00 False
+clP2Longer      1.00 1.00 False
+unl_903e2112   [p1Longer->steps->p1Longer-seq0] 1.00 1.00 False
+p1Longer-seq0   1.00 1.00 False
+unl_3605fd78   [p2Longer->steps->p2Longer-seq0] 1.00 1.00 False
+p2Longer-seq0   1.00 1.00 False
+unl_d500e206   [continue->steps->continue-seq0] 1.00 1.00 False
+continue-seq0   1.00 1.00 False
+unl_5640bf0d   [equal->steps->equal-seq0] 1.00 1.00 False
+equal-seq0      1.00 1.00 False
+unl_f1e206f5   [Alphabetize_main->steps->Alphabetize_main-seq0] 1.00 1.00 False
+unl_e08ec763   [cWordsContinue->is-a->cWords] 1.00 1.00 False
+cWordsContinue  1.00 1.00 False
+unl_69e151d1   [cWordsP1Ends->is-a->cWords] 1.00 1.00 False
+cWordsP1Ends    1.00 1.00 False
+unl_64588258   [cWordsP2Ends->is-a->cWords] 1.00 1.00 False
+cWordsP2Ends    1.00 1.00 False
+unl_20d0dc9f   [cWordsBothEnd->is-a->cWords] 1.00 1.00 False
+cWordsBothEnd   1.00 1.00 False
+unl_d10cef43   [cDifferent->is-a->cWords] 1.00 1.00 False
+cDifferent      1.00 1.00 False
+unl_520c0634   [w1First->steps->w1First-seq0] 1.00 1.00 False
+w1First-seq0    1.00 1.00 False
+unl_56b9a937   [w2First->steps->w2First-seq0] 1.00 1.00 False
+w2First-seq0    1.00 1.00 False
+unl_624574ff   [wordsEqual->steps->wordsEqual-seq0] 1.00 1.00 False
+wordsEqual-seq0 1.00 1.00 False
+unl_60388425   [advanceWordLetters->steps->advanceWordLetters-seq0] 1.00 1.00 False
+advanceWordLetters-seq0 1.00 1.00 False
+unl_c5248afe   [compare2Letters->steps->Compare2Letters-seq0] 1.00 1.00 False
+Compare2Letters-seq0 1.00 1.00 False
+unl_dcff0eb7   [cLettersP1First->is-a->cLetters] 1.00 1.00 False
+cLettersP1First 1.00 1.00 False
+unl_525229bd   [cLettersP2First->is-a->cLetters] 1.00 1.00 False
+cLettersP2First 1.00 1.00 False
+unl_01b3fc32   [cLettersContinue->is-a->cLetters] 1.00 1.00 False
+cLettersContinue 1.00 1.00 False
+unl_58e40b05   [advanceLetter->steps->advanceLetter-seq0] 1.00 1.00 False
+advanceLetter-seq0 1.00 1.00 False
+unl_d9395f7f   [FollowSequence_main->steps->FollowSequence_main-seq0] 1.00 1.00 False
+FollowSequence_main-seq0 1.00 1.00 False
+unl_efb8d13a   [cResponses1Continue->is-a->FollowSequence_Responses1] 1.00 1.00 False
+cResponses1Continue 1.00 1.00 False
+unl_18d1d73c   [cResponses1Done->is-a->FollowSequence_Responses1] 1.00 1.00 False
+cResponses1Done 1.00 1.00 False
+unl_d7800ac6   [FollowSequence_Continue->steps->FollowSequence_Continue-seq0] 1.00 1.00 False
+FollowSequence_Continue-seq0 1.00 1.00 False
+unl_5ed4ddc3   [GetInputParameters-seq1->FRST->GetInputParameters-seq0] 1.00 1.00 False
+unl_37258ae4   [GetInputParameters-seq1->VLU->unl_41d7f45f] 1.00 1.00 False
+unl_41d7f45f   [p2->SET.ref->param2.ref] 1.00 1.00 False
+unl_654ce528   [Alphabetize_main-seq2->FRST->Alphabetize_main-seq0] 1.00 1.00 False
+unl_4c84baaf   [Alphabetize_main-seq2->VLU->unl_79dae69d] 1.00 1.00 False
+unl_79dae69d   [p2->SET.ref->p2.ref.spelled] 1.00 1.00 False
+unl_ad40074b   [Alphabetize_main-seq2->NXT->Alphabetize_main-seq3] 1.00 1.00 False
+Alphabetize_main-seq3 1.00 1.00 False
+unl_52afc3fa   [Alphabetize_main-seq3->FRST->Alphabetize_main-seq0] 1.00 1.00 False
+unl_829d0b89   [Alphabetize_main-seq3->VLU->cWords] 1.00 1.00 False
+unl_ddb67005   [Alphabetize_main-seq0->VLU->GetInputParameters] 1.00 1.00 False
+unl_f3c9d6a9   [Alphabetize_main-seq0->FRST->Alphabetize_main-seq0] 1.00 1.00 False
+unl_cde516db   [Alphabetize_main-seq0->NXT->Alphabetize_main-seq1] 1.00 1.00 False
+unl_1404075f   [advanceA-seq0->VLU->unl_35cb7978] 1.00 1.00 False
+unl_35cb7978   [a1->SET.ref->a1.ref.NXT] 1.00 1.00 False
+unl_a0877cf1   [advanceA-seq0->FRST->advanceA-seq0] 1.00 1.00 False
+unl_b377b1d2   [advanceA-seq0->NXT->advanceA-seq1] 1.00 1.00 False
+advanceA-seq1   1.00 1.00 False
+unl_2e5e6410   [cf1->has->unl_5875b034] 1.00 1.00 False
+has             1.00 1.00 False
+unl_5875b034   [p2.ref->TEST.GT->p1.ref] 1.00 1.00 False
+TEST.GT         1.00 1.00 False
+unl_d37c1fb8   [cf1->response->p1First] 1.00 1.00 False
+response        1.00 1.00 False
+unl_c1a74330   [cf2->has->unl_3a297d1a] 1.00 1.00 False
+unl_3a297d1a   [p1.ref->TEST.GT->p2.ref] 1.00 1.00 False
+unl_c0556670   [cf2->response->p2First] 1.00 1.00 False
+unl_29483883   [cEqual->has->unl_af177c09] 1.00 1.00 False
+unl_af177c09   [p1.ref->TEST.same->p2.ref] 1.00 1.00 False
+TEST.same       1.00 1.00 False
+unl_89dcf798   [cEqual->response->lettersequal] 1.00 1.00 False
+unl_d0be2d1c   [cP1First->has->unl_39c63f40] 1.00 1.00 False
+unl_39c63f40   [a1.ref.VLU->TEST.same->p1.ref] 1.00 1.00 False
+unl_de7e2ac9   [cP1First->response->p1First] 1.00 1.00 False
+unl_cb11a49e   [cp2First->has->unl_d60c1e86] 1.00 1.00 False
+unl_d60c1e86   [a1.ref.VLU->TEST.same->p2.ref] 1.00 1.00 False
+unl_6ed9ec0f   [cp2First->response->p2First] 1.00 1.00 False
+unl_09c4c826   [cContinue->has->unl_fc3fd897] 0.50 1.00 False
+unl_fc3fd897   [a1.ref->TEST.NXT->??] 1.00 1.00 False
+unl_08eb8c82   [cContinue->response->advanceA] 1.00 1.00 False
+unl_bb4df35c   [CompareLetters_main-seq0->VLU->GetInputParameters] 1.00 1.00 False
+unl_04f63574   [CompareLetters_main-seq0->FRST->CompareLetters_main-seq0] 1.00 1.00 False
+unl_7c2c2944   [CompareLetters_main-seq0->NXT->CompareLetters_main-seq1] 1.00 1.00 False
+CompareLetters_main-seq1 1.00 1.00 False
+unl_50eecc9d   [lettersequal-seq0->VLU->unl_854cfa79] 1.00 1.00 False
+unl_854cfa79   [param1.ref->SET.EQ->param2.ref] 1.00 1.00 False
+SET.EQ          1.00 1.00 False
+unl_16aa695c   [lettersequal-seq0->FRST->lettersequal-seq0] 1.00 1.00 False
+unl_ced2c85d   [p1First-seq0->VLU->unl_acfab8fa] 1.00 1.00 False
+unl_acfab8fa   [param2.ref->SET.GT->param1.ref] 1.00 1.00 False
+SET.GT          1.00 1.00 False
+unl_b69663cf   [p1First-seq0->FRST->p1First-seq0] 1.00 1.00 False
+unl_31db37fd   [p2First-seq0->VLU->unl_945b511f] 1.00 1.00 False
+unl_945b511f   [param1.ref->SET.GT->param2.ref] 1.00 1.00 False
+unl_773fe36b   [p2First-seq0->FRST->p2First-seq0] 1.00 1.00 False
+unl_2379d1c7   [boolNOT-seq0->VLU->GetInputParameters] 1.00 1.00 False
+unl_30332bb5   [boolNOT-seq0->FRST->boolNOT-seq0] 1.00 1.00 False
+unl_357000ac   [boolNOT-seq0->NXT->boolNOT-seq1] 1.00 1.00 False
+boolNOT-seq1    1.00 1.00 False
+unl_f9e23fdb   [cTrue->has->unl_407c22f3] 1.00 1.00 False
+unl_407c22f3   [p1->TEST.ref->TRUE] 1.00 1.00 False
+unl_572b9287   [cTrue->response->writeFalse] 1.00 1.00 False
+unl_ecb3a90c   [cFalse->has->unl_74d32ee7] 1.00 1.00 False
+unl_74d32ee7   [p1->TEST.ref->FALSE] 1.00 1.00 False
+unl_c80f8340   [cFalse->response->writeTrue] 1.00 1.00 False
+unl_9c07c0a7   [writeTrue-seq0->VLU->unl_f54f309f] 1.00 1.00 False
+unl_f54f309f   [p1->SET.ref->TRUE] 1.00 1.00 False
+unl_61377f66   [writeTrue-seq0->FRST->writeTrue-seq0] 1.00 1.00 False
+unl_cf958ee3   [writeFalse-seq0->VLU->unl_94ca7ecb] 1.00 1.00 False
+unl_94ca7ecb   [p1->SET.ref->FALSE] 1.00 1.00 False
+unl_0474ce01   [writeFalse-seq0->FRST->writeFalse-seq0] 1.00 1.00 False
+unl_e135f215   [param2.ref->IS->ref] 1.00 1.00 False
+IS              1.00 1.00 False
+unl_7244722c   [param2.ref->SET.GT->param1.ref] 1.00 1.00 False
+unl_f854c820   [cat->spelled->cat-seq0] 1.00 1.00 False
+spelled         1.00 1.00 False
+cat-seq0        1.00 1.00 False
+unl_bee80989   [param1.ref->SET.EQ->param2.ref] 1.00 1.00 False
+unl_e380ba81   [param1.ref->SET.GT->param2.ref] 1.00 1.00 False
+unl_350c8449   [param1.ref->IS->ref] 1.00 1.00 False
+unl_88589f55   [dog->spelled->dog-seq0] 1.00 1.00 False
+dog-seq0        1.00 1.00 False
+unl_e5fea9a5   [p1.ref.NXT->IS->ref] 1.00 1.00 False
+unl_b5cc785f   [p1.ref.NXT->IS->NXT] 1.00 1.00 False
+unl_e5fb64e9   [p1.ref.FRST->SET.GT->p2.ref.FRST] 1.00 1.00 False
+unl_b719f655   [p1.ref.FRST->SET.EQ->p2.ref.FRST] 1.00 1.00 False
+unl_fa99c850   [p1.ref.FRST->IS->ref] 1.00 1.00 False
+unl_c1eebc61   [p1.ref.FRST->IS->FRST] 1.00 1.00 False
+unl_257897f9   [p1.ref.FRST->SET.GT->param1.ref] 1.00 1.00 False
+unl_abd6e0f4   [p1.ref.FRST->SET.EQ->param2.ref] 1.00 1.00 False
+unl_04753481   [p1.ref.spelled->IS->ref] 1.00 1.00 False
+unl_1452bdad   [p1.ref.spelled->IS->spelled] 1.00 1.00 False
+unl_665d3dd4   [p1.ref->TEST.GT->p2.ref] 1.00 1.00 False
+unl_888ad5fd   [p1.ref->TEST.same->p2.ref] 1.00 1.00 False
+unl_940b6548   [p1.ref->SET.EQ->p2.ref] 1.00 1.00 False
+unl_fd9ef68d   [p1.ref->SET.GT->p2.ref] 1.00 1.00 False
+unl_3c509161   [p1.ref->TEST.NXT->??] 1.00 1.00 False
+unl_b8acc770   [p1.ref->NOT.TEST.NXT->??] 1.00 1.00 False
+unl_29abf399   [p1.ref->IS->ref] 1.00 1.00 False
+unl_38044088   [p1.ref->TEST.same->p1.ref] 1.00 1.00 False
+unl_e6c9fa9b   [p1.ref.VLU->IS->ref] 1.00 1.00 False
+unl_9e484c57   [p1.ref.VLU->IS->VLU] 1.00 1.00 False
+unl_a0cae065   [p1.ref.VLU->TEST.same->p2.ref.VLU] 1.00 1.00 False
+unl_831049e8   [p1.ref.VLU->NOT.TEST.same->p2.ref.VLU] 1.00 1.00 False
+NOT.TEST.same   1.00 1.00 False
+unl_1a3a69c1   [digit.order->IS->order] 1.00 1.00 False
+order           1.00 1.00 False
+unl_1c08913f   [??->hasProperty->isWildcard] 1.00 1.00 False
+isWildcard      1.00 1.00 False
+unl_928dbb04   [p2.ref.FRST->SET.GT->p1.ref.FRST] 1.00 1.00 False
+unl_8539cedf   [p2.ref.FRST->IS->ref] 1.00 1.00 False
+unl_a68c170f   [p2.ref.FRST->IS->FRST] 1.00 1.00 False
+unl_33e85abf   [p2.ref.FRST->SET.GT->param1.ref] 1.00 1.00 False
+unl_22e25742   [p2.ref.spelled->IS->ref] 1.00 1.00 False
+unl_4cfba0f1   [p2.ref.spelled->IS->spelled] 1.00 1.00 False
+unl_30f8463f   [p2.ref.NXT->IS->ref] 1.00 1.00 False
+unl_10deb675   [p2.ref.NXT->IS->NXT] 1.00 1.00 False
+unl_c226d201   [p2.ref->TEST.GT->p1.ref] 1.00 1.00 False
+unl_68fade64   [p2.ref->SET.GT->p1.ref] 1.00 1.00 False
+unl_8b659d52   [p2.ref->TEST.NXT->??] 1.00 1.00 False
+unl_dd6378c1   [p2.ref->NOT.TEST.NXT->??] 1.00 1.00 False
+unl_57a28381   [p2.ref->IS->ref] 1.00 1.00 False
+unl_73d1a7e1   [p2.ref.VLU->IS->ref] 1.00 1.00 False
+unl_c0741ff4   [p2.ref.VLU->IS->VLU] 1.00 1.00 False
+unl_a3e0bb67   [a1.ref.NXT->IS->ref] 1.00 1.00 False
+unl_48590d68   [a1.ref.NXT->IS->NXT] 1.00 1.00 False
+unl_3f889afe   [a1.ref->TEST.NXT->??] 1.00 1.00 False
+unl_53ac239b   [a1.ref->IS->ref] 1.00 1.00 False
+unl_b41c564f   [a1.ref->NOT.TEST.NXT->??] 1.00 1.00 False
+unl_d230ba16   [a1.ref.VLU->TEST.same->p1.ref.VLU] 1.00 1.00 False
+unl_ab0cae4c   [a1.ref.VLU->TEST.same->p2.ref.VLU] 1.00 1.00 False
+unl_fa9bb1d4   [a1.ref.VLU->TEST.same->p1.ref] 1.00 1.00 False
+unl_7eb253ae   [a1.ref.VLU->TEST.same->p2.ref] 1.00 1.00 False
+unl_85e9be6f   [a1.ref.VLU->IS->ref] 1.00 1.00 False
+unl_76b78d88   [a1.ref.VLU->IS->VLU] 1.00 1.00 False
+unl_2c629e53   [A1.NXT->IS->NXT] 1.00 1.00 False
+unl_427f226a   [Alphabet.order->IS->order] 1.00 1.00 False
+unl_b6682787   [SeqLength_main-seq0->VLU->GetInputParameters] 1.00 1.00 False
+unl_76bcf564   [SeqLength_main-seq0->FRST->SeqLength_main-seq0] 1.00 1.00 False
+unl_ac8c6c20   [SeqLength_main-seq0->NXT->SeqLength_main-seq1] 1.00 1.00 False
+SeqLength_main-seq1 1.00 1.00 False
+unl_4117028d   [clContinue->has->unl_c70342aa] 1.00 1.00 False
+unl_c70342aa   [p1.ref->TEST.NXT->??] 1.00 1.00 False
+unl_74216e97   [clContinue->has->unl_5868db96] 1.00 1.00 False
+unl_5868db96   [p2.ref->TEST.NXT->??] 1.00 1.00 False
+unl_8d4c4d32   [clContinue->response->continue] 1.00 1.00 False
+unl_999f1477   [clEqual->has->unl_b876f615] 1.00 1.00 False
+unl_b876f615   [p1.ref->NOT.TEST.NXT->??] 1.00 1.00 False
+unl_a43a1efc   [clEqual->has->unl_0fc13349] 1.00 1.00 False
+unl_0fc13349   [p2.ref->NOT.TEST.NXT->??] 1.00 1.00 False
+unl_bc909966   [clEqual->response->equal] 1.00 1.00 False
+unl_e4392896   [clP1Longer->has->unl_c70342aa] 1.00 1.00 False
+unl_731081e7   [clP1Longer->has->unl_0fc13349] 1.00 1.00 False
+unl_f07bc3dc   [clP1Longer->response->p1Longer] 1.00 1.00 False
+unl_f89ddac3   [clP2Longer->has->unl_b876f615] 1.00 1.00 False
+unl_c869e20b   [clP2Longer->has->unl_5868db96] 1.00 1.00 False
+unl_629a1296   [clP2Longer->response->p2Longer] 1.00 1.00 False
+unl_d4bc9ef9   [p1Longer-seq0->VLU->unl_b4888364] 1.00 1.00 False
+unl_b4888364   [param1.ref->SET.GT->param2.ref] 1.00 1.00 False
+unl_60cc791b   [p1Longer-seq0->FRST->p1Longer-seq0] 1.00 1.00 False
+unl_07b3c05b   [p2Longer-seq0->VLU->unl_ddd1d7ff] 1.00 1.00 False
+unl_ddd1d7ff   [param2.ref->SET.GT->param1.ref] 1.00 1.00 False
+unl_e392411f   [p2Longer-seq0->FRST->p2Longer-seq0] 1.00 1.00 False
+unl_7647a4d3   [continue-seq0->VLU->unl_db4ed47d] 1.00 1.00 False
+unl_db4ed47d   [p1->SET.ref->p1.ref.NXT] 1.00 1.00 False
+unl_46659410   [continue-seq0->FRST->continue-seq0] 1.00 1.00 False
+unl_a8b9327b   [continue-seq0->NXT->continue-seq1] 1.00 1.00 False
+continue-seq1   1.00 1.00 False
+unl_96ba838c   [equal-seq0->VLU->unl_a8b6ff44] 1.00 1.00 False
+unl_a8b6ff44   [param1.ref->SET.EQ->param2.ref] 1.00 1.00 False
+unl_ab20d999   [equal-seq0->FRST->equal-seq0] 1.00 1.00 False
+unl_f809da91   [cWordsContinue->has->unl_e7a20728] 1.00 1.00 False
+unl_e7a20728   [p1.ref.VLU->TEST.same->p2.ref.VLU] 1.00 1.00 False
+unl_4ef2bc99   [cWordsContinue->has->unl_47b0c5a9] 1.00 1.00 False
+unl_47b0c5a9   [p1.ref->TEST.NXT->??] 1.00 1.00 False
+unl_937632e8   [cWordsContinue->has->unl_7d5e4422] 1.00 1.00 False
+unl_7d5e4422   [p2.ref->TEST.NXT->??] 1.00 1.00 False
+unl_168183b9   [cWordsContinue->response->advanceWordLetters] 1.00 1.00 False
+unl_4cb11750   [cWordsP1Ends->has->unl_e7a20728] 1.00 1.00 False
+unl_cc229a50   [cWordsP1Ends->has->unl_c8ec7bf1] 1.00 1.00 False
+unl_c8ec7bf1   [p1.ref->NOT.TEST.NXT->??] 1.00 1.00 False
+unl_85c853d8   [cWordsP1Ends->has->unl_7d5e4422] 1.00 1.00 False
+unl_9f03ceb1   [cWordsP1Ends->response->w1First] 1.00 1.00 False
+unl_69f6e406   [cWordsP2Ends->has->unl_e7a20728] 1.00 1.00 False
+unl_b23b3a58   [cWordsP2Ends->has->unl_47b0c5a9] 1.00 1.00 False
+unl_45c5fb13   [cWordsP2Ends->has->unl_e00ef23a] 1.00 1.00 False
+unl_e00ef23a   [p2.ref->NOT.TEST.NXT->??] 1.00 1.00 False
+unl_ab4481ea   [cWordsP2Ends->response->w2First] 1.00 1.00 False
+unl_f14c6bb6   [cWordsBothEnd->has->unl_e7a20728] 1.00 1.00 False
+unl_f098fddd   [cWordsBothEnd->has->unl_c8ec7bf1] 1.00 1.00 False
+unl_f693de61   [cWordsBothEnd->has->unl_e00ef23a] 1.00 1.00 False
+unl_a37980e7   [cWordsBothEnd->response->wordsEqual] 1.00 1.00 False
+unl_07c2e409   [cDifferent->has->unl_f091bf0f] 3.00 1.00 False
+unl_f091bf0f   [p1.ref.VLU->NOT.TEST.same->p2.ref.VLU] 1.00 1.00 False
+unl_75d69fa9   [cDifferent->response->compare2Letters] 1.00 1.00 False
+unl_48fb7313   [w1First-seq0->VLU->unl_81ac061b] 1.00 1.00 False
+unl_81ac061b   [param2.ref->SET.GT->param1.ref] 1.00 1.00 False
+unl_bb1807a0   [w1First-seq0->FRST->w1First-seq0] 1.00 1.00 False
+unl_e98a0d66   [w2First-seq0->VLU->unl_ee7ec692] 1.00 1.00 False
+unl_ee7ec692   [param1.ref->SET.GT->param2.ref] 1.00 1.00 False
+unl_4bac8a6c   [w2First-seq0->FRST->w2First-seq0] 1.00 1.00 False
+unl_b2580c11   [wordsEqual-seq0->VLU->unl_c599ed17] 1.00 1.00 False
+unl_c599ed17   [param1.ref->SET.EQ->param2.ref] 1.00 1.00 False
+unl_0764d620   [wordsEqual-seq0->FRST->wordsEqual-seq0] 1.00 1.00 False
+unl_c3fd50fa   [advanceWordLetters-seq0->VLU->unl_e1748eef] 1.00 1.00 False
+unl_e1748eef   [p1->SET.ref->p1.ref.NXT] 1.00 1.00 False
+unl_c5ec7040   [advanceWordLetters-seq0->FRST->advanceWordLetters-seq0] 1.00 1.00 False
+unl_d070bbf6   [advanceWordLetters-seq0->NXT->advanceWordLetters-seq1] 1.00 1.00 False
+advanceWordLetters-seq1 1.00 1.00 False
+unl_71c28b01   [Compare2Letters-seq0->VLU->unl_855ca46b] 1.00 1.00 False
+unl_855ca46b   [a1->SET.ref->Alphabet.order] 1.00 1.00 False
+unl_427712c2   [Compare2Letters-seq0->FRST->Compare2Letters-seq0] 1.00 1.00 False
+unl_62f8b141   [Compare2Letters-seq0->NXT->Compare2Letters-seq1] 1.00 1.00 False
+Compare2Letters-seq1 1.00 1.00 False
+unl_56543d9d   [cLettersP1First->has->unl_b4cb4179] 1.00 1.00 False
+unl_b4cb4179   [a1.ref.VLU->TEST.same->p1.ref.VLU] 1.00 1.00 False
+unl_9ad4c733   [cLettersP1First->response->w1First] 1.00 1.00 False
+unl_f2c4da2c   [cLettersP2First->has->unl_f5d81618] 1.00 1.00 False
+unl_f5d81618   [a1.ref.VLU->TEST.same->p2.ref.VLU] 1.00 1.00 False
+unl_381d2782   [cLettersP2First->response->w2First] 1.00 1.00 False
+unl_552a7bc2   [cLettersContinue->has->unl_22048f48] 1.00 1.00 False
+unl_22048f48   [a1.ref->TEST.NXT->??] 1.00 1.00 False
+unl_35fa93c6   [cLettersContinue->response->advanceLetter] 1.00 1.00 False
+unl_1de72fdb   [advanceLetter-seq0->VLU->unl_3659b93e] 1.00 1.00 False
+unl_3659b93e   [a1->SET.ref->a1.ref.NXT] 1.00 1.00 False
+unl_84c73800   [advanceLetter-seq0->FRST->advanceLetter-seq0] 1.00 1.00 False
+unl_c77ff403   [advanceLetter-seq0->NXT->advanceLetter-seq1] 1.00 1.00 False
+advanceLetter-seq1 1.00 1.00 False
+unl_816dee31   [FollowSequence_main-seq0->VLU->unl_7009dd44] 1.00 1.00 False
+unl_7009dd44   [a1->SET.ref->Alphabet.order] 1.00 1.00 False
+unl_758e3be6   [FollowSequence_main-seq0->FRST->FollowSequence_main-seq0] 1.00 1.00 False
+unl_903dc944   [FollowSequence_main-seq0->NXT->FollowSequence_main-seq1] 1.00 1.00 False
+FollowSequence_main-seq1 1.00 1.00 False
+unl_eab87486   [cResponses1Continue->has->unl_2ed076e9] 1.00 1.00 False
+unl_2ed076e9   [a1.ref->TEST.NXT->??] 1.00 1.00 False
+unl_7fbbc053   [cResponses1Continue->response->FollowSequence_Continue] 1.00 1.00 False
+unl_e7053896   [cResponses1Done->has->unl_b5d9b95a] 1.00 1.00 False
+unl_b5d9b95a   [a1.ref->NOT.TEST.NXT->??] 1.00 1.00 False
+unl_9eb02e4e   [cResponses1Done->response->FollowSequence_Done] 1.00 1.00 False
+unl_2cdca21d   [FollowSequence_Continue-seq0->VLU->unl_e64ee5c5] 1.00 1.00 False
+unl_e64ee5c5   [a1->SET.ref->a1.ref.NXT] 1.00 1.00 False
+unl_6ddd1f7c   [FollowSequence_Continue-seq0->FRST->FollowSequence_Continue-seq0] 1.00 1.00 False
+unl_f1ea0828   [FollowSequence_Continue-seq0->NXT->FollowSequence_Continue-seq1] 1.00 1.00 False
+FollowSequence_Continue-seq1 1.00 1.00 False
+unl_5017b127   [SET.ref->IS->ref] 1.00 1.00 False
+unl_9040da21   [TEST.NXT->is-a->NXT] 1.00 1.00 False
+unl_c9c2f54a   [advanceA-seq1->FRST->advanceA-seq0] 1.00 1.00 False
+unl_ed701966   [advanceA-seq1->VLU->ContextAlpha] 1.00 1.00 False
+unl_2f071d5d   [CompareLetters_main-seq1->FRST->CompareLetters_main-seq0] 1.00 1.00 False
+unl_bc8e53a4   [CompareLetters_main-seq1->VLU->unl_4d9b1b3b] 1.00 1.00 False
+unl_4d9b1b3b   [a1->SET.ref->Alphabet.order] 1.00 1.00 False
+unl_dcd74d0e   [CompareLetters_main-seq1->NXT->CompareLetters_main-seq2] 1.00 1.00 False
+CompareLetters_main-seq2 1.00 1.00 False
+unl_9fec423f   [CompareLetters_main-seq2->FRST->CompareLetters_main-seq0] 1.00 1.00 False
+unl_fced3a98   [CompareLetters_main-seq2->VLU->ContextAlpha] 1.00 1.00 False
+unl_955f301c   [boolNOT-seq1->FRST->boolNOT-seq0] 1.00 1.00 False
+unl_1b342a06   [boolNOT-seq1->VLU->ContextNot] 1.00 1.00 False
+unl_3c22e088   [TEST.ref->is-a->ref] 1.00 1.00 False
+unl_5599d77e   [SET.ref->is-a->ref] 1.00 1.00 False
+unl_d4fbae54   [ref->hasProperty->isExclusive] 1.00 1.00 False
+isExclusive     1.00 1.00 False
+unl_5bdde83b   [cat-seq0->VLU->C] 1.00 1.00 False
+C               1.00 1.00 False
+unl_a1bb94da   [cat-seq0->FRST->cat-seq0] 1.00 1.00 False
+unl_0dbe2755   [cat-seq0->NXT->cat-seq1] 1.00 1.00 False
+cat-seq1        1.00 1.00 False
+unl_8b9ff6e3   [dog-seq0->VLU->D] 1.00 1.00 False
+D               1.00 1.00 False
+unl_8ed2438e   [dog-seq0->FRST->dog-seq0] 1.00 1.00 False
+unl_2a709cc0   [dog-seq0->NXT->dog-seq1] 1.00 1.00 False
+dog-seq1        1.00 1.00 False
+unl_81c161a2   [TEST.ref->IS->ref] 1.00 1.00 False
+unl_21711756   [TEST.NXT->IS->NXT] 1.00 1.00 False
+unl_d0d5ecb8   [NOT.TEST.NXT->IS->NXT] 1.00 1.00 False
+unl_9b468e7e   [SeqLength_main-seq1->FRST->SeqLength_main-seq0] 1.00 1.00 False
+unl_60764871   [SeqLength_main-seq1->VLU->unl_ac187103] 1.00 1.00 False
+unl_ac187103   [p1->SET.ref->p1.ref.spelled] 1.00 1.00 False
+unl_c0429330   [SeqLength_main-seq1->NXT->SeqLength_main-seq2] 1.00 1.00 False
+SeqLength_main-seq2 1.00 1.00 False
+unl_6a20d5cb   [SeqLength_main-seq2->FRST->SeqLength_main-seq0] 1.00 1.00 False
+unl_377c09e5   [SeqLength_main-seq2->VLU->unl_a5dea013] 1.00 1.00 False
+unl_a5dea013   [p2->SET.ref->p2.ref.spelled] 1.00 1.00 False
+unl_7f5f48c1   [SeqLength_main-seq2->NXT->SeqLength_main-seq3] 1.00 1.00 False
+SeqLength_main-seq3 1.00 1.00 False
+unl_0fd45032   [SeqLength_main-seq3->FRST->SeqLength_main-seq0] 1.00 1.00 False
+unl_eaacb916   [SeqLength_main-seq3->VLU->ContextLength] 1.00 1.00 False
+unl_52f1e7b4   [continue-seq1->FRST->continue-seq0] 1.00 1.00 False
+unl_5780a427   [continue-seq1->VLU->unl_54d38e28] 1.00 1.00 False
+unl_54d38e28   [p2->SET.ref->p2.ref.NXT] 1.00 1.00 False
+unl_a048f6d6   [continue-seq1->NXT->continue-seq2] 1.00 1.00 False
+continue-seq2   1.00 1.00 False
+unl_145c4293   [continue-seq2->FRST->continue-seq0] 1.00 1.00 False
+unl_f3df4d52   [continue-seq2->VLU->ContextLength] 1.00 1.00 False
+unl_415e75f1   [advanceWordLetters-seq1->FRST->advanceWordLetters-seq0] 1.00 1.00 False
+unl_7dd048d5   [advanceWordLetters-seq1->VLU->unl_ebbfd19e] 1.00 1.00 False
+unl_ebbfd19e   [p2->SET.ref->p2.ref.NXT] 1.00 1.00 False
+unl_a2c886c6   [advanceWordLetters-seq1->NXT->advanceWordLetters-seq2] 1.00 1.00 False
+advanceWordLetters-seq2 1.00 1.00 False
+unl_4030e500   [advanceWordLetters-seq2->FRST->advanceWordLetters-seq0] 1.00 1.00 False
+unl_2485203b   [advanceWordLetters-seq2->VLU->cWords] 1.00 1.00 False
+unl_094308b3   [Compare2Letters-seq1->FRST->Compare2Letters-seq0] 1.00 1.00 False
+unl_6ca180b9   [Compare2Letters-seq1->VLU->cLetters] 1.00 1.00 False
+unl_aff3d89d   [advanceLetter-seq1->FRST->advanceLetter-seq0] 1.00 1.00 False
+unl_54885f09   [advanceLetter-seq1->VLU->cLetters] 1.00 1.00 False
+unl_11c5b30f   [FollowSequence_main-seq1->FRST->FollowSequence_main-seq0] 1.00 1.00 False
+unl_1b3d6383   [FollowSequence_main-seq1->VLU->FollowSequence_Responses1] 1.00 1.00 False
+unl_12d4f632   [FollowSequence_Continue-seq1->FRST->FollowSequence_Continue-seq0] 1.00 1.00 False
+unl_5d4de485   [FollowSequence_Continue-seq1->VLU->FollowSequence_Responses1] 1.00 1.00 False
+unl_4e9376ee   [hasDigit->is-a->has] 1.00 1.00 False
+hasDigit        1.00 1.00 False
+unl_79ca3801   [has->hasProperty->isTransitive] 1.00 1.00 False
+unl_03738da1   [has->hasProperty->inheritable] 1.00 1.00 False
+unl_657e50d0   [TEST.GT->IS->GT] 1.00 1.00 False
+GT              1.00 1.00 False
+unl_7e635091   [TEST.same->IS->SAME] 1.00 1.00 False
+SAME            1.00 1.00 False
+unl_379de488   [SET.EQ->IS->EQ] 1.00 1.00 False
+EQ              1.00 1.00 False
+unl_ec6f8a26   [SET.GT->IS->GT] 1.00 1.00 False
+unl_ea340e73   [cat-seq1->FRST->cat-seq0] 1.00 1.00 False
+unl_e231b455   [cat-seq1->VLU->A] 1.00 1.00 False
+A               1.00 1.00 False
+unl_c67ea8c5   [cat-seq1->NXT->cat-seq2] 1.00 1.00 False
+cat-seq2        1.00 1.00 False
+unl_aa477fe9   [cat-seq2->FRST->cat-seq0] 1.00 1.00 False
+unl_8256b21a   [cat-seq2->VLU->T] 1.00 1.00 False
+T               1.00 1.00 False
+unl_3158da1e   [dog-seq1->FRST->dog-seq0] 1.00 1.00 False
+unl_d56de78a   [dog-seq1->VLU->O] 1.00 1.00 False
+O               1.00 1.00 False
+unl_25f33205   [dog-seq1->NXT->dog-seq2] 1.00 1.00 False
+dog-seq2        1.00 1.00 False
+unl_8f919e9f   [dog-seq2->FRST->dog-seq0] 1.00 1.00 False
+unl_41159cd4   [dog-seq2->VLU->G] 1.00 1.00 False
+G               1.00 1.00 False
+unl_dccb8173   [NOT.TEST.same->IS->TEST] 1.00 1.00 False
+TEST            1.00 1.00 False
+unl_f8c69368   [NOT.TEST.same->IS->SAME] 1.00 1.00 False
+unl_d7ab8402   [TEST.GT->is-a->GT] 1.00 1.00 False
+unl_f917fbba   [SET.GT->is-a->GT] 1.00 1.00 False
+unl_aaab9198   [TEST.same->is-a->SAME] 1.00 1.00 False
+unl_0d7f54da   [SET.EQ->is-a->EQ] 1.00 1.00 False
+unl_a0ab47ca   [TEST.NXT->is-a->TEST] 1.00 1.00 False
+unl_76a73650   [NOT.TEST.NXT->is-a->TEST] 1.00 1.00 False
+unl_639862e8   [TEST.ref->is-a->TEST] 1.00 1.00 False
+unl_872b5a0c   [TEST.same->is-a->TEST] 1.00 1.00 False
+unl_01e364a6   [NOT.TEST.same->is-a->TEST] 1.00 1.00 False
+unl_179873bc   [TEST.GT->is-a->TEST] 1.00 1.00 False

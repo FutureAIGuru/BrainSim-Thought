@@ -96,13 +96,11 @@ public partial class UKS
         AddStatement("allowMultiple", "is-a", "Property");
         AddStatement("inheritable", "is-a", "Property");
         AddStatement("isEphemeral", "is-a", "Property");
-        AddStatement("conditional", "is-a", "Property");
-        AddStatement("isCondition", "is-a", "Property");
-        AddStatement("isResult", "is-a", "Property");
+        AddStatement("isConditional", "is-a", "Property");
         AddStatement("isGrounding", "is-a", "Property");
         AddStatement("isAnonymousClass", "is-a", "Property");
         AddStatement("?", "is-a", "LinkType");
-        AddStatement("?", "hasProperty", "conditional");
+        AddStatement("?", "hasProperty", "isConditional");
 
         //sequence search options
         EnsureSequenceSearchDefinitions();
@@ -181,8 +179,8 @@ public partial class UKS
         AddStatement("isSimilarTo", "hasProperty", "isCommutative");
         AddStatement("hasDigit", "is-a", "has");
 
-        
-       //put in digits
+
+        //put in digits
         GetOrAddThought("some", "number");
         GetOrAddThought("many", "number");
         GetOrAddThought("none", "number");
@@ -207,18 +205,16 @@ public partial class UKS
 
         //demo to add PI to the structure
         AddStatement("pi", "is-a", "number");
+        List<Thought> piDigits = new();
+        foreach (string d in new[] { "3", ".", "1", "4", "1", "5", "9" })
         {
-            List<Thought> piDigits = new();
-            foreach (string d in new[] { "3", ".", "1", "4", "1", "5", "9" })
-            {
-                Thought? digit = GetOrAddThought(d, "digit");
-                if (digit is not null) piDigits.Add(digit);
-            }
-            Thought? piThought = Labeled("pi");
-            Thought? hasDigitLink = GetOrAddThought("hasDigit", "has");
-            if (piThought is not null && hasDigitLink is not null)
-                AddSequenceAndLink(piThought, hasDigitLink, piDigits);
+            Thought? digit = GetOrAddThought(d, "digit");
+            if (digit is not null) piDigits.Add(digit);
         }
+        Thought? piThought = Labeled("pi");
+        Thought? hasDigitLink = GetOrAddThought("hasDigit", "has");
+        if (piThought is not null && hasDigitLink is not null)
+            AddSequenceAndLink(piThought, hasDigitLink, piDigits);
 
         //put in letters
         GetOrAddThought("letter", "Abstract");

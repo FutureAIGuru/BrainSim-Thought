@@ -39,7 +39,7 @@ public partial class UKS
             {
                 if (writer is null) throw new ArgumentNullException(nameof(writer));
                 List<Thought> thoughtsToWrite = new();
-                HashSet<Thought> collectedThoughts = new();
+                HashSet<Thought> collectedThoughts = new(ReferenceEqualityComparer.Instance);
 
                 void Collect(Thought? thought)
                 {

@@ -275,9 +275,7 @@ public partial class UKS
         for (int i = 0; i < result.Count; i++)
         {
             Link r1 = result[i];
-            bool isConditional = IsConditionalLinkType(r1.LinkType);
-            bool isLegacyResult = r1.HasProperty("isResult");
-            if (!isConditional && !isLegacyResult) continue;
+            if (!IsConditionalLinkType(r1.LinkType)) continue;
             if (!ConditionsAreMet(r1))
             {
                 failedConditions.Add(r1);
@@ -287,7 +285,7 @@ public partial class UKS
             else
             {
                 succeededConditions.Add(r1);
-                if (isConditional && r1.LinkType is not null)
+                if (r1.LinkType is not null)
                     r1.LinkType = GetAssertionLinkType(r1.LinkType);
             }
         }
@@ -306,11 +304,14 @@ public partial class UKS
             ?? conditionalLinkType;
     }
 
-    private static bool IsConditionalLinkType(Thought? linkType)
+    /// <summary>
+    /// Determines whether a link type represents a conditional clause.
+    /// </summary>
+    /// <param name="linkType">Link type to inspect.</param>
+    /// <returns>True when the link type inherits the isConditional property.</returns>
+    public static bool IsConditionalLinkType(Thought? linkType)
     {
-        if (linkType is null) return false;
-        return linkType.HasProperty("conditional") ||
-            linkType.Label.Split('.').Contains("?");
+        return linkType?.HasProperty("isConditional") == true;
     }
 
     /// <summary>
@@ -382,16 +383,15 @@ public partial class UKS
 
             if (condition.From is null || condition.LinkType is null)
                 return false;
+            if (!IsConditionalLinkType(condition.LinkType))
+                return false;
 
-            Thought? conditionalCategory = "?";
             Thought? semanticBase = condition.LinkType.Parents
-                .FirstOrDefault(parent => parent != conditionalCategory);
+                .FirstOrDefault(parent => !IsConditionalLinkType(parent));
             if (semanticBase is null)
                 return false;
 
-            List<Thought> requiredAttributes = condition.LinkType.GetAttributes()
-                .Where(attribute => attribute.Label != "?")
-                .ToList();
+            List<Thought> requiredAttributes = condition.LinkType.GetAttributes();
             foreach (Link candidate in condition.From.LinksTo)
             {
                 if (candidate.LinkType is null || candidate.To != condition.To) continue;
@@ -426,22 +426,6 @@ public partial class UKS
                 component.Equals("not", StringComparison.OrdinalIgnoreCase) ||
                 component.Equals("no", StringComparison.OrdinalIgnoreCase);
         }
-    }
-
-    Link? GetUnconditionalLink(Link? r)
-    {
-        if (r?.From is null) return null;
-        Thought? isCondition = "isCondition";
-        foreach (Link r1 in r.From.LinksTo)
-        {
-            if (Equals(r, r1))
-            {
-                if (isCondition is null || !r1.HasProperty(isCondition))
-                    return r1;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>

@@ -815,7 +815,11 @@ public partial class Thought
     /// </summary>
     public IEnumerable<Thought> EnumerateSubThoughts()
     {
-        var visited = new HashSet<Thought>();
+        // This is graph traversal, so distinct objects must remain distinct even
+        // when Thought.Equals considers them structurally equivalent. In
+        // particular, anonymous sequence values may be equal links that still
+        // require separate persistence entries.
+        var visited = new HashSet<Thought>(ReferenceEqualityComparer.Instance);
         var q = new Queue<Thought>();
 
         void EnqueueIfNew(Thought? t)
