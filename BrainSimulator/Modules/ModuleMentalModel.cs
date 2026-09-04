@@ -140,16 +140,18 @@ public class ModuleMentalModel : ModuleBase
     private static void SetActivationState(Thought thought, bool imagined)
     {
         thought.RemoveLink("is-a", "inActiveThought");
+        Link activationLink;
         if (imagined)
         {
             thought.RemoveLink("is-a", "activeThought");
-            thought.AddLink("is-a", "imaginedThought");
+            activationLink = thought.AddLink("is-a", "imaginedThought");
         }
         else
         {
             thought.RemoveLink("is-a", "imaginedThought");
-            thought.AddLink("is-a", "activeThought");
+            activationLink = thought.AddLink("is-a", "activeThought");
         }
+        if (activationLink is not null) activationLink.TimeToLive = TimeSpan.MaxValue;
     }
     public Link ImagineThought(Thought t, Thought mmPosition, float weight = 1f)
     {
@@ -312,25 +314,43 @@ public class ModuleMentalModel : ModuleBase
             return;
 
         DateTime now = DateTime.Now;
+        HashSet<Thought> boundContents = new();
         HashSet<Thought> perceivedContents = new();
-        foreach (Thought cell in _cells
-            .SelectMany(ring => ring ?? Array.Empty<Thought>())
-            .Where(IsInVisualField))
+        foreach (Thought cell in _cells.SelectMany(ring => ring ?? Array.Empty<Thought>()))
         {
             foreach (Link binding in cell.LinksTo
                 .Where(link => link.LinkType == _ltContains &&
-                    link.To is not null &&
-                    !link.To.Label.Equals("attention", StringComparison.OrdinalIgnoreCase)))
+                    link.To is not null))
             {
-                if (IsImaginedThought(binding.To))
-                    continue;
+                boundContents.Add(binding.To);
+                if (binding.To.Label.Equals("attention", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!IsInVisualField(cell) || IsImaginedThought(binding.To)) continue;
                 perceivedContents.Add(binding.To);
                 if (binding.TimeToLive != TimeSpan.MaxValue)
                     binding.LastFiredTime = now;
             }
         }
 
+        SynchronizeActivationStates(boundContents);
         SynchronizeVisibleRelationships(perceivedContents);
+    }
+
+    /// <summary>
+    /// Moves Thoughts whose final Mental Model appearance expired out of the active and imagined states.
+    /// </summary>
+    private void SynchronizeActivationStates(IReadOnlySet<Thought> boundContents)
+    {
+        Thought activeRoot = theUKS.Labeled("activeThought");
+        Thought imaginedRoot = theUKS.Labeled("imaginedThought");
+        Thought attention = theUKS.Labeled("attention");
+        if (attention is not null && boundContents.Contains(attention)) SetActivationState(attention, imagined: false);
+        IEnumerable<Thought> activationCandidates = (activeRoot?.Children ?? Array.Empty<Thought>())
+            .Concat(imaginedRoot?.Children ?? Array.Empty<Thought>())
+            .Distinct()
+            .ToList();
+
+        foreach (Thought thought in activationCandidates)
+            if (!boundContents.Contains(thought)) UnbindThought(thought);
     }
 
     /// <summary>

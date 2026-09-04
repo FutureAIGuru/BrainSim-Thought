@@ -18,14 +18,22 @@ public class ModuleMentelModelTests
     [Fact]
     public void InitializationPlacesAttentionAtZeroZero()
     {
-        CreateUKS();
+        var uks = CreateUKS();
         var module = new ModuleMentalModel();
 
         module.UKSInitializedNotification();
+        module.RefreshVisibleContents();
 
         var position = module.GetAnglesFromCell(module.AttentionCell);
         Assert.Equal(0, position.azimuth.Degrees, 3);
         Assert.Equal(0, position.elevation.Degrees, 3);
+        Thought attention = uks.Labeled("attention")!;
+        Assert.Contains(uks.Labeled("activeThought")!, attention.Parents);
+        Link activation = Assert.Single(attention.LinksTo.Where(link =>
+            link.LinkType == Thought.IsA && link.To == uks.Labeled("activeThought")));
+        Assert.Equal(TimeSpan.MaxValue, activation.TimeToLive);
+        Link location = Assert.Single(attention.LinksFrom.Where(link => link.LinkType?.Label == "_mm:contains"));
+        Assert.Same(module.AttentionCell, location.From);
     }
 
     [Fact]
@@ -114,6 +122,24 @@ public class ModuleMentelModelTests
 
         Assert.Equal(oldTime, imaginedBinding.LastFiredTime);
         Assert.True(perceivedBinding.LastFiredTime > oldTime);
+    }
+
+    [Fact]
+    public void ExpiredFinalAppearance_RemovesImaginedActivationState()
+    {
+        var uks = CreateUKS();
+        var module = new ModuleMentalModel();
+        module.UKSInitializedNotification();
+        Thought imagined = uks.GetOrAddThought("imagined", "Object");
+        Link binding = module.ImagineThought(imagined, module.Center);
+        binding.TimeToLive = TimeSpan.FromMilliseconds(10);
+        binding.LastFiredTime = DateTime.Now - TimeSpan.FromSeconds(1);
+
+        module.RefreshVisibleContents();
+
+        Assert.DoesNotContain(uks.Labeled("imaginedThought")!, imagined.Parents);
+        Assert.Contains(uks.Labeled("inActiveThought")!, imagined.Parents);
+        Assert.DoesNotContain(imagined.LinksFrom, link => link.LinkType?.Label == "_mm:contains");
     }
 
     [Fact]
