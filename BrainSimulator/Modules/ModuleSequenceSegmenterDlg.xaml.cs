@@ -39,16 +39,25 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         if (e.Key != Key.Enter) return;
         e.Handled = true;
 
+
         if (ParentModule is not ModuleSequenceSegmenter module) return;
         if (InputBox.Text == "exp")
         {
-            module.RunVocabularyExperiment(new[] { "dog", "has", "fur", "cat"}, 5, 1000);
+            module.RunVocabularyExperiment(new[] { "dog", "has", "fur", "cat", "hat", "car","cam","can","cap","cart","camp"}, 6, 1000);
+            SetStatus(module.LastStatus, Colors.Black);
+        }
+        else if (InputBox.Text.Trim().Equals("exp1", StringComparison.OrdinalIgnoreCase))
+        {
+            module.RunBoundaryExperiment();
+            SetStatus(module.LastStatus, Colors.Black);
         }
         else
         {
             string status = module.SubmitLine(InputBox.Text);
             SetStatus(status, Colors.Black);
         }
+        TraceBox.Text = module.LastTrace;
+        TraceBox.ScrollToEnd();
         InputBox.SelectAll();
         InputBox.Focus();
     }
@@ -83,6 +92,8 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
             int count = await Task.Run(() =>
                 module.LoadTextFromFile(filePath, 1000));
             SetStatus($"Loaded and processed {count} sequence(s) from the file.");
+            TraceBox.Text = module.LastTrace;
+            TraceBox.ScrollToEnd();
         }
         catch (Exception ex)
         {

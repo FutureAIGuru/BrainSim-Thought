@@ -23,10 +23,18 @@ namespace BrainSimulator.Modules;
 public class ModuleSequenceSegmenter : ModuleBase
 {
     public const float NewCandidateWeight = 1f;
-    public const float RecognitionIncrement = 0.5f;
+    // Reinforcement is 0.2 per matched symbol: no fixed occurrence premium.
+    public const float RecognitionIncrement = 0.2f;
+    public const float LengthBonusPerSymbol = 0.2f;
     public const float RecognitionThreshold = 1f;
-    public const float DecayPerChunk = 0.01f;
+    // Applied once per nonempty submitted line, including matched candidates.
+    public const float DecayPerChunk = 0.05f;
     public const float InterferencePerChunk = 0.005f;
+    public const string EvidenceLinkType = "hasSegmentationEvidence";
+    public const string StartEvidence = "segmentation:pauseStart";
+    public const string EndEvidence = "segmentation:pauseEnd";
+    public const string RemainderEvidence = "segmentation:remainder";
+    public const string DecayEvidence = "segmentation:weightLost";
 
     private Thought _candidateRoot;
     private Thought _hasSymbols;
@@ -37,6 +45,7 @@ public class ModuleSequenceSegmenter : ModuleBase
     public int MaximumChunkSize { get; set; } = 4;
     public string LastSegmentation { get; private set; } = string.Empty;
     public string LastStatus { get; private set; } = "Enter an unsegmented line.";
+    public string LastTrace { get; private set; } = string.Empty;
 
     public override void Fire()
     {
@@ -58,10 +67,9 @@ public class ModuleSequenceSegmenter : ModuleBase
     }
 
     /// <summary>
-    /// Consumes one pause-bounded observation from left to right. Each random
-    /// attentional span is assembled from primitive letters or the longest
-    /// recognized candidates. The percept and its shaping components are
-    /// reinforced before decay and interference are applied.
+    /// Learns every short prefix and suffix because pauses make those word
+    /// boundaries certain. Established nonplastic words divide the input into
+    /// remainders, which receive evidence as plastic candidate sequences.
     /// </summary>
     public string SubmitLine(string input)
     {
@@ -75,72 +83,169 @@ public class ModuleSequenceSegmenter : ModuleBase
         {
             LastSegmentation = string.Empty;
             LastStatus = "No symbols were submitted.";
+            LastTrace = LastStatus;
             return LastStatus;
         }
 
-        List<string> perceivedChunks = new();
-        int position = 0;
-        while (position < symbols.Count)
+        List<string> trace = new() { $"Input: {GetSymbolText(symbols)}" };
+        var plasticityBefore = _candidateRoot.Children.ToDictionary(
+            candidate => candidate, candidate => candidate.isPlastic);
+        HashSet<Thought> knownBeforeInput = _candidateRoot.Children
+            .Where(candidate => !candidate.isPlastic)
+            .ToHashSet();
+        HashSet<Thought> observedCandidates = new();
+        int maximum = Math.Min(Math.Max(1, MaximumChunkSize), symbols.Count);
+
+        for (int length = 1; length <= maximum; length++)
         {
-            int maximumUnits = Math.Min(Math.Max(1, MaximumChunkSize), symbols.Count - position);
-            int unitCount = Math.Clamp(SelectChunkSize(maximumUnits), 1, maximumUnits);
-            List<Thought> percept = new();
-            HashSet<Thought> shapingCandidates = new();
-            int unitsSelected = 0;
-            while (unitsSelected < unitCount && position + percept.Count < symbols.Count)
-            {
-                int componentPosition = position + percept.Count;
-                int componentMaximum = symbols.Count - componentPosition;
-                Thought component = FindGuidingCandidate(symbols, componentPosition, componentMaximum,out int componentLength);
-                if (component is null)
-                {
-                    componentLength = 1;
-                }
-                else
-                {
-                    shapingCandidates.Add(component);
-                }
-                percept.AddRange(symbols.GetRange(componentPosition, componentLength));
-                unitsSelected++;
-            }
-
-            Thought candidate = FindExactCandidate(percept);
-            if (candidate is null)
-                candidate = CreateCandidate(percept);
-            else
-            {
-                candidate.Weight += RecognitionIncrement;
-                candidate.Fire();
-            }
-
-            foreach (Thought component in shapingCandidates)
-            {
-                if (ReferenceEquals(component, candidate)) continue;
-                component.Weight += RecognitionIncrement;
-                component.Fire();
-            }
-
-            perceivedChunks.Add(GetSymbolText(percept));
-            DecayInterfereAndForgetCandidates(
-                percept, shapingCandidates.Append(candidate));
-            position += percept.Count;
+            ObserveEdgeCandidate(symbols.GetRange(0, length),
+                "start", observedCandidates, trace, StartEvidence);
+            ObserveEdgeCandidate(symbols.GetRange(symbols.Count - length, length),
+                "end", observedCandidates, trace, EndEvidence);
         }
 
-        LastSegmentation = string.Join(" ", perceivedChunks);
+        List<string> recognizedInterior = new();
+        int knownMaximum = knownBeforeInput.Select(candidate =>
+            GetCandidateSymbols(candidate).Count()).DefaultIfEmpty(0).Max();
+        int remainderStart = 0;
+        int position = 0;
+        while (position < symbols.Count && knownMaximum > 0)
+        {
+            int interiorMaximum = Math.Min(
+                knownMaximum, symbols.Count - position);
+            Thought candidate = FindGuidingCandidate(
+                symbols, position, interiorMaximum, out int length,
+                knownBeforeInput);
+            if (candidate is null)
+            {
+                position++;
+                continue;
+            }
+
+            if (position > remainderStart)
+                ObserveEdgeCandidate(
+                    symbols.GetRange(remainderStart, position - remainderStart),
+                    $"remainder before {candidate.Label}", observedCandidates, trace,
+                    RemainderEvidence);
+            candidate.Fire();
+            observedCandidates.Add(candidate);
+            string text = GetSymbolText(symbols.GetRange(position, length));
+            recognizedInterior.Add(text);
+            trace.Add($"interior {position}-{position + length - 1}: " +
+                $"recognized established {candidate.Label}; supplies boundaries");
+            position += length;
+            remainderStart = position;
+        }
+        if (recognizedInterior.Count > 0 && remainderStart < symbols.Count)
+            ObserveEdgeCandidate(
+                symbols.GetRange(remainderStart, symbols.Count - remainderStart),
+                "remainder after last established word", observedCandidates, trace,
+                RemainderEvidence);
+        if (recognizedInterior.Count == 0)
+            trace.Add("Interior: no known candidates; nothing stored");
+
+        DecayInterfereAndForgetCandidates(
+            symbols, observedCandidates, trace);
+        LastSegmentation = recognizedInterior.Count == 0
+            ? "no known interior words"
+            : string.Join(" ", recognizedInterior);
         LastStatus = BuildStatus(LastSegmentation);
+        trace.Add("Survivors: " + BuildCandidateSummary(10));
+        trace.Add("Boundary evidence: cumulative hits since instrumentation/candidate creation; " +
+            "missing evidence is unknown, not a miss. Remainders may contain multiple words.");
+        foreach (string word in new[] { "cat", "hat", "at", "t" })
+        {
+            Thought candidate = theUKS.Labeled("candidate:" + word);
+            if (candidate is null || !candidate.Parents.Contains(_candidateRoot))
+            {
+                trace.Add($"Watch {word}: absent (never created or deleted)");
+                continue;
+            }
+            string before = plasticityBefore.TryGetValue(candidate, out bool wasPlastic)
+                ? wasPlastic.ToString() : "new";
+            trace.Add($"Watch {word}: weight={candidate.Weight:0.000}; " +
+                $"start={EvidenceCount(candidate, StartEvidence):0}; " +
+                $"end={EvidenceCount(candidate, EndEvidence):0}; " +
+                $"remainder={EvidenceCount(candidate, RemainderEvidence):0}; " +
+                $"both={ComplementaryEvidence(candidate):0}; " +
+                $"decay total={EvidenceCount(candidate, DecayEvidence):0.000}; " +
+                $"isPlastic={before}->{candidate.isPlastic}");
+        }
+        trace.Add("Boundary evidence is diagnostic only: no automatic consolidation or suppression.");
+        LastTrace = string.Join(Environment.NewLine, trace);
         return LastStatus;
+    }
+
+    private void ObserveEdgeCandidate(
+        List<Thought> percept,
+        string edge,
+        ISet<Thought> observedCandidates,
+        ICollection<string> trace,
+        string evidenceSource)
+    {
+        Thought candidate = FindExactCandidate(percept);
+        string text = GetSymbolText(percept);
+        if (candidate is null)
+        {
+            candidate = CreateCandidate(percept);
+            trace.Add($"{edge} {text}: created ({candidate.Weight:0.00})");
+        }
+        else
+        {
+            float oldWeight = candidate.Weight;
+            candidate.Weight += GetRecognitionIncrement(percept.Count);
+            candidate.Fire();
+            trace.Add($"{edge} {text}: reinforced " +
+                $"({oldWeight:0.00}->{candidate.Weight:0.00})");
+        }
+        observedCandidates.Add(candidate);
+        AddEvidence(candidate, evidenceSource, 1);
+    }
+
+    // These link weights are counts, not confidence scores. No length bonus or
+    // decay is applied to them, and they do not alter recognition or ranking.
+    private void AddEvidence(Thought candidate, string source, float amount)
+    {
+        Thought type = theUKS.GetOrAddThought(EvidenceLinkType, "LinkType");
+        Thought root = theUKS.GetOrAddThought("SegmentationEvidence", "Thought");
+        Thought target = theUKS.GetOrAddThought(source, root);
+        Link link = candidate.HasLink(type, target);
+        if (link is null)
+        {
+            link = candidate.AddLink(type, target);
+            link.Weight = 0;
+        }
+        link.Weight += amount;
+    }
+
+    private static float EvidenceCount(Thought candidate, string source) =>
+        candidate.LinksTo.FirstOrDefault(link =>
+            link.LinkType?.Label == EvidenceLinkType && link.To?.Label == source)?.Weight ?? 0;
+
+    // A whole remainder has two inferred boundaries, not necessarily one word.
+    private static float ComplementaryEvidence(Thought candidate) =>
+        Math.Min(EvidenceCount(candidate, StartEvidence),
+            EvidenceCount(candidate, EndEvidence)) + EvidenceCount(candidate, RemainderEvidence);
+
+    private static float GetRecognitionIncrement(int symbolCount)
+    {
+        return RecognitionIncrement +
+            LengthBonusPerSymbol * Math.Max(0, symbolCount - 1);
     }
 
     private Thought FindGuidingCandidate(
         List<Thought> input,
         int position,
         int maximum,
-        out int matchedLength)
+        out int matchedLength,
+        ISet<Thought> eligibleCandidates = null)
     {
         for (int length = maximum; length >= 1; length--)
         {
             Thought candidate = FindExactCandidate(input.GetRange(position, length));
-            if (candidate?.Weight < RecognitionThreshold) continue;
+            if (candidate is null) continue;
+            if (eligibleCandidates is not null &&
+                !eligibleCandidates.Contains(candidate)) continue;
             matchedLength = length;
             return candidate;
         }
@@ -183,14 +288,25 @@ public class ModuleSequenceSegmenter : ModuleBase
     }
 
     /// <summary>
-    /// Selects the next attentional span. Overridable only to make controlled
-    /// experiments reproducible; normal processing samples uniformly from
-    /// one through the available maximum.
+    /// Presents cat at opposite pause edges with independently randomized word filler.
+    /// Existing learning is retained; an optional seed makes a pair reproducible.
+    /// Keeps both traces so the first observation is not hidden by the second.
     /// </summary>
-    protected virtual int SelectChunkSize(int maximum)
+    public void RunBoundaryExperiment(int? randomSeed = null)
     {
-        int retVal = Random.Shared.Next(1, maximum + 1);
-        return retVal;
+        Random random = randomSeed.HasValue ? new Random(randomSeed.Value) : Random.Shared;
+        // Exclude cat so filler cannot add extra edge exposures of the target.
+        string[] fillerWords = { "dog", "has", "fur", "hat", "car" };
+        string RandomWords() => string.Concat(Enumerable.Range(0, random.Next(3, 6))
+            .Select(_ => fillerWords[random.Next(fillerWords.Length)]));
+
+        SubmitLine("cat" + RandomWords());
+        string firstTrace = LastTrace;
+        SubmitLine(RandomWords() + "cat");
+        LastTrace = "exp1: cat at opposite edges; filler is 3-5 random words " +
+            "from dog/has/fur/hat/car (no spaces); existing candidates retained." +
+            Environment.NewLine + firstTrace + Environment.NewLine +
+            Environment.NewLine + LastTrace;
     }
 
     private Thought FindExactCandidate(List<Thought> percept)
@@ -200,6 +316,8 @@ public class ModuleSequenceSegmenter : ModuleBase
             .Where(link => ReferenceEquals(link.LinkType, _hasSymbols) &&
                 link.From?.Parents.Contains(_candidateRoot) == true)
             .Select(link => link.From)
+            .Where(candidate => GetCandidateSymbols(candidate)
+                .SequenceEqual(percept))
             .OrderByDescending(candidate => candidate.Weight)
             .FirstOrDefault();
     }
@@ -218,23 +336,45 @@ public class ModuleSequenceSegmenter : ModuleBase
 
     private void DecayInterfereAndForgetCandidates(
         IReadOnlyCollection<Thought> percept,
-        IEnumerable<Thought> protectedCandidates)
+        IEnumerable<Thought> observedCandidates,
+        ICollection<string> trace)
     {
-        HashSet<Thought> protectedSet = protectedCandidates.ToHashSet();
+        HashSet<Thought> observedSet = observedCandidates.ToHashSet();
         HashSet<Thought> perceptSymbols = percept.ToHashSet();
+        List<string> changes = new();
+        int decayedCount = 0;
+        int deletedCount = 0;
         foreach (Thought candidate in _candidateRoot.Children.ToList())
         {
             if (!candidate.isPlastic) continue;
+            float oldWeight = candidate.Weight;
             candidate.Weight = Math.Max(0, candidate.Weight - DecayPerChunk);
-            if (!protectedSet.Contains(candidate) &&
+            if (!observedSet.Contains(candidate) &&
                 GetCandidateSymbols(candidate).Any(perceptSymbols.Contains))
             {
                 candidate.Weight = Math.Max(
                     0, candidate.Weight - InterferencePerChunk);
             }
+            decayedCount++;
+            AddEvidence(candidate, DecayEvidence, oldWeight - candidate.Weight);
             if (candidate.Weight <= 0.0001f)
+            {
+                if (changes.Count < 8)
+                    changes.Add($"{candidate.Label} {oldWeight:0.00}->deleted");
                 candidate.Delete();
+                deletedCount++;
+            }
+            else if (changes.Count < 8)
+            {
+                changes.Add($"{candidate.Label} " +
+                    $"{oldWeight:0.00}->{candidate.Weight:0.00}");
+            }
         }
+        trace.Add(decayedCount == 0
+            ? "Plastic candidates decayed: none"
+            : $"Plastic candidates decayed: {decayedCount} " +
+                $"(including matches; base {DecayPerChunk:0.00}/line); deleted: " +
+                $"{deletedCount}; {string.Join(", ", changes)}");
     }
 
     private IEnumerable<Thought> GetCandidateSymbols(Thought candidate)
@@ -345,13 +485,21 @@ public class ModuleSequenceSegmenter : ModuleBase
 
     private string BuildStatus(string perceived)
     {
+        return $"{perceived}    {BuildCandidateSummary(6)}";
+    }
+
+    private string BuildCandidateSummary(int maximum)
+    {
         string candidates = string.Join(", ", _candidateRoot.Children
             .OrderByDescending(candidate => candidate.Weight)
             .ThenBy(candidate => candidate.Label, StringComparer.Ordinal)
-            .Take(6)
+            .Take(maximum)
             .Select(candidate =>
-                $"{candidate.Label["candidate:".Length..]}:{candidate.Weight:0.00}"));
+                $"{candidate.Label["candidate:".Length..]}:{candidate.Weight:0.00}" +
+                $" [start={EvidenceCount(candidate, StartEvidence):0}," +
+                $" end={EvidenceCount(candidate, EndEvidence):0}," +
+                $" rem={EvidenceCount(candidate, RemainderEvidence):0}]"));
         if (candidates.Length == 0) candidates = "no surviving proto-words";
-        return $"{perceived}    {candidates}";
+        return candidates;
     }
 }

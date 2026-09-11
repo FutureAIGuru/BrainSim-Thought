@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BrainSimulator.Modules"
         mc:Ignorable="d"
-        Title="Sequence Segmenter" Height="165" Width="850"
+        Title="Sequence Segmenter" Height="390" Width="850"
         MinHeight="165" MinWidth="500" Background="Gray"
         ShowInTaskbar="False" FontSize="16">
     <Grid Margin="10,10,10,28">
@@ -29,5 +29,12 @@
         <Button x:Name="btnLoad" Content="Load" Width="56" Height="26"
                 Margin="0,46,2,0" HorizontalAlignment="Right"
                 VerticalAlignment="Top" Click="btnLoad_Click" />
+
+        <TextBox x:Name="TraceBox" Margin="0,82,0,0"
+                 IsReadOnly="True" AcceptsReturn="True"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 FontFamily="Consolas" FontSize="13"
+                 Foreground="White" Background="Black" />
     </Grid>
 </local:ModuleBaseDlg>
