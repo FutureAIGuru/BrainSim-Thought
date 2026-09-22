@@ -34,7 +34,7 @@ public partial class ModuleSequenceSegmenterTests
         foreach (bool competitive in new[] { false, true })
         {
             UKS.UKS uks = CreateUKS();
-            ModuleSequenceSegmenter baseline = new() { theUKS = uks };
+            ModuleSequenceSegmenter baseline = new() { theUKS = uks, MaximumChunkSize = 4 };
             baseline.Initialize();
             Thought root = uks.Labeled("CandidateSequence");
             Random inputRandom = new(seed);
@@ -162,8 +162,9 @@ public partial class ModuleSequenceSegmenterTests
                 uks.AddSequenceAndLink(candidate, hasSymbols, chunk.Select(letter =>
                     uks.Labeled(UKS.UKS.GetCharacterLabel(letter))).ToList());
             }
-            else candidate.Weight += ModuleSequenceSegmenter.RecognitionIncrement +
-                ModuleSequenceSegmenter.LengthBonusPerSymbol * (chunk.Length - 1);
+            // Freeze the historical trial's constants; changing production
+            // learning must not silently change this rejected experiment.
+            else candidate.Weight += 0.2f * chunk.Length;
         }
         HashSet<char> symbols = string.Concat(chosen).ToHashSet();
         HashSet<string> selected = chosen.ToHashSet();
@@ -172,7 +173,7 @@ public partial class ModuleSequenceSegmenterTests
             string chunk = candidate.Label["candidate:".Length..];
             candidate.Weight = Math.Max(0, candidate.Weight - ModuleSequenceSegmenter.DecayPerChunk -
                 (!selected.Contains(chunk) && chunk.Any(symbols.Contains)
-                    ? ModuleSequenceSegmenter.InterferencePerChunk : 0));
+                    ? 0.005f : 0));
             if (candidate.Weight <= 0.0001f) candidate.Delete();
         }
     }

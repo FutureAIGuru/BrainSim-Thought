@@ -16,6 +16,7 @@
                  Foreground="White"
                  Background="Black"
                  AcceptsReturn="False"
+                 ToolTip="Submit one pause-delimited phrase at a time. Spaces are ignored. Try 'a cat', then 'the cat'."
                  PreviewKeyDown="InputBox_PreviewKeyDown" />
 
         <Label Content="Corpus:" Margin="0,42,0,0"

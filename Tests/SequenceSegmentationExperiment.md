@@ -1,5 +1,11 @@
 # Complete-segmentation competition experiment
 
+Historical results below describe the old edge/remainder learner, before the
+maximal boundary-match implementation. They are not measurements of the current
+production learner. Rerunning this diagnostic now compares the current learner
+(with a four-character cap for comparability) to the historical trial. See
+`SequenceSegmentationBoundary.md` for the current learning rule and regressions.
+
 This is an isolated test, not a production change. Run the tests matching
 `CompleteSegmentationExperiment` with detailed console output to see comparisons.
 Passing diagnostic tests mean the experiment ran correctly, not that learning succeeded.
