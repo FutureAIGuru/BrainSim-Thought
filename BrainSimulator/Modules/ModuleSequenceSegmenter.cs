@@ -18,7 +18,7 @@ namespace BrainSimulator.Modules;
 
 /// <summary>
 /// Learns maximal repeated prefixes and suffixes of pause-delimited inputs.
-/// Only candidate sequences and their boundary contexts persist in the UKS.
+/// Candidate sequences, boundary contexts, and confirmed phrase patterns persist in the UKS.
 /// </summary>
 public class ModuleSequenceSegmenter : ModuleBase
 {
@@ -34,14 +34,18 @@ public class ModuleSequenceSegmenter : ModuleBase
     public const string EvidenceLinkType = "hasSegmentationEvidence";
     public const string StartEvidence = "segmentation:pauseStart";
     public const string EndEvidence = "segmentation:pauseEnd";
-    public const string DecayEvidence = "segmentation:weightLost";
     public const string MaximalEvidence = "segmentation:maximalMatch";
+    public const string InferredBoundaryEvidence = "segmentation:knownWordBoundary";
     public const string StartContextLinkType = "hasSegmentationFollowingContext";
     public const string EndContextLinkType = "hasSegmentationPrecedingContext";
     public const string PauseContext = "segmentation:pause";
 
     private Thought _candidateRoot;
     private Thought _hasSymbols;
+    private Thought _phraseRoot;
+    private Thought _hasWords;
+    private Thought _matchKnownSuffix;
+    private Thought _matchKnownPrefix;
     private StreamReader _sequenceReader;
     private string _sequenceReaderPath;
 
@@ -65,6 +69,10 @@ public class ModuleSequenceSegmenter : ModuleBase
     {
         _candidateRoot = null;
         _hasSymbols = null;
+        _phraseRoot = null;
+        _hasWords = null;
+        _matchKnownSuffix = null;
+        _matchKnownPrefix = null;
         EnsureKnowledge();
     }
 
@@ -89,8 +97,7 @@ public class ModuleSequenceSegmenter : ModuleBase
         List<string> trace = new() { $"Input: {GetSymbolText(symbols)}" };
         var complete = FindCompleteSplits(symbols);
         bool confident = complete.Count > 0 &&
-            complete[0].Words.All(word => word.Weight >= EstablishedWeight &&
-                EvidenceCount(word, MaximalEvidence) >= EstablishedWins) &&
+            complete[0].Words.All(IsEstablished) &&
             (symbols.Count == 1 || complete[0].Words.Any(word => GetCandidateSymbols(word).Count() > 1)) &&
             (complete.Count == 1 || complete[0].Score - complete[1].Score >= CompleteSplitMargin);
         if (complete.Count > 0)
@@ -101,6 +108,7 @@ public class ModuleSequenceSegmenter : ModuleBase
         }
         if (confident)
         {
+            RememberCompletePhrase(complete[0]);
             HashSet<Thought> selected = complete[0].Words.ToHashSet();
             foreach (Thought word in selected)
             {
@@ -125,6 +133,7 @@ public class ModuleSequenceSegmenter : ModuleBase
         // Freeze eligibility so the first edge cannot bootstrap the other edge
         // from a single observation of the same whole input.
         HashSet<Thought> knownBefore = candidates.Values.Where(IsRecognized).ToHashSet();
+        ObserveKnownWordBoundaries(symbols, candidates, knownBefore, rewarded, trace);
         ObserveBoundary(symbols, true, candidates, knownBefore, rewarded, trace);
         ObserveBoundary(symbols, false, candidates, knownBefore, rewarded, trace);
         foreach (Thought candidate in rewarded)
@@ -195,7 +204,90 @@ public class ModuleSequenceSegmenter : ModuleBase
 
     private static bool IsRecognized(Thought candidate) =>
         candidate.Weight >= RecognitionThreshold &&
-        EvidenceCount(candidate, MaximalEvidence) > 0;
+        (EvidenceCount(candidate, MaximalEvidence) > 0 ||
+            EvidenceCount(candidate, InferredBoundaryEvidence) > 0);
+
+    private static bool IsEstablished(Thought candidate) =>
+        candidate.Weight >= EstablishedWeight &&
+        (EvidenceCount(candidate, MaximalEvidence) >= EstablishedWins ||
+            EvidenceCount(candidate, InferredBoundaryEvidence) > 0);
+
+    // A known complete suffix supplies a right boundary for the unknown prefix;
+    // a known complete prefix supplies a left boundary for the unknown suffix.
+    // Eligibility is frozen before this input so inferred words cannot confirm
+    // themselves or divide another part of the same input.
+    private void ObserveKnownWordBoundaries(
+        List<Thought> symbols, IDictionary<string, Thought> candidates,
+        ISet<Thought> knownBefore, ISet<Thought> rewarded, ICollection<string> trace)
+    {
+        HashSet<Thought> established = knownBefore.Where(IsEstablished).ToHashSet();
+        if (established.Count == 0) return;
+        int maximum = Math.Min(Math.Max(1, MaximumChunkSize), symbols.Count - 1);
+        for (int length = 1; length <= maximum; length++)
+        {
+            if (!FindCompleteSplits(symbols.GetRange(length, symbols.Count - length), established)
+                .Any(split => split.Words.Count >= 2 && MatchesKnownPhrase(split.Words, true, length)))
+                continue;
+            RewardInferredSpan(symbols.GetRange(0, length), "start", candidates, rewarded, trace);
+            break;
+        }
+        for (int length = 1; length <= maximum; length++)
+        {
+            if (!FindCompleteSplits(symbols.GetRange(0, symbols.Count - length), established)
+                .Any(split => split.Words.Count >= 2 && MatchesKnownPhrase(split.Words, false, length)))
+                continue;
+            RewardInferredSpan(symbols.GetRange(symbols.Count - length, length), "end", candidates, rewarded, trace);
+            break;
+        }
+    }
+
+    private bool MatchesKnownPhrase(List<Thought> knownWords, bool unknownAtStart, int unknownLength)
+    {
+        Thought options = unknownAtStart ? _matchKnownSuffix : _matchKnownPrefix;
+        foreach (var (sequence, _) in theUKS.FindSequencesByActivation(knownWords, options))
+        {
+            if (!sequence.LinksFrom.Any(link => ReferenceEquals(link.LinkType, _hasWords) &&
+                link.From.Parents.Contains(_phraseRoot))) continue;
+            List<Thought> phrase = theUKS.FlattenSequence(sequence);
+            if (phrase.Count != knownWords.Count + 1) continue;
+            Thought oldWord = unknownAtStart ? phrase[0] : phrase[^1];
+            if (!_candidateRoot.Children.Contains(oldWord) || !IsEstablished(oldWord)) continue;
+            int oldLength = GetCandidateSymbols(oldWord).Count();
+            if (Math.Abs(oldLength - unknownLength) > 2) continue;
+            IEnumerable<Thought> compared = unknownAtStart ? phrase.Skip(1) : phrase.Take(phrase.Count - 1);
+            if (compared.SequenceEqual(knownWords)) return true;
+        }
+        return false;
+    }
+
+    private void RememberCompletePhrase(CompleteSplit split)
+    {
+        if (split.Words.Count < 3) return;
+        string label = "segmentation:phrase:" + FormatSplit(split).Replace(" ", "");
+        Thought pattern = theUKS.GetOrAddThought(label, _phraseRoot);
+        if (pattern.GetTargetOfFirstLinkOfType(_hasWords) is not null) return;
+        SeqElement first = theUKS.CreateFirstElement(label, split.Words[0]);
+        SeqElement last = first;
+        foreach (Thought word in split.Words.Skip(1))
+            last = theUKS.AddElement(last, word);
+        pattern.AddLink(_hasWords, first);
+    }
+
+    private void RewardInferredSpan(List<Thought> span, string side,
+        IDictionary<string, Thought> candidates, ISet<Thought> rewarded, ICollection<string> trace)
+    {
+        string text = GetSymbolText(span);
+        if (!candidates.TryGetValue(text, out Thought candidate))
+        {
+            candidate = CreateCandidate(span);
+            candidates.Add(text, candidate);
+        }
+        // A pause and an established word provide two boundaries at once.
+        candidate.Weight = Math.Max(candidate.Weight, EstablishedWeight - RecognitionIncrement);
+        AddEvidence(candidate, InferredBoundaryEvidence, 1);
+        rewarded.Add(candidate);
+        trace.Add($"{side} {text}: inferred from pause and established words");
+    }
 
     /// <summary>Recognizes without adding observations or changing weights.</summary>
     public string RecognizeLine(string input)
@@ -250,10 +342,11 @@ public class ModuleSequenceSegmenter : ModuleBase
     // This is a confidence heuristic, not a calibrated language probability.
     // Length-weighted log confidence compares equal character coverage; a small
     // per-word cost discourages gratuitous fragmentation without summing weights.
-    private List<CompleteSplit> FindCompleteSplits(List<Thought> input)
+    private List<CompleteSplit> FindCompleteSplits(List<Thought> input, ISet<Thought> eligible = null)
     {
         if (input.Count == 0) return new();
-        var words = _candidateRoot.Children.Where(IsRecognized)
+        var words = _candidateRoot.Children.Where(word =>
+                eligible is null ? IsRecognized(word) : eligible.Contains(word))
             .OrderBy(word => word.Label, StringComparer.Ordinal)
             .Select(word => (word, symbols: GetCandidateSymbols(word).ToList())).ToList();
         var paths = Enumerable.Range(0, input.Count + 1)
@@ -296,62 +389,6 @@ public class ModuleSequenceSegmenter : ModuleBase
         candidate.LinksTo.FirstOrDefault(link =>
             link.LinkType?.Label == EvidenceLinkType && link.To?.Label == source)?.Weight ?? 0;
 
-    /// <summary>
-    /// Generates pause-delimited test sequences from a supplied vocabulary
-    /// and presents each one through the ordinary SubmitLine path.
-    /// Words are sampled independently with replacement and concatenated
-    /// without exposing their original boundaries to the learner.
-    /// </summary>
-    public int RunVocabularyExperiment(
-        IEnumerable<string> vocabulary,
-        int wordsPerSequence = 5,
-        int sequenceCount = 1000,
-        int? randomSeed = null)
-    {
-        List<string> words = (vocabulary ?? Enumerable.Empty<string>())
-            .Select(word => string.Concat((word ?? string.Empty)
-                .Where(char.IsLetter)
-                .Select(char.ToLowerInvariant)))
-            .Where(word => word.Length > 0)
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-        if (words.Count == 0 || wordsPerSequence <= 0 || sequenceCount <= 0)
-            return 0;
-
-        Random random = randomSeed.HasValue
-            ? new Random(randomSeed.Value)
-            : Random.Shared;
-        for (int sequence = 0; sequence < sequenceCount; sequence++)
-        {
-            string input = string.Concat(Enumerable.Range(0, wordsPerSequence)
-                .Select(_ => words[random.Next(words.Count)]));
-            SubmitLine(input);
-        }
-        return sequenceCount;
-    }
-
-    /// <summary>
-    /// Presents cat at opposite pause edges with independently randomized word filler.
-    /// Existing learning is retained; an optional seed makes a pair reproducible.
-    /// Keeps both traces so the first observation is not hidden by the second.
-    /// </summary>
-    public void RunBoundaryExperiment(int? randomSeed = null)
-    {
-        Random random = randomSeed.HasValue ? new Random(randomSeed.Value) : Random.Shared;
-        // Exclude cat so filler cannot add extra edge exposures of the target.
-        string[] fillerWords = { "dog", "has", "fur", "hat", "car" };
-        string RandomWords() => string.Concat(Enumerable.Range(0, random.Next(3, 6))
-            .Select(_ => fillerWords[random.Next(fillerWords.Length)]));
-
-        SubmitLine("cat" + RandomWords());
-        string firstTrace = LastTrace;
-        SubmitLine(RandomWords() + "cat");
-        LastTrace = "exp1: cat at opposite edges; filler is 3-5 random words " +
-            "from dog/has/fur/hat/car (no spaces); existing candidates retained." +
-            Environment.NewLine + firstTrace + Environment.NewLine +
-            Environment.NewLine + LastTrace;
-    }
-
     private Thought CreateCandidate(List<Thought> percept)
     {
         string text = GetSymbolText(percept);
@@ -377,9 +414,7 @@ public class ModuleSequenceSegmenter : ModuleBase
         foreach (Thought candidate in _candidateRoot.Children.ToList())
         {
             if (!candidate.isPlastic || rewarded.Contains(candidate)) continue;
-            float oldWeight = candidate.Weight;
             candidate.Weight = Math.Max(0, candidate.Weight - DecayPerChunk);
-            AddEvidence(candidate, DecayEvidence, oldWeight - candidate.Weight);
             decayed++;
             if (candidate.Weight <= 0.0001f)
             {
@@ -485,6 +520,10 @@ public class ModuleSequenceSegmenter : ModuleBase
         _candidateRoot = theUKS.GetOrAddThought(
             "CandidateSequence", languageElement);
         _hasSymbols = theUKS.GetOrAddThought("hasSymbols", "LinkType");
+        _phraseRoot = theUKS.GetOrAddThought("SegmentationPhrasePattern", "Thought");
+        _hasWords = theUKS.GetOrAddThought("hasSegmentationWords", "LinkType");
+        _matchKnownSuffix ??= theUKS.CreateSearchOptions(mustMatchLast: true);
+        _matchKnownPrefix ??= theUKS.CreateSearchOptions(mustMatchFirst: true);
 
     }
 

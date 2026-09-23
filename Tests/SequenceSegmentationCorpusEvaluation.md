@@ -94,7 +94,7 @@ Actual:   thedog s [l] e e [p] s [w] h il e the [clock] t [ick] s
 
 High recall combined with low precision reflects excessive inserted boundaries,
 often from single-letter candidates. Some multiword chunks also survive. These
-measurements overturn any inference that success on six random synthetic words
+measurements overturn any inference that success on a small synthetic vocabulary
 established performance on these larger corpora. They do not prove that additional
 training could never help; this run used exactly three passes. No production
 algorithm changes were made to improve the reported results.

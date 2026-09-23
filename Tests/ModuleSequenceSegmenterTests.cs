@@ -258,12 +258,16 @@ public partial class ModuleSequenceSegmenterTests
     [InlineData(17)]
     [InlineData(42)]
     [InlineData(73)]
-    public void SeededVocabularyExperiment_ReportsLearnedWords(int seed)
+    public void SeededVocabularyExperiment_ConvergesAfterRepeatedExposure(int seed)
     {
         var uks = CreateUKS();
         var module = new ModuleSequenceSegmenter { theUKS = uks };
-        string[] vocabulary = { "dog", "has", "fur", "cat", "hat", "car" };
-        Assert.Equal(1000, module.RunVocabularyExperiment(vocabulary, 6, 1000, seed));
+        string[] vocabulary = { "dog", "has", "fur", "cat", "hat", "car",
+            "a", "an", "the", "cam", "can", "cap", "cart", "camp" };
+        Random training = new(seed);
+        for (int sequence = 0; sequence < 150; sequence++)
+            module.SubmitLine(string.Concat(Enumerable.Range(0, 6)
+                .Select(_ => vocabulary[training.Next(vocabulary.Length)])));
         foreach (string word in vocabulary)
         {
             Thought candidate = uks.Labeled("candidate:" + word);
@@ -272,7 +276,6 @@ public partial class ModuleSequenceSegmenterTests
             Assert.True(Evidence(candidate, ModuleSequenceSegmenter.MaximalEvidence) > 0, word);
         }
         var weights = uks.Labeled("CandidateSequence").Children.ToDictionary(c => c, c => c.Weight);
-        Assert.Equal("dog has fur", module.RecognizeLine("doghasfur"));
         Random evaluation = new(seed + 20000);
         int exact = 0, correct = 0, predicted = 0, actual = 0;
         for (int line = 0; line < 200; line++)
@@ -287,6 +290,7 @@ public partial class ModuleSequenceSegmenterTests
             actual += expected.Count;
         }
         _output.WriteLine($"Boundary learner seed={seed}: exact={exact}/200; F1={2.0 * correct / (predicted + actual):0.000}; candidates={weights.Count}");
+        Assert.InRange(exact, 190, 200);
         Assert.All(weights, pair => Assert.Equal(pair.Value, pair.Key.Weight));
     }
 
@@ -299,6 +303,44 @@ public partial class ModuleSequenceSegmenterTests
     {
         for (int i = 0; i < 5; i++) module.SubmitLine(word);
         return module.theUKS.Labeled("candidate:" + word);
+    }
+
+    [Fact]
+    public void EstablishedWords_SolidifyNewEdgeWordAfterOnePhrase()
+    {
+        var uks = CreateUKS();
+        var module = new ModuleSequenceSegmenter { theUKS = uks };
+        foreach (string word in new[] { "fido", "plays", "fetch" }) TeachWord(module, word);
+        module.SubmitLine("fidoplaysfetch");
+        Assert.Equal("fido plays fetch", module.LastSegmentation);
+        Assert.Null(uks.Labeled("candidate:rover"));
+
+        module.SubmitLine("roverplaysfetch");
+        Thought rover = uks.Labeled("candidate:rover");
+        Assert.NotNull(rover);
+        Assert.Equal(1, Evidence(rover, ModuleSequenceSegmenter.InferredBoundaryEvidence));
+        Assert.Equal("rover plays fetch", module.LastSegmentation);
+        Assert.Equal("rover plays fetch", module.RecognizeLine("roverplaysfetch"));
+        Assert.Contains("start rover: inferred", module.LastTrace);
+
+        module.SubmitLine("fidoplaysball");
+        Assert.Equal("fido plays ball", module.LastSegmentation);
+        Assert.Equal(1, Evidence(uks.Labeled("candidate:ball"),
+            ModuleSequenceSegmenter.InferredBoundaryEvidence));
+
+        string path = Path.GetTempFileName();
+        try
+        {
+            Assert.True(uks.SaveUKStoXMLFile(path));
+            var restored = CreateUKS();
+            Assert.True(restored.LoadUKSfromXMLFile(path));
+            var reloadedModule = new ModuleSequenceSegmenter { theUKS = restored };
+            reloadedModule.SubmitLine("spotplaysfetch");
+            Assert.Equal("spot plays fetch", reloadedModule.LastSegmentation);
+            Assert.Equal(1, Evidence(restored.Labeled("candidate:spot"),
+                ModuleSequenceSegmenter.InferredBoundaryEvidence));
+        }
+        finally { File.Delete(path); }
     }
 
     [Fact]

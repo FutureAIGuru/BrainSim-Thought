@@ -46,6 +46,15 @@ greedy partial recognizer displays known words and bracketed unknown spans.
 `RecognizeLine` uses the same complete-split search without learning.
 Recognized interior words do not generate remainder candidates in this version.
 
+A confidently segmented phrase of at least three established words is also saved
+as a UKS word sequence. When a new input matches all but its first or last word,
+sequence search can reuse that phrase pattern. For example, after `fido plays
+fetch` is established, one presentation of `rover plays fetch` gives `rover`
+a boundary from the pause and one from the known phrase. This one-shot inference
+requires at least two established matching words and a new edge span within two
+characters of the replaced word's length. The inferred candidate remains plastic
+so later evidence can still revise it. Phrase patterns survive XML save/load.
+
 The trace reports edge winners and their reasons, decay/deletion counts, current
 segmentation, and candidate observations/wins. In a fresh learner, enter `a cat`
 and then `the cat`: the result is `[the] cat`. Prefix example: `cat runs`, then
@@ -70,29 +79,25 @@ real versus truncated pauses, forgetting and sequence integrity, XML persistence
 interior recognition, corpus metadata, and no cross-pause discovery. A test makes
 the shared-inflection ambiguity explicit rather than claiming to solve it.
 
-The seeded experiment trains on 1,000 six-word phrases sampled independently from
-dog/has/fur/cat/hat/car for seeds 17, 42, and 73. It checks that all six source words
-gain support and that `doghasfur` is recognized. It also reports exact-phrase
-accuracy and boundary F1 on 200 fresh phrases without changing weights. Those
-reported metrics are observations, not assertions of perfect convergence.
-
-Validation after adding the recognition gate: all 29 tests in the command below
-passed (the historical complete-segmentation diagnostic is excluded). Tests cover
-greedy dead ends, ambiguous alternatives, provisional and letters-only coverage,
-incomplete input, skipped creation, reinforcement, and deletion without recreation.
-Held-out measurements using the production recognizer were:
+The seeded convergence test uses the dialog's 14-word vocabulary: dog/has/fur/
+cat/hat/car/a/an/the/cam/can/cap/cart/camp. For each of seeds 17, 42, and 73,
+it trains on 150 independently sampled six-word phrases. It then evaluates 200
+fresh phrases from the same vocabulary without learning, requires at least 190
+exact splits, and checks that all 14 words gained support. The short two-input
+tests check individual boundary rules; this repeated-exposure test checks the
+behavior of the full learner. Held-out results were:
 
 | Seed | Exact phrases | Boundary F1 | Surviving hypotheses |
 | --- | --- | --- | --- |
-| 17 | 200/200 | 1.000 | 6 |
-| 42 | 200/200 | 1.000 | 6 |
-| 73 | 200/200 | 1.000 | 6 |
+| 17 | 200/200 | 1.000 | 14 |
+| 42 | 200/200 | 1.000 | 14 |
+| 73 | 200/200 | 1.000 | 14 |
 
-These results cover only this six-word synthetic vocabulary. Before the gate,
-the same experiment retained 521, 530, and 503 hypotheses respectively, with the
-same held-out accuracy. The gate can reinforce a confident but incorrect split;
-these results do not establish general vocabulary recovery or eliminate the
-shared-suffix ambiguity.
+In a separate local probe, all three seeds already reached 200/200 by 100
+training phrases, although hundreds of extra hypotheses still survived then.
+The 150-phrase results cover this controlled vocabulary and generator. The gate
+can reinforce a confident but incorrect split; these results do not establish
+general vocabulary recovery or eliminate the shared-suffix ambiguity.
 
 Run with detailed output:
 

@@ -13,6 +13,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -28,12 +29,6 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         Loaded += (_, _) => InputBox.Focus();
     }
 
-    public override bool Draw(bool checkDrawTimer)
-    {
-        if (!base.Draw(checkDrawTimer)) return false;
-        return true;
-    }
-
     private void InputBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter) return;
@@ -43,12 +38,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         if (ParentModule is not ModuleSequenceSegmenter module) return;
         if (InputBox.Text == "exp")
         {
-            module.RunVocabularyExperiment(new[] { "dog", "has", "fur", "cat", "hat", "car","cam","can","cap","cart","camp"}, 6, 1000);
-            SetStatus(module.LastStatus, Colors.Black);
-        }
-        else if (InputBox.Text.Trim().Equals("exp1", StringComparison.OrdinalIgnoreCase))
-        {
-            module.RunBoundaryExperiment();
+            RunVocabularyExperiment(module);
             SetStatus(module.LastStatus, Colors.Black);
         }
         else
@@ -60,6 +50,20 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         TraceBox.ScrollToEnd();
         InputBox.SelectAll();
         InputBox.Focus();
+    }
+
+    private static void RunVocabularyExperiment(ModuleSequenceSegmenter module)
+    {
+        string[] words = { "dog", "has", "fur", "cat", "hat", "car",
+            "a", "an", "the", "cam", "can", "cap", "cart", "camp" };
+        const int wordsPerSequence = 6;
+        const int sequenceCount = 10;
+        for (int sequence = 0; sequence < sequenceCount; sequence++)
+        {
+            string input = string.Concat(Enumerable.Range(0, wordsPerSequence)
+                .Select(_ => words[Random.Shared.Next(words.Length)]));
+            module.SubmitLine(input);
+        }
     }
 
     private void btnBrowse_Click(object sender, RoutedEventArgs e)
