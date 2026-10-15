@@ -28,6 +28,7 @@
   <ItemGroup>
     <None Include="..\BrainSimulator\WordFIles\bst_true_template_corpus.txt" Link="SegmentationCorpora\bst_true_template_corpus.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\BrainSimulator\WordFIles\bst_word_durability_corpus.txt" Link="SegmentationCorpora\bst_word_durability_corpus.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\BrainSimulator\WordFIles\top_5000_words_stress_test.txt" Link="SegmentationCorpora\top_5000_words_stress_test.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\BrainSimulator\UKSContent\Algorithm.xml" Link="UKSContent\Algorithm.xml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\BrainSimulator\UKSContent\GroundedDogs\**\*.*" Link="UKSContent\GroundedDogs\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

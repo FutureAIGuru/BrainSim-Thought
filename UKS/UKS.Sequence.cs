@@ -251,6 +251,53 @@ public partial class UKS
         firstNode.FRST = firstNode; //points to itself as the first element
         return firstNode;
     }
+    /// <summary>Finds the newer element whose NXT points to this element.</summary>
+    public SeqElement GetPreviousSequenceElement(SeqElement element)
+    {
+        SeqElement result = null;
+        if (element is null) return result;
+        foreach (Link link in element.LinksFrom)
+        {
+            if (link.LinkType?.Label != "NXT" || link.From is not SeqElement predecessor) continue;
+            if (!ReferenceEquals(predecessor.FRST, element.FRST)) continue;
+            result = predecessor;
+            break;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Detaches and deletes the oldest element, leaving the first element intact.
+    /// Deletes the sequence node only, never its VLU Thought.
+    /// </summary>
+    public SeqElement RemoveLastSequenceElement(SeqElement first)
+    {
+        SeqElement result = null;
+        if (first is null) return result;
+        if (!IsSequenceFirstElement(first))
+            throw new ArgumentException("Expected the first sequence element.", nameof(first));
+        if (first.NXT is null) return result;
+        List<Thought> oldValues = FlattenSequence(first);
+        bool wasCached = SequenceCache.TryGetValue(oldValues, out Thought cached) &&
+            ReferenceEquals(cached, first);
+        if (wasCached) SequenceCache.Remove(oldValues);
+        SeqElement predecessor = first;
+        while (predecessor.NXT.NXT is not null) predecessor = predecessor.NXT;
+        result = predecessor.NXT;
+        predecessor.NXT = null;
+        // Detach FRST before Delete: otherwise its root reference could delete
+        // the whole sequence through Thought.Delete's sequence-owner handling.
+        result.FRST = null;
+        result.RemoveLinks("VLU");
+        result.Delete();
+        if (wasCached)
+        {
+            List<Thought> remainingValues = FlattenSequence(first);
+            SequenceCache[remainingValues] = first;
+        }
+        return result;
+    }
+
     public void DeleteSequence(SeqElement s)
     {
         //make sure there's only one reference to this sequence
@@ -856,14 +903,24 @@ public partial class UKS
         return FindSequencesByActivation(FlattenSequence(sequence), searchOptions);
     }
 
+    /// <summary>
+    /// Searches for pattern activation. Optional physical match locations and
+    /// a sequence restriction support flat, literal occurrence searches;
+    /// normal results remain grouped by sequence root.
+    /// </summary>
     public List<(SeqElement seqNode, float confidence)> FindSequencesByActivation(
-        List<Thought> pattern, Thought searchOptions = null)
+        List<Thought> pattern, Thought searchOptions = null,
+        List<SeqElement> matchedStarts = null, SeqElement withinSequence = null)
     {
+        matchedStarts?.Clear();
         List<(SeqElement seqNode, float confidence)> retVal = new();
         if (pattern is null || pattern.Count == 0) return retVal;
 
         searchOptions ??= Labeled("ExactSequenceSearch");
         if (searchOptions is null) return retVal;
+        if ((matchedStarts is not null || withinSequence is not null) &&
+            (searchOptions.HasProperty("allowWildcards") || searchOptions.HasProperty("allowNestedSequences")))
+            throw new ArgumentException("Occurrence locations require a flat, literal search.", nameof(searchOptions));
 
         if (searchOptions.HasProperty("allowWildcards") &&
             pattern.Any(x => x.HasAncestor("Wildcard")))
@@ -875,6 +932,17 @@ public partial class UKS
         // Step 1: seed from the first non-wildcard pattern element.
         List<SequenceSearchState> activeElements = InitializeSequenceSearchByActivation(pattern[seedPatternIndex], seedPatternIndex, searchOptions);
 
+        // A caller may restrict a flat search to one sequence, such as a
+        // rolling input buffer, without scanning unrelated stored patterns.
+        if (withinSequence is not null)
+        {
+            for (int index = activeElements.Count - 1; index >= 0; index--)
+            {
+                if (ReferenceEquals(activeElements[index].FirstMatchElement?.FRST, withinSequence)) continue;
+                activeElements.RemoveAt(index);
+            }
+        }
+
         // Step 2: propagate through NXT links for each remaining pattern element.
         for (int i = seedPatternIndex + 1; i < pattern.Count; i++)
         {
@@ -882,7 +950,7 @@ public partial class UKS
             if (activeElements.Count == 0) break;
         }
         // Step 3: collect matching sequence starts and confidence values.
-        retVal = CollectSequenceSearchResults(activeElements, searchOptions, pattern);
+        retVal = CollectSequenceSearchResults(activeElements, searchOptions, pattern, matchedStarts);
 
         return retVal;
     }
@@ -1205,7 +1273,8 @@ public partial class UKS
     }
 
     private List<(SeqElement seqNode, float confidence)> CollectSequenceSearchResults(
-        List<SequenceSearchState> activeElements, Thought searchOptions, List<Thought> pattern)
+        List<SequenceSearchState> activeElements, Thought searchOptions, List<Thought> pattern,
+        List<SeqElement> matchedStarts = null)
     {
         List<(SeqElement seqNode, float confidence)> retVal = new();
         if (activeElements is null || searchOptions is null) return retVal;
@@ -1221,6 +1290,17 @@ public partial class UKS
             if (firstElement is null) continue;
             if (!IsSequenceFirstElement(firstElement) && mustMatchFirst) continue;
 
+            if (matchedStarts is not null)
+            {
+                bool alreadyAdded = false;
+                foreach (SeqElement start in matchedStarts)
+                {
+                    if (!ReferenceEquals(start, firstElement)) continue;
+                    alreadyAdded = true;
+                    break;
+                }
+                if (!alreadyAdded) matchedStarts.Add(firstElement);
+            }
             int sequenceLength = GetSequenceLength(firstElement);
             float confidence = sequenceLength == 0 ? 0 : Math.Min(1.0f, (float)pattern.Count / sequenceLength);
             retVal.Add((firstElement.FRST, confidence));

@@ -16,10 +16,10 @@
                  Foreground="White"
                  Background="Black"
                  AcceptsReturn="False"
-                 ToolTip="Submit one pause-delimited phrase at a time. Spaces are ignored. Try 'a cat', then 'the cat'."
+                 ToolTip="Submit one phrase at a time. Spaces are ignored. Add ! for emphasis. Enter exp to run the combined-word experiment."
                  PreviewKeyDown="InputBox_PreviewKeyDown" />
 
-        <Label Content="Corpus:" Margin="0,42,0,0"
+        <Label Content="Words:" Margin="0,42,0,0"
                HorizontalAlignment="Left" VerticalAlignment="Top" />
         <TextBox x:Name="txtFilePath" Height="27" Margin="65,46,135,0"
                  IsReadOnly="True" VerticalAlignment="Top"
@@ -31,7 +31,16 @@
                 Margin="0,46,2,0" HorizontalAlignment="Right"
                 VerticalAlignment="Top" Click="btnLoad_Click" />
 
-        <TextBox x:Name="TraceBox" Margin="0,82,0,0"
+        <WrapPanel Margin="0,80,0,0" VerticalAlignment="Top">
+            <TextBlock Text="Top N words:" VerticalAlignment="Center" />
+            <TextBox x:Name="TopNWordsBox" Text="14" Width="65" Margin="8,0,18,0"
+                     ToolTip="Use 0 for all words. Applies to exp and Load." />
+            <TextBlock Text="Cycles:" VerticalAlignment="Center" />
+            <TextBox x:Name="CycleCountBox" Text="100" Width="65" Margin="8,0,18,0" />
+            <TextBlock Text="6 words per phrase" VerticalAlignment="Center" />
+        </WrapPanel>
+
+        <TextBox x:Name="SegmentationBox" Margin="0,116,0,0"
                  IsReadOnly="True" AcceptsReturn="True"
                  VerticalScrollBarVisibility="Auto"
                  HorizontalScrollBarVisibility="Auto"

@@ -52,7 +52,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private readonly Dictionary<Thought, List<(ProgressBar Bar, TextBlock Value)>>
         _weightDisplays = new();
 
-    public double DefaultPlasticThoughtWeightMaximum { get; set; } = 10;
+    public double DefaultThoughtWeightMaximum { get; set; } = 3;
     public double WeightBarWidth { get; set; } = 64;
     public double WeightBarHeight { get; set; } = 12;
 
@@ -385,8 +385,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         TextBlock weightValue)
     {
         double maximum = Math.Max(0.01, thought.maxWeight);
-        if (thought is not Link && thought.isPlastic && maximum <= 1)
-            maximum = Math.Max(maximum, DefaultPlasticThoughtWeightMaximum);
+        if (thought is not Link && maximum <= 1)
+            maximum = Math.Max(maximum, DefaultThoughtWeightMaximum);
         double value = Math.Clamp(thought.Weight, 0, maximum);
         double fraction = value / maximum;
 
