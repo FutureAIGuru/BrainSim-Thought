@@ -1,5 +1,6 @@
 using BrainSimulator.Modules;
 using UKS;
+using System.Linq;
 using Xunit;
 
 namespace BrainSimulator.Tests;
@@ -14,977 +15,754 @@ public partial class ModuleSequenceSegmenterTests
     public ModuleSequenceSegmenterTests(Xunit.Abstractions.ITestOutputHelper output) { _output = output; }
 
     [Fact]
-    public void RepeatedDog_CreatesOneCandidateThenConsolidatesIt()
+    public void RepeatedDog_CreatesThenStrengthensAndConsolidates()
     {
         var uks = CreateUKS();
         var module = CreateInitializedSegmenter(uks);
+        module.MaximumProposalsPerEpisode = 1;
         ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        Thought dog = uks.Labeled("w:dog");
-        Assert.NotNull(dog);
-        Assert.True(dog.isPlastic);
-        Assert.Equal(1, dog.Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        Assert.Same(dog, uks.Labeled("w:dog"));
-        Assert.True(dog.isPlastic);
-        Assert.Equal(2, dog.Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        Assert.False(dog.isPlastic);
-        Assert.Equal(3, dog.Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        Assert.Equal(4, dog.Weight);
-        Assert.Single(uks.Labeled("Word").Children);
-    }
-
-    [Fact]
-    public void LongerInput_RequiresRepetitionInRecentMemory()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "elephant");
-        Assert.Null(uks.Labeled("w:elephant"));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "elephant");
-        Assert.True(uks.Labeled("w:elephant").isPlastic);
-        Assert.Equal(1, uks.Labeled("w:elephant").Weight);
-    }
-
-    [Fact]
-    public void ExpiredInput_DoesNotSupportAdmissionButExistingCandidatesStillStrengthen()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "elephant");
-        module.TrimInputQueue(System.DateTime.Now.AddSeconds(6));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "elephant");
-        Assert.Null(uks.Labeled("w:elephant"));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        module.TrimInputQueue(System.DateTime.Now.AddSeconds(6));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        Assert.Equal(2, uks.Labeled("w:dog").Weight);
-    }
-
-    [Fact]
-    public void RepetitionWindow_CanExcludeOccurrencesStillRetainedInTheQueue()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.RepetitionWindow = System.TimeSpan.Zero;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "elephant");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "elephant");
-        Assert.Null(uks.Labeled("w:elephant"));
-        Assert.Equal(2, module.FindInputOccurrences(ModuleSequenceSegmenterDlg.InputSymbols(module, "elephant")).Count);
-    }
-
-    [Fact]
-    public void CandidatePool_ConsolidationFreesASlot()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.CandidateCapacity = 1;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "cat");
-        Assert.Null(uks.Labeled("w:cat"));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "cat");
-        Assert.False(uks.Labeled("w:dog").isPlastic);
-        Assert.True(uks.Labeled("w:cat").isPlastic);
-    }
-
-    [Fact]
-    public void ExplicitPause_DoesNotDuplicateReinforcementOrJoinEpisodes()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        var dog = ModuleSequenceSegmenterDlg.InputSymbols(module, "dog");
-        module.InputReceived(dog);
-        Assert.Null(uks.Labeled("w:dog"));
-        module.InputReceived(new[] { module.InputPause });
-        Assert.Equal(1, uks.Labeled("w:dog").Weight);
-        module.InputReceived(new[] { module.InputPause });
-        Assert.Equal(1, uks.Labeled("w:dog").Weight);
-    }
-
-    [Fact]
-    public void GenericThoughtInput_PreservesIdentityAndUsesTheSameLifecycle()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        Thought note = uks.GetOrAddThought("pitch:G4");
-        var input = new[] { note };
-        module.InputReceived(WithPause(module, input));
-        Thought candidate = Assert.Single(uks.Labeled("Word").Children);
-        Assert.Equal(input, uks.FlattenSequence((SeqElement)candidate.GetTargetOfFirstLinkOfType(uks.Labeled("spelled"))));
-        module.InputReceived(WithPause(module, input));
-        module.InputReceived(WithPause(module, input));
-        Assert.False(candidate.isPlastic);
-        Assert.Single(uks.Labeled("Word").Children);
-    }
-
-    [Fact]
-    public void Decay_WeakensCandidatesAndFreesTheirSlots()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.CandidateDecayPerSecond = 0.5f;
-        module.LearnedDecayPerSecond = 0;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "cat");
-        Thought dog = uks.Labeled("w:dog");
-        Thought cat = uks.Labeled("w:cat");
-        var symbols = ModuleSequenceSegmenterDlg.InputSymbols(module, "cat");
-        module.DecayCandidates(System.TimeSpan.FromSeconds(1));
-        Assert.Equal(0.5f, cat.Weight);
-        Assert.Equal(3, dog.Weight);
-        module.DecayCandidates(System.TimeSpan.FromSeconds(1));
-        Assert.Null(uks.Labeled("w:cat"));
-        Assert.Same(dog, Assert.Single(module.PatternRoot.Children));
-        Assert.NotEmpty(module.FindInputOccurrences(symbols));
-        module.CandidateCapacity = 1;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "cat");
-        Thought replacement = uks.Labeled("w:cat");
-        Assert.NotSame(cat, replacement);
-        Assert.Equal(1, replacement.Weight);
-    }
-
-    [Fact]
-    public void LearnedDecay_WeakensOnlyBelowTheThresholdThenReturnsLosersToTheCandidatePool()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.LearnedDecayPerSecond = 0.1f;
-        module.DecayThreshold = 11;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog!!!");
-        Thought dog = uks.Labeled("w:dog");
-        dog.Weight = 10;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "x!!!");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "y!!!");
-        uks.Labeled("w:x").Weight = 100;
-        uks.Labeled("w:y").Weight = 90;
-        module.DecayCandidates(System.TimeSpan.FromSeconds(10));
-        Assert.Equal(11, module.DecayThreshold);
-        Assert.Equal(100, uks.Labeled("w:x").Weight);
-        Assert.Equal(90, uks.Labeled("w:y").Weight);
-        Assert.InRange(dog.Weight, 3.678f, 3.680f);
-        Assert.False(dog.isPlastic);
-        module.DecayCandidates(System.TimeSpan.FromSeconds(20));
-        Assert.InRange(dog.Weight, 0.497f, 0.499f);
-        Assert.True(dog.isPlastic);
-        module.DecayCandidates(System.TimeSpan.FromSeconds(20));
-        Assert.Null(uks.Labeled("w:dog"));
-    }
-
-    [Theory]
-    [InlineData(10, 8, 6)]
-    [InlineData(100, 10, 8)]
-    [InlineData(3.5f, 4, 5)]
-    public void LearnedDecay_AtOrAboveThresholdLeavesPatternsUnchanged(float first, float second, float third)
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.CandidateDecayPerSecond = 0.05f;
-        foreach (string text in new[] { "x", "y", "z" })
-            ModuleSequenceSegmenterDlg.SubmitLine(module, text + "!!!");
-        uks.Labeled("w:x").Weight = first;
-        uks.Labeled("w:y").Weight = second;
-        uks.Labeled("w:z").Weight = third;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "q");
-        module.DecayCandidates(System.TimeSpan.FromSeconds(10));
-        Assert.Equal(3.5f, module.DecayThreshold);
-        Assert.Equal(first, uks.Labeled("w:x").Weight);
-        Assert.Equal(second, uks.Labeled("w:y").Weight);
-        Assert.Equal(third, uks.Labeled("w:z").Weight);
-        Assert.Equal(0.5f, uks.Labeled("w:q").Weight);
-    }
-
-    [Fact]
-    public void LearnedDecay_ThresholdPreservesWordsAndWeakensTheLowerGroup()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        foreach (string text in new[] { "x", "y", "z", "q" })
-            ModuleSequenceSegmenterDlg.SubmitLine(module, text + "!!!");
-        uks.Labeled("w:x").Weight = 74;
-        uks.Labeled("w:y").Weight = 49.4f;
-        uks.Labeled("w:z").Weight = 3.4f;
-        uks.Labeled("w:q").Weight = 2.15f;
-        module.DecayCandidates(System.TimeSpan.FromSeconds(10));
-        Assert.Equal(3.5f, module.DecayThreshold);
-        Assert.Equal(74, uks.Labeled("w:x").Weight);
-        Assert.Equal(49.4f, uks.Labeled("w:y").Weight);
-        Assert.InRange(uks.Labeled("w:z").Weight, 2.06f, 2.07f);
-        Assert.InRange(uks.Labeled("w:q").Weight, 1.30f, 1.31f);
-    }
-
-    [Fact]
-    public void LearnedDecay_BelowThresholdDecaysWithoutAPopulationGap()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog!!!");
-        Thought pattern = uks.Labeled("w:dog");
-        pattern.Weight = 3.4f;
-        module.DecayCandidates(System.TimeSpan.FromSeconds(10));
-        Assert.InRange(pattern.Weight, 2.06f, 2.07f);
-        Assert.False(pattern.isPlastic);
-    }
-
-    [Fact]
-    public void Decay_ThresholdAlsoProtectsStrongPlasticPatterns()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.ConsolidationStrength = 7;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog!!!");
-        Thought pattern = uks.Labeled("w:dog");
-        module.DecayCandidates(System.TimeSpan.FromSeconds(10));
-        Assert.Equal(4, pattern.Weight);
-        Assert.True(pattern.isPlastic);
-    }
-
-    [Fact]
-    public void SplitCompetition_PrefersWholeCartAndStrongerHasCart()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        foreach (string text in new[] { "car", "t", "rt", "cart", "has", "hasca" })
-            ModuleSequenceSegmenterDlg.SubmitLine(module, text + "!!!");
-        var parts = module.FindExistingSubPatterns(ModuleSequenceSegmenterDlg.InputSymbols(module, "cart"));
-        Assert.Equal("w:cart", Assert.Single(parts).pattern.Label);
-        parts = module.FindExistingSubPatterns(ModuleSequenceSegmenterDlg.InputSymbols(module, "hascart"));
-        Assert.Equal(2, parts.Count);
-        Assert.Equal("w:has", parts[0].pattern.Label);
-        Assert.Equal("w:cart", parts[1].pattern.Label);
-    }
-
-    [Fact]
-    public void SplitCompetition_RewardsHasCatAndWeakensHasCaTButLeavesUnrelatedPatternsAlone()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        foreach (string text in new[] { "has", "cat", "hasca", "t", "dog" })
-            ModuleSequenceSegmenterDlg.SubmitLine(module, text + "!!!");
-        Thought has = uks.Labeled("w:has"), cat = uks.Labeled("w:cat");
-        Thought hasca = uks.Labeled("w:hasca"), t = uks.Labeled("w:t"), dog = uks.Labeled("w:dog");
-        has.Weight = 92;
-        cat.Weight = 32;
-        hasca.Weight = 18;
-        t.Weight = 74;
-        dog.Weight = 30;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "hascat");
-        Assert.Equal(93, has.Weight);
-        Assert.Equal(33, cat.Weight);
-        Assert.Equal(17, hasca.Weight);
-        Assert.Equal(74, t.Weight);
-        Assert.Equal(30, dog.Weight);
-    }
-
-    [Fact]
-    public void SplitCompetition_UsesOnlyOverlappingSupportAndPreservesEqualAlternatives()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        foreach (string text in new[] { "dog", "can", "dogca", "n", "fur" })
-            ModuleSequenceSegmenterDlg.SubmitLine(module, text + "!!!");
-        uks.Labeled("w:dog").Weight = 100;
-        uks.Labeled("w:can").Weight = 100;
-        uks.Labeled("w:dogca").Weight = 6;
-        uks.Labeled("w:n").Weight = 6;
-        uks.Labeled("w:fur").Weight = 1000;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogcanfur");
-        Assert.Equal(5, uks.Labeled("w:dogca").Weight);
-        Assert.Equal(5, uks.Labeled("w:n").Weight);
-        uks.Labeled("w:dog").Weight = 6;
-        uks.Labeled("w:can").Weight = 6;
-        uks.Labeled("w:dogca").Weight = 6;
-        uks.Labeled("w:n").Weight = 6;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogcanfur");
-        Assert.Equal(6, uks.Labeled("w:dogca").Weight);
-        Assert.Equal(6, uks.Labeled("w:n").Weight);
-    }
-
-    [Theory]
-    [InlineData(73)]
-    public void CompetitionVocabularyExperiment_ComparesFixedAndStrengthPenalties(int seed)
-    {
-        string[] vocabulary = { "dog", "has", "fur", "cat", "hat", "car", "a", "an", "the", "cam", "can", "cap", "cart", "camp" };
-        var weighted = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, double>>();
-        foreach (string text in vocabulary) weighted.Add(new(text, 1));
-        foreach (float scale in new[] { 0f, 0.1f })
+        Assert.Empty(module.PatternRoot.Children);
+        for (int repeat = 1; repeat <= 3; repeat++)
         {
-            var uks = CreateUKS();
-            var module = CreateInitializedSegmenter(uks);
-            module.CompetitionStrengthScale = scale;
-            module.RepetitionWindow = System.TimeSpan.FromHours(1);
-            var history = new System.Collections.Generic.Queue<System.DateTime>();
-            System.Random random = new(seed);
-            for (int cycle = 1; cycle <= 200; cycle++)
-            {
-                string phrase = ModuleSequenceSegmenterDlg.BuildRandomPhrase(weighted, 6, random);
-                history.Enqueue(System.DateTime.Now);
-                ModuleSequenceSegmenterDlg.SubmitLine(module, phrase);
-                if (history.Count > 100) module.TrimInputQueue(history.Dequeue() + module.InputQueueLifetime);
-                module.DecayCandidates(System.TimeSpan.FromMilliseconds(10));
-                if (cycle != 100 && cycle != 200) continue;
-                int learned = 0, noise = 0, correct = 0;
-                var ranked = new System.Collections.Generic.List<Thought>(module.PatternRoot.Children);
-                ranked.Sort((left, right) => { int comparison = right.Weight.CompareTo(left.Weight); return comparison; });
-                foreach (string text in vocabulary)
-                    if (uks.Labeled("w:" + text) is Thought pattern && !pattern.isPlastic) learned++;
-                foreach (Thought pattern in ranked)
-                    if (System.Array.IndexOf(vocabulary, pattern.Label[2..]) < 0 && pattern.Weight >= module.DecayThreshold) noise++;
-                for (int index = 0; index < System.Math.Min(14, ranked.Count); index++)
-                    if (System.Array.IndexOf(vocabulary, ranked[index].Label[2..]) >= 0) correct++;
-                _output.WriteLine($"seed={seed}, scale={scale}, cycles={cycle}: learned={learned}/14, top14={correct}/14, noiseAboveThreshold={noise}");
-            }
+            ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+            Thought dog = uks.Labeled("w:dog");
+            Assert.Equal(repeat, dog.Weight);
+            Assert.Equal(repeat < 3, dog.isPlastic);
+        }
+        Assert.Single(module.PatternRoot.Children); // No inherited do/og/d/o/g candidates.
+    }
+
+    [Theory]
+    [InlineData("dog")]
+    public void UnemphasizedSingleUse_DoesNotAdmitMultiSymbolCandidates(string text)
+    {
+        var module = CreateInitializedSegmenter(CreateUKS());
+        ModuleSequenceSegmenterDlg.SubmitLine(module, text);
+        Assert.Empty(module.PatternRoot.Children);
+    }
+
+    [Theory]
+    [InlineData("herefidofidofido", "herefidofidofido", "fido", false)]
+    [InlineData("frogdog", "frogpig", "frog", false)]
+    [InlineData("dogfrog", "pigfrog", "gfrog", false)]
+    [InlineData("dogfrog", "catfrog", "frog", false)]
+    [InlineData("xay", "catadog", "cata", true)]
+    [InlineData("xay", "zad", "", false)]
+    public void CandidateSelection_AllowsOnlySoleUnrecognizedSingleSymbols(string first, string second, string expected, bool knownNeighbors)
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.MaximumProposalsPerEpisode = 1;
+        if (knownNeighbors)
+        {
+            SeedPattern(module, "cat", 3);
+            SeedPattern(module, "dog", 3);
+        }
+        ModuleSequenceSegmenterDlg.SubmitLine(module, first);
+        Assert.Equal(knownNeighbors ? 2 : 0, module.PatternRoot.Children.Count);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, second);
+        var candidates = module.PatternRoot.Children.Where(thought => thought.isPlastic);
+        if (expected.Length == 0) Assert.Empty(candidates);
+        else
+        {
+            Thought candidate = Assert.Single(candidates);
+            Assert.Equal("w:" + expected, candidate.Label);
+            Assert.Equal(1, candidate.Weight);
         }
     }
 
     [Fact]
-    public void Fire_DecaysCandidatesUsingElapsedTime()
+    public void StoredSingleSymbol_IsTaggedAndReinforcedButNotCreatedByDiscovery()
     {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.initialized = true;
-        module.InitialStrength = 100;
-        module.ConsolidationStrength = 200;
-        module.DecayThreshold = 200;
-        module.CandidateDecayPerSecond = 1;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        System.Threading.Thread.Sleep(30);
-        module.Fire();
-        Assert.True(uks.Labeled("w:dog").Weight < 100);
+        var module = CreateInitializedSegmenter(CreateUKS());
+        Thought s = SeedPattern(module, "s", 30);
+        SeedPattern(module, "cat", 30);
+        SeedPattern(module, "dog", 30);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "catsdog");
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "catsdog");
+        Assert.Equal(32, s.Weight);
+        SeqElement single = (SeqElement)s.GetTargetOfFirstLinkOfType("spelled");
+        SeqElement sPosition = module.InputQueueHead.NXT.NXT.NXT.NXT;
+        Assert.Contains(sPosition.LinksTo, link => link.LinkType.Label == "usedBy" && ReferenceEquals(link.To, single));
+        Assert.DoesNotContain(module.PatternRoot.Children, thought => thought.Label == "w:catsdog");
+    }
+
+    [Theory]
+    [InlineData(3, "!", 1)]
+    [InlineData(3, "!!", 1.5f)]
+    [InlineData(3, "!!!", 3)]
+    [InlineData(25, "!", 1)]
+    [InlineData(25, "!!", 12.5f)]
+    [InlineData(25, "!!!", 25)]
+    [InlineData(25, "!!!!", 25)]
+    public void Emphasis_ScalesCreationAndReinforcementWithConsolidation(float threshold, string marks, float emphasis)
+    {
+        var module = CreateInitializedSegmenter(CreateUKS());
+        module.ConsolidationStrength = threshold;
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "frog" + marks);
+        Thought candidate = Assert.Single(module.PatternRoot.Children);
+        Assert.Equal("w:frog", candidate.Label);
+        Assert.Equal(module.InitialStrength + emphasis, candidate.Weight);
+        Assert.Equal(candidate.Weight < threshold, candidate.isPlastic);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "frog" + marks);
+        Assert.Equal(module.InitialStrength + emphasis + module.Reinforcement * emphasis, candidate.Weight);
     }
 
     [Fact]
-    public void CallerConfiguredRootAndPrefix_SupportGenericThoughtLabels()
+    public void TwoExclamations_ReinforceEachRecognizedWordWithoutCreatingCandidates()
+    {
+        var module = CreateInitializedSegmenter(CreateUKS());
+        module.ConsolidationStrength = 25;
+        Thought the = SeedPattern(module, "the", 25);
+        Thought cat = SeedPattern(module, "cat", 25);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "thecat!!");
+        Assert.Equal(37.5f, the.Weight);
+        Assert.Equal(37.5f, cat.Weight);
+        Assert.Equal(2, module.PatternRoot.Children.Count);
+    }
+
+    [Theory]
+    [InlineData("catadog", true)]
+    [InlineData("acatandadog", false)]
+    public void SingleLetterCandidate_RequiresExactlyOneUnrecognizedElement(string input, bool createsA)
+    {
+        var module = CreateInitializedSegmenter(CreateUKS());
+        module.MaximumProposalsPerEpisode = 2;
+        SeedPattern(module, "cat", 3);
+        SeedPattern(module, "dog", 3);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, input);
+        Assert.Equal(createsA, module.theUKS.Labeled("w:a") is not null);
+        Assert.Equal(createsA ? 4 : 2, module.PatternRoot.Children.Count);
+    }
+
+    [Fact]
+    public void RecognizedNeighbors_ProposeAnUnrepeatedMultiSymbolGap()
+    {
+        var module = CreateInitializedSegmenter(CreateUKS());
+        module.ConsolidationStrength = 25;
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "cat!!!");
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog!!!");
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "catanddog");
+        Thought candidate = module.theUKS.Labeled("w:and");
+        Assert.NotNull(candidate);
+        Assert.True(candidate.isPlastic);
+        Assert.Equal(1, candidate.Weight);
+        Assert.Equal(3, module.PatternRoot.Children.Count);
+    }
+
+    [Theory]
+    [InlineData("catanddog", "and", "d", 1)]
+    [InlineData("catanddog", "and", "d", 2)]
+    [InlineData("cats", "cats", "s", 1)]
+    [InlineData("cats", "cats", "s", 2)]
+    [InlineData("scat", "scat", "s", 1)]
+    [InlineData("scat", "scat", "s", 2)]
+    public void OrphanExpansion_AbsorbsTheShortestAdjacentMatch(string input, string expanded, string orphan, int limit)
+    {
+        var module = CreateInitializedSegmenter(CreateUKS());
+        module.MaximumProposalsPerEpisode = limit;
+        foreach (string word in new[] { "cat", "an", "dog" }) SeedPattern(module, word, 3);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, input);
+        Thought candidate = module.theUKS.Labeled("w:" + expanded);
+        Assert.NotNull(candidate);
+        Assert.Equal(1, candidate.Weight);
+        Assert.Equal(limit == 2, module.theUKS.Labeled("w:" + orphan) is not null);
+        Assert.Equal(3 + limit, module.PatternRoot.Children.Count);
+        if (input == "catanddog")
+        {
+            Assert.Null(module.theUKS.Labeled("w:ddog"));
+            Assert.Null(module.theUKS.Labeled("w:catanddog"));
+        }
+        ModuleSequenceSegmenterDlg.SubmitLine(module, input);
+        Assert.Equal(2, candidate.Weight);
+        // Until the expansion consolidates, repetition may still propose the whole phrase.
+        if (input == "catanddog") Assert.NotNull(module.theUKS.Labeled("w:catanddog"));
+        Assert.Equal(3 + limit + (input == "catanddog" ? 1 : 0), module.PatternRoot.Children.Count);
+    }
+
+    [Fact]
+    public void RepetitionSearch_RestoresForwardOrderAndExcludesOtherSequences()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.MaximumProposalsPerEpisode = 1;
+        var reverse = ModuleSequenceSegmenterDlg.InputSymbols(module, "godgod");
+        uks.AddSequence("unrelated", reverse, allowCompression: false);
+        var other = CreateInitializedSegmenter(uks);
+        other.QueueInput(ModuleSequenceSegmenterDlg.InputSymbols(other, "dogdog"));
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+        Assert.Empty(module.PatternRoot.Children);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+        Assert.Equal("w:dog", Assert.Single(module.PatternRoot.Children).Label);
+        Assert.Null(uks.Labeled("w:god"));
+    }
+
+    [Fact]
+    public void WholePattern_InhibitsContainedComponentsButIndependentUsesCanLearn()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        Thought cat = SeedPattern(module, "cat", 3);
+        Thought dog = SeedPattern(module, "dog", 3);
+        Thought a = SeedPattern(module, "an", 1);
+        Thought whole = SeedPattern(module, "catandog", 1);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "catandog");
+        Assert.Equal(3, cat.Weight);
+        Assert.Equal(3, dog.Weight);
+        Assert.Equal(1, a.Weight);
+        Assert.Equal(2, whole.Weight);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "catandog");
+        Assert.Equal(1, a.Weight);
+        Assert.True(a.isPlastic);
+        Assert.Equal(3, whole.Weight);
+        Assert.Equal(3, cat.Weight);
+        Assert.Equal(3, dog.Weight);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "an");
+        Assert.Equal(2, a.Weight);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "an");
+        Assert.Equal(3, a.Weight);
+        Assert.False(a.isPlastic);
+        Assert.Equal(4, module.PatternRoot.Children.Count);
+    }
+
+    [Fact]
+    public void OrphanExpansion_CanOutgrowTheOriginalFragmentSplit()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.MaximumProposalsPerEpisode = 2;
+        Thought fragment = SeedPattern(module, "ca", 1);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "car");
+        Assert.Equal(1, uks.Labeled("w:r").Weight);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "car");
+        Assert.Equal(2, uks.Labeled("w:car").Weight); // The expansion wins reinforcement on the next occurrence.
+        Assert.Equal(1, uks.Labeled("w:r").Weight);
+        Assert.Equal(2, fragment.Weight);
+    }
+
+    [Fact]
+    public void ContainedWords_LearnOnlyFromOccurrencesOutsideTheWholeWord()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        Thought fragment = SeedPattern(module, "og", 1);
+        var sequence = uks.AddSequence("unparented", ModuleSequenceSegmenterDlg.InputSymbols(module, "dog"), allowCompression: false);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+        Assert.Same(fragment, Assert.Single(module.PatternRoot.Children));
+        Assert.Equal(1, fragment.Weight); // Containment depends on complete tags, not ancestry.
+        Assert.Contains(module.InputQueueHead.NXT.LinksTo, link => link.LinkType.Label == "usedBy" && ReferenceEquals(link.To, sequence));
+        module.MaximumProposalsPerEpisode = 0;
+        Thought every = SeedPattern(module, "every", 1);
+        Thought one = SeedPattern(module, "one", 1);
+        Thought everyone = SeedPattern(module, "everyone", 1);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "everyone");
+        Assert.Equal(1, every.Weight);
+        Assert.Equal(1, one.Weight);
+        Assert.Equal(2, everyone.Weight);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "everyoneevery");
+        Assert.Equal(2, every.Weight); // The trailing every is outside everyone.
+        Assert.Equal(1, one.Weight);
+        Assert.Equal(3, everyone.Weight);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "one");
+        Assert.Equal(2, one.Weight);
+        Thought ca = SeedPattern(module, "ca", 1);
+        Thought t = SeedPattern(module, "t", 1);
+        Thought cat = SeedPattern(module, "cat", 1);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "cat");
+        Assert.Equal(1, ca.Weight); // ca|t must not bypass containment inhibition.
+        Assert.Equal(1, t.Weight);
+        Assert.Equal(2, cat.Weight);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "ca");
+        Assert.Equal(2, ca.Weight);
+    }
+
+    [Fact]
+    public void BothCases_StrengthenKnownPatternAndCreateContainingCandidate()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.MaximumProposalsPerEpisode = 1;
+        Thought cat = SeedPattern(module, "cat", 1);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "catdog");
+        Assert.Equal(2, cat.Weight);
+        Assert.Null(uks.Labeled("w:catdog"));
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "catdog");
+        Assert.Equal(3, cat.Weight);
+        Assert.False(cat.isPlastic);
+        Assert.Equal(1, uks.Labeled("w:catdog").Weight);
+        Assert.Null(uks.Labeled("w:dog"));
+        Assert.Single(module.PatternRoot.Children.Where(pattern => pattern.Label == "w:cat"));
+        module.MaximumProposalsPerEpisode = 0;
+        Thought the = SeedPattern(module, "the", 1);
+        Thought crossing = SeedPattern(module, "theca", 1);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "thecat");
+        Assert.Equal(2, the.Weight);
+        Assert.Equal(4, cat.Weight);
+        Assert.Equal(1, crossing.Weight); // the|cat covers the extra t, so theca gets no reinforcement.
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "theca");
+        Assert.Equal(2, crossing.Weight); // A complete independent occurrence is still allowed to learn.
+        Assert.Equal(2, the.Weight);
+    }
+
+    [Fact]
+    public void FullCoverage_LeavesInhibitedMatchesUnchangedAndRewardsIndependentUses()
+    {
+        var module = CreateInitializedSegmenter(CreateUKS());
+        module.MaximumProposalsPerEpisode = 0;
+        Thought dog = SeedPattern(module, "dog", 10);
+        Thought cat = SeedPattern(module, "cat", 10);
+        Thought crossing = SeedPattern(module, "dogca", 10);
+        Thought absent = SeedPattern(module, "pig", 10);
+
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogcatx");
+        Assert.Equal(10, crossing.Weight); // Partial coverage leaves the inhibited match unchanged.
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogcatdogcat");
+        Assert.Equal(10, crossing.Weight); // Full coverage also leaves losing occurrences unchanged.
+        Assert.False(crossing.isPlastic);
+        Assert.Equal(12, dog.Weight);
+        Assert.Equal(12, cat.Weight);
+        Assert.Equal(10, absent.Weight);
+
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogcatdogca");
+        Assert.Equal(11, crossing.Weight); // Independent final occurrence survives and earns reinforcement.
+        Assert.Equal(10, absent.Weight);
+    }
+
+    [Fact]
+    public void QueueTags_RequireOneAlignedEarlierOccurrenceForEachProposal()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.MaximumProposalsPerEpisode = 10;
+        module.QueueInput(WithPause(module, ModuleSequenceSegmenterDlg.InputSymbols(module, "dogcat")));
+        module.QueueInput(WithPause(module, ModuleSequenceSegmenterDlg.InputSymbols(module, "catpig")));
+        while (module.TryReadQueuedInput(out _)) { }
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogcatpig");
+        Assert.NotNull(uks.Labeled("w:dogcat"));
+        Assert.Null(uks.Labeled("w:catpig")); // Both routes select dogcat when support and length tie.
+        Assert.Null(uks.Labeled("w:dogcatpig")); // All characters have queue tags, but not from one occurrence.
+        Assert.DoesNotContain(module.PatternRoot.Children, pattern => pattern.Label == "w:catp");
+
+        var coreUKS = CreateUKS();
+        var core = CreateInitializedSegmenter(coreUKS);
+        core.MaximumProposalsPerEpisode = 2; // Exercise both nomination routes explicitly.
+        foreach (string text in new[] { "adogcat", "bdogpig", "cdogfur" })
+            core.QueueInput(WithPause(core, ModuleSequenceSegmenterDlg.InputSymbols(core, text)));
+        while (core.TryReadQueuedInput(out _)) { }
+        ModuleSequenceSegmenterDlg.SubmitLine(core, "zdogcar");
+        Assert.Equal(2, core.PatternRoot.Children.Count);
+        Assert.Equal(1, coreUKS.Labeled("w:dog").Weight); // Most frequent.
+        Assert.Equal(1, coreUKS.Labeled("w:dogca").Weight); // Longest.
+        Assert.Null(coreUKS.Labeled("w:zdogcar"));
+        ModuleSequenceSegmenterDlg.SubmitLine(core, "zdogcar");
+        Assert.Single(core.PatternRoot.Children.Where(thought => thought.Label == "w:dogca"));
+    }
+
+    [Fact]
+    public void StoredWordTags_DoNotSplitAQueueSupportedCandidateRegion()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.MaximumProposalsPerEpisode = 1;
+        SeedPattern(module, "cat", 3);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "uvcatxz");
+        Assert.Single(module.PatternRoot.Children);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "uvcatxz");
+        Assert.Equal(1, uks.Labeled("w:uvcatxz").Weight);
+        Assert.Null(uks.Labeled("w:uv"));
+        Assert.Null(uks.Labeled("w:xz"));
+        Assert.Equal(2, module.PatternRoot.Children.Count);
+    }
+
+    [Fact]
+    public void CandidateCapacity_NonPlasticPatternsLeaveASlot()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.CandidateCapacity = 1;
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "fido");
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "fido");
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "xyz");
+        Assert.Single(module.PatternRoot.Children);
+        Assert.Null(uks.Labeled("w:xyz"));
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "fido");
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "fido");
+        Assert.False(uks.Labeled("w:fido").isPlastic);
+        module.MaximumProposalsPerEpisode = 1;
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "xyz");
+        Assert.NotNull(uks.Labeled("w:xyz"));
+    }
+
+    [Fact]
+    public void Pauses_DoNotJoinEpisodesOrDuplicateKnownPatterns()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.MaximumProposalsPerEpisode = 0;
+        Thought dog = SeedPattern(module, "dog", 3);
+        module.InputReceived(ModuleSequenceSegmenterDlg.InputSymbols(module, "dog"));
+        Assert.Equal(3, dog.Weight);
+        module.InputReceived(new[] { module.InputPause, module.InputPause });
+        Assert.Equal(4, dog.Weight);
+        Assert.Empty(module.FindInputOccurrences(ModuleSequenceSegmenterDlg.InputSymbols(module, "gdog")));
+    }
+
+    [Fact]
+    public void ExpiredQueue_DoesNotAdmitCandidates()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+        module.TrimInputQueue(System.DateTime.Now.AddSeconds(6));
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+        Assert.Empty(module.PatternRoot.Children);
+    }
+
+    [Fact]
+    public void RepeatedGenericInput_PreservesIdentityAndUsesConfiguredRootAndPrefix()
     {
         var uks = CreateUKS();
         var module = CreateInitializedSegmenter(uks);
         module.PatternRoot = uks.GetOrAddThought("SoundPattern", "Thought");
         module.PatternPrefix = "s:";
-        Thought note = uks.GetOrAddThought("pitch:G4");
-        module.InputReceived(WithPause(module, new[] { note }));
-        Thought candidate = Assert.Single(module.PatternRoot.Children);
-        Assert.Equal("s:pitch:G4", candidate.Label);
-        Assert.Empty(uks.Labeled("Word").Children);
-        module.InputReceived(WithPause(module, new[] { note }));
-        Assert.Equal(2, candidate.Weight);
-    }
-
-    [Fact]
-    public void LabelCollision_DoesNotMergeDifferentSequences()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        Thought a = uks.GetOrAddThought("a"), bc = uks.GetOrAddThought("bc");
-        Thought ab = uks.GetOrAddThought("ab"), c = uks.GetOrAddThought("c");
-        module.InputReceived(WithPause(module, new[] { a, bc }));
-        module.InputReceived(WithPause(module, new[] { ab, c }));
-        Assert.Equal(2, module.PatternRoot.Children.Count);
-        module.InputReceived(WithPause(module, new[] { a, bc }));
-        Assert.Equal(2, uks.Labeled("w:abc").Weight);
-        foreach (Thought pattern in module.PatternRoot.Children)
-            if (pattern.Label != "w:abc") Assert.Equal(1, pattern.Weight);
-    }
-
-    [Fact]
-    public void KnownPatterns_LeaveTheMiddleGapAsACandidate()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "cat");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogandcat");
-        Assert.Equal(1, uks.Labeled("w:dog").Weight);
-        Assert.Equal(1, uks.Labeled("w:cat").Weight);
-        Assert.Equal(1, uks.Labeled("w:and").Weight);
-        Assert.Null(uks.Labeled("w:dogandcat"));
-        var parts = module.FindExistingSubPatterns(ModuleSequenceSegmenterDlg.InputSymbols(module, "dogandcat"));
-        Assert.Equal(3, parts.Count);
-        Assert.Same(uks.Labeled("w:and"), parts[1].pattern);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "doghascat");
-        Assert.Equal(2, uks.Labeled("w:dog").Weight);
-        Assert.Equal(2, uks.Labeled("w:cat").Weight);
-    }
-
-    [Fact]
-    public void FamiliarIntroduction_DoesNotPreventLearningAnUnknownName()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "mynameis");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "mynameis");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "mynameisjohn");
-        Assert.Null(uks.Labeled("w:john"));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "mynameisjohn");
-        Assert.Equal(1, uks.Labeled("w:john").Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "john");
-        Assert.Equal(2, uks.Labeled("w:john").Weight);
-    }
-
-    [Fact]
-    public void SplitSelection_ContinuesPastShortMatchesAndChoosesBestTotalCoverage()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        foreach (string text in new[] { "a", "ado", "do", "ab", "abc", "cde" })
-        {
-            Thought pattern = uks.GetOrAddThought("w:" + text, module.PatternRoot);
-            uks.AddSequenceAndLink(pattern, "spelled", ModuleSequenceSegmenterDlg.InputSymbols(module, text), allowCompression: false);
-        }
-        var parts = module.FindExistingSubPatterns(ModuleSequenceSegmenterDlg.InputSymbols(module, "ado"));
-        Assert.Same(uks.Labeled("w:ado"), Assert.Single(parts).pattern);
-        parts = module.FindExistingSubPatterns(ModuleSequenceSegmenterDlg.InputSymbols(module, "abcde"));
-        Assert.Equal(2, parts.Count);
-        Assert.Same(uks.Labeled("w:ab"), parts[0].pattern);
-        Assert.Same(uks.Labeled("w:cde"), parts[1].pattern);
-    }
-
-    [Fact]
-    public void Segmentation_PreservesAllLeadingMiddleAndTrailingMisses()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "cat");
-        var input = ModuleSequenceSegmenterDlg.InputSymbols(module, "xxdogyycatzz");
-        var parts = module.FindExistingSubPatterns(input);
-        Assert.Equal(5, parts.Count);
-        Assert.Null(parts[0].pattern);
-        Assert.Null(parts[2].pattern);
-        Assert.Null(parts[4].pattern);
-        System.Collections.Generic.List<Thought> reconstructed = new();
-        foreach (var part in parts) reconstructed.AddRange(part.input);
-        Assert.Equal(input, reconstructed);
+        module.MaximumProposalsPerEpisode = 1;
+        Thought pitch = uks.GetOrAddThought("pitch:G4");
+        Thought duration = uks.GetOrAddThought("duration:half");
+        var input = new[] { pitch, duration };
         module.InputReceived(WithPause(module, input));
-        foreach (string label in new[] { "w:xx", "w:yy", "w:zz" })
-            Assert.Equal(1, uks.Labeled(label).Weight);
-    }
-
-    [Fact]
-    public void RepeatedGapInOneEpisode_CreatesOneCandidateWithoutDoubleReward()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "xxdogxx");
-        Assert.Equal(1, uks.Labeled("w:xx").Weight);
-        Assert.Equal(2, module.PatternRoot.Children.Count);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "xx");
-        Assert.Equal(2, uks.Labeled("w:xx").Weight);
-    }
-
-    [Fact]
-    public void RejectedGap_DoesNotStopActivationOfLaterMatches()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.CandidateCapacity = 1;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "anddog");
-        Assert.Null(uks.Labeled("w:and"));
-        Assert.Equal(1, uks.Labeled("w:dog").Weight);
-        Assert.Contains("w:dog", module.LastStatus);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        Assert.Equal(2, uks.Labeled("w:dog").Weight);
-    }
-
-    [Theory]
-    [InlineData("dog", 1, true)]
-    [InlineData("dog!", 2, true)]
-    [InlineData("dog!!!  ", 4, false)]
-    public void TrailingExclamationMarks_SetEmphasisWithoutEnteringTheSequence(string text, float strength, bool plastic)
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, text);
-        Thought dog = uks.Labeled("w:dog");
-        Assert.Equal(strength, dog.Weight);
-        Assert.Equal(plastic, dog.isPlastic);
-        var symbols = ModuleSequenceSegmenterDlg.InputSymbols(module, "dog");
-        Assert.Equal(symbols, uks.FlattenSequence((SeqElement)dog.GetTargetOfFirstLinkOfType(uks.Labeled("spelled"))));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "cat");
-        Assert.Equal(1, uks.Labeled("w:cat").Weight);
-    }
-
-    [Fact]
-    public void Emphasis_AdmitsLongInputAndSubsequentPlainInputReinforcesNormally()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "elephant!");
-        Assert.Equal(2, uks.Labeled("w:elephant").Weight);
-        Assert.True(uks.Labeled("w:elephant").isPlastic);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "elephant");
-        Assert.Equal(3, uks.Labeled("w:elephant").Weight);
-        Assert.False(uks.Labeled("w:elephant").isPlastic);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "elephant!!!");
-        Assert.Equal(7, uks.Labeled("w:elephant").Weight);
-    }
-
-    [Fact]
-    public void Emphasis_AppliesToExistingMatchesAndUnknownGaps()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "cat");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogandcat!");
-        Assert.Equal(3, uks.Labeled("w:dog").Weight);
-        Assert.Equal(2, uks.Labeled("w:and").Weight);
-        Assert.Equal(3, uks.Labeled("w:cat").Weight);
-        Assert.Equal(2, uks.Labeled("w:dogandcat").Weight);
-    }
-
-    [Fact]
-    public void Emphasis_DoesNotExceedCandidateCapacity()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.CandidateCapacity = 1;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "elephant!!!");
-        Assert.Null(uks.Labeled("w:elephant"));
-        Assert.Single(module.PatternRoot.Children);
-    }
-
-    [Fact]
-    public void GenericInput_CanSupplyEmphasisWithoutPunctuation()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        Thought note = uks.GetOrAddThought("pitch:G4");
-        module.InputReceived(WithPause(module, new[] { note }), emphasis: 1);
-        Thought pattern = Assert.Single(module.PatternRoot.Children);
-        Assert.Equal(2, pattern.Weight);
-        Assert.True(pattern.isPlastic);
-    }
-
-    [Fact]
-    public void RepeatedPhraseEdges_ReinforceAfterBoundaryVariation()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "doghascat");
         Assert.Empty(module.PatternRoot.Children);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogandcat");
-        Assert.Equal(1, uks.Labeled("w:dog").Weight);
-        Assert.Equal(1, uks.Labeled("w:cat").Weight);
-        Assert.Equal(2, module.PatternRoot.Children.Count);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogandcat");
-        Assert.Equal(2, uks.Labeled("w:dog").Weight);
-        Assert.Equal(2, uks.Labeled("w:cat").Weight);
-        Assert.Equal(1, uks.Labeled("w:and").Weight);
-    }
-
-    [Theory]
-    [InlineData("elephantxxq", "elephantzzy", "elephant")]
-    [InlineData("doghasgiraffe", "catandgiraffe", "giraffe")]
-    public void RepeatedEdges_AreNotLimitedToThreeInputs(string first, string second, string edge)
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, first);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, second);
-        Thought candidate = uks.Labeled("w:" + edge);
-        Assert.NotNull(candidate);
-        Assert.Equal(1, candidate.Weight);
-        Assert.True(candidate.isPlastic);
-    }
-
-    [Fact]
-    public void RepeatedInterior_WithChangingSurroundingsBecomesACandidate()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "xxdogyy");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "zzdogqq");
-        Assert.Equal("w:dog", Assert.Single(module.PatternRoot.Children).Label);
-    }
-
-    [Fact]
-    public void ExpiredPhraseEdges_DoNotSupportDiscovery()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "doghascat");
-        module.TrimInputQueue(System.DateTime.Now.AddSeconds(6));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogandcat");
-        Assert.Empty(module.PatternRoot.Children);
-    }
-
-    [Fact]
-    public void BoundaryDiscovery_RespectsCandidateCapacity()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.CandidateCapacity = 1;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "doghascat");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogandcat");
-        Assert.Equal("w:dog", Assert.Single(module.PatternRoot.Children).Label);
-        Assert.Null(uks.Labeled("w:cat"));
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void RepeatedFrog_IsLearnedAcrossDifferentBackgroundsEvenWithKnownLetters(bool teachAlphabet)
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        if (teachAlphabet)
-            foreach (char character in "abcdefghijklmnopqrstuvwxyz")
-                ModuleSequenceSegmenterDlg.SubmitLine(module, character + "!!!");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "xxfrogabc");
-        Assert.Null(uks.Labeled("w:frog"));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "deffrogzz");
-        Thought frog = uks.Labeled("w:frog");
-        Assert.NotNull(frog);
-        Assert.Equal(1, frog.Weight);
-        Assert.True(frog.isPlastic);
-        Assert.Null(uks.Labeled("w:fro"));
-        Assert.Null(uks.Labeled("w:rog"));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "qfrogtt");
-        Assert.Equal(2, frog.Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "pfrogvv");
-        Assert.Equal(3, frog.Weight);
-        Assert.False(frog.isPlastic);
-        if (teachAlphabet) Assert.False(uks.Labeled("w:r").isPlastic);
-    }
-
-    [Fact]
-    public void RepeatedInterior_WithUnchangedNeighborDoesNotInferThatBoundary()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "xxafrogabc");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "defafrogzz");
-        Assert.Null(uks.Labeled("w:rog"));
-        Assert.Null(uks.Labeled("w:frog"));
-        Assert.Equal(1, uks.Labeled("w:afrog").Weight);
-    }
-
-    [Fact]
-    public void InteriorDiscovery_RespectsRepetitionWindow()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.RepetitionWindow = System.TimeSpan.Zero;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "xxfrogabc");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "deffrogzz");
-        Assert.Null(uks.Labeled("w:frog"));
-    }
-
-    [Fact]
-    public void InteriorDiscovery_RespectsCandidateCapacity()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.CandidateCapacity = 0;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "xxfrogabc");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "deffrogzz");
-        Assert.Empty(module.PatternRoot.Children);
-    }
-
-    [Fact]
-    public void RecognizedPrefix_DoesNotGainStrengthFromRepetitionOfTheLargerWord()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "ca");
-        Thought fragment = uks.Labeled("w:ca");
-        for (int presentation = 0; presentation < 4; presentation++)
-        {
-            ModuleSequenceSegmenterDlg.SubmitLine(module, "cat");
-            Assert.InRange(fragment.Weight, 0.79f, 1);
-            Assert.True(fragment.isPlastic);
-        }
-        Thought cat = uks.Labeled("w:cat");
-        Assert.Equal(4, cat.Weight);
-        Assert.False(cat.isPlastic);
-        float previous = fragment.Weight;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "ca");
-        Assert.Equal(previous + 1, fragment.Weight);
-    }
-
-    [Fact]
-    public void RecognizedInteriorFragment_StillDecaysWithoutBoundaryEvidence()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.CandidateDecayPerSecond = 0.05f;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "r");
-        Thought fragment = uks.Labeled("w:r");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "frog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "frog");
-        Assert.Equal(1, fragment.Weight);
-        module.DecayCandidates(System.TimeSpan.FromSeconds(10));
-        Assert.Equal(0.5f, fragment.Weight);
-    }
-
-    [Fact]
-    public void WholePausedCar_IsAdmittedDespiteAnEstablishedPrefixAndExistingRemainder()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "ca!!!");
-        Thought ca = uks.Labeled("w:ca");
-        ca.Weight = 3.87f;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "r");
-        Thought remainder = uks.Labeled("w:r");
-        remainder.Weight = 0.7f;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "car");
-        Thought car = uks.Labeled("w:car");
-        Assert.NotNull(car);
-        Assert.Equal(1, car.Weight);
-        Assert.True(car.isPlastic);
-        Assert.Equal(3.87f, ca.Weight);
-        Assert.Equal(0.7f, remainder.Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "car");
-        Assert.Equal(2, car.Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "car");
-        Assert.Equal(3, car.Weight);
-        Assert.False(car.isPlastic);
-    }
-
-    [Fact]
-    public void WholePausedInput_StillRequiresRepetitionAboveTheSingleUseLimit()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        foreach (char character in "frog")
-            ModuleSequenceSegmenterDlg.SubmitLine(module, character + "!!!");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "frog");
-        Assert.Null(uks.Labeled("w:frog"));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "frog");
-        Assert.Equal(1, uks.Labeled("w:frog").Weight);
-    }
-
-    [Fact]
-    public void WholePausedInput_AdmissionStillRespectsCandidateCapacity()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "ca");
-        module.CandidateCapacity = 1;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "car");
-        Assert.Null(uks.Labeled("w:car"));
-        Assert.Equal(1, uks.Labeled("w:ca").Weight);
-    }
-
-    [Theory]
-    [InlineData(1)]
-    [InlineData(3)]
-    public void ContextSupport_PrioritizesDogOverLongerDogCa(int maximumProposals)
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.MaximumProposalsPerEpisode = maximumProposals;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "zdoghas");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "xdogcat");
-        Assert.Equal(1, uks.Labeled("w:dog").Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "ydogcar");
-        if (maximumProposals == 1) Assert.Null(uks.Labeled("w:dogca"));
-        else Assert.Equal(1, uks.Labeled("w:dogca").Weight);
-        Assert.Equal(2, uks.Labeled("w:dog").Weight);
-    }
-
-    [Fact]
-    public void EmbeddedReinforcement_RewardsRepetitionAfterBoundaryVariation()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.ConsolidationStrength = 5;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "xxfrogabc");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "deffrogzz");
-        Thought frog = uks.Labeled("w:frog");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "qfrogtt");
-        Assert.Equal(2, frog.Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "qfrogtt");
-        Assert.Equal(3, frog.Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "qfrogzz");
-        Assert.Equal(4, frog.Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "qfrogvv");
-        Assert.Equal(5, frog.Weight);
-        Assert.False(frog.isPlastic);
-    }
-
-    [Fact]
-    public void SingleInputPattern_LearnsAcrossChangingSurroundings()
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        foreach (string text in new[] { "xx", "yy", "pp", "zz", "rr", "ss", "tt", "uu" })
-            ModuleSequenceSegmenterDlg.SubmitLine(module, text + "!!!");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "xxayy");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "ppazz");
-        Thought candidate = uks.Labeled("w:a");
-        Assert.NotNull(candidate);
-        Assert.Equal(2, candidate.Weight);
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "rrass");
+        module.InputReceived(WithPause(module, input), 2);
+        Thought candidate = Assert.Single(module.PatternRoot.Children);
+        Assert.StartsWith("s:", candidate.Label);
         Assert.Equal(3, candidate.Weight);
-        Assert.False(candidate.isPlastic);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void SingleInputPattern_DoesNotStrengthenInsideLargerPattern(bool established)
-    {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        foreach (string text in new[] { "cat", "car", "hat", "has" })
-            ModuleSequenceSegmenterDlg.SubmitLine(module, text + (established ? "!!!" : ""));
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "a");
-        Thought candidate = uks.Labeled("w:a");
-        for (int repeat = 0; repeat < 4; repeat++)
-            foreach (string text in new[] { "xcaty", "pcarq", "rhats", "thasu" })
-                ModuleSequenceSegmenterDlg.SubmitLine(module, text);
-        Assert.Equal(1, candidate.Weight);
-        Assert.True(candidate.isPlastic);
+        var stored = (SeqElement)candidate.GetTargetOfFirstLinkOfType("spelled");
+        Assert.Equal(input, uks.FlattenSequence(stored));
+        Assert.Empty(uks.Labeled("Word").Children);
     }
 
     [Fact]
-    public void ConfiguredConsolidation_CanRequireFiveRewards()
+    public void QueueEpisode_AllStoredMatchesAreTaggedDirectlyAndStopAtThePause()
     {
-        Assert.Equal(3, new ModuleSequenceSegmenter().ConsolidationStrength);
         var uks = CreateUKS();
         var module = CreateInitializedSegmenter(uks);
-        module.ConsolidationStrength = 5;
-        for (int presentation = 1; presentation <= 5; presentation++)
+        foreach (string text in new[] { "dog", "cat", "a", "at" }) SeedPattern(module, text, 3);
+        var input = ModuleSequenceSegmenterDlg.InputSymbols(module, "dogcat");
+        module.QueueInput(WithPause(module, input));
+        SeqElement first = module.InputQueueHead.NXT;
+        SeqElement pause = uks.GetLastlement(first);
+        module.QueueInput(WithPause(module, ModuleSequenceSegmenterDlg.InputSymbols(module, "at")));
+        module.FindExistingSubPatterns(first);
+        SeqElement position = first;
+        foreach (int count in new[] { 1, 1, 1, 1, 3, 2 })
+        {
+            var uses = position.LinksTo.Where(link => link.LinkType.Label == "usedBy");
+            Assert.Equal(count, uses.Count());
+            foreach (Link use in uses)
+            {
+                SeqElement sequence = Assert.IsType<SeqElement>(use.To);
+                Assert.Same(sequence, sequence.FRST);
+                Assert.Contains(sequence.LinksFrom, link => link.LinkType.Label == "spelled" && module.PatternRoot.Children.Contains(link.From));
+            }
+            position = position.NXT;
+        }
+        Assert.Same(pause, position);
+        Assert.DoesNotContain(pause.LinksTo, link => link.LinkType.Label == "usedBy");
+        Assert.DoesNotContain(pause.NXT.LinksTo, link => link.LinkType.Label == "usedBy");
+        foreach (Thought value in input) Assert.DoesNotContain(value.LinksTo, link => link.LinkType.Label == "usedBy");
+    }
+
+    [Fact]
+    public void PartialStoredAndAlphabetHits_DoNotBlockQueueBasedCandidateCreation()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        Thought dog = SeedPattern(module, "dog", 3);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "og");
+        Assert.DoesNotContain(module.InputQueueHead.NXT.LinksTo, link => link.LinkType.Label == "usedBy");
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "og");
+        Assert.Equal(1, uks.Labeled("w:og").Weight);
+        Assert.Equal(3, dog.Weight);
+    }
+
+    [Fact]
+    public void QueueTags_PreserveBothStoredAndEarlierQueueMatches()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        Thought a = uks.GetOrAddCharacter('a');
+        Thought b = uks.GetOrAddCharacter('b');
+        Thought pattern = SeedPattern(module, "ab", 3);
+        module.QueueInput(new[] { a, b, module.InputPause, a, b, module.InputPause, a, b, module.InputPause });
+        SeqElement earlier = module.InputQueueHead.NXT;
+        SeqElement current = earlier.NXT.NXT.NXT;
+        SeqElement future = current.NXT.NXT.NXT;
+        module.FindExistingSubPatterns(current);
+        var uses = current.LinksTo.Where(link => link.LinkType.Label == "usedBy").ToList();
+        Assert.Equal(2, uses.Count);
+        Assert.DoesNotContain(uses, link => link.To.Label.StartsWith("alphabet-seq"));
+        Assert.Contains(uses, link => ReferenceEquals(link.To, earlier));
+        Assert.Contains(uses, link => ReferenceEquals(link.To, pattern.GetTargetOfFirstLinkOfType("spelled")));
+        Assert.DoesNotContain(uses, link => ReferenceEquals(link.To, current) || ReferenceEquals(link.To, future));
+        Assert.Null(earlier.FRST);
+    }
+
+    [Fact]
+    public void QueueTags_UnknownSpanUsesOnlyEarlierOccurrencesAndStillFindsLongerSpans()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        Thought a = uks.GetOrAddCharacter('a');
+        Thought b = uks.GetOrAddCharacter('b');
+        Thought c = uks.GetOrAddCharacter('c');
+        Thought pattern = SeedPattern(module, "ab", 3);
+        module.QueueInput(new[] { a, b, c, module.InputPause, a, b, c, module.InputPause, a, b, c, module.InputPause });
+        SeqElement earlier = module.InputQueueHead.NXT;
+        SeqElement current = earlier.NXT.NXT.NXT.NXT;
+        SeqElement future = current.NXT.NXT.NXT.NXT;
+        module.FindExistingSubPatterns(current);
+        Assert.Contains(current.LinksTo, link => link.LinkType.Label == "usedBy" &&
+            ReferenceEquals(link.To, pattern.GetTargetOfFirstLinkOfType("spelled")));
+        // The longer abc span still gets historical tags despite the stored ab match.
+        Assert.Contains(current.LinksTo, link => link.LinkType.Label == "usedBy" && ReferenceEquals(link.To, earlier));
+        Assert.Contains(current.NXT.LinksTo, link => link.LinkType.Label == "usedBy" && ReferenceEquals(link.To, earlier.NXT));
+        Assert.DoesNotContain(current.LinksTo, link => ReferenceEquals(link.To, current) || ReferenceEquals(link.To, future));
+        Assert.DoesNotContain(future.LinksTo, link => link.LinkType.Label == "usedBy");
+    }
+
+    [Fact]
+    public void BatchedEpisodes_DoNotUseFutureInputAsEarlierEvidence()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.MaximumProposalsPerEpisode = 1;
+        var dog = ModuleSequenceSegmenterDlg.InputSymbols(module, "dog");
+        var input = WithPause(module, dog);
+        input.AddRange(WithPause(module, dog));
+        module.InputReceived(input);
+        Assert.Equal(1, uks.Labeled("w:dog").Weight);
+    }
+
+    [Fact]
+    public void EpisodeProcessing_KeepsTagsOnTheOriginalQueueAndPreservesKnowledgeWhenTrimmed()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+        SeqElement first = module.InputQueueHead.NXT;
+        SeqElement third = first;
+        for (int index = 0; index < 8; index++) third = third.NXT;
+        var stored = (SeqElement)uks.Labeled("w:dog").GetTargetOfFirstLinkOfType("spelled");
+        Assert.Contains(third.LinksTo, link => link.LinkType.Label == "usedBy" && ReferenceEquals(link.To, stored));
+        Assert.Equal(2, uks.Labeled("w:dog").Weight);
+        module.ClearInputQueue();
+        Assert.Equal(ModuleSequenceSegmenterDlg.InputSymbols(module, "dog"), uks.FlattenSequence(stored));
+        Assert.Same(stored, uks.Labeled(stored.Label));
+    }
+
+    [Fact]
+    public void ConfiguredConsolidation_RequiresTwentyFiveAndOnlyPlasticCandidatesDecay()
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.ConsolidationStrength = 25;
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
+        for (int strength = 1; strength <= 25; strength++)
         {
             ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-            Assert.Equal(presentation, uks.Labeled("w:dog").Weight);
-            Assert.Equal(presentation < 5, uks.Labeled("w:dog").isPlastic);
+            Assert.Equal(strength, uks.Labeled("w:dog").Weight);
+            Assert.Equal(strength < 25, uks.Labeled("w:dog").isPlastic);
         }
+        Thought candidate = SeedPattern(module, "cat", 9);
+        Thought pattern = uks.Labeled("w:dog");
+        module.DecayCandidates(System.TimeSpan.FromSeconds(1));
+        Assert.Equal(9 - module.CandidateDecayPerSecond, candidate.Weight, 4);
+        Assert.Equal(25, pattern.Weight);
+        Assert.False(pattern.isPlastic);
+        module.DecayCandidates(System.TimeSpan.FromSeconds(100));
+        Assert.Null(uks.Labeled("w:cat"));
+        Assert.Same(pattern, uks.Labeled("w:dog"));
+        Assert.Equal(25, pattern.Weight);
+        Assert.False(pattern.isPlastic);
     }
 
-    [Theory]
-    [InlineData(17)]
-    [InlineData(42)]
-    [InlineData(73)]
-    public void VocabularyExperiment_ReportsFixedSeedProposalComparison(int seed)
+    [Fact]
+    public void ExistingDecayPolicy_StillRunsFromFire()
     {
-        string[] vocabulary = { "dog", "has", "fur", "cat", "hat", "car", "a", "an", "the", "cam", "can", "cap", "cart", "camp" };
-        foreach (int maximumProposals in new[] { 1, 3 })
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        module.initialized = true;
+        module.CandidateDecayPerSecond = 1;
+        Thought candidate = SeedPattern(module, "dog", 1);
+        System.Threading.Thread.Sleep(20);
+        module.Fire();
+        Assert.True(candidate.Weight < 1);
+        module.DecayCandidates(System.TimeSpan.FromSeconds(2));
+        Assert.Null(uks.Labeled("w:dog"));
+    }
+
+    private static Thought SeedPattern(ModuleSequenceSegmenter module, string text, float strength)
+    {
+        Thought pattern = module.theUKS.GetOrAddThought("w:" + text, module.PatternRoot);
+        pattern.Weight = strength;
+        pattern.isPlastic = strength < module.ConsolidationStrength;
+        module.theUKS.AddSequenceAndLink(pattern, "spelled", ModuleSequenceSegmenterDlg.InputSymbols(module, text), allowCompression: false);
+        return pattern;
+    }
+
+    [Fact]
+    public void SeededPhraseFile_ContainsEveryWordAndCountsRecognizedOccurrencesInsteadOfRewards()
+    {
+        string path = System.IO.Path.GetTempFileName();
+        try
+        {
+            System.IO.File.WriteAllText(path, "Cat, cat! A dog.\nCAT-dog?\n");
+            var uks = CreateUKS();
+            var module = CreateInitializedSegmenter(uks);
+            var expected = ModuleSequenceSegmenterDlg.SeedWordsFromFile(module, path);
+            Thought cat = uks.Labeled("w:cat"), dog = uks.Labeled("w:dog"), a = uks.Labeled("w:a");
+            Assert.Equal(3, expected.Count);
+            Assert.Equal(3, expected[cat]);
+            Assert.Equal(2, expected[dog]);
+            Assert.Equal(1, expected[a]);
+            foreach (Thought word in expected.Keys)
+            {
+                Assert.False(word.isPlastic);
+                Assert.Equal(module.ConsolidationStrength, word.Weight);
+                Assert.NotNull(word.GetTargetOfFirstLinkOfType("spelled"));
+            }
+            Thought sequence = cat.GetTargetOfFirstLinkOfType("spelled");
+            ModuleSequenceSegmenterDlg.SeedWordsFromFile(module, path);
+            Assert.Same(sequence, cat.GetTargetOfFirstLinkOfType("spelled"));
+            Assert.Equal(3, module.PatternRoot.Children.Count);
+
+            module.RecognitionCounts = new();
+            using var reader = new ModuleSequenceSegmenterDlg.CorpusReader();
+            Assert.Equal(2, reader.LoadTextFromFile(module, path));
+            Assert.Equal(3, module.RecognitionCounts[cat]);
+            Assert.Equal(2, module.RecognitionCounts[dog]);
+            Assert.Equal(1, module.RecognitionCounts[a]); // Seeded single-letter words are recognized; embedded a occurrences are inhibited.
+            Assert.Equal(module.ConsolidationStrength + 2, cat.Weight); // Two phrases, three occurrences.
+            Assert.Equal(3, module.PatternRoot.Children.Count);
+        }
+        finally { System.IO.File.Delete(path); }
+    }
+
+    [Fact]
+    public void SeededCatInTheHat_RepeatedShameLinesAreRecognizedWithoutNewCandidates()
+    {
+        string path = System.IO.Path.Combine(System.AppContext.BaseDirectory, "SegmentationCorpora", "TheCatInTheHat.txt");
+        foreach (int proposals in new[] { 0, 2 })
         {
             var uks = CreateUKS();
             var module = CreateInitializedSegmenter(uks);
-            module.ConsolidationStrength = 5;
-            module.MaximumProposalsPerEpisode = maximumProposals;
-            // Keep the same 100 episodes available independent of test-machine speed.
-            module.RepetitionWindow = System.TimeSpan.FromHours(1);
-            System.Random random = new(seed);
-            for (int episode = 0; episode < 100; episode++)
+            module.ConsolidationStrength = 25;
+            module.MaximumProposalsPerEpisode = proposals;
+            var source = ModuleSequenceSegmenterDlg.SeedWordsFromFile(module, path);
+            module.RecognitionCounts = new();
+            Assert.Equal(3, source[uks.Labeled("w:shame")]);
+            foreach (string line in System.IO.File.ReadLines(path))
+                if (line.Contains("shame")) ModuleSequenceSegmenterDlg.SubmitLine(module, System.Text.RegularExpressions.Regex.Replace(line, @"\p{P}", ""));
+            Assert.Equal(3, module.RecognitionCounts[uks.Labeled("w:shame")]);
+            Assert.Equal(source.Count, module.PatternRoot.Children.Count);
+            foreach (string word in new[] { "shame", "a", "i", "s" })
             {
-                string input = string.Empty;
-                for (int index = 0; index < 6; index++) input += vocabulary[random.Next(vocabulary.Length)];
-                ModuleSequenceSegmenterDlg.SubmitLine(module, input);
-                module.DecayCandidates(System.TimeSpan.FromMilliseconds(10));
-                if (episode != 19 && episode != 99) continue;
-                int learned = 0, candidates = 0;
-                string missing = string.Empty;
-                foreach (string word in vocabulary)
-                {
-                    Thought pattern = uks.Labeled("w:" + word);
-                    if (pattern is not null && !pattern.isPlastic) learned++;
-                    else missing += word + " ";
-                }
-                foreach (Thought pattern in module.PatternRoot.Children)
-                    if (pattern.isPlastic) candidates++;
-                Assert.InRange(candidates, 0, module.CandidateCapacity);
-                _output.WriteLine($"seed={seed}, proposals={maximumProposals}, episodes={episode + 1}, learned={learned}/14, plastic={candidates}, missing={missing}");
+                Thought thought = uks.Labeled("w:" + word);
+                module.RecognitionCounts.TryGetValue(thought, out int hits);
+                _output.WriteLine($"Proposals {proposals}: {word}, source {source[thought]}, recognized {hits}, weight {thought.Weight}");
             }
+            _output.WriteLine($"New candidates: {module.PatternRoot.Children.Count - source.Count}");
         }
     }
 
     [Theory]
-    [InlineData(3)]
-    [InlineData(5)]
-    public void FixedVocabularyExperiment_ReportsWordsAndCombinations(float consolidationStrength)
+    [InlineData(0, 3)]
+    [InlineData(2, 3)]
+    public void RepeatedKnownPhrase_ReinforcesSeededWordsWithoutCreatingACompound(int proposals, int shameHits)
     {
-        string[] vocabulary = { "dog", "has", "fur", "cat", "hat", "car", "a", "an", "the", "cam", "can", "cap", "cart", "camp" };
-        string[] phrases =
+        string path = System.IO.Path.GetTempFileName();
+        try
         {
-            "cap cat dog has fur hat",
-            "dog car cap can the camp",
-            "the cam cap cart dog cat",
-            "cap car has fur dog hat",
-            "dog cat has cap the can",
-            "the cart dog camp has cam",
-            "fur hat cap cam dog can",
-            "hat fur dog cart the cat",
-            "car fur the cat cap camp",
-            "can hat cap cat the car",
-            "camp fur dog cam cap car",
-            "cart hat the camp dog can",
-            "a dog has fur an hat",
-            "an cat has a fur hat",
-        };
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.ConsolidationStrength = consolidationStrength;
-        module.RepetitionWindow = System.TimeSpan.FromHours(1);
-        for (int pass = 1; pass <= 3; pass++)
-        {
-            foreach (string phrase in phrases)
-            {
-                Assert.Equal(6, phrase.Split(' ').Length);
-                ModuleSequenceSegmenterDlg.SubmitLine(module, phrase);
-                module.DecayCandidates(System.TimeSpan.FromMilliseconds(10));
-            }
-            int learned = 0, discovered = 0, plastic = 0;
-            string weights = string.Empty;
-            foreach (string text in vocabulary)
-            {
-                Thought pattern = uks.Labeled("w:" + text);
-                if (pattern is null) { weights += text + ":absent; "; continue; }
-                discovered++;
-                if (!pattern.isPlastic) learned++;
-                weights += $"{text}:{pattern.Weight:0.000}/{(pattern.isPlastic ? "plastic" : "learned")}; ";
-            }
-            string otherPatterns = string.Empty;
-            foreach (Thought pattern in module.PatternRoot.Children)
-            {
-                if (pattern.isPlastic) plastic++;
-                if (System.Array.IndexOf(vocabulary, pattern.Label[2..]) >= 0) continue;
-                otherPatterns += $"{pattern.Label}:{pattern.Weight:0.000}/{(pattern.isPlastic ? "plastic" : "learned")}; ";
-            }
-            Assert.InRange(plastic, 0, module.CandidateCapacity);
-            _output.WriteLine($"threshold={consolidationStrength}, episodes={pass * phrases.Length}, discovered={discovered}/14, learned={learned}/14, plastic={plastic}");
-            _output.WriteLine("Vocabulary: " + weights);
-            _output.WriteLine("Other patterns: " + otherPatterns);
-            var ranked = new System.Collections.Generic.List<Thought>(module.PatternRoot.Children);
-            ranked.Sort((left, right) =>
-            {
-                int comparison = right.Weight.CompareTo(left.Weight);
-                return comparison;
-            });
-            string ranking = string.Empty;
-            foreach (Thought pattern in ranked) ranking += $"{pattern.Label}:{pattern.Weight:0.000}; ";
-            _output.WriteLine("Ranked patterns: " + ranking);
+            System.IO.File.WriteAllText(path, "what a shame!\nwhat a shame!\nwhat a shame!\nmother's\n");
+            var uks = CreateUKS();
+            var module = CreateInitializedSegmenter(uks);
+            var expected = ModuleSequenceSegmenterDlg.SeedWordsFromFile(module, path);
+            Assert.Equal(1, expected[uks.Labeled("w:s")]); // Splitting at punctuation seeds possessive suffixes too.
+            Assert.Equal(3, expected[uks.Labeled("w:shame")]);
+            module.MaximumProposalsPerEpisode = proposals;
+            module.RecognitionCounts = new();
+            using var reader = new ModuleSequenceSegmenterDlg.CorpusReader();
+            Assert.Equal(3, reader.LoadTextFromFile(module, path, 3));
+            Assert.Equal(shameHits, module.RecognitionCounts[uks.Labeled("w:shame")]);
+            Assert.Null(uks.Labeled("w:whatashame"));
         }
+        finally { System.IO.File.Delete(path); }
     }
 
     [Fact]
-    public void FixedDogContexts_ReusedNeighborsAllowConsolidation()
+    public void FullEstablishedCoverage_RewardsAlternativeSplitsAndIgnoresTentativeCompounds()
     {
-        var uks = CreateUKS();
-        var module = CreateInitializedSegmenter(uks);
-        module.ConsolidationStrength = 5;
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "fur dog cat");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "hat dog has");
-        ModuleSequenceSegmenterDlg.SubmitLine(module, "cam dog the");
-        Thought dog = uks.Labeled("w:dog");
-        Assert.NotNull(dog);
-        Assert.Equal(2, dog.Weight);
-        for (int presentation = 0; presentation < 4; presentation++)
-            ModuleSequenceSegmenterDlg.SubmitLine(module, "fur dog has");
-        Assert.Equal(5, dog.Weight);
-        Assert.False(dog.isPlastic);
-        _output.WriteLine("dog reaches strength 5: boundary variation supports rewards when familiar neighbors recur.");
+        var module = CreateInitializedSegmenter(CreateUKS());
+        Thought every = SeedPattern(module, "every", 3);
+        Thought one = SeedPattern(module, "one", 3);
+        Thought everyone = SeedPattern(module, "everyone", 3);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "everyone");
+        Assert.Equal(4, every.Weight);
+        Assert.Equal(4, one.Weight);
+        Assert.Equal(4, everyone.Weight);
+        Thought dog = SeedPattern(module, "dog", 3);
+        Thought cat = SeedPattern(module, "cat", 3);
+        Thought crossing = SeedPattern(module, "dogca", 1);
+        Thought compound = SeedPattern(module, "dogcat", 1);
+        module.RecognitionCounts = new();
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "dogcatdogcat");
+        Assert.Equal(4, dog.Weight);
+        Assert.Equal(4, cat.Weight);
+        Assert.Equal(2, module.RecognitionCounts[dog]);
+        Assert.Equal(2, module.RecognitionCounts[cat]);
+        Assert.Equal(1, crossing.Weight);
+        Assert.Equal(1, compound.Weight);
+        Assert.Equal(7, module.PatternRoot.Children.Count);
+    }
+
+    [Theory]
+    [InlineData("ab", "bc", "abc")]
+    [InlineData("ca", "an", "can")]
+    public void OverlappingStoredMatches_DoNotStopDiscovery(string left, string right, string input)
+    {
+        var module = CreateInitializedSegmenter(CreateUKS());
+        SeedPattern(module, left, 100);
+        SeedPattern(module, right, 187);
+        ModuleSequenceSegmenterDlg.SubmitLine(module, input);
+        Assert.Null(module.theUKS.Labeled("w:" + input));
+        ModuleSequenceSegmenterDlg.SubmitLine(module, input);
+        Assert.Equal(1, module.theUKS.Labeled("w:" + input).Weight);
+    }
+
+    [Fact]
+    public void PhraseFile_PreservesLinesStripsPunctuationAndDoesNotAddEmphasis()
+    {
+        string path = System.IO.Path.GetTempFileName();
+        try
+        {
+            System.IO.File.WriteAllText(path, "“Birds, fly!” Wait... here?\n\n!!!\nGo-go, birds!\tmetadata");
+            var uks = CreateUKS();
+            var module = CreateInitializedSegmenter(uks);
+            module.MaximumProposalsPerEpisode = 0;
+            Thought pattern = SeedPattern(module, "birdsflywaithere", 1);
+            using var reader = new ModuleSequenceSegmenterDlg.CorpusReader();
+            Assert.Equal(1, reader.LoadTextFromFile(module, path, 1));
+            Assert.Equal(2, pattern.Weight); // Punctuation is removed before SubmitLine can interpret emphasis.
+            var expected = WithPause(module, ModuleSequenceSegmenterDlg.InputSymbols(module, "birdsflywaithere"));
+            expected.Insert(0, module.InputPause);
+            Assert.Equal(expected, uks.FlattenSequence(module.InputQueueHead));
+            Assert.Equal(1, reader.LoadTextFromFile(module, path, 1));
+            expected.AddRange(WithPause(module, ModuleSequenceSegmenterDlg.InputSymbols(module, "gogobirds")));
+            Assert.Equal(expected, uks.FlattenSequence(module.InputQueueHead));
+        }
+        finally { System.IO.File.Delete(path); }
     }
 
     [Fact]
@@ -1092,6 +870,26 @@ public partial class ModuleSequenceSegmenterTests
         };
         Assert.Throws<System.ArgumentException>(() => ModuleSequenceSegmenterDlg.BuildRandomPhrase(vocabulary, 6, new System.Random(42)));
         Assert.Equal("a", ModuleSequenceSegmenterDlg.BuildRandomPhrase(vocabulary, 1, new System.Random(42)));
+    }
+
+    [Theory]
+    [InlineData(1, 100)]
+    [InlineData(0.5, 10)]
+    [InlineData(0, 1)]
+    public void FileVocabulary_FrequencyBiasFlattensWeightsAfterTopNSelection(double power, double expected)
+    {
+        string path = System.IO.Path.GetTempFileName();
+        try
+        {
+            System.IO.File.WriteAllText(path, "rare 1\ncommon 100\nunselected 0.01");
+            var vocabulary = ModuleSequenceSegmenterDlg.ReadVocabulary(path, 2, power);
+            Assert.Equal(2, vocabulary.Count);
+            Assert.Equal("common", vocabulary[0].Key);
+            Assert.Equal(expected, vocabulary[0].Value);
+            Assert.Equal("rare", vocabulary[1].Key);
+            Assert.Equal(1, vocabulary[1].Value);
+        }
+        finally { System.IO.File.Delete(path); }
     }
 
     [Theory]

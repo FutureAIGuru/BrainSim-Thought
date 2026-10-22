@@ -149,20 +149,11 @@ to the UI thread. The existing direct `CorpusReader` API remains available, but
 the Load button now runs the randomized word test instead of presenting file
 lines individually.
 
-`Fire()` calls `DecayCandidates` with elapsed time on every firing. Only patterns
-strictly below the adjustable `DecayThreshold` (default 3.5) decay, regardless of
-plasticity. At or above the threshold, weights are unchanged by time-based decay.
-Below-threshold plastic weights lose `CandidateDecayPerSecond` (current default
-0.1) per second; reaching zero deletes the candidate and frees a pool slot.
-Below-threshold consolidated weights decay proportionally at
-`LearnedDecayPerSecond` (default 0.05), using an exponential factor for elapsed
-time. With no rewards this halves strength in about fourteen seconds. This
-replaces population-gap detection, so a weak consolidated pattern decays even
-when it is the only pattern. The gap-ratio and detected-cutoff properties have
-been removed.
-Below
-`InitialStrength`, a consolidated pattern becomes plastic and resumes the faster
-candidate decay, eventually being deleted.
+`Fire()` calls `DecayCandidates` with elapsed time on every firing. Only plastic
+candidates decay. The default `ConsolidationStrength` is 10. Plastic weights lose
+`CandidateDecayPerSecond` (current default 0.1) per second, regardless of weight;
+reaching zero deletes the candidate and frees a pool slot. Non-plastic patterns
+retain their weights without decay and do not become plastic through inactivity.
 The decay clock is independent of input queue trimming and clearing. The decay
 method can also be exercised independently with an explicit elapsed duration.
 
@@ -306,3 +297,58 @@ run took approximately six minutes and thirty-seven seconds. This shows an
 improvement in this controlled case, not a guarantee across seeds or vocabulary
 sizes. The planned additional seeds and 1,000-phrase runs were stopped because
 of their cost; they are not included in these results.
+
+The dialog's **One phrase per line** option makes Load read the file in order
+rather than generate randomized phrases. Cycles limits the number of nonblank
+phrases submitted; Top N does not filter this mode. Punctuation is removed before
+submission (so exclamation marks do not add emphasis), spaces are ignored by the
+character adapter, and each line supplies exactly one trailing pause. Reading
+runs in the background with submissions dispatched to the UI, allowing the UKS
+display to evolve. The direct CorpusReader API also preserves one phrase per
+line instead of splitting at sentence punctuation; its existing tab-metadata
+handling remains in place.
+
+Single-symbol candidates require the sole-unrecognized-element exception. Existing
+stored single-symbol sequences still tag input and receive recognition
+reinforcement under the same coverage and containment rules as longer patterns.
+Single-symbol queue tags remain available as evidence for longer repeated spans.
+
+For recognition diagnostics, select **Seed all words before reading phrases**
+alongside **One phrase per line**. Load first reads the entire file synchronously
+on the UI thread and splits it into letter runs at whitespace or punctuation.
+Each distinct lowercase word gets a non-plastic w: Thought under Word with a
+spelled sequence and weight at least ConsolidationStrength. Existing spelled
+sequences are reused. Input queue history is cleared, then the whole phrase file
+is presented in the background as usual. Source counts, surviving recognition
+occurrence counts, and newly created patterns/candidates are appended to the
+output. Recognition counting is optional diagnostic bookkeeping and does not
+change once-per-Thought-per-episode reinforcement. Single-letter words are
+seeded and recognized; new single-symbol candidates require the sole-orphan rule. Existing
+vocabulary is preserved; use an empty UKS for an isolated run.
+
+When non-plastic patterns provide a complete, abutting path from the beginning
+of an episode to its pause, recognition reinforces all established occurrences
+that participate in any such path. Forward and backward boundary propagation
+finds these without enumerating combinations. Tentative candidates cannot
+suppress established words in this case, and candidate creation is skipped for
+the entire episode. Overlapping matches alone do not establish full coverage.
+Without complete established coverage, the existing partial recognition and
+candidate discovery rules still apply. The seeded three-line shame test now
+counts all three occurrences and creates no compounds.
+
+The per-element tag-coverage shortcut was removed: overlapping stored matches
+such as ca and an must not stop discovery of can. Candidate creation is skipped
+only when established matches form a complete abutting segmentation, as above.
+A single unrecognized element may be admitted immediately as a one-symbol
+candidate; multiple unrecognized elements do not qualify for that exception.
+Emphasized input adds extra evidence to candidate admission: with default
+MinimumOccurrences=2, frog! creates frog without an earlier queue occurrence.
+Recognized patterns receive max(1, emphasis) reinforcement hits, so !! gives two
+hits. Creation strength remains InitialStrength + emphasis.
+
+For a sole unrecognized element, candidate proposals include both that element
+and its shortest expansion across an immediately adjacent stored match. For
+cat|an|d|dog, an+d is shorter than d+dog, so and is nominated. For cat|s, cats is
+nominated. Equal-length alternatives prefer the left neighbor. The expansion
+receives the first proposal slot; a second slot admits the one-symbol orphan.
+The configured MaximumProposalsPerEpisode and candidate capacity still apply.

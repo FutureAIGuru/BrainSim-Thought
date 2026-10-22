@@ -9,19 +9,20 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UKS;
 
 namespace BrainSimulator.Modules;
 
 /// <summary>
 /// Retains recent input in a rolling UKS sequence.
-/// Repeated pause-delimited input strengthens plastic sequence candidates.
+/// Repeated spans propose candidates; all recognized patterns can strengthen.
 /// </summary>
 public class ModuleSequenceSegmenter : ModuleBase
 {
     #region Input queue
 
-    // Newest observation is in the mutable head. Everything behind it is stable.
+    // Oldest observation is at the head. Stream elements have no FRST links.
     private Thought _inputQueueOwner;
     private SeqElement _inputQueueHead;
     private SeqElement _currentPointer;
@@ -38,108 +39,83 @@ public class ModuleSequenceSegmenter : ModuleBase
     public void QueueInput(IReadOnlyList<Thought> input)
     {
         foreach (Thought observation in input)
-        {
             InsertQueuedObservation(observation);
-            if (ReferenceEquals(observation, _inputPause)) InsertQueuedObservation(observation);
-        }
     }
 
     private void InsertQueuedObservation(Thought observation)
     {
-        theUKS.InsertElement(_inputQueueHead, observation);
-        if (_currentPointer is null) _currentPointer = _inputQueueHead.NXT;
+        SeqElement tail = _inputQueueHead;
+        while (tail.NXT is not null) tail = tail.NXT;
+        SeqElement added = theUKS.AddElement(tail, observation);
+        _currentPointer ??= added;
     }
 
-    /// <summary>Returns the next stable observation, including pauses, and advances toward the head.</summary>
+    /// <summary>Returns the next observation and advances toward the tail.</summary>
     public bool TryReadQueuedInput(out Thought observation)
     {
         observation = null;
-        if (_currentPointer is null || ReferenceEquals(_currentPointer, _inputQueueHead)) return false;
-        observation = theUKS.GetElementValue(_currentPointer);
-        SeqElement newer = theUKS.GetPreviousSequenceElement(_currentPointer);
-        _currentPointer = ReferenceEquals(newer, _inputQueueHead) ? null : newer;
+        if (_currentPointer is null) return false;
+        observation = _currentPointer.VLU;
+        _currentPointer = _currentPointer.NXT;
         return true;
     }
 
-    /// <summary>Deletes the expired suffix, retaining the head and the initial pause.</summary>
+    /// <summary>Pops expired elements from the head; starts a fresh queue if all have expired.</summary>
     public void TrimInputQueue(DateTime? now = null)
     {
         DateTime cutoff = (now ?? DateTime.Now) - InputQueueLifetime;
-        SeqElement previous = _inputQueueHead;
-        SeqElement element = previous.NXT;
-        while (element?.NXT is not null && element.CreatedTime >= cutoff)
+        SeqElement oldHead = _inputQueueHead;
+        while (_inputQueueHead is not null && _inputQueueHead.CreatedTime < cutoff)
         {
-            previous = element;
-            element = element.NXT;
+            if (ReferenceEquals(_inputQueueHead, _currentPointer)) _currentPointer = _inputQueueHead.NXT;
+            if (ReferenceEquals(_inputQueueHead, _learnerSpanStart)) _learnerSpanStart = null;
+            _inputQueueHead = theUKS.RemoveFirstSequenceElement(_inputQueueHead);
         }
-        while (element?.NXT is not null)
-        {
-            SeqElement next = element.NXT;
-            if (ReferenceEquals(element, _currentPointer) || ReferenceEquals(element, _learnerSpanStart))
-            {
-                _currentPointer = null;
-                _learnerSpanStart = null;
-                _pendingInput.Clear();
-            }
-            element.NXT = null;
-            element.FRST = null;
-            element.RemoveLinks("VLU");
-            element.Delete();
-            element = next;
-        }
-        previous.NXT = element;
-        // The head's node identity is permanent; its VLU link dates its current contents.
-        Link value = _inputQueueHead.HasLink(theUKS.Labeled("VLU"), _inputQueueHead.VLU);
-        if (value.CreatedTime < cutoff) _inputQueueHead.VLU = _inputPause;
+        if (_inputQueueHead is null) ResetInputQueueState();
+        else if (!ReferenceEquals(oldHead, _inputQueueHead)) _inputQueueOwner.AddLink("hasInputQueue", _inputQueueHead);
     }
 
     /// <summary>Finds occurrence positions in this queue for a chronological input span.</summary>
-    public List<SeqElement> FindInputOccurrences(IReadOnlyList<Thought> input)
+    public List<SeqElement> FindInputOccurrences(IReadOnlyList<Thought> input, SeqElement before = null)
     {
-        List<Thought> reversed = new(input);
-        reversed.Reverse();
+        var matches = theUKS.FindSequencesByActivation(new List<Thought>(input), _inputOccurrenceOptions, getFirstElements: false);
+        var positions = matches.Select(match => match.seqNode).ToHashSet();
         List<SeqElement> starts = new();
-        theUKS.FindSequencesByActivation(reversed, _inputOccurrenceOptions, starts, _inputQueueHead);
+        for (SeqElement element = _inputQueueHead; element is not null && !ReferenceEquals(element, before); element = element.NXT)
+            if (positions.Contains(element)) starts.Add(element);
         return starts;
     }
 
     public void ClearInputQueue()
     {
         TrimInputQueue(DateTime.MaxValue);
-        _inputQueueHead.VLU = _inputPause;
-        ResetInputQueueState();
-        _pendingInput.Clear();
     }
 
     private void ResetInputQueueState()
     {
-        _currentPointer = null;
+        _inputQueueHead = new SeqElement { Label = _inputQueueOwner.Label + "-seq*", VLU = _inputPause };
+        _inputQueueOwner.AddLink("hasInputQueue", _inputQueueHead);
+        _currentPointer = _inputQueueHead;
         _learnerSpanStart = null;
         _lastInputTrim = DateTime.Now;
     }
 
     #endregion
 
-    private readonly List<Thought> _pendingInput = new();
     private Thought _hasSequence;
-    private Thought _patternSearch;
+    private Thought _usedBy;
     private DateTime _lastCandidateDecay;
     public Thought PatternRoot { get; set; }
     public string PatternPrefix { get; set; }
-    public int SingleUseMaximumLength { get; set; } = 3;
     public int MinimumOccurrences { get; set; } = 2;
-    public TimeSpan RepetitionWindow { get; set; } = TimeSpan.FromSeconds(5);
-    public int CandidateCapacity { get; set; } = 30;
-    public int MaximumProposalsPerEpisode { get; set; } = 3;
+    public int CandidateCapacity { get; set; } = 40;
+    public int MaximumProposalsPerEpisode { get; set; } = 2;
     public float InitialStrength { get; set; } = 1;
     public float Reinforcement { get; set; } = 1;
-    public float CompetitionPenalty { get; set; } = 0.1f;
-    public float CompetitionStrengthScale { get; set; } = 0.1f;
-    public float MaximumCompetitionPenalty { get; set; } = 1;
-    public float ConsolidationStrength { get; set; } = 3;
+    // Optional diagnostic counts of surviving occurrences, independent of once-per-episode reinforcement.
+    public Dictionary<Thought, int> RecognitionCounts { get; set; }
+    public float ConsolidationStrength { get; set; } = 25;
     public float CandidateDecayPerSecond { get; set; } = 0.1f;
-    public float LearnedDecayPerSecond { get; set; } = 0.05f;
-    public float DecayThreshold { get; set; } = 3.5f;
     public string LastStatus { get; private set; } = "Awaiting input observations.";
 
     public override void Fire()
@@ -163,19 +139,17 @@ public class ModuleSequenceSegmenter : ModuleBase
 
     public override void UKSInitializedNotification()
     {
-        ResetInputQueueState();
         _lastCandidateDecay = DateTime.Now;
-        _pendingInput.Clear();
         if (theUKS is null) GetUKS();
         theUKS.GetOrAddThought("LanguageElement","Thought");
         theUKS.GetOrAddThought("Word", "LanguageElement");
         _hasSequence = theUKS.GetOrAddThought("spelled", "LinkType");
-        _patternSearch = theUKS.Labeled("ExactSequenceSearch");
+        _usedBy = theUKS.GetOrAddThought("usedBy", "LinkType");
         _inputPause = theUKS.GetOrAddThought("PAUSE", "Thought");
         _inputOccurrenceOptions = theUKS.CreateSearchOptions();
+        theUKS.GetOrAddThought("hasInputQueue", "LinkType");
         _inputQueueOwner = theUKS.GetOrAddThought("InputQueue*", "Thought");
-        _inputQueueHead = theUKS.CreateFirstElement(_inputQueueOwner.Label, _inputPause);
-        _inputQueueOwner.AddLink("hasInputQueue", _inputQueueHead);
+        ResetInputQueueState();
     }
 
     /// <summary>Emphasis applies to episodes completed by this call; the caller supplies their pauses.</summary>
@@ -186,7 +160,7 @@ public class ModuleSequenceSegmenter : ModuleBase
         return result;
     }
 
-    // The learner consumes stable observations separately from queue mechanics.
+    // The learner consumes observations separately from queue mechanics.
     // Queue consumers can instead call TryReadQueuedInput directly.
     private SeqElement _learnerSpanStart;
     public string ProcessQueuedInput(float emphasis = 0)
@@ -195,281 +169,303 @@ public class ModuleSequenceSegmenter : ModuleBase
         while (_currentPointer is not null)
         {
             SeqElement element = _currentPointer;
-            if (!TryReadQueuedInput(out Thought observation)) break;
-            if (ReferenceEquals(observation, _inputPause))
+            TryReadQueuedInput(out Thought observation);
+            if (!ReferenceEquals(observation, _inputPause)) _learnerSpanStart ??= element;
+            else if (_learnerSpanStart is not null)
             {
+                ProcessEpisode(_learnerSpanStart, element, emphasis);
                 _learnerSpanStart = null;
-                if (_pendingInput.Count == 0) continue;
-                List<Thought> episode = new(_pendingInput);
-                _pendingInput.Clear();
-                ProcessEpisode(episode, emphasis, element.NXT);
                 completed = true;
             }
-            else
-            {
-                _learnerSpanStart ??= element;
-                _pendingInput.Add(observation);
-            }
         }
-        if (!completed)
-            LastStatus = $"Received {_pendingInput.Count} stable observation(s); awaiting more input.";
+        if (!completed) LastStatus = "Awaiting more input.";
         string result = LastStatus;
         return result;
     }
 
-    private void ProcessEpisode(List<Thought> input, float emphasis, SeqElement newest)
+    private void ProcessEpisode(SeqElement first, SeqElement pause, float emphasis)
     {
-        List<string> status = new();
-        HashSet<Thought> strengthened = new();
-        bool wholeAdmitted = false;
-        List<Thought> competitors = new();
-        var parts = FindExistingSubPatterns(input, competitors);
-        foreach (var part in parts) competitors.Remove(part.pattern);
-        // A new candidate must gather repetition evidence before competing with learned patterns.
-        for (int index = competitors.Count - 1; index >= 0; index--)
-            if (competitors[index].isPlastic) competitors.RemoveAt(index);
-        // Only a complete, learned explanation can suppress alternatives during recognition.
-        foreach (var part in parts)
-            if (part.pattern is null || part.pattern.isPlastic) competitors.Clear();
-        Dictionary<Thought, float> penalties = new();
-        foreach (Thought competitor in competitors)
-            penalties[competitor] = GetCompetitionPenalty(input, parts, competitor);
-        // Pauses define a whole-pattern proposal even when smaller patterns cover it.
-        if (FindExistingPattern(input) is null)
-        {
-            status.Add(LearnPattern(input, null, emphasis));
-            Thought whole = FindExistingPattern(input);
-            if (whole is not null)
-            {
-                strengthened.Add(whole);
-                wholeAdmitted = true;
-            }
-        }
-        foreach (var part in parts)
-        {
-            // An earlier gap in this episode may already have created this candidate.
-            Thought pattern = part.pattern ?? FindExistingPattern(part.input);
-            if (pattern is not null && strengthened.Contains(pattern)) continue;
-            bool reinforce = part.input.Count == input.Count || emphasis > 0 ||
-                (pattern is not null && !pattern.isPlastic && !wholeAdmitted);
-            status.Add(LearnPattern(part.input, pattern, emphasis, reinforce));
-            if (pattern is null || reinforce)
-            {
-                Thought learned = FindExistingPattern(part.input);
-                if (learned is not null) strengthened.Add(learned);
-            }
-        }
-        foreach (List<Thought> proposal in FindRepeatedPatterns(input, newest))
-        {
-            Thought pattern = FindExistingPattern(proposal);
-            if (competitors.Contains(pattern)) continue; // Losing recognition must not earn a discovery reward.
-            if (pattern is not null && strengthened.Contains(pattern)) continue;
-            status.Add(LearnPattern(proposal, pattern, emphasis));
-            Thought learned = FindExistingPattern(proposal);
-            if (learned is not null) strengthened.Add(learned);
-        }
-        foreach (Thought competitor in competitors)
-        {
-            competitor.Weight -= penalties[competitor];
-            if (competitor.Weight < InitialStrength) competitor.isPlastic = true;
-            if (competitor.Weight <= 0) competitor.Delete();
-        }
+        FindExistingSubPatterns(first);
+
+        HashSet<SeqElement> recognizedSequences = new();
+        HashSet<Thought> activeThoughts = ProcessExistingMatches(first, pause, recognizedSequences, out bool fullyRecognized);
+        foreach (Thought thought in activeThoughts) thought.Fire();
+        List<string> status = ReinforceCandidates(activeThoughts, emphasis);
+
+        if (!fullyRecognized) status.AddRange(ProcessPotentialCandidates(first, pause, recognizedSequences, emphasis));
         LastStatus = string.Join("; ", status);
     }
 
-    private float GetCompetitionPenalty(List<Thought> input,
-        List<(Thought pattern, List<Thought> input)> parts, Thought competitor)
+    /// <summary>Process existing matches only. Plastic candidates and established patterns share the same tags.</summary>
+    private HashSet<Thought> ProcessExistingMatches(SeqElement first, SeqElement pause, HashSet<SeqElement> recognizedSequences, out bool fullyRecognized)
     {
-        if (CompetitionStrengthScale == 0) return CompetitionPenalty;
-        float penalty = 0;
-        var values = theUKS.FlattenSequence((SeqElement)competitor.GetTargetOfFirstLinkOfType(_hasSequence));
-        for (int start = 0; start <= input.Count - values.Count; start++)
+        HashSet<Thought> activeThoughts = new(); // Several occurrences can activate the same Thought only once.
+        List<(SeqElement sequence, int start, int end)> activeOccurrences = new(); // End is exclusive.
+        int position = 0;
+        for (SeqElement element = first; element != pause; element = element.NXT, position++)
         {
-            bool matches = true;
-            for (int index = 0; index < values.Count; index++)
-                if (!ReferenceEquals(input[start + index], values[index])) { matches = false; break; }
-            if (!matches) continue;
-            int position = 0;
-            float support = float.MaxValue;
-            foreach (var part in parts)
+            var tags = element.LinksTo.Where(link => ReferenceEquals(link.LinkType, _usedBy)).ToList();
+            // Case 1: an existing candidate or pattern excites an occurrence, pending inhibition.
+            // Tags cover every matched element, so recover each complete occurrence's start and end here.
+            foreach (Link tag in tags.Where(link => ((SeqElement)link.To).FRST is not null))
             {
-                int end = position + part.input.Count;
-                if (position < start + values.Count && end > start)
-                    support = Math.Min(support, part.pattern.Weight);
-                position = end;
+                SeqElement sequence = (SeqElement)tag.To;
+                recognizedSequences.Add(sequence);
+                SeqElement current = element, expected = sequence;
+                int end = position;
+                while (expected is not null && current != pause && ReferenceEquals(current.VLU, expected.VLU) &&
+                    current.HasLink(_usedBy, sequence) is not null)
+                {
+                    current = current.NXT;
+                    expected = expected.NXT;
+                    end++;
+                }
+                if (expected is null) activeOccurrences.Add((sequence, position, end));
             }
-            // The weakest overlapping winner must support suppressing this alternative.
-            float difference = Math.Max(0, support - competitor.Weight);
-            penalty = Math.Max(penalty, Math.Min(MaximumCompetitionPenalty, CompetitionStrengthScale * difference));
         }
-        return penalty;
+
+        // Established patterns propagate from both phrase boundaries. No segmentation enumeration is needed.
+        var establishedOccurrences = activeOccurrences.Where(match => match.sequence.LinksFrom.Any(link =>
+            ReferenceEquals(link.LinkType, _hasSequence) && !link.From.isPlastic)).ToList();
+        bool[] fromStart = new bool[position + 1], toEnd = new bool[position + 1];
+        fromStart[0] = toEnd[position] = true;
+        for (int boundary = 0; boundary < position; boundary++)
+            foreach (var match in establishedOccurrences.Where(match => match.start == boundary))
+                if (fromStart[boundary]) fromStart[match.end] = true;
+        for (int boundary = position; boundary > 0; boundary--)
+            foreach (var match in establishedOccurrences.Where(match => match.end == boundary))
+                if (toEnd[boundary]) toEnd[match.start] = true;
+        fullyRecognized = position > 0 && fromStart[position];
+
+        List<(SeqElement sequence, int start, int end)> supportedOccurrences = new();
+        if (fullyRecognized)
+        {
+            // Reinforce every established occurrence belonging to any complete explanation.
+            // Tentative compounds cannot displace those words, and this episode creates no candidates.
+            foreach (var match in establishedOccurrences)
+                if (fromStart[match.start] && toEnd[match.end]) supportedOccurrences.Add(match);
+        }
+        else
+        {
+            // Propagation and inhibition use all existing occurrences, without proposing or creating anything.
+            // Case 3: abutting occurrences extend one another's coverage.
+            // The two sweeps simulate propagation along the input; they do not enumerate possible segmentations.
+            int[] coverageStart = Enumerable.Range(0, position + 1).ToArray();
+            int[] coverageEnd = Enumerable.Range(0, position + 1).ToArray();
+            for (int boundary = 0; boundary <= position; boundary++)
+                foreach (var match in activeOccurrences.Where(match => match.start == boundary))
+                    coverageStart[match.end] = Math.Min(coverageStart[match.end], coverageStart[match.start]);
+            for (int boundary = position; boundary >= 0; boundary--)
+                foreach (var match in activeOccurrences.Where(match => match.end == boundary))
+                    coverageEnd[match.start] = Math.Max(coverageEnd[match.start], coverageEnd[match.end]);
+
+            // Case 4: inhibit an occurrence when another explanation covers its supported region plus more input.
+            foreach (var match in activeOccurrences)
+            {
+                int start = coverageStart[match.start], end = coverageEnd[match.end];
+                bool betterCoverage = activeOccurrences.Any(other => coverageStart[other.start] <= start && coverageEnd[other.end] >= end &&
+                    (coverageStart[other.start] < start || coverageEnd[other.end] > end));
+                if (!betterCoverage) supportedOccurrences.Add(match);
+            }
+        }
+        // Case 5: a surviving longer occurrence inhibits occurrences contained within it.
+        // With full established coverage, preserve alternative complete explanations instead.
+        foreach (var match in supportedOccurrences)
+        {
+            bool contained = !fullyRecognized && supportedOccurrences.Any(other => other.start <= match.start && other.end >= match.end &&
+                (other.start < match.start || other.end > match.end));
+            if (contained) continue;
+            // An independent occurrence can still activate the same Thought even if another occurrence was inhibited.
+            foreach (Link owner in match.sequence.LinksFrom.Where(link => ReferenceEquals(link.LinkType, _hasSequence)))
+            {
+                activeThoughts.Add(owner.From);
+                if (RecognitionCounts is null) continue;
+                RecognitionCounts.TryGetValue(owner.From, out int count);
+                RecognitionCounts[owner.From] = count + 1;
+            }
+        }
+
+        return activeThoughts;
     }
 
-    private string LearnPattern(List<Thought> input, Thought pattern, float emphasis, bool reinforce = true)
+    /// <summary>Propose repeated queue spans and admit candidates independently of existing-match processing.</summary>
+    private List<string> ProcessPotentialCandidates(SeqElement first, SeqElement pause, HashSet<SeqElement> recognizedSequences, float emphasis)
     {
-        if (pattern is null)
+        // New hypotheses are considered only after existing matches have been processed.
+        // Reinforcement may have consolidated a candidate, freeing a plastic slot.
+        List<string> status = new();
+        List<(List<Thought> input, int support)> proposals = new();
+        List<Thought> episode = new(), unrecognized = new(), gap = new();
+        SeqElement orphan = null;
+        List<Thought> boundedGap = null;
+        for (SeqElement element = first; element != pause; element = element.NXT)
         {
-            int occurrences = 0, candidates = 0;
-            DateTime cutoff = DateTime.Now - RepetitionWindow;
-            foreach (SeqElement start in FindInputOccurrences(input))
-                if (start.CreatedTime >= cutoff) occurrences++;
-            foreach (Thought existing in PatternRoot.Children)
-                if (existing.isPlastic) candidates++;
-            if ((emphasis <= 0 && input.Count > SingleUseMaximumLength && occurrences < MinimumOccurrences) || candidates >= CandidateCapacity)
+            var tags = element.LinksTo.Where(link => ReferenceEquals(link.LinkType, _usedBy)).ToList();
+            episode.Add(element.VLU);
+            if (!tags.Any(link => ((SeqElement)link.To).FRST is not null))
             {
-                string rejected = $"{CreatePatternLabel(input)}: no candidate admitted";
-                return rejected;
+                unrecognized.Add(element.VLU);
+                gap.Add(element.VLU);
+                orphan = element;
             }
-            string label = CreatePatternLabel(input);
-            if (theUKS.Labeled(label) is not null) label += "*";
-            pattern = theUKS.GetOrAddThought(label, PatternRoot);
-            pattern.isPlastic = true;
-            pattern.Weight = InitialStrength + emphasis;
-            theUKS.AddSequenceAndLink(pattern, _hasSequence, input, allowCompression: false);
+            else
+            {
+                // Keep an unknown run bounded by recognized matches on both sides.
+                if (gap.Count > 1 && gap.Count < episode.Count - 1) boundedGap = new List<Thought>(gap);
+                gap.Clear();
+            }
+            // Case 2: repeated input -> excite a proposal where agreeing queue occurrences diverge.
+            // Keep different earlier occurrences separate; unrelated character hits must not join a span.
+            List<SeqElement> supportingPositions = new();
+            SeqElement previous = theUKS.GetPreviousSequenceElement(element);
+            foreach (Link tag in tags.Where(link => ((SeqElement)link.To).FRST is null))
+            {
+                SeqElement earlier = theUKS.GetPreviousSequenceElement((SeqElement)tag.To);
+                if (previous is not null && previous.VLU != _inputPause && earlier is not null &&
+                    previous.HasLink(_usedBy, earlier) is not null) continue; // Already part of a run starting earlier.
+                supportingPositions.Add((SeqElement)tag.To);
+            }
+            List<Thought> span = new();
+            SeqElement currentInput = element;
+            while (supportingPositions.Count > 0 && currentInput != pause)
+            {
+                int support = supportingPositions.Count;
+                span.Add(currentInput.VLU);
+                currentInput = currentInput.NXT;
+                for (int index = supportingPositions.Count - 1; index >= 0; index--)
+                {
+                    SeqElement next = supportingPositions[index].NXT;
+                    if (currentInput == pause || next is null || next.VLU == _inputPause || currentInput.HasLink(_usedBy, next) is null)
+                        supportingPositions.RemoveAt(index);
+                    else supportingPositions[index] = next;
+                }
+                // A fall in support suggests an end boundary. Include this current occurrence in the minimum count.
+                if (supportingPositions.Count == support || support + 1 + emphasis < MinimumOccurrences) continue;
+                if (span.Count < 2) continue; // Single symbols are inputs, not learned sequences.
+                // Several positions can excite the same proposal; retain its strongest support, rather than summing it.
+                int proposalIndex = proposals.FindIndex(proposal => proposal.input.SequenceEqual(span));
+                if (proposalIndex < 0) proposals.Add((new List<Thought>(span), support));
+                else if (support > proposals[proposalIndex].support) proposals[proposalIndex] = (proposals[proposalIndex].input, support);
+            }
         }
-        else if (reinforce) pattern.Weight += Reinforcement + emphasis;
-        if (pattern.Weight >= ConsolidationStrength) pattern.isPlastic = false;
-        pattern.Fire();
-        string result = $"{pattern.Label}: strength {pattern.Weight:0.##}, " +
-            (pattern.isPlastic ? "candidate" : "non-plastic");
+
+        // Admit a sole bounded gap without waiting for repetition.
+        if (boundedGap is not null && boundedGap.Count == unrecognized.Count) proposals.Add((boundedGap, 1));
+
+        // An orphan may signal a wrong neighboring boundary: also try absorbing the shortest adjacent match.
+        if (unrecognized.Count == 1)
+        {
+            proposals.Clear();
+            proposals.Add((unrecognized, 1));
+            List<Thought> expansion = null;
+            SeqElement before = theUKS.GetPreviousSequenceElement(orphan);
+            foreach (SeqElement neighbor in new[] { before, orphan.NXT })
+            {
+                if (neighbor is null || neighbor.VLU == _inputPause) continue;
+                foreach (Link tag in neighbor.LinksTo.Where(link => ReferenceEquals(link.LinkType, _usedBy) &&
+                    ((SeqElement)link.To).FRST is not null))
+                {
+                    List<Thought> extended = new(theUKS.FlattenSequence((SeqElement)tag.To));
+                    if (neighbor == before) extended.Add(orphan.VLU);
+                    else extended.Insert(0, orphan.VLU);
+                    if (expansion is null || extended.Count < expansion.Count) expansion = extended;
+                }
+            }
+            if (expansion is not null) proposals.Add((expansion, 1));
+        }
+        else if (emphasis > 0 && 1 + emphasis >= MinimumOccurrences && episode.Count > 1)
+            proposals.Add((episode, (int)emphasis)); // Emphasis supplies extra hits without earlier queue matches.
+
+        // Case 6: remove known sequences before choosing one frequent and one longest nomination.
+        for (int index = proposals.Count - 1; index >= 0; index--)
+            if (recognizedSequences.Any(sequence => theUKS.FlattenSequence(sequence).SequenceEqual(proposals[index].input)))
+                proposals.RemoveAt(index);
+        if (proposals.Count == 0) return status;
+        proposals.Sort((firstInput, secondInput) =>
+        {
+            int order = secondInput.support.CompareTo(firstInput.support);
+            if (order == 0) order = secondInput.input.Count.CompareTo(firstInput.input.Count);
+            return order;
+        });
+        int longest = 0;
+        for (int index = 1; index < proposals.Count; index++)
+            if (proposals[index].input.Count > proposals[longest].input.Count) longest = index;
+        List<int> nominations = new() { 0 }; // Most frequent eligible proposal.
+        if (unrecognized.Count == 1 && proposals.Count > 1) nominations.Add(1); // Expansion first, orphan second.
+        else if (longest != 0) nominations.Add(longest); // Same winner in both routes consumes only one slot.
+        int created = 0;
+        foreach (int index in nominations)
+        {
+            if (created >= MaximumProposalsPerEpisode || PatternRoot.Children.Count(thought => thought.isPlastic) >= CandidateCapacity) break;
+            status.Add(CreateCandidate(proposals[index].input, emphasis));
+            created++;
+        }
+        return status;
+    }
+
+
+    /// <summary>Tags complete stored patterns and partial matches in the earlier queue.</summary>
+    public void FindExistingSubPatterns(SeqElement first)
+    {
+        for (SeqElement start = first; start is not null && !ReferenceEquals(start.VLU, _inputPause); start = start.NXT)
+        {
+            int length = 0;
+            for (SeqElement end = start; end is not null && !ReferenceEquals(end.VLU, _inputPause); end = end.NXT)
+            {
+                length++;
+                var matches = theUKS.FindSequencesByActivation(start, _inputOccurrenceOptions, getFirstElements: false, last: end);
+                foreach (var match in matches)
+                {
+                    SeqElement target = match.seqNode;
+                    if (target.FRST is null)
+                    {
+                        SeqElement member = _inputQueueHead;
+                        while (member is not null && !ReferenceEquals(member, first) && !ReferenceEquals(member, target)) member = member.NXT;
+                        if (!ReferenceEquals(member, target) || ReferenceEquals(member, first)) continue;
+                    }
+                    else if (!ReferenceEquals(target.FRST, target) || theUKS.GetSequenceLength(target) != length) continue;
+                    for (SeqElement element = start; ; element = element.NXT)
+                    {
+                        element.AddLink(_usedBy, target);
+                        if (ReferenceEquals(element, end)) break;
+                        if (match.seqNode.FRST is null) target = target.NXT;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Create a plastic hypothesis; sufficiently emphasized input may establish it immediately.</summary>
+    private string CreateCandidate(List<Thought> input, float emphasis)
+    {
+        string label = CreatePatternLabel(input);
+        if (theUKS.Labeled(label) is not null) label += "*";
+        Thought candidate = theUKS.GetOrAddThought(label, PatternRoot);
+        candidate.Weight = InitialStrength + emphasis;
+        candidate.isPlastic = candidate.Weight < ConsolidationStrength;
+        theUKS.AddSequenceAndLink(candidate, _hasSequence, input, allowCompression: false);
+        candidate.Fire();
+        string result = $"{candidate.Label}: strength {candidate.Weight:0.##}, " +
+            (candidate.isPlastic ? "candidate" : "pattern");
         return result;
     }
 
-    /// <summary>Ranks repeated spans by support across contexts; confirmed boundaries allow repeat rewards.</summary>
-    private List<List<Thought>> FindRepeatedPatterns(List<Thought> input, SeqElement newest)
+    /// <summary>Apply one learning response per active Thought, independently of candidate creation.</summary>
+    private List<string> ReinforceCandidates(HashSet<Thought> activeThoughts, float emphasis)
     {
-        List<List<Thought>> proposals = new();
-        List<(List<Thought> input, int support, int occurrences)> ranked = new();
-        // Single observations need a separate segment and cannot borrow evidence from a containing pattern.
-        bool[] coveredByLargerPattern = new bool[input.Count];
-        bool[] separateInput = new bool[input.Count];
-        int position = 0;
-        foreach (var part in FindExistingSubPatterns(input))
-        {
-            if (part.input.Count == 1) separateInput[position] = true;
-            position += part.input.Count;
-        }
-        HashSet<SeqElement> currentEpisode = new();
-        SeqElement element = newest;
-        for (int index = 0; index < input.Count; index++, element = element.NXT) currentEpisode.Add(element);
-        DateTime cutoff = DateTime.Now - RepetitionWindow;
-        for (int length = input.Count; length >= 1; length--)
-        {
-            for (int start = 0; start <= input.Count - length; start++)
-            {
-                List<Thought> span = input.GetRange(start, length);
-                Thought pattern = FindExistingPattern(span);
-                if (length > 1 && pattern is not null)
-                    for (int index = start; index < start + length; index++) coveredByLargerPattern[index] = true;
-                if (length == 1 && (!separateInput[start] || coveredByLargerPattern[start])) continue;
-                int occurrences = 0;
-                Thought before = start == 0 ? _inputPause : input[start - 1];
-                Thought after = start + length == input.Count ? _inputPause : input[start + length];
-                bool leftBoundary = start == 0, rightBoundary = start + length == input.Count;
-                HashSet<Thought> leftContexts = new() { before };
-                HashSet<Thought> rightContexts = new() { after };
-                foreach (SeqElement occurrence in FindInputOccurrences(span))
-                {
-                    if (occurrence.CreatedTime < cutoff) continue;
-                    occurrences++;
-                    if (currentEpisode.Contains(occurrence)) continue;
-                    SeqElement oldest = occurrence;
-                    for (int index = 1; index < length; index++) oldest = oldest.NXT;
-                    SeqElement newer = theUKS.GetPreviousSequenceElement(occurrence);
-                    if (newer is null) continue; // The mutable head has no following observation yet.
-                    Thought preceding = oldest.NXT.VLU;
-                    Thought following = newer.VLU;
-                    leftContexts.Add(preceding);
-                    rightContexts.Add(following);
-                    // An old pause does not validate a boundary inside the current input.
-                    if (!ReferenceEquals(preceding, _inputPause))
-                    {
-                        leftBoundary |= !ReferenceEquals(before, preceding);
-                    }
-                    if (!ReferenceEquals(following, _inputPause))
-                    {
-                        rightBoundary |= !ReferenceEquals(after, following);
-                    }
-                }
-                if (occurrences < MinimumOccurrences || !leftBoundary || !rightBoundary) continue;
-                if (pattern is not null && !pattern.isPlastic) continue;
-                int support = leftContexts.Count * rightContexts.Count;
-                int rank = 0;
-                while (rank < ranked.Count && (ranked[rank].support > support ||
-                    (ranked[rank].support == support && ranked[rank].occurrences >= occurrences))) rank++;
-                if (rank >= MaximumProposalsPerEpisode) continue;
-                ranked.Insert(rank, (span, support, occurrences));
-                if (ranked.Count > MaximumProposalsPerEpisode) ranked.RemoveAt(MaximumProposalsPerEpisode);
-            }
-        }
-        foreach (var proposal in ranked) proposals.Add(proposal.input);
-        return proposals;
+        List<string> status = new();
+        foreach (Thought thought in activeThoughts) status.Add(ReinforceCandidate(thought, emphasis));
+        return status;
     }
 
-    /// <summary>Prefers coverage, fewer recognized units, then combined strength. Null patterns mark gaps.</summary>
-    public List<(Thought pattern, List<Thought> input)> FindExistingSubPatterns(List<Thought> input, List<Thought> competitors = null)
+    /// <summary>Strengthen a candidate into a pattern; established patterns continue accumulating usage weight.</summary>
+    private string ReinforceCandidate(Thought thought, float emphasis)
     {
-        Thought[] patterns = new Thought[input.Count];
-        int[] lengths = new int[input.Count];
-        int[] coverage = new int[input.Count + 1];
-        int[] units = new int[input.Count + 1];
-        float[] strength = new float[input.Count + 1];
-        for (int start = input.Count - 1; start >= 0; start--)
-        {
-            lengths[start] = 1;
-            coverage[start] = coverage[start + 1];
-            units[start] = units[start + 1];
-            strength[start] = strength[start + 1];
-            for (int length = 1; length <= input.Count - start; length++)
-            {
-                Thought pattern = FindExistingPattern(input.GetRange(start, length));
-                if (pattern is null) continue;
-                if (competitors is not null && !competitors.Contains(pattern)) competitors.Add(pattern);
-                int covered = length + coverage[start + length];
-                int count = 1 + units[start + length];
-                float combined = pattern.Weight + strength[start + length];
-                bool better = covered > coverage[start];
-                if (covered == coverage[start])
-                {
-                    better = count < units[start] || (count == units[start] && combined > strength[start]);
-                    bool tied = count == units[start] && combined == strength[start];
-                    better |= tied && (patterns[start] is null || length > lengths[start]);
-                }
-                if (!better) continue;
-                patterns[start] = pattern;
-                lengths[start] = length;
-                coverage[start] = covered;
-                units[start] = count;
-                strength[start] = combined;
-            }
-        }
-        List<(Thought pattern, List<Thought> input)> parts = new();
-        for (int start = 0; start < input.Count;)
-        {
-            int length = lengths[start];
-            if (patterns[start] is null)
-                while (start + length < input.Count && patterns[start + length] is null) length++;
-            parts.Add((patterns[start], input.GetRange(start, length)));
-            start += length;
-        }
-        return parts;
-    }
-
-    private Thought FindExistingPattern(List<Thought> input)
-    {
-        Thought pattern = null;
-        var matches = theUKS.FindSequencesByActivation(input, _patternSearch);
-        foreach (var match in matches)
-        {
-            foreach (Link link in match.seqNode.LinksFrom)
-            {
-                if (!ReferenceEquals(link.LinkType, _hasSequence) || !link.From.Parents.Contains(PatternRoot)) continue;
-                pattern = link.From;
-                break;
-            }
-            if (pattern is not null) break;
-        }
-        return pattern;
+        thought.Weight += Reinforcement * Math.Max(1, emphasis);
+        if (thought.Weight >= ConsolidationStrength) thought.isPlastic = false;
+        string result = $"{thought.Label}: strength {thought.Weight:0.##}, " +
+            (thought.isPlastic ? "candidate" : "pattern");
+        return result;
     }
 
     public void DecayCandidates(TimeSpan elapsed)
@@ -477,13 +473,8 @@ public class ModuleSequenceSegmenter : ModuleBase
         float decay = CandidateDecayPerSecond * (float)elapsed.TotalSeconds;
         foreach (Thought candidate in new List<Thought>(PatternRoot.Children))
         {
-            if (candidate.Weight >= DecayThreshold) continue;
-            if (candidate.isPlastic) candidate.Weight -= decay;
-            else
-            {
-                candidate.Weight *= (float)Math.Exp(-LearnedDecayPerSecond * elapsed.TotalSeconds);
-                if (candidate.Weight < InitialStrength) candidate.isPlastic = true;
-            }
+            if (!candidate.isPlastic) continue;
+            candidate.Weight -= decay;
             if (candidate.Weight <= 0) candidate.Delete();
         }
     }

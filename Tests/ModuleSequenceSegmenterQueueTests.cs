@@ -9,7 +9,7 @@ namespace BrainSimulator.Tests;
 public partial class ModuleSequenceSegmenterTests
 {
     [Fact]
-    public void InputQueue_PreservesHeadAndConsumesStableInputChronologically()
+    public void InputQueue_AppendsForwardAndReadsNewObservationsImmediately()
     {
         var uks = CreateUKS();
         var module = CreateInitializedSegmenter(uks);
@@ -18,25 +18,18 @@ public partial class ModuleSequenceSegmenterTests
         Thought c = uks.GetOrAddThought("queue:c");
         SeqElement head = module.InputQueueHead;
         module.QueueInput(new[] { a });
-        SeqElement initialPause = head.NXT;
-        Assert.True(module.TryReadQueuedInput(out Thought initial));
-        Assert.Same(module.InputPause, initial);
-        Assert.False(module.TryReadQueuedInput(out _));
-        module.QueueInput(new[] { b });
+        Assert.Equal(new[] { module.InputPause, a }, ReadQueue(module));
+        module.QueueInput(new[] { b, c });
         Assert.Same(head, module.InputQueueHead);
-        Assert.True(module.TryReadQueuedInput(out Thought first));
-        Assert.Same(a, first);
-        Assert.False(module.TryReadQueuedInput(out _));
-        module.QueueInput(new[] { c });
-        Assert.True(module.TryReadQueuedInput(out Thought second));
-        Assert.Same(b, second);
-        Assert.False(module.TryReadQueuedInput(out _));
-        Assert.Same(initialPause, uks.GetLastlement(head));
-        Assert.Equal(new[] { c, b, a, module.InputPause }, uks.FlattenSequence(head));
+        Assert.Equal(new[] { b, c }, ReadQueue(module));
+        Assert.Equal(new[] { module.InputPause, a, b, c }, uks.FlattenSequence(head));
+        for (SeqElement element = head; element is not null; element = element.NXT)
+            Assert.Null(element.FRST);
+        Assert.Null(module.CurrentPointer);
     }
 
     [Fact]
-    public void InputQueue_DoublesPauseAndRetrievalReturnsEveryStableEntry()
+    public void InputQueue_UsesSingleCallerSuppliedPauses()
     {
         var uks = CreateUKS();
         var module = CreateInitializedSegmenter(uks);
@@ -44,12 +37,12 @@ public partial class ModuleSequenceSegmenterTests
         Thought b = uks.GetOrAddThought("queue:b");
         Thought pause = module.InputPause;
         module.QueueInput(new[] { a, pause });
-        Assert.Equal(new[] { pause, pause, a, pause }, uks.FlattenSequence(module.InputQueueHead));
+        Assert.Equal(new[] { pause, a, pause }, uks.FlattenSequence(module.InputQueueHead));
         Assert.Equal(new[] { pause, a, pause }, ReadQueue(module));
         module.QueueInput(new[] { b, pause });
-        Assert.Equal(new[] { pause, b, pause }, ReadQueue(module));
+        Assert.Equal(new[] { b, pause }, ReadQueue(module));
         module.QueueInput(new[] { pause });
-        Assert.Equal(new[] { pause, pause }, ReadQueue(module));
+        Assert.Equal(new[] { pause }, ReadQueue(module));
     }
 
     [Fact]
@@ -68,49 +61,50 @@ public partial class ModuleSequenceSegmenterTests
     }
 
     [Fact]
-    public void InputQueue_ExpirationDeletesNodesButRetainsInitialPauseAndValues()
+    public void InputQueue_ExpirationPopsTheHeadAndStartsFreshWhenEmpty()
     {
         var uks = CreateUKS();
         var module = CreateInitializedSegmenter(uks);
         Thought a = uks.GetOrAddThought("queue:a");
         Thought b = uks.GetOrAddThought("queue:b");
         module.QueueInput(new[] { a, b });
-        SeqElement head = module.InputQueueHead;
-        SeqElement expired = head.NXT;
-        SeqElement initialPause = uks.GetLastlement(head);
+        SeqElement oldHead = module.InputQueueHead;
+        SeqElement expired = oldHead.NXT;
         module.TrimInputQueue(DateTime.Now.AddSeconds(6));
-        Assert.Same(head, module.InputQueueHead);
-        Assert.Same(initialPause, head.NXT);
-        Assert.Same(module.InputPause, initialPause.VLU);
-        Assert.Null(initialPause.NXT);
-        Assert.Null(uks.Labeled(expired.Label));
+        Assert.NotSame(oldHead, module.InputQueueHead);
+        Assert.DoesNotContain(oldHead, uks.AtomicThoughts);
+        Assert.DoesNotContain(expired, uks.AtomicThoughts);
+        Assert.Null(module.InputQueueHead.FRST);
+        Assert.Null(module.InputQueueHead.NXT);
+        Assert.Equal(new[] { module.InputPause }, ReadQueue(module));
         Assert.Same(a, uks.Labeled(a.Label));
         Assert.Same(b, uks.Labeled(b.Label));
-        Assert.Equal(new[] { module.InputPause }, ReadQueue(module));
         Assert.Null(module.CurrentPointer);
-        module.TrimInputQueue(DateTime.Now.AddSeconds(7));
-        Assert.Same(initialPause, head.NXT);
+        module.QueueInput(new[] { a });
+        Assert.Equal(new[] { a }, ReadQueue(module));
     }
 
     [Fact]
-    public void InputQueue_TrimmingStopsAtRecentPrefixAndRemovesExpiredSuffix()
+    public void InputQueue_TrimmingRemovesExpiredPrefixAndKeepsRecentSuffix()
     {
         var uks = CreateUKS();
         var module = CreateInitializedSegmenter(uks);
         Thought a = uks.GetOrAddThought("queue:a");
         Thought b = uks.GetOrAddThought("queue:b");
         module.QueueInput(new[] { a, a });
-        SeqElement old = module.InputQueueHead.NXT;
+        SeqElement oldHead = module.InputQueueHead;
+        SeqElement oldTail = uks.GetLastlement(oldHead);
+        DateTime cutoff = DateTime.Now.AddTicks(1);
         System.Threading.Thread.Sleep(15);
         module.QueueInput(new[] { b, b });
-        SeqElement recent = module.InputQueueHead.NXT;
-        SeqElement initialPause = uks.GetLastlement(module.InputQueueHead);
-        DateTime cutoff = old.CreatedTime.AddTicks(1);
+        SeqElement recent = oldTail.NXT;
         module.TrimInputQueue(cutoff + module.InputQueueLifetime);
-        Assert.Same(recent, module.InputQueueHead.NXT);
-        Assert.Same(initialPause, uks.GetLastlement(module.InputQueueHead));
-        Assert.Null(uks.Labeled(old.Label));
-        Assert.Equal(new[] { b, b, a, module.InputPause }, uks.FlattenSequence(module.InputQueueHead));
+        Assert.Same(recent, module.InputQueueHead);
+        Assert.DoesNotContain(oldHead, uks.AtomicThoughts);
+        Assert.DoesNotContain(oldTail, uks.AtomicThoughts);
+        Assert.Equal(new[] { b, b }, uks.FlattenSequence(module.InputQueueHead));
+        Assert.Equal(new[] { b, b }, ReadQueue(module));
+        Assert.Single(recent.LinksFrom, link => link.LinkType.Label == "hasInputQueue");
     }
 
     [Fact]

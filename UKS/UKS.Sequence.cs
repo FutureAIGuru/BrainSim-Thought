@@ -251,7 +251,17 @@ public partial class UKS
         firstNode.FRST = firstNode; //points to itself as the first element
         return firstNode;
     }
-    /// <summary>Finds the newer element whose NXT points to this element.</summary>
+    /// <summary>Pops a streaming queue head (FRST is null), returning its successor.</summary>
+    public SeqElement RemoveFirstSequenceElement(SeqElement first)
+    {
+        if (first.FRST is not null) throw new ArgumentException("Expected a streaming queue element.", nameof(first));
+        SeqElement next = first.NXT;
+        foreach (Link link in first.LinksTo) first.RemoveLink(link);
+        first.Delete();
+        return next;
+    }
+
+    /// <summary>Finds the preceding element whose NXT points to this element.</summary>
     public SeqElement GetPreviousSequenceElement(SeqElement element)
     {
         SeqElement result = null;
@@ -898,29 +908,39 @@ public partial class UKS
 
     //matches with an existing sequence
     public List<(SeqElement seqNode, float confidence)> FindSequencesByActivation(
-    SeqElement sequence, Thought searchOptions = null)
+    SeqElement sequence, Thought searchOptions = null, bool getFirstElements = true, SeqElement last = null)
     {
-        return FindSequencesByActivation(FlattenSequence(sequence), searchOptions);
+        List<Thought> values;
+        if (last is null) values = FlattenSequence(sequence);
+        else
+        {
+            values = new();
+            for (SeqElement element = sequence; element is not null; element = element.NXT)
+            {
+                values.Add(element.VLU);
+                if (ReferenceEquals(element, last)) break;
+            }
+        }
+        var results = FindSequencesByActivation(values, searchOptions, getFirstElements);
+        return results;
     }
 
     /// <summary>
-    /// Searches for pattern activation. Optional physical match locations and
-    /// a sequence restriction support flat, literal occurrence searches;
-    /// normal results remain grouped by sequence root.
+    /// Searches for pattern activation. Returns sequence roots, or individual stream positions when FRST is null.
+    /// getFirstElements=false also returns individual positions within ordinary flat sequences.
     /// </summary>
     public List<(SeqElement seqNode, float confidence)> FindSequencesByActivation(
         List<Thought> pattern, Thought searchOptions = null,
-        List<SeqElement> matchedStarts = null, SeqElement withinSequence = null)
+        bool getFirstElements = true)
     {
-        matchedStarts?.Clear();
         List<(SeqElement seqNode, float confidence)> retVal = new();
         if (pattern is null || pattern.Count == 0) return retVal;
 
         searchOptions ??= Labeled("ExactSequenceSearch");
         if (searchOptions is null) return retVal;
-        if ((matchedStarts is not null || withinSequence is not null) &&
+        if (!getFirstElements &&
             (searchOptions.HasProperty("allowWildcards") || searchOptions.HasProperty("allowNestedSequences")))
-            throw new ArgumentException("Occurrence locations require a flat, literal search.", nameof(searchOptions));
+            throw new ArgumentException("Occurrence locations require a flat, literal search.", nameof(getFirstElements));
 
         if (searchOptions.HasProperty("allowWildcards") &&
             pattern.Any(x => x.HasAncestor("Wildcard")))
@@ -932,17 +952,6 @@ public partial class UKS
         // Step 1: seed from the first non-wildcard pattern element.
         List<SequenceSearchState> activeElements = InitializeSequenceSearchByActivation(pattern[seedPatternIndex], seedPatternIndex, searchOptions);
 
-        // A caller may restrict a flat search to one sequence, such as a
-        // rolling input buffer, without scanning unrelated stored patterns.
-        if (withinSequence is not null)
-        {
-            for (int index = activeElements.Count - 1; index >= 0; index--)
-            {
-                if (ReferenceEquals(activeElements[index].FirstMatchElement?.FRST, withinSequence)) continue;
-                activeElements.RemoveAt(index);
-            }
-        }
-
         // Step 2: propagate through NXT links for each remaining pattern element.
         for (int i = seedPatternIndex + 1; i < pattern.Count; i++)
         {
@@ -950,7 +959,7 @@ public partial class UKS
             if (activeElements.Count == 0) break;
         }
         // Step 3: collect matching sequence starts and confidence values.
-        retVal = CollectSequenceSearchResults(activeElements, searchOptions, pattern, matchedStarts);
+        retVal = CollectSequenceSearchResults(activeElements, searchOptions, pattern, getFirstElements);
 
         return retVal;
     }
@@ -1274,7 +1283,7 @@ public partial class UKS
 
     private List<(SeqElement seqNode, float confidence)> CollectSequenceSearchResults(
         List<SequenceSearchState> activeElements, Thought searchOptions, List<Thought> pattern,
-        List<SeqElement> matchedStarts = null)
+        bool getFirstElements = true)
     {
         List<(SeqElement seqNode, float confidence)> retVal = new();
         if (activeElements is null || searchOptions is null) return retVal;
@@ -1290,20 +1299,10 @@ public partial class UKS
             if (firstElement is null) continue;
             if (!IsSequenceFirstElement(firstElement) && mustMatchFirst) continue;
 
-            if (matchedStarts is not null)
-            {
-                bool alreadyAdded = false;
-                foreach (SeqElement start in matchedStarts)
-                {
-                    if (!ReferenceEquals(start, firstElement)) continue;
-                    alreadyAdded = true;
-                    break;
-                }
-                if (!alreadyAdded) matchedStarts.Add(firstElement);
-            }
             int sequenceLength = GetSequenceLength(firstElement);
             float confidence = sequenceLength == 0 ? 0 : Math.Min(1.0f, (float)pattern.Count / sequenceLength);
-            retVal.Add((firstElement.FRST, confidence));
+            SeqElement result = getFirstElements ? firstElement.FRST ?? firstElement : firstElement;
+            retVal.Add((result, confidence));
             if (searchOptions.HasProperty("allowNestedSequences"))
             {
                 List<SequenceSearchState> newElements = new();

@@ -43,9 +43,9 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         if (ParentModule is not ModuleSequenceSegmenter module) return;
         if (InputBox.Text == "exp")
         {
-            if (!TryGetExperimentParameters(out int topN, out int cycles)) return;
+            if (!TryGetExperimentParameters(out int topN, out int cycles, out double probabilityPower)) return;
             string[] words = { "dog", "has", "fur", "cat", "hat", "car",
-                "a", "an", "the", "cam", "can", "cap", "cart", "camp" };
+                "a", "an", "the", "cam", "can", "cap", "cart", "camp","camembert" }; //there are 15 entries, the test default to 14
             List<KeyValuePair<string, double>> vocabulary = new();
             foreach (string word in words) vocabulary.Add(new(word, 1));
             if (topN > 0 && topN < vocabulary.Count) vocabulary.RemoveRange(topN, vocabulary.Count - topN);
@@ -90,7 +90,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
                         if (missingCount <= 20) missing += entry.Key + " ";
                         else if (missingCount == 21) missing += "...";
                     }
-                    SetStatus($"Experiment {sequence + 1}/{sequenceCount}, {vocabulary.Count} words, {missingCount} missing. {missing}", Colors.Black);
+                    SetStatus($"Experiment {sequence + 1}/{sequenceCount}, {vocabulary.Count} words, {missingCount} {missing}", Colors.Black);
                     SegmentationBox.AppendText($"{input}: {status}{Environment.NewLine}");
                     SegmentationBox.ScrollToEnd();
                 });
@@ -103,7 +103,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
     {
         Microsoft.Win32.OpenFileDialog openFileDialog = new()
         {
-            Title = "Select Word List",
+            Title = "Select Text File",
             Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*",
             CheckFileExists = true,
         };
@@ -118,17 +118,75 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         string filePath = txtFilePath.Text?.Trim();
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
-            SetStatus("Select an existing word-list file first.");
+            SetStatus("Select an existing text file first.");
             return;
         }
         if (ParentModule is not ModuleSequenceSegmenter module) return;
-        if (!TryGetExperimentParameters(out int topN, out int cycles)) return;
+        if (!TryGetExperimentParameters(out int topN, out int cycles, out double probabilityPower)) return;
 
         SetExperimentControlsEnabled(false);
-        SetStatus("Reading words...");
+        bool phrasesFromFile = PhrasesFromFileBox.IsChecked == true;
+        SetStatus(phrasesFromFile ? "Reading phrases..." : "Reading words...");
         try
         {
-            var vocabulary = await Task.Run(() => ReadVocabulary(filePath, topN));
+            if (phrasesFromFile)
+            {
+                // Deliberately synchronous: the complete vocabulary exists before any phrase is processed.
+                Dictionary<Thought, int> expectedCounts = null;
+                HashSet<Thought> startingPatterns = null;
+                if (SeedWordsBox.IsChecked == true)
+                {
+                    module.ClearInputQueue();
+                    expectedCounts = SeedWordsFromFile(module, filePath);
+                    startingPatterns = new HashSet<Thought>(module.PatternRoot.Children);
+                    module.RecognitionCounts = new Dictionary<Thought, int>();
+                    SegmentationBox.Clear();
+                    SegmentationBox.AppendText($"Seeded {expectedCounts.Count} words.{Environment.NewLine}");
+                }
+                await Task.Run(async () =>
+                {
+                    int count = 0;
+                    foreach (string line in File.ReadLines(filePath))
+                    {
+                        string phrase = Regex.Replace(line, @"\p{P}", "").Trim();
+                        phrase = phrase.Replace(" ", "");
+                        if (!Regex.IsMatch(phrase, @"\p{L}")) continue;
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            string status = SubmitLine(module, phrase);
+                            SetStatus($"Phrase {count + 1}", Colors.Black);
+                            SegmentationBox.AppendText($"{phrase}: {status}{Environment.NewLine}");
+                            SegmentationBox.ScrollToEnd();
+                        });
+                        count++;
+                        //if (count >= cycles) break;
+                        await Task.Delay(10);
+                    }
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        SetStatus($"Read {count} phrases.", Colors.Black);
+                        if (expectedCounts is null) return;
+                        SegmentationBox.AppendText($"{Environment.NewLine}Word counts (source / recognized):{Environment.NewLine}");
+                        foreach (var entry in expectedCounts)
+                        {
+                            module.RecognitionCounts.TryGetValue(entry.Key, out int recognized);
+                            SegmentationBox.AppendText($"{entry.Key.Label}: {entry.Value} / {recognized}{Environment.NewLine}");
+                        }
+                        SegmentationBox.AppendText($"New patterns/candidates:{Environment.NewLine}");
+                        int newCount = 0;
+                        foreach (Thought thought in module.PatternRoot.Children)
+                        {
+                            if (startingPatterns.Contains(thought)) continue;
+                            SegmentationBox.AppendText($"{thought.Label}: weight {thought.Weight:0.##}{Environment.NewLine}");
+                            newCount++;
+                        }
+                        SetStatus($"Read {count} phrases; {expectedCounts.Count} seeded words; {newCount} new patterns/candidates.", Colors.Black);
+                        SegmentationBox.ScrollToEnd();
+                    });
+                });
+                return;
+            }
+            var vocabulary = await Task.Run(() => ReadVocabulary(filePath, topN, probabilityPower));
             if (vocabulary.Count == 0) { SetStatus("The file contains no words."); return; }
             await RunVocabularyExperiment(module, vocabulary, cycles);
         }
@@ -136,25 +194,51 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         {
             SetStatus($"Error loading file: {ex.Message}");
         }
-        finally { SetExperimentControlsEnabled(true); }
+        finally
+        {
+            module.RecognitionCounts = null;
+            SetExperimentControlsEnabled(true);
+        }
     }
 
-    private bool TryGetExperimentParameters(out int topN, out int cycles)
+    private bool TryGetExperimentParameters(out int topN, out int cycles, out double probabilityPower)
     {
         bool validTop = int.TryParse(TopNWordsBox.Text, out topN) && topN >= 0;
         bool validCycles = int.TryParse(CycleCountBox.Text, out cycles) && cycles > 0;
-        bool valid = validTop && validCycles;
-        if (!valid) SetStatus("Top N must be zero or greater; cycles must be greater than zero.");
+        bool validPower = double.TryParse(FrequencyBiasBox.Text, NumberStyles.Float,
+            CultureInfo.InvariantCulture, out probabilityPower) && probabilityPower >= 0 && probabilityPower <= 1;
+        bool valid = validTop && validCycles && validPower;
+        if (!valid) SetStatus("Top N must be zero or greater; cycles greater than zero; frequency bias between 0 and 1.");
         return valid;
     }
 
     private void SetExperimentControlsEnabled(bool enabled)
     {
         InputBox.IsEnabled = btnLoad.IsEnabled = btnBrowse.IsEnabled = enabled;
-        TopNWordsBox.IsEnabled = CycleCountBox.IsEnabled = enabled;
+        TopNWordsBox.IsEnabled = CycleCountBox.IsEnabled = FrequencyBiasBox.IsEnabled = PhrasesFromFileBox.IsEnabled = SeedWordsBox.IsEnabled = enabled;
     }
 
-    public static List<KeyValuePair<string, double>> ReadVocabulary(string filePath, int topN)
+    /// <summary>Seed complete non-plastic words, returning their source occurrence counts for comparison.</summary>
+    public static Dictionary<Thought, int> SeedWordsFromFile(ModuleSequenceSegmenter module, string filePath)
+    {
+        module.PatternRoot = module.theUKS.Labeled("Word");
+        module.PatternPrefix = "w:";
+        Dictionary<Thought, int> counts = new();
+        foreach (Match token in Regex.Matches(File.ReadAllText(filePath).ToLowerInvariant(), @"\p{L}+"))
+        {
+            string label = "w:" + token.Value;
+            Thought pattern = module.theUKS.GetOrAddThought(label, module.PatternRoot);
+            if (pattern.GetTargetOfFirstLinkOfType("spelled") is null)
+                module.theUKS.AddSequenceAndLink(pattern, "spelled", InputSymbols(module, token.Value), allowCompression: false);
+            pattern.Weight = Math.Max(pattern.Weight, module.ConsolidationStrength);
+            pattern.isPlastic = false;
+            counts.TryGetValue(pattern, out int count);
+            counts[pattern] = count + 1;
+        }
+        return counts;
+    }
+
+    public static List<KeyValuePair<string, double>> ReadVocabulary(string filePath, int topN, double probabilityPower = 1)
     {
         Dictionary<string, double> weights = new(StringComparer.Ordinal);
         Dictionary<string, int> fileOrder = new(StringComparer.Ordinal);
@@ -186,6 +270,9 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
             return comparison;
         });
         if (topN > 0 && topN < vocabulary.Count) vocabulary.RemoveRange(topN, vocabulary.Count - topN);
+        // Flatten sampling probabilities after selecting the top words by their original usage.
+        for (int index = 0; index < vocabulary.Count; index++)
+            vocabulary[index] = new(vocabulary[index].Key, Math.Pow(vocabulary[index].Value, probabilityPower));
         return vocabulary;
     }
 
@@ -222,12 +309,19 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
     public static string SubmitLine(ModuleSequenceSegmenter module, string input)
     {
         input = (input ?? string.Empty).TrimEnd();
-        int emphasis = 0;
+        int marks = 0;
         while (input.EndsWith('!'))
         {
-            emphasis++;
+            marks++;
             input = input[..^1];
         }
+        float emphasis = marks switch
+        {
+            0 => 0,
+            1 => 1,
+            2 => module.ConsolidationStrength / 2,
+            _ => module.ConsolidationStrength,
+        };
         List<Thought> observations = InputSymbols(module, input);
         observations.Add(module.InputPause);
         string result = module.InputReceived(observations, emphasis);
@@ -254,7 +348,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         private StreamReader _sequenceReader;
         private string _sequenceReaderPath;
         /// <summary>
-        /// Incrementally presents pause-delimited sequences from a corpus file.
+        /// Presents one phrase per nonempty line, stripping punctuation before submission.
         /// Text beginning with the first tab on each line is metadata and is not
         /// presented to the learner.
         /// </summary>
@@ -288,15 +382,10 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
                     string phrase = (tab < 0 ? line : line[..tab]).Trim();
                     if (phrase.Length == 0) continue;
 
-                    foreach (string sentence in Regex.Split(
-                        phrase, @"(?<=[\.!\?])\s+"))
-                    {
-                        if (count >= sequencesPerCall) break;
-                        string trimmed = sentence.Trim();
-                        if (trimmed.Length == 0) continue;
-                        SubmitLine(module, trimmed);
-                        count++;
-                    }
+                    phrase = Regex.Replace(phrase, @"\p{P}", "").Trim();
+                    if (!Regex.IsMatch(phrase, @"\p{L}")) continue;
+                    SubmitLine(module, phrase);
+                    count++;
                 }
 
                 if (_sequenceReader is not null && _sequenceReader.EndOfStream)

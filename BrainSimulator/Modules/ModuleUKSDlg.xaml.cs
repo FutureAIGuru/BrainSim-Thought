@@ -388,16 +388,17 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (thought is not Link && maximum <= 1)
             maximum = Math.Max(maximum, DefaultThoughtWeightMaximum);
         double value = Math.Clamp(thought.Weight, 0, maximum);
-        double fraction = value / maximum;
-
         thermometer.Maximum = maximum;
         thermometer.Value = value;
-        thermometer.Foreground = fraction >= 0.7
-            ? Brushes.SeaGreen
-            : fraction >= 0.3
-                ? Brushes.DodgerBlue
-                : Brushes.DarkOrange;
-        thermometer.ToolTip = $"Weight {thought.Weight:0.00} / {maximum:0.00}";
+        double fraction = value / maximum;
+        if (fraction >= 0.7)
+            thermometer.Foreground = thought.isPlastic ? Brushes.LimeGreen : Brushes.SeaGreen;
+        else if (fraction >= 0.3)
+            thermometer.Foreground = Brushes.DodgerBlue;
+        else
+            thermometer.Foreground = Brushes.DarkOrange;
+        string state = thought.isPlastic ? "Plastic" : "Non-plastic";
+        thermometer.ToolTip = $"{state}; weight {thought.Weight:0.00} / {maximum:0.00}";
         weightValue.Text = thought.Weight.ToString("0.00");
     }
 
