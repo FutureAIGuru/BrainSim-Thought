@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using UKS;
 
 namespace BrainSimulator.Modules;
@@ -121,20 +122,27 @@ public class ModuleSequenceSegmenter : ModuleBase
     public bool ExplainLearning { get; set; }
     public string LastLearningDetails { get; private set; } = string.Empty;
     private readonly List<string> _learningDetails = new();
+    private readonly object _inputLock = new();
 
 
     public override void Fire()
     {
-        Init();
-        DateTime now = DateTime.Now;
-        if (PatternRoot is not null) DecayCandidates(now - _lastCandidateDecay);
-        _lastCandidateDecay = now;
-        if (now - _lastInputTrim >= TimeSpan.FromSeconds(1))
+        // The UI engine must not wait for a background phrase or trim its live sequence.
+        if (!Monitor.TryEnter(_inputLock)) return;
+        try
         {
-            _lastInputTrim = now;
-            TrimInputQueue(now);
+            Init();
+            DateTime now = DateTime.Now;
+            if (PatternRoot is not null) DecayCandidates(now - _lastCandidateDecay);
+            _lastCandidateDecay = now;
+            if (now - _lastInputTrim >= TimeSpan.FromSeconds(1))
+            {
+                _lastInputTrim = now;
+                TrimInputQueue(now);
+            }
+            if (_currentPointer is not null) ProcessQueuedInput();
         }
-        if (_currentPointer is not null) ProcessQueuedInput();
+        finally { Monitor.Exit(_inputLock); }
         UpdateDialog();
     }
 
@@ -160,9 +168,12 @@ public class ModuleSequenceSegmenter : ModuleBase
     /// <summary>Emphasis applies to episodes completed by this call; the caller supplies their pauses.</summary>
     public string InputReceived(IReadOnlyList<Thought> input, float emphasis = 0)
     {
-        QueueInput(input);
-        string result = ProcessQueuedInput(emphasis);
-        return result;
+        lock (_inputLock)
+        {
+            QueueInput(input);
+            string result = ProcessQueuedInput(emphasis);
+            return result;
+        }
     }
 
     // The learner consumes observations separately from queue mechanics.
@@ -475,30 +486,23 @@ public class ModuleSequenceSegmenter : ModuleBase
     /// <summary>Tags complete stored patterns and partial matches in the earlier queue.</summary>
     public void FindExistingSubPatterns(SeqElement first)
     {
-        for (SeqElement start = first; start is not null && !ReferenceEquals(start.VLU, _inputPause); start = start.NXT)
+        // Determine earlier positions once, instead of walking the queue again for every hit.
+        HashSet<SeqElement> earlierInput = new();
+        for (SeqElement element = _inputQueueHead; element is not null && !ReferenceEquals(element, first); element = element.NXT)
+            earlierInput.Add(element);
+        SeqElement pause = first;
+        while (pause is not null && !ReferenceEquals(pause.VLU, _inputPause)) pause = pause.NXT;
+        var matches = theUKS.FindSequenceSpansByActivation(first, pause, _inputOccurrenceOptions);
+        foreach (var match in matches)
         {
-            int length = 0;
-            for (SeqElement end = start; end is not null && !ReferenceEquals(end.VLU, _inputPause); end = end.NXT)
+            SeqElement target = match.match;
+            bool stream = target.FRST is null;
+            if (stream && !earlierInput.Contains(target)) continue;
+            for (SeqElement element = match.start; ; element = element.NXT)
             {
-                length++;
-                var matches = theUKS.FindSequencesByActivation(start, _inputOccurrenceOptions, getFirstElements: false, last: end);
-                foreach (var match in matches)
-                {
-                    SeqElement target = match.seqNode;
-                    if (target.FRST is null)
-                    {
-                        SeqElement member = _inputQueueHead;
-                        while (member is not null && !ReferenceEquals(member, first) && !ReferenceEquals(member, target)) member = member.NXT;
-                        if (!ReferenceEquals(member, target) || ReferenceEquals(member, first)) continue;
-                    }
-                    else if (!ReferenceEquals(target.FRST, target) || theUKS.GetSequenceLength(target) != length) continue;
-                    for (SeqElement element = start; ; element = element.NXT)
-                    {
-                        element.AddLink(_usedBy, target);
-                        if (ReferenceEquals(element, end)) break;
-                        if (match.seqNode.FRST is null) target = target.NXT;
-                    }
-                }
+                element.AddLink(_usedBy, target);
+                if (ReferenceEquals(element, match.end)) break;
+                if (stream) target = target.NXT;
             }
         }
     }

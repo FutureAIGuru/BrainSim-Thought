@@ -371,3 +371,22 @@ is evaluated before admitting bounded plastic candidates, so a tentative compoun
 cannot replace an established split merely by using fewer units. A consolidated
 compound can still outrank its components (everyone beats every|one); correcting
 a mistakenly consolidated compound remains a separate issue.
+
+Vocabulary preload is a separate dialog action. Select a word/probability file, set
+Top N (zero means all), and click Preload vocabulary. Ranking and normalization use
+ReadVocabulary; probabilities select membership but do not become learned weights.
+Words are added or reused as non-plastic spelled patterns at no less than the current
+consolidation strength. Existing stronger weights and sequence identities survive.
+Preloading clears input history, submits no phrases, and unchecks story-word seeding.
+Then browse to a story, check One phrase per line, and Load. Reports compare initial
+source-word coverage, source/recognized occurrence counts, current word states, and
+surviving new entries without using source boundaries to teach the learner.
+
+Phrase experiments call SubmitLine on their worker; the dispatcher only updates
+controls. InputReceived holds the module input lock while learning. Fire skips a
+busy learner so UI maintenance neither waits for processing nor trims its live queue.
+UKS FindSequenceSpansByActivation reuses activation states as each input span grows.
+It emits complete flat stored patterns and partial FRST-null stream matches; the
+input range ends before the supplied pause. Equivalence tests compare its match set
+with exhaustive prefix searches. The performance theory measures four story phrases
+without windows at 1,000 and 4,000 preloaded words; it is not a full-book/UI benchmark.

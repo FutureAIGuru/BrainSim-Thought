@@ -911,6 +911,139 @@ public partial class ModuleSequenceSegmenterTests
         return pattern;
     }
 
+    [Theory]
+    [InlineData("catcatdog", false, false)]
+    [InlineData("catadog", false, false)]
+    [InlineData("aa", false, false)]
+    [InlineData("catcatdog", true, false)]
+    [InlineData("catcatdog", false, true)]
+    public void IncrementalSpanSearch_MatchesExhaustivePrefixSearch(string input, bool mustMatchFirst, bool mustMatchLast)
+    {
+        var uks = CreateUKS();
+        var module = CreateInitializedSegmenter(uks);
+        foreach (string text in new[] { "cat", "at", "dog", "a", "aa" }) SeedPattern(module, text, 3);
+        module.QueueInput(WithPause(module, ModuleSequenceSegmenterDlg.InputSymbols(module, "dogcat")));
+        SeqElement previousPause = module.InputQueueHead;
+        while (previousPause.NXT is not null) previousPause = previousPause.NXT;
+        module.QueueInput(WithPause(module, ModuleSequenceSegmenterDlg.InputSymbols(module, input)));
+        SeqElement first = previousPause.NXT, pause = first;
+        while (pause.NXT is not null) pause = pause.NXT;
+        Thought options = uks.CreateSearchOptions(mustMatchFirst, mustMatchLast);
+        var expected = new System.Collections.Generic.HashSet<(SeqElement start, SeqElement end, SeqElement match)>();
+        for (SeqElement start = first; start != pause; start = start.NXT)
+        {
+            int length = 0;
+            for (SeqElement end = start; end != pause; end = end.NXT)
+            {
+                length++;
+                foreach (var match in uks.FindSequencesByActivation(start, options, getFirstElements: false, last: end))
+                    if (match.seqNode.FRST is null || ReferenceEquals(match.seqNode.FRST, match.seqNode) && uks.GetSequenceLength(match.seqNode) == length)
+                        expected.Add((start, end, match.seqNode));
+            }
+        }
+        var actual = uks.FindSequenceSpansByActivation(first, pause, options).ToHashSet();
+        Assert.True(expected.SetEquals(actual), $"Expected {expected.Count} spans; found {actual.Count}.");
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task WorkerThread_CanRecognizeAndLearnWithoutUsingTheDispatcher()
+    {
+        var module = CreateInitializedSegmenter(CreateUKS());
+        module.ConsolidationStrength = 25;
+        await System.Threading.Tasks.Task.Run(() =>
+        {
+            foreach (string input in new[] { "frog!!!", "or!!!", "frogorcat", "cat!!!", "frogorcat" })
+                ModuleSequenceSegmenterDlg.SubmitLine(module, input);
+        });
+        Assert.Null(module.CurrentPointer);
+        Assert.Equal(3, module.PatternRoot.Children.Count);
+        Assert.False(module.theUKS.Labeled("w:cat").isPlastic);
+        Assert.Null(module.theUKS.Labeled("w:frogorcat"));
+    }
+
+    [Theory]
+    [Trait("Category", "Performance")]
+    [InlineData(1000)]
+    [InlineData(4000)]
+    public async System.Threading.Tasks.Task PreloadedStory_PhraseTimingWithoutAWindow(int vocabularySize)
+    {
+        string directory = System.IO.Path.Combine(System.AppContext.BaseDirectory, "SegmentationCorpora");
+        var module = CreateInitializedSegmenter(CreateUKS());
+        module.ConsolidationStrength = 25;
+        ModuleSequenceSegmenterDlg.SeedWordsFromFile(module,
+            System.IO.Path.Combine(directory, "top_5000_words_stress_test.txt"), vocabularySize, wordList: true);
+        await System.Threading.Tasks.Task.Run(() =>
+        {
+            int count = 0;
+            foreach (string line in System.IO.File.ReadLines(System.IO.Path.Combine(directory, "TheCatInTheHat.txt")))
+            {
+                string phrase = System.Text.RegularExpressions.Regex.Replace(line, @"\p{P}", "").Trim();
+                if (phrase.Length == 0) continue;
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                ModuleSequenceSegmenterDlg.SubmitLine(module, phrase);
+                timer.Stop();
+                Assert.Null(module.CurrentPointer);
+                _output.WriteLine($"Vocabulary {vocabularySize}, phrase {++count}: {timer.Elapsed.TotalMilliseconds:0.0} ms, {phrase}");
+                module.TrimInputQueue();
+                if (count == 4) break;
+            }
+            Assert.Equal(4, count);
+        });
+    }
+
+    [Fact]
+    public void VocabularyPreload_SelectsTopUsageAndPreservesEstablishedKnowledge()
+    {
+        string path = System.IO.Path.GetTempFileName();
+        try
+        {
+            System.IO.File.WriteAllText(path, "cat 1\nDOG 10\nCAT 20\nfrog 3\nn't 40");
+            var module = CreateInitializedSegmenter(CreateUKS());
+            Thought cat = SeedPattern(module, "cat", 50);
+            Thought sequence = cat.GetTargetOfFirstLinkOfType("spelled");
+            var seeded = ModuleSequenceSegmenterDlg.SeedWordsFromFile(module, path, 2, wordList: true);
+            Assert.Equal(2, seeded.Count);
+            Assert.Contains(cat, seeded.Keys);
+            Assert.Contains(module.theUKS.Labeled("w:nt"), seeded.Keys);
+            Assert.Null(module.theUKS.Labeled("w:dog"));
+            Assert.Null(module.theUKS.Labeled("w:frog"));
+            Assert.Equal(50, cat.Weight);
+            Assert.Same(sequence, cat.GetTargetOfFirstLinkOfType("spelled"));
+            ModuleSequenceSegmenterDlg.SeedWordsFromFile(module, path, 2, wordList: true);
+            Assert.Equal(2, module.PatternRoot.Children.Count);
+            Assert.Single(module.theUKS.FlattenSequence(module.InputQueueHead));
+        }
+        finally { System.IO.File.Delete(path); }
+    }
+
+    [Fact]
+    public void ThousandWordPreload_RecognizesKnownPhrasesWithoutSeedingUnknownStoryWords()
+    {
+        string path = System.IO.Path.Combine(System.AppContext.BaseDirectory,
+            "SegmentationCorpora", "top_5000_words_stress_test.txt");
+        var module = CreateInitializedSegmenter(CreateUKS());
+        module.ConsolidationStrength = 25;
+        var seeded = ModuleSequenceSegmenterDlg.SeedWordsFromFile(module, path, 1000, wordList: true);
+        Assert.Equal(1000, seeded.Count);
+        Assert.Equal(1000, module.PatternRoot.Children.Count);
+        foreach (Thought thought in seeded.Keys)
+        {
+            Assert.False(thought.isPlastic);
+            Assert.Equal(25, thought.Weight);
+            Assert.NotNull(thought.GetTargetOfFirstLinkOfType("spelled"));
+        }
+        Assert.Null(module.theUKS.Labeled("w:cat")); // This file ranks cat and hat below 1000.
+        Assert.Null(module.theUKS.Labeled("w:hat"));
+        module.RecognitionCounts = new();
+        ModuleSequenceSegmenterDlg.SubmitLine(module, "the dog in the house");
+        Assert.Equal(2, module.RecognitionCounts[module.theUKS.Labeled("w:the")]);
+        Assert.Equal(1, module.RecognitionCounts[module.theUKS.Labeled("w:dog")]);
+        Assert.Equal(1, module.RecognitionCounts[module.theUKS.Labeled("w:house")]);
+        Assert.Equal(1000, module.PatternRoot.Children.Count);
+        Assert.Null(module.theUKS.Labeled("w:cat"));
+        Assert.Null(module.theUKS.Labeled("w:hat"));
+    }
+
     [Fact]
     public void SeededPhraseFile_ContainsEveryWordAndCountsRecognizedOccurrencesInsteadOfRewards()
     {

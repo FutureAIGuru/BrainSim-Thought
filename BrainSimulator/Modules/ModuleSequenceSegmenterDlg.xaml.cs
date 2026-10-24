@@ -15,6 +15,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 using UKS;
 using System.Threading.Tasks;
@@ -73,7 +74,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
     private async Task RunVocabularyExperiment(ModuleSequenceSegmenter module,
         List<KeyValuePair<string, double>> vocabulary, int sequenceCount, int randomSeed)
     {
-        const int wordsPerSequence = 6;
+        const int wordsPerSequence = 10;
         Random random = new(randomSeed);
         module.ExplainLearning = ExplainLearningBox.IsChecked == true;
         SegmentationBox.AppendText($"Random seed: {randomSeed}; frequency bias: {FrequencyBiasBox.Text}. Same starting UKS and settings required for comparison.{Environment.NewLine}");
@@ -82,22 +83,23 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
             for (int sequence = 0; sequence < sequenceCount; sequence++)
             {
                 string input = BuildRandomPhrase(vocabulary, wordsPerSequence, random);
+                string status = SubmitLine(module, input);
+                string details = module.LastLearningDetails;
+                string missing = "Missing: ";
+                int missingCount = 0;
+                foreach (var entry in vocabulary)
+                {
+                    Thought t = module.theUKS.Labeled("w:" + entry.Key);
+                    if (t is not null && !t.isPlastic) continue;
+                    missingCount++;
+                    if (missingCount <= 20) missing += entry.Key + " ";
+                    else if (missingCount == 21) missing += "...";
+                }
                 await Dispatcher.InvokeAsync(() =>
                 {
-                    string status = SubmitLine(module, input);
-                    string missing = "Missing: ";
-                    int missingCount = 0;
-                    foreach (var entry in vocabulary)
-                    {
-                        Thought t = module.theUKS.Labeled("w:" + entry.Key);
-                        if (t is not null && !t.isPlastic) continue;
-                        missingCount++;
-                        if (missingCount <= 20) missing += entry.Key + " ";
-                        else if (missingCount == 21) missing += "...";
-                    }
                     SetStatus($"Experiment {sequence + 1}/{sequenceCount}, {vocabulary.Count} words, {missingCount} {missing}", Colors.Black);
                     SegmentationBox.AppendText($"{input}: {status}{Environment.NewLine}");
-                    if (module.ExplainLearning) SegmentationBox.AppendText(module.LastLearningDetails + Environment.NewLine);
+                    if (module.ExplainLearning) SegmentationBox.AppendText(details + Environment.NewLine);
                     SegmentationBox.ScrollToEnd();
                 });
                 await Task.Delay(10);
@@ -119,6 +121,34 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         _corpusReader.Dispose();
     }
 
+    private void btnPreload_Click(object sender, RoutedEventArgs e)
+    {
+        if (ParentModule is not ModuleSequenceSegmenter module) return;
+        string filePath = txtFilePath.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            SetStatus("Select a vocabulary text file first.");
+            return;
+        }
+        if (!int.TryParse(TopNWordsBox.Text, out int topN) || topN < 0)
+        {
+            SetStatus("Top N must be zero or greater.");
+            return;
+        }
+        SetExperimentControlsEnabled(false);
+        try
+        {
+            var seeded = SeedWordsFromFile(module, filePath, topN, wordList: true);
+            module.ClearInputQueue();
+            SeedWordsBox.IsChecked = false;
+            string status = $"Preloaded {seeded.Count} non-plastic words from {Path.GetFileName(filePath)}. Select a phrase file, check One phrase per line, and press Load.";
+            SetStatus(status, Colors.Black);
+            SegmentationBox.AppendText(status + Environment.NewLine);
+        }
+        catch (Exception ex) { SetStatus($"Preload failed: {ex.Message}"); }
+        finally { SetExperimentControlsEnabled(true); }
+    }
+
     private async void btnLoad_Click(object sender, RoutedEventArgs e)
     {
         string filePath = txtFilePath.Text?.Trim();
@@ -138,18 +168,42 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         {
             if (phrasesFromFile)
             {
-                // Deliberately synchronous: the complete vocabulary exists before any phrase is processed.
-                Dictionary<Thought, int> expectedCounts = null;
-                HashSet<Thought> startingPatterns = null;
+                // Source boundaries are used only for the report, never supplied to the learner.
+                Dictionary<string, int> expectedCounts = new(StringComparer.Ordinal);
+                string sourceText = Regex.Replace(File.ReadAllText(filePath).ToLowerInvariant(), @"\p{P}", "");
+                foreach (Match token in Regex.Matches(sourceText, @"\p{L}+"))
+                {
+                    expectedCounts.TryGetValue(token.Value, out int occurrences);
+                    expectedCounts[token.Value] = occurrences + 1;
+                }
+                module.PatternRoot = module.theUKS.Labeled("Word");
+                module.PatternPrefix = "w:";
                 if (SeedWordsBox.IsChecked == true)
                 {
                     module.ClearInputQueue();
-                    expectedCounts = SeedWordsFromFile(module, filePath);
-                    startingPatterns = new HashSet<Thought>(module.PatternRoot.Children);
-                    module.RecognitionCounts = new Dictionary<Thought, int>();
-                    SegmentationBox.Clear();
-                    SegmentationBox.AppendText($"Seeded {expectedCounts.Count} words.{Environment.NewLine}");
+                    var seeded = SeedWordsFromFile(module, filePath);
+                    SegmentationBox.AppendText($"Seeded {seeded.Count} words from the phrase file.{Environment.NewLine}");
                 }
+                HashSet<Thought> startingPatterns = new(module.PatternRoot.Children);
+                module.RecognitionCounts = new Dictionary<Thought, int>();
+                int knownWords = 0, knownOccurrences = 0, totalOccurrences = 0;
+                string missing = string.Empty;
+                foreach (var entry in expectedCounts)
+                {
+                    Thought thought = module.theUKS.Labeled("w:" + entry.Key);
+                    totalOccurrences += entry.Value;
+                    if (thought is not null && !thought.isPlastic)
+                    {
+                        knownWords++;
+                        knownOccurrences += entry.Value;
+                    }
+                    else missing += entry.Key + " ";
+                }
+                SegmentationBox.AppendText($"Before reading: {knownWords}/{expectedCounts.Count} source words established, representing {knownOccurrences}/{totalOccurrences} source occurrences.{Environment.NewLine}");
+                SegmentationBox.AppendText($"Not initially established: {missing}{Environment.NewLine}");
+                Stopwatch elapsed = Stopwatch.StartNew();
+                double learnerMs = 0, slowestMs = 0;
+                string slowestPhrase = string.Empty;
                 await Task.Run(async () =>
                 {
                     int count = 0;
@@ -158,12 +212,17 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
                         string phrase = Regex.Replace(line, @"\p{P}", "").Trim();
                         phrase = phrase.Replace(" ", "");
                         if (!Regex.IsMatch(phrase, @"\p{L}")) continue;
+                        long started = Stopwatch.GetTimestamp();
+                        string status = SubmitLine(module, phrase);
+                        string details = module.LastLearningDetails;
+                        double milliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                        learnerMs += milliseconds;
+                        if (milliseconds > slowestMs) { slowestMs = milliseconds; slowestPhrase = phrase; }
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            string status = SubmitLine(module, phrase);
-                            SetStatus($"Phrase {count + 1}", Colors.Black);
+                            SetStatus($"Phrase {count + 1}: learner {milliseconds:0} ms", Colors.Black);
                             SegmentationBox.AppendText($"{phrase}: {status}{Environment.NewLine}");
-                            if (module.ExplainLearning) SegmentationBox.AppendText(module.LastLearningDetails + Environment.NewLine);
+                            if (module.ExplainLearning) SegmentationBox.AppendText(details + Environment.NewLine);
                             SegmentationBox.ScrollToEnd();
                         });
                         count++;
@@ -172,13 +231,19 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
                     }
                     await Dispatcher.InvokeAsync(() =>
                     {
+                        elapsed.Stop();
+                        double averageMs = count == 0 ? 0 : learnerMs / count;
+                        SegmentationBox.AppendText($"{Environment.NewLine}Timing: {elapsed.Elapsed.TotalSeconds:0.0}s elapsed, {learnerMs / 1000:0.0}s in learner, average {averageMs:0.0} ms/phrase, maximum {slowestMs:0.0} ms.{Environment.NewLine}");
+                        SegmentationBox.AppendText($"Slowest phrase: {slowestPhrase}{Environment.NewLine}");
                         SetStatus($"Read {count} phrases.", Colors.Black);
-                        if (expectedCounts is null) return;
-                        SegmentationBox.AppendText($"{Environment.NewLine}Word counts (source / recognized):{Environment.NewLine}");
+                        SegmentationBox.AppendText($"{Environment.NewLine}Word counts (source / recognized), current state:{Environment.NewLine}");
                         foreach (var entry in expectedCounts)
                         {
-                            module.RecognitionCounts.TryGetValue(entry.Key, out int recognized);
-                            SegmentationBox.AppendText($"{entry.Key.Label}: {entry.Value} / {recognized}{Environment.NewLine}");
+                            Thought thought = module.theUKS.Labeled("w:" + entry.Key);
+                            int recognized = 0;
+                            if (thought is not null) module.RecognitionCounts.TryGetValue(thought, out recognized);
+                            string state = thought is null ? "not created" : thought.isPlastic ? "candidate" : "pattern";
+                            SegmentationBox.AppendText($"w:{entry.Key}: {entry.Value} / {recognized}, {state}{Environment.NewLine}");
                         }
                         SegmentationBox.AppendText($"New patterns/candidates:{Environment.NewLine}");
                         int newCount = 0;
@@ -188,7 +253,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
                             SegmentationBox.AppendText($"{thought.Label}: weight {thought.Weight:0.##}{Environment.NewLine}");
                             newCount++;
                         }
-                        SetStatus($"Read {count} phrases; {expectedCounts.Count} seeded words; {newCount} new patterns/candidates.", Colors.Black);
+                        SetStatus($"Read {count} phrases in {elapsed.Elapsed.TotalSeconds:0.0}s ({learnerMs / 1000:0.0}s learner); {knownWords}/{expectedCounts.Count} source words initially established; {newCount} surviving new patterns/candidates.", Colors.Black);
                         SegmentationBox.ScrollToEnd();
                     });
                 });
@@ -223,23 +288,28 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
 
     private void SetExperimentControlsEnabled(bool enabled)
     {
-        InputBox.IsEnabled = btnLoad.IsEnabled = btnBrowse.IsEnabled = enabled;
+        InputBox.IsEnabled = btnLoad.IsEnabled = btnBrowse.IsEnabled = btnPreload.IsEnabled = enabled;
         TopNWordsBox.IsEnabled = CycleCountBox.IsEnabled = FrequencyBiasBox.IsEnabled = PhrasesFromFileBox.IsEnabled = SeedWordsBox.IsEnabled = enabled;
         RandomSeedBox.IsEnabled = ExplainLearningBox.IsEnabled = enabled;
     }
 
-    /// <summary>Seed complete non-plastic words, returning their source occurrence counts for comparison.</summary>
-    public static Dictionary<Thought, int> SeedWordsFromFile(ModuleSequenceSegmenter module, string filePath)
+    /// <summary>Preload ranked vocabulary or seed phrase tokens as complete non-plastic words.</summary>
+    public static Dictionary<Thought, int> SeedWordsFromFile(ModuleSequenceSegmenter module, string filePath, int topN = 0, bool wordList = false)
     {
         module.PatternRoot = module.theUKS.Labeled("Word");
         module.PatternPrefix = "w:";
+        List<string> words = new();
+        if (wordList)
+            foreach (var entry in ReadVocabulary(filePath, topN)) words.Add(entry.Key);
+        else
+            foreach (Match token in Regex.Matches(File.ReadAllText(filePath).ToLowerInvariant(), @"\p{L}+")) words.Add(token.Value);
         Dictionary<Thought, int> counts = new();
-        foreach (Match token in Regex.Matches(File.ReadAllText(filePath).ToLowerInvariant(), @"\p{L}+"))
+        foreach (string word in words)
         {
-            string label = "w:" + token.Value;
+            string label = "w:" + word;
             Thought pattern = module.theUKS.GetOrAddThought(label, module.PatternRoot);
             if (pattern.GetTargetOfFirstLinkOfType("spelled") is null)
-                module.theUKS.AddSequenceAndLink(pattern, "spelled", InputSymbols(module, token.Value), allowCompression: false);
+                module.theUKS.AddSequenceAndLink(pattern, "spelled", InputSymbols(module, word), allowCompression: false);
             pattern.Weight = Math.Max(pattern.Weight, module.ConsolidationStrength);
             pattern.isPlastic = false;
             counts.TryGetValue(pattern, out int count);

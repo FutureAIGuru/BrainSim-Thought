@@ -34,7 +34,7 @@
         <WrapPanel Margin="0,80,0,0" VerticalAlignment="Top">
             <TextBlock Text="Top N words:" VerticalAlignment="Center" />
             <TextBox x:Name="TopNWordsBox" Text="14" Width="65" Margin="8,0,18,0"
-                     ToolTip="Use 0 for all words. Applies to exp and word-list Load; ignored for phrase files." />
+                     ToolTip="Use 0 for all words. Applies to Preload vocabulary, exp and word-list Load; ignored for phrase files." />
             <TextBlock Text="Cycles:" VerticalAlignment="Center" />
             <TextBox x:Name="CycleCountBox" Text="100" Width="65" Margin="8,0,18,0" />
             <TextBlock Text="Random seed:" VerticalAlignment="Center" />
@@ -54,9 +54,13 @@
                      ToolTip="Word-list Load only: 1 uses file probabilities, 0 gives equal probabilities, 0.5 reduces the bias toward common words. Top N still uses original file weights." />
         </WrapPanel>
 
-        <CheckBox x:Name="ExplainLearningBox" Content="Explain learning" Margin="0,144,0,0"
-                  VerticalAlignment="Top"
-                  ToolTip="Show why matches were reinforced or suppressed and why candidates were created. Diagnostic only; does not change learning." />
+        <WrapPanel Margin="0,144,0,0" VerticalAlignment="Top">
+            <CheckBox x:Name="ExplainLearningBox" Content="Explain learning" Margin="0,0,18,0"
+                      VerticalAlignment="Center"
+                      ToolTip="Show why matches were reinforced or suppressed and why candidates were created. Diagnostic only; does not change learning." />
+            <Button x:Name="btnPreload" Content="Preload vocabulary" Height="26" Padding="10,0" Click="btnPreload_Click"
+                    ToolTip="Read the selected word/probability file, take Top N by original usage, and establish those words without training phrases. Adds to existing knowledge. Then select a phrase file and Load with One phrase per line checked." />
+        </WrapPanel>
 
         <TextBox x:Name="SegmentationBox" Margin="0,174,0,0"
                  IsReadOnly="True" AcceptsReturn="True"

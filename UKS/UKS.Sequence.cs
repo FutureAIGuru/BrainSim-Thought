@@ -964,6 +964,39 @@ public partial class UKS
         return retVal;
     }
 
+    /// <summary>
+    /// Finds complete flat stored sequences and partial stream matches within an input range.
+    /// Seeds once per start and extends the same activation states. last is exclusive.
+    /// </summary>
+    public List<(SeqElement start, SeqElement end, SeqElement match)> FindSequenceSpansByActivation(
+        SeqElement first, SeqElement last, Thought searchOptions)
+    {
+        if (searchOptions.HasProperty("allowWildcards") || searchOptions.HasProperty("allowNestedSequences"))
+            throw new ArgumentException("Span search requires flat literal matching.", nameof(searchOptions));
+        List<(SeqElement start, SeqElement end, SeqElement match)> matches = new();
+        for (SeqElement start = first; start is not null && start != last; start = start.NXT)
+        {
+            var active = InitializeSequenceSearchByActivation(start.VLU, 0, searchOptions);
+            // Internal positions of stored patterns cannot become complete matches as we extend.
+            for (int index = active.Count - 1; index >= 0; index--)
+                if (active[index].FirstMatchElement.FRST is not null &&
+                    !ReferenceEquals(active[index].FirstMatchElement.FRST, active[index].FirstMatchElement)) active.RemoveAt(index);
+            int length = 0;
+            for (SeqElement end = start; end is not null && end != last && active.Count > 0; end = end.NXT)
+            {
+                if (length > 0) active = ActivateNextSequenceElements(active, end.VLU, length, searchOptions);
+                length++;
+                foreach (var state in active)
+                {
+                    bool stream = state.FirstMatchElement.FRST is null;
+                    if ((!stream || searchOptions.HasProperty("mustMatchLast")) && state.LastMatchElement.NXT is not null) continue;
+                    matches.Add((start, end, state.FirstMatchElement));
+                }
+            }
+        }
+        return matches;
+    }
+
     private List<(SeqElement seqNode, float confidence)> FindExactWildcardMatches(List<Thought> pattern)
     {
         Thought anchor = pattern

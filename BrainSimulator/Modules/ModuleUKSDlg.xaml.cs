@@ -61,6 +61,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         InitializeComponent();
         theUKS = MainWindow.theUKS;
+        Closed += (_, _) => dt?.Stop();
     }
     public override bool Draw(bool checkDrawTimer)
     {
@@ -68,7 +69,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         //only updates 10x per second
         if (!base.Draw(checkDrawTimer)) return false;
         if (busy) return false;
-        if (!checkBoxAuto.IsChecked == true) { return false; }
+        if (checkBoxAuto.IsChecked != true) return false;
         Refresh();
         return true;
     }
@@ -883,16 +884,19 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private void CheckBoxAuto_Checked(object sender, RoutedEventArgs e)
     {
         if (dt is null)
+        {
             dt = new DispatcherTimer
             {
                 Interval = new TimeSpan(0, 0, 0, 0, 200)
             };
-        dt.Tick += Dt_Tick;
+            dt.Tick += Dt_Tick;
+        }
         dt.Start();
     }
 
     private void Dt_Tick(object sender, EventArgs e)
     {
+        if (checkBoxAuto.IsChecked != true || !IsVisible) return;
         if (!mouseInWindow)
             Draw(true);
         else if (weightBarsCB?.IsChecked == true)
@@ -903,8 +907,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void CheckBoxAuto_Unchecked(object sender, RoutedEventArgs e)
     {
-        dt.Stop();
-        RefreshButton.Visibility = Visibility.Visible;
+        dt?.Stop();
+        if (RefreshButton is not null) RefreshButton.Visibility = Visibility.Visible;
     }
 
     private void CheckBox_Checked(object sender, RoutedEventArgs e)
