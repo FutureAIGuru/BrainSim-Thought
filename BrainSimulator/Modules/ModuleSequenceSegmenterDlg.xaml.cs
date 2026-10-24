@@ -43,14 +43,14 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         if (ParentModule is not ModuleSequenceSegmenter module) return;
         if (InputBox.Text == "exp")
         {
-            if (!TryGetExperimentParameters(out int topN, out int cycles, out double probabilityPower)) return;
+            if (!TryGetExperimentParameters(out int topN, out int cycles, out double probabilityPower, out int randomSeed)) return;
             string[] words = { "dog", "has", "fur", "cat", "hat", "car",
                 "a", "an", "the", "cam", "can", "cap", "cart", "camp","camembert" }; //there are 15 entries, the test default to 14
             List<KeyValuePair<string, double>> vocabulary = new();
             foreach (string word in words) vocabulary.Add(new(word, 1));
             if (topN > 0 && topN < vocabulary.Count) vocabulary.RemoveRange(topN, vocabulary.Count - topN);
             SetExperimentControlsEnabled(false);
-            try { await RunVocabularyExperiment(module, vocabulary, cycles); }
+            try { await RunVocabularyExperiment(module, vocabulary, cycles, randomSeed); }
             catch (Exception ex) { SetStatus($"Experiment failed: {ex.Message}"); }
             finally { SetExperimentControlsEnabled(true); }
             InputBox.SelectAll();
@@ -59,24 +59,29 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         }
         else
         {
+            module.ExplainLearning = ExplainLearningBox.IsChecked == true;
             string status = SubmitLine(module, InputBox.Text);
             SetStatus(status, Colors.Black);
         }
         SegmentationBox.Text = module.LastStatus;
+        if (module.ExplainLearning) SegmentationBox.AppendText(Environment.NewLine + module.LastLearningDetails);
         SegmentationBox.ScrollToEnd();
         InputBox.SelectAll();
         InputBox.Focus();
     }
 
     private async Task RunVocabularyExperiment(ModuleSequenceSegmenter module,
-        List<KeyValuePair<string, double>> vocabulary, int sequenceCount)
+        List<KeyValuePair<string, double>> vocabulary, int sequenceCount, int randomSeed)
     {
         const int wordsPerSequence = 6;
+        Random random = new(randomSeed);
+        module.ExplainLearning = ExplainLearningBox.IsChecked == true;
+        SegmentationBox.AppendText($"Random seed: {randomSeed}; frequency bias: {FrequencyBiasBox.Text}. Same starting UKS and settings required for comparison.{Environment.NewLine}");
         await Task.Run(async () =>
         {
             for (int sequence = 0; sequence < sequenceCount; sequence++)
             {
-                string input = BuildRandomPhrase(vocabulary, wordsPerSequence, Random.Shared);
+                string input = BuildRandomPhrase(vocabulary, wordsPerSequence, random);
                 await Dispatcher.InvokeAsync(() =>
                 {
                     string status = SubmitLine(module, input);
@@ -92,6 +97,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
                     }
                     SetStatus($"Experiment {sequence + 1}/{sequenceCount}, {vocabulary.Count} words, {missingCount} {missing}", Colors.Black);
                     SegmentationBox.AppendText($"{input}: {status}{Environment.NewLine}");
+                    if (module.ExplainLearning) SegmentationBox.AppendText(module.LastLearningDetails + Environment.NewLine);
                     SegmentationBox.ScrollToEnd();
                 });
                 await Task.Delay(10);
@@ -122,10 +128,11 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
             return;
         }
         if (ParentModule is not ModuleSequenceSegmenter module) return;
-        if (!TryGetExperimentParameters(out int topN, out int cycles, out double probabilityPower)) return;
+        if (!TryGetExperimentParameters(out int topN, out int cycles, out double probabilityPower, out int randomSeed)) return;
 
         SetExperimentControlsEnabled(false);
         bool phrasesFromFile = PhrasesFromFileBox.IsChecked == true;
+        module.ExplainLearning = ExplainLearningBox.IsChecked == true;
         SetStatus(phrasesFromFile ? "Reading phrases..." : "Reading words...");
         try
         {
@@ -156,6 +163,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
                             string status = SubmitLine(module, phrase);
                             SetStatus($"Phrase {count + 1}", Colors.Black);
                             SegmentationBox.AppendText($"{phrase}: {status}{Environment.NewLine}");
+                            if (module.ExplainLearning) SegmentationBox.AppendText(module.LastLearningDetails + Environment.NewLine);
                             SegmentationBox.ScrollToEnd();
                         });
                         count++;
@@ -188,7 +196,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
             }
             var vocabulary = await Task.Run(() => ReadVocabulary(filePath, topN, probabilityPower));
             if (vocabulary.Count == 0) { SetStatus("The file contains no words."); return; }
-            await RunVocabularyExperiment(module, vocabulary, cycles);
+            await RunVocabularyExperiment(module, vocabulary, cycles, randomSeed);
         }
         catch (Exception ex)
         {
@@ -201,14 +209,15 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
         }
     }
 
-    private bool TryGetExperimentParameters(out int topN, out int cycles, out double probabilityPower)
+    private bool TryGetExperimentParameters(out int topN, out int cycles, out double probabilityPower, out int randomSeed)
     {
         bool validTop = int.TryParse(TopNWordsBox.Text, out topN) && topN >= 0;
         bool validCycles = int.TryParse(CycleCountBox.Text, out cycles) && cycles > 0;
         bool validPower = double.TryParse(FrequencyBiasBox.Text, NumberStyles.Float,
             CultureInfo.InvariantCulture, out probabilityPower) && probabilityPower >= 0 && probabilityPower <= 1;
-        bool valid = validTop && validCycles && validPower;
-        if (!valid) SetStatus("Top N must be zero or greater; cycles greater than zero; frequency bias between 0 and 1.");
+        bool validSeed = int.TryParse(RandomSeedBox.Text, out randomSeed);
+        bool valid = validTop && validCycles && validPower && validSeed;
+        if (!valid) SetStatus("Top N must be zero or greater; cycles greater than zero; frequency bias between 0 and 1; random seed an integer.");
         return valid;
     }
 
@@ -216,6 +225,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
     {
         InputBox.IsEnabled = btnLoad.IsEnabled = btnBrowse.IsEnabled = enabled;
         TopNWordsBox.IsEnabled = CycleCountBox.IsEnabled = FrequencyBiasBox.IsEnabled = PhrasesFromFileBox.IsEnabled = SeedWordsBox.IsEnabled = enabled;
+        RandomSeedBox.IsEnabled = ExplainLearningBox.IsEnabled = enabled;
     }
 
     /// <summary>Seed complete non-plastic words, returning their source occurrence counts for comparison.</summary>

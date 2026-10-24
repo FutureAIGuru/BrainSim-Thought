@@ -352,3 +352,22 @@ cat|an|d|dog, an+d is shorter than d+dog, so and is nominated. For cat|s, cats i
 nominated. Equal-length alternatives prefer the left neighbor. The expansion
 receives the first proposal slot; a second slot admits the one-symbol orphan.
 The configured MaximumProposalsPerEpisode and candidate capacity still apply.
+
+A plastic candidate may now bridge established context on both sides. First,
+coverage propagates using non-plastic patterns only. Candidates are then admitted
+only where established chains reach their start from the phrase beginning and
+their end from the phrase finish, with nonempty context at both ends. These choices
+are frozen before a second propagation, preventing plastic fragments from licensing
+one another. Thus cat|and|dog reinforces and and prevents a new catanddog proposal;
+ca|t cannot establish coverage on its own. Existing plastic compounds do not suppress an
+independently bounded candidate. This does not rescue a candidate when its required
+context patterns are themselves still plastic.
+
+Complete coverage now uses minimum unit counts propagated from each end. A match
+receives support only if its forward count plus one plus its backward count equals
+the minimum complete count. Equal-count alternatives share reinforcement; cart|dog
+beats car|t|dog, including when t is already established. Established full coverage
+is evaluated before admitting bounded plastic candidates, so a tentative compound
+cannot replace an established split merely by using fewer units. A consolidated
+compound can still outrank its components (everyone beats every|one); correcting
+a mistakenly consolidated compound remains a separate issue.

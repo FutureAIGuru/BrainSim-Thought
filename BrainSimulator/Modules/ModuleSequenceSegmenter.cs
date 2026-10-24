@@ -117,6 +117,11 @@ public class ModuleSequenceSegmenter : ModuleBase
     public float ConsolidationStrength { get; set; } = 25;
     public float CandidateDecayPerSecond { get; set; } = 0.1f;
     public string LastStatus { get; private set; } = "Awaiting input observations.";
+    // Optional diagnostics only; these do not affect matching or learning decisions.
+    public bool ExplainLearning { get; set; }
+    public string LastLearningDetails { get; private set; } = string.Empty;
+    private readonly List<string> _learningDetails = new();
+
 
     public override void Fire()
     {
@@ -178,13 +183,18 @@ public class ModuleSequenceSegmenter : ModuleBase
                 completed = true;
             }
         }
-        if (!completed) LastStatus = "Awaiting more input.";
+        if (!completed)
+        {
+            LastStatus = "Awaiting more input.";
+            LastLearningDetails = string.Empty;
+        }
         string result = LastStatus;
         return result;
     }
 
     private void ProcessEpisode(SeqElement first, SeqElement pause, float emphasis)
     {
+        _learningDetails.Clear();
         FindExistingSubPatterns(first);
 
         HashSet<SeqElement> recognizedSequences = new();
@@ -193,7 +203,12 @@ public class ModuleSequenceSegmenter : ModuleBase
         List<string> status = ReinforceCandidates(activeThoughts, emphasis);
 
         if (!fullyRecognized) status.AddRange(ProcessPotentialCandidates(first, pause, recognizedSequences, emphasis));
+        else
+        {
+            if (ExplainLearning) _learningDetails.Add("No proposals: complete coverage by established patterns or an independently bounded candidate.");
+        }
         LastStatus = string.Join("; ", status);
+        LastLearningDetails = string.Join(Environment.NewLine, _learningDetails);
     }
 
     /// <summary>Process existing matches only. Plastic candidates and established patterns share the same tags.</summary>
@@ -224,26 +239,43 @@ public class ModuleSequenceSegmenter : ModuleBase
             }
         }
 
-        // Established patterns propagate from both phrase boundaries. No segmentation enumeration is needed.
-        var establishedOccurrences = activeOccurrences.Where(match => match.sequence.LinksFrom.Any(link =>
+        // First establish boundaries using non-plastic patterns only.
+        var coverageOccurrences = activeOccurrences.Where(match => match.sequence.LinksFrom.Any(link =>
             ReferenceEquals(link.LinkType, _hasSequence) && !link.From.isPlastic)).ToList();
-        bool[] fromStart = new bool[position + 1], toEnd = new bool[position + 1];
-        fromStart[0] = toEnd[position] = true;
-        for (int boundary = 0; boundary < position; boundary++)
-            foreach (var match in establishedOccurrences.Where(match => match.start == boundary))
-                if (fromStart[boundary]) fromStart[match.end] = true;
-        for (int boundary = position; boundary > 0; boundary--)
-            foreach (var match in establishedOccurrences.Where(match => match.end == boundary))
-                if (toEnd[boundary]) toEnd[match.start] = true;
-        fullyRecognized = position > 0 && fromStart[position];
+        int unreachable = position + 1;
+        int[] fromStart = Enumerable.Repeat(unreachable, position + 1).ToArray();
+        int[] toEnd = Enumerable.Repeat(unreachable, position + 1).ToArray();
+        fromStart[0] = toEnd[position] = 0;
+        for (int pass = 0; pass < 2; pass++)
+        {
+            for (int boundary = 0; boundary < position; boundary++)
+                foreach (var match in coverageOccurrences.Where(match => match.start == boundary))
+                    if (fromStart[boundary] < unreachable)
+                        fromStart[match.end] = Math.Min(fromStart[match.end], fromStart[boundary] + 1);
+            for (int boundary = position; boundary > 0; boundary--)
+                foreach (var match in coverageOccurrences.Where(match => match.end == boundary))
+                    if (toEnd[boundary] < unreachable)
+                        toEnd[match.start] = Math.Min(toEnd[match.start], toEnd[boundary] + 1);
+            // Prefer an established complete split before admitting any plastic alternatives.
+            if (pass == 1 || fromStart[position] < unreachable) break;
+            // A candidate needs established context, with a pause also allowed as one boundary.
+            // Exclude a whole-episode candidate; freeze choices so plastic fragments cannot support each other.
+            // A plastic single-symbol orphan at a pause must not suppress its longer expansion (cat|s versus cats).
+            var boundedCandidates = activeOccurrences.Where(match =>
+                (match.start > 0 && match.end < position || match.end - match.start > 1 && (match.start > 0 || match.end < position)) &&
+                fromStart[match.start] < unreachable && toEnd[match.end] < unreachable && !coverageOccurrences.Contains(match)).ToList();
+            if (boundedCandidates.Count == 0) break;
+            coverageOccurrences.AddRange(boundedCandidates);
+        }
+        fullyRecognized = position > 0 && fromStart[position] < unreachable;
 
         List<(SeqElement sequence, int start, int end)> supportedOccurrences = new();
         if (fullyRecognized)
         {
-            // Reinforce every established occurrence belonging to any complete explanation.
-            // Tentative compounds cannot displace those words, and this episode creates no candidates.
-            foreach (var match in establishedOccurrences)
-                if (fromStart[match.start] && toEnd[match.end]) supportedOccurrences.Add(match);
+            // Keep every match in any minimum-unit complete split; equal-count alternatives share support.
+            // Forward/backward minimum counts avoid enumerating combinations.
+            foreach (var match in coverageOccurrences)
+                if (fromStart[match.start] + 1 + toEnd[match.end] == fromStart[position]) supportedOccurrences.Add(match);
         }
         else
         {
@@ -269,7 +301,7 @@ public class ModuleSequenceSegmenter : ModuleBase
             }
         }
         // Case 5: a surviving longer occurrence inhibits occurrences contained within it.
-        // With full established coverage, preserve alternative complete explanations instead.
+        // With full supported coverage, preserve alternative complete explanations instead.
         foreach (var match in supportedOccurrences)
         {
             bool contained = !fullyRecognized && supportedOccurrences.Any(other => other.start <= match.start && other.end >= match.end &&
@@ -278,13 +310,33 @@ public class ModuleSequenceSegmenter : ModuleBase
             // An independent occurrence can still activate the same Thought even if another occurrence was inhibited.
             foreach (Link owner in match.sequence.LinksFrom.Where(link => ReferenceEquals(link.LinkType, _hasSequence)))
             {
-                activeThoughts.Add(owner.From);
+                bool firstActivation = activeThoughts.Add(owner.From);
+                if (ExplainLearning && firstActivation)
+                {
+                    string reason = match.start == 0 && match.end == position ? "standalone match" :
+                        fullyRecognized ? $"complete coverage with established boundaries; minimum {fromStart[position]} units" :
+                        match.start == 0 || match.end == position ? "phrase boundary; partial coverage" : "internal match; partial coverage";
+                    _learningDetails.Add($"{owner.From.Label}: selected - {reason}.");
+                }
                 if (RecognitionCounts is null) continue;
                 RecognitionCounts.TryGetValue(owner.From, out int count);
                 RecognitionCounts[owner.From] = count + 1;
             }
         }
 
+        if (ExplainLearning)
+        {
+            HashSet<Thought> reported = new(activeThoughts);
+            foreach (var match in activeOccurrences)
+                foreach (Link owner in match.sequence.LinksFrom.Where(link => ReferenceEquals(link.LinkType, _hasSequence)))
+                    if (reported.Add(owner.From))
+                    {
+                        string reason = fullyRecognized ? coverageOccurrences.Contains(match) ? "complete split requires more units" :
+                            "not admitted to a complete split supported by established boundaries" :
+                            supportedOccurrences.Contains(match) ? "contained by a longer surviving match" : "another explanation covers more input";
+                        _learningDetails.Add($"{owner.From.Label}: no reinforcement - {reason}.");
+                    }
+        }
         return activeThoughts;
     }
 
@@ -294,10 +346,11 @@ public class ModuleSequenceSegmenter : ModuleBase
         // New hypotheses are considered only after existing matches have been processed.
         // Reinforcement may have consolidated a candidate, freeing a plastic slot.
         List<string> status = new();
-        List<(List<Thought> input, int support)> proposals = new();
+        List<(List<Thought> input, int support, string reason)> proposals = new();
         List<Thought> episode = new(), unrecognized = new(), gap = new();
         SeqElement orphan = null;
         List<Thought> boundedGap = null;
+        bool establishedNeighbor = false;
         for (SeqElement element = first; element != pause; element = element.NXT)
         {
             var tags = element.LinksTo.Where(link => ReferenceEquals(link.LinkType, _usedBy)).ToList();
@@ -310,8 +363,10 @@ public class ModuleSequenceSegmenter : ModuleBase
             }
             else
             {
-                // Keep an unknown run bounded by recognized matches on both sides.
-                if (gap.Count > 1 && gap.Count < episode.Count - 1) boundedGap = new List<Thought>(gap);
+                establishedNeighbor = tags.Any(link => ((SeqElement)link.To).FRST is not null &&
+                    link.To.LinksFrom.Any(owner => ReferenceEquals(owner.LinkType, _hasSequence) && !owner.From.isPlastic));
+                // A leading pause can supply one boundary when the right neighbor is established.
+                if (gap.Count > 1 && (gap.Count < episode.Count - 1 || establishedNeighbor)) boundedGap = new List<Thought>(gap);
                 gap.Clear();
             }
             // Case 2: repeated input -> excite a proposal where agreeing queue occurrences diverge.
@@ -344,19 +399,27 @@ public class ModuleSequenceSegmenter : ModuleBase
                 if (span.Count < 2) continue; // Single symbols are inputs, not learned sequences.
                 // Several positions can excite the same proposal; retain its strongest support, rather than summing it.
                 int proposalIndex = proposals.FindIndex(proposal => proposal.input.SequenceEqual(span));
-                if (proposalIndex < 0) proposals.Add((new List<Thought>(span), support));
-                else if (support > proposals[proposalIndex].support) proposals[proposalIndex] = (proposals[proposalIndex].input, support);
+                if (proposalIndex < 0) proposals.Add((new List<Thought>(span), support, "repetition in recent input"));
+                else if (support > proposals[proposalIndex].support) proposals[proposalIndex] = (proposals[proposalIndex].input, support, proposals[proposalIndex].reason);
             }
         }
 
-        // Admit a sole bounded gap without waiting for repetition.
-        if (boundedGap is not null && boundedGap.Count == unrecognized.Count) proposals.Add((boundedGap, 1));
+        // The ending pause can also bound a gap after an established pattern.
+        if (gap.Count > 1 && establishedNeighbor) boundedGap = gap;
+        // Prefer explaining the sole unknown gap over proposing the whole phrase again.
+        // Emphasis strengthens that gap; it must not also nominate the whole episode.
+        bool hasBoundedGap = boundedGap is not null && boundedGap.Count == unrecognized.Count;
+        if (hasBoundedGap)
+        {
+            proposals.Clear();
+            proposals.Add((boundedGap, 1, "sole gap bounded by recognized patterns or a pause"));
+        }
 
         // An orphan may signal a wrong neighboring boundary: also try absorbing the shortest adjacent match.
         if (unrecognized.Count == 1)
         {
             proposals.Clear();
-            proposals.Add((unrecognized, 1));
+            proposals.Add((unrecognized, 1, "sole unrecognized element"));
             List<Thought> expansion = null;
             SeqElement before = theUKS.GetPreviousSequenceElement(orphan);
             foreach (SeqElement neighbor in new[] { before, orphan.NXT })
@@ -371,10 +434,10 @@ public class ModuleSequenceSegmenter : ModuleBase
                     if (expansion is null || extended.Count < expansion.Count) expansion = extended;
                 }
             }
-            if (expansion is not null) proposals.Add((expansion, 1));
+            if (expansion is not null) proposals.Add((expansion, 1, "shortest expansion of sole orphan"));
         }
-        else if (emphasis > 0 && 1 + emphasis >= MinimumOccurrences && episode.Count > 1)
-            proposals.Add((episode, (int)emphasis)); // Emphasis supplies extra hits without earlier queue matches.
+        else if (!hasBoundedGap && emphasis > 0 && 1 + emphasis >= MinimumOccurrences && episode.Count > 1)
+            proposals.Add((episode, (int)emphasis, "emphasized input")); // Emphasis supplies extra hits without earlier queue matches.
 
         // Case 6: remove known sequences before choosing one frequent and one longest nomination.
         for (int index = proposals.Count - 1; index >= 0; index--)
@@ -396,8 +459,13 @@ public class ModuleSequenceSegmenter : ModuleBase
         int created = 0;
         foreach (int index in nominations)
         {
-            if (created >= MaximumProposalsPerEpisode || PatternRoot.Children.Count(thought => thought.isPlastic) >= CandidateCapacity) break;
+            if (created >= MaximumProposalsPerEpisode || PatternRoot.Children.Count(thought => thought.isPlastic) >= CandidateCapacity)
+            {
+                if (ExplainLearning) _learningDetails.Add("Further proposals blocked by proposal limit or candidate capacity.");
+                break;
+            }
             status.Add(CreateCandidate(proposals[index].input, emphasis));
+            if (ExplainLearning) _learningDetails.Add($"{status[^1]} - created from {proposals[index].reason}; support {proposals[index].support}.");
             created++;
         }
         return status;
@@ -461,8 +529,12 @@ public class ModuleSequenceSegmenter : ModuleBase
     /// <summary>Strengthen a candidate into a pattern; established patterns continue accumulating usage weight.</summary>
     private string ReinforceCandidate(Thought thought, float emphasis)
     {
-        thought.Weight += Reinforcement * Math.Max(1, emphasis);
+        float increase = Reinforcement * Math.Max(1, emphasis);
+        thought.Weight += increase;
         if (thought.Weight >= ConsolidationStrength) thought.isPlastic = false;
+        if (ExplainLearning) _learningDetails.Add($"{thought.Label}: reinforced +{increase:0.##}, strength {thought.Weight:0.##}" +
+            (emphasis > 0 ? $"; emphasis {emphasis:0.##}" : "; ordinary match") +
+            (thought.isPlastic ? "; candidate." : "; non-plastic pattern."));
         string result = $"{thought.Label}: strength {thought.Weight:0.##}, " +
             (thought.isPlastic ? "candidate" : "pattern");
         return result;
@@ -470,10 +542,14 @@ public class ModuleSequenceSegmenter : ModuleBase
 
     public void DecayCandidates(TimeSpan elapsed)
     {
-        float decay = CandidateDecayPerSecond * (float)elapsed.TotalSeconds;
-        foreach (Thought candidate in new List<Thought>(PatternRoot.Children))
+        List<Thought> candidates = PatternRoot.Children.Where(thought => thought.isPlastic).ToList();
+        // No forgetting below half capacity; reach the configured rate at full capacity.
+        float pressure = Math.Clamp(2f * candidates.Count / CandidateCapacity - 1, 0, 1);
+        pressure = 1;
+        if (pressure <= 0) return;
+        float decay = CandidateDecayPerSecond * (float)elapsed.TotalSeconds * pressure;
+        foreach (Thought candidate in candidates)
         {
-            if (!candidate.isPlastic) continue;
             candidate.Weight -= decay;
             if (candidate.Weight <= 0) candidate.Delete();
         }

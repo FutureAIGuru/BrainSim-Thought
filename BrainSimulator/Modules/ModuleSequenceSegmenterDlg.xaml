@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BrainSimulator.Modules"
         mc:Ignorable="d"
-        Title="Sequence Segmenter" Height="390" Width="850"
+        Title="Sequence Segmenter" Height="430" Width="850"
         MinHeight="165" MinWidth="500" Background="Gray"
         ShowInTaskbar="False" FontSize="16">
     <Grid Margin="10,10,10,28">
@@ -37,6 +37,9 @@
                      ToolTip="Use 0 for all words. Applies to exp and word-list Load; ignored for phrase files." />
             <TextBlock Text="Cycles:" VerticalAlignment="Center" />
             <TextBox x:Name="CycleCountBox" Text="100" Width="65" Margin="8,0,18,0" />
+            <TextBlock Text="Random seed:" VerticalAlignment="Center" />
+            <TextBox x:Name="RandomSeedBox" Text="42" Width="60" Margin="8,0,18,0"
+                     ToolTip="Use the same seed to replay the same randomized phrases in exp or word-list Load. Phrase files remain in file order. Learning also depends on starting UKS, settings, and elapsed-time decay." />
             <CheckBox x:Name="PhrasesFromFileBox" Content="One phrase per line" Margin="0,0,12,0"
                       VerticalAlignment="Center"
                       ToolTip="Load all phrases in file order. Removes punctuation; spaces are ignored. Top N applies only to word lists and exp." />
@@ -51,7 +54,11 @@
                      ToolTip="Word-list Load only: 1 uses file probabilities, 0 gives equal probabilities, 0.5 reduces the bias toward common words. Top N still uses original file weights." />
         </WrapPanel>
 
-        <TextBox x:Name="SegmentationBox" Margin="0,142,0,0"
+        <CheckBox x:Name="ExplainLearningBox" Content="Explain learning" Margin="0,144,0,0"
+                  VerticalAlignment="Top"
+                  ToolTip="Show why matches were reinforced or suppressed and why candidates were created. Diagnostic only; does not change learning." />
+
+        <TextBox x:Name="SegmentationBox" Margin="0,174,0,0"
                  IsReadOnly="True" AcceptsReturn="True"
                  VerticalScrollBarVisibility="Auto"
                  HorizontalScrollBarVisibility="Auto"
