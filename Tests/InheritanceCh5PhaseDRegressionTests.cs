@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BrainSimulator.Modules;
 using UKS;
 using Xunit;
 
@@ -153,7 +154,8 @@ public class InheritanceCh5PhaseDRegressionTests
         dogWrap.Weight = 1;
         petWrap.Weight = 2;
 
-        ContextCaseResult? selected = uks.SelectBestContextCase(contextRoot, t => ResolveLabel(uks, t));
+        var module = new ModuleAlgorithm { theUKS = uks };
+        ContextCaseResult? selected = module.SelectBestContextCase(contextRoot, t => ResolveLabel(uks, t));
         Assert.NotNull(selected);
         Assert.Equal("case-pet", selected.Case?.Label);
     }
@@ -191,7 +193,8 @@ public class InheritanceCh5PhaseDRegressionTests
         Assert.True(HasLink(all, "has", "loud", uks));
         Assert.True(HasLink(all, "has", "calm", uks));
 
-        var filtered = uks.FilterLinksByContext(all, fido, contextRoot, t => ResolveLabel(uks, t));
+        var module = new ModuleAlgorithm { theUKS = uks };
+        var filtered = module.FilterLinksByContext(all, fido, contextRoot, t => ResolveLabel(uks, t));
         Assert.True(HasLink(filtered, "has", "calm", uks));
         Assert.False(HasLink(filtered, "has", "loud", uks));
     }

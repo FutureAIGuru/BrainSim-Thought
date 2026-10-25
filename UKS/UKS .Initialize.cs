@@ -75,6 +75,7 @@ public partial class UKS
         GetOrAddThought("inverseOf", "LinkType");
         GetOrAddThought("hasProperty", "LinkType");
         GetOrAddThought("is", "LinkType");
+        GetOrAddThought("REF", "LinkType");
 
         AddStatement("has-child", "inverseOf", "is-a");
         AddStatement("hasAttribute", "is-a", "LinkType");
@@ -97,6 +98,18 @@ public partial class UKS
         AddStatement("isEphemeral", "is-a", "Property");
         AddStatement("isCondition", "is-a", "Property");
         AddStatement("isResult", "is-a", "Property");
+        AddStatement("followPath", "is-a", "Property");
+        AddStatement("isPossible", "is-a", "Property");
+        AddStatement("setRelationship", "is-a", "Property");
+        AddStatement("isEqual", "is-a", "Property");
+        AddStatement("isNegative", "is-a", "Property");
+        AddStatement("@", "hasProperty", "followPath");
+        AddStatement("?", "hasProperty", "isPossible");
+        AddStatement("!", "hasProperty", "setRelationship");
+        AddStatement("EXIST", "hasProperty", "isPossible");
+        AddStatement("WRITE", "hasProperty", "setRelationship");
+        AddStatement("same", "hasProperty", "isEqual");
+        AddStatement("REF", "hasProperty", "isExclusive");
 
         //sequence search options
         AddStatement("Wildcard", "is-a", "Thought");
@@ -178,6 +191,7 @@ public partial class UKS
         //Clauses
         AddStatement("ClauseType", "is-a", "LinkType");
         AddStatement("IF", "is-a", "ClauseType");
+        AddStatement("IF", "hasProperty", "isCondition");
         AddStatement("BECAUSE", "is-a", "ClauseType");
         AddStatement("AFTER", "is-a", "ClauseType");
         AddStatement("BEFORE", "is-a", "ClauseType");
@@ -188,6 +202,8 @@ public partial class UKS
         AddStatement("OR", "is-a", "ClauseType");
         AddStatement("NOT", "is-a", "ClauseType");
         AddStatement("NO", "is-a", "ClauseType");
+        AddStatement("NOT", "hasProperty", "isNegative");
+        AddStatement("NO", "hasProperty", "isNegative");
         AddStatement("FRST", "is-a", "ClauseType");
 
         //Numbers

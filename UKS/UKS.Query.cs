@@ -20,6 +20,8 @@ public partial class UKS
     //keeps track of the conditions of the previous query in order to answer "Why?" or "Why not?"
     List<Link> failedConditions = new();
     List<Link> succeededConditions = new();
+    private int conditionalQueryDepth = 0;
+    private readonly HashSet<Link> evaluatingConditions = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
     /// Gets all links to a group of Thoughts including inherited links.
@@ -28,28 +30,42 @@ public partial class UKS
     /// <returns>List of matching links.</returns>
     public List<Link> GetAllLinks(List<Thought> sources) //with inheritance, conflicts, etc
     {
-        List<Link> result2 = new();
-        if (sources.Count == 0) return result2;
-        //expand search list to include instances of given objects  WHY??
-        for (int i = 0; i < sources.Count; i++)
+        if (conditionalQueryDepth == 0)
         {
-            Thought t = sources[i];
-            foreach (Thought child in t.Children)
-            {
-                Thought? isInstance = "isInstance";
-                if (isInstance is not null && child.HasProperty(isInstance))
-                    sources.Add(child);
-            }
+            failedConditions.Clear();
+            succeededConditions.Clear();
         }
+        conditionalQueryDepth++;
+        try
+        {
+            List<Link> result2 = new();
+            if (sources.Count == 0) return result2;
+            //expand search list to include instances of given objects  WHY??
+            for (int i = 0; i < sources.Count; i++)
+            {
+                Thought t = sources[i];
+                foreach (Thought child in t.Children)
+                {
+                    Thought? isInstance = "isInstance";
+                    if (isInstance is not null && child.HasProperty(isInstance))
+                        sources.Add(child);
+                }
+            }
 
-        var querySources = sources.ToList();
-        var result1 = BuildSearchList(sources);
-        result2 = GetAllLinksInternal(result1);
-        if (result2.Count < 200)  //the conflict-remover is really slow on large numbers
-            RemoveConflictingResults(result2, querySources);
-        RemoveFalseConditionals(result2);
-        SortLinks(ref result2);
-        return result2;
+            var querySources = sources.ToList();
+            var result1 = BuildSearchList(sources);
+            result2 = GetAllLinksInternal(result1);
+            // An unsupported local rule must not suppress an otherwise valid fact/default.
+            RemoveFalseConditionals(result2);
+            if (result2.Count < 200)  //the conflict-remover is really slow on large numbers
+                RemoveConflictingResults(result2, querySources);
+            SortLinks(ref result2);
+            return result2;
+        }
+        finally
+        {
+            conditionalQueryDepth--;
+        }
     }
 
     private void SortLinks(ref List<Link> result2)
@@ -167,10 +183,16 @@ public partial class UKS
             foreach (Link r in t.LinksTo)
             {
                 if (r.LinkType == Thought.IsA) continue;
+                // A condition describes a query pattern, rather than asserting its own evidence.
+                if (r.HasProperty("isCondition")) continue;
                 //only add the new relationship to the list if it is not already in the list
                 bool ignoreSource = thoughtsToExamine[i].hopCount > 1;
                 Link? existing = result.FindFirst(x => LinksAreEqual(x, r, ignoreSource));
-                if (existing is not null) continue;
+                bool conditional = r.HasProperty("isResult") || r.LinksTo.Any(link =>
+                    link.LinkType?.HasProperty("isCondition") == true || link.LinkType?.HasAncestor(Labeled("IF")) == true);
+                bool existingConditional = existing is not null && (existing.HasProperty("isResult") || existing.LinksTo.Any(link =>
+                    link.LinkType?.HasProperty("isCondition") == true || link.LinkType?.HasAncestor(Labeled("IF")) == true));
+                if (existing is not null && !conditional && !existingConditional) continue;
 
                 Thought? hasAncestor = "has";
                 if (haveCount > 1 && hasAncestor is not null && r.LinkType?.HasAncestor(hasAncestor) == true)
@@ -277,7 +299,10 @@ public partial class UKS
         {
             Link r1 = result[i];
             Thought? isResult = "isResult";
-            if (isResult is null || !r1.HasProperty(isResult)) continue;
+            bool hasCondition = r1.LinksTo.Any(link =>
+                link.LinkType?.HasProperty("isCondition") == true ||
+                link.LinkType?.HasAncestor(Labeled("IF")) == true);
+            if (!hasCondition && (isResult is null || !r1.HasProperty(isResult))) continue;
             if (!ConditionsAreMet(r1))
             {
                 failedConditions.Add(r1);
@@ -331,35 +356,50 @@ public partial class UKS
 
     bool ConditionsAreMet(Link r)
     {
-        Thought? isResult = "isResult";
-        Thought? isCondition = "isCondition";
+        bool foundCondition = false;
         foreach (Link r1 in r.LinksTo)
         {
-            if (isResult is null || r1.From?.HasProperty(isResult) != true) continue;
-            if (isCondition is null || r1.To?.HasProperty(isCondition) != true) continue;
-
-            Link? r2 = r1.To as Link;
-            //is r1 true?
-            if (GetUnconditionalLink(r2) is null)
+            bool conditionEdge = r1.LinkType?.HasProperty("isCondition") == true ||
+                r1.LinkType?.HasAncestor(Labeled("IF")) == true;
+            // Retain the older endpoint-property representation during migration.
+            bool legacyCondition = r.HasProperty("isResult") && r1.To?.HasProperty("isCondition") == true;
+            if (!conditionEdge && !legacyCondition) continue;
+            foundCondition = true;
+            if (r1.To is not Link condition || GetUnconditionalLink(condition) is null)
                 return false;
         }
-        return true;
+        return foundCondition;
     }
 
     Link? GetUnconditionalLink(Link? r)
     {
-        if (r?.From is null) return null;
-        Thought? isCondition = "isCondition";
-        foreach (Link r1 in r.From.LinksTo)
+        if (r?.From is null || r.LinkType is null || r.To is null) return null;
+        // Re-entering the same premise cannot supply independent support for a rule.
+        if (!evaluatingConditions.Add(r)) return null;
+        try
         {
-            if (Equals(r, r1))
+            Thought relationshipType = r.LinkType;
+            if (relationshipType.HasProperty("isPossible"))
             {
-                if (isCondition is null || !r1.HasProperty(isCondition))
-                    return r1;
+                Thought? ordinaryType = relationshipType.LinksTo.LastOrDefault(link =>
+                    ReferenceEquals(link.LinkType, Labeled("is")) && link.To is not null &&
+                    !link.To.HasProperty("isPossible"))?.To ??
+                    relationshipType.Parents.FirstOrDefault(parent => !parent.HasProperty("isPossible"));
+                if (ordinaryType is null) return null;
+                relationshipType = ordinaryType;
             }
-        }
+            // Use the established inheritance/conflict pipeline, so local exceptions also
+            // override inherited conditions. is.not is matched as an ordinary type identity.
+            var candidate = GetAllLinks( new List<Thought> { r.From } );
 
-        return null;
+            return GetAllLinks(new List<Thought> { r.From }).FirstOrDefault(candidate =>
+                !candidate.HasProperty("isCondition") &&
+                ReferenceEquals(candidate.LinkType, relationshipType) && ReferenceEquals(candidate.To, r.To));
+        }
+        finally
+        {
+            evaluatingConditions.Remove(r);
+        }
     }
 
     /// <summary>

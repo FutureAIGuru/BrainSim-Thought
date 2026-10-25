@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Brain Simulator Thought
  *
  * Copyright (c) 2026 Charles Simon
@@ -384,7 +384,18 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 
             foreach (var element in elements)
             {
-                string elementStr = element?.ToString() ?? "";
+                // Keep named Path objects intact when displaying and saving a task.
+                // SeqElement.ToString displays only sequence contents and loses the capability.
+                string elementStr = element?.HasProperty("followPath") == true
+                    ? element.Label : element?.ToString() ?? "";
+                if (element is Link instruction)
+                {
+                    string from = instruction.From?.HasProperty("followPath") == true
+                        ? instruction.From.Label : instruction.From?.ToString();
+                    string to = instruction.To?.HasProperty("followPath") == true
+                        ? instruction.To.Label : instruction.To?.ToString();
+                    elementStr = $"[{from}→{instruction.LinkType}→{to}]";
+                }
 
                 // Check if this element is a global reference (from a different task)
                 if (element is Thought elementThought && !IsLink(element))
@@ -431,7 +442,11 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
                 // Extract the inner link from the has relationship
                 if (hasLink.To is Link innerLink)
                 {
-                    string linkLine = $"    [{innerLink.From}→{innerLink.LinkType}→{innerLink.To}]";
+                    string from = innerLink.From?.HasProperty("followPath") == true
+                        ? innerLink.From.Label : innerLink.From?.ToString();
+                    string to = innerLink.To?.HasProperty("followPath") == true
+                        ? innerLink.To.Label : innerLink.To?.ToString();
+                    string linkLine = $"    [{from}→{innerLink.LinkType}→{to}]";
 
                     // Append weight if not 1.0
                     if (Math.Abs(hasLink.Weight - 1.0f) > 0.001f)

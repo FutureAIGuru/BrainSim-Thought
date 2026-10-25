@@ -123,11 +123,11 @@ public partial class UKS
 			}
 			else if (LinksAreExclusive(newLink, existingLink))
 			{
-				if (existingLink.LinkType is not null && newLink.LinkType?.Children.Contains(existingLink.LinkType) == true && HasAttribute(existingLink.LinkType, "not"))
+				if (existingLink.LinkType is not null && newLink.LinkType?.Children.Contains(existingLink.LinkType) == true && IsNegative(existingLink.LinkType))
 				{
 					existingLink.From?.RemoveLink(existingLink);
 				}
-				else if (newLink.LinkType is not null && existingLink.LinkType?.Children.Contains(newLink.LinkType) == true && HasAttribute(newLink.LinkType, "not"))
+				else if (newLink.LinkType is not null && existingLink.LinkType?.Children.Contains(newLink.LinkType) == true && IsNegative(newLink.LinkType))
 				{
 					existingLink.From?.RemoveLink(existingLink);
 				}
