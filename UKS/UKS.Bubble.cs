@@ -309,11 +309,9 @@ public partial class UKS
         }
         if (r1.target == r2.target)
         {
-            IReadOnlyList<Thought> r1Attribs = r1.linkType.GetAttributes();
-            IReadOnlyList<Thought> r2Attribs = r2.linkType.GetAttributes();
-            Thought? r1Not = r1Attribs.FindFirst(x => x.Label is "not" or "no");
-            Thought? r2Not = r2Attribs.FindFirst(x => x.Label is "not" or "no");
-            if (r1Not is null != (r2Not is null)) return true;
+            IReadOnlyList<Thought> r1Attribs = r1.linkType.GetAttributes().Concat(r1.linkType.Parents).Distinct().ToList();
+            IReadOnlyList<Thought> r2Attribs = r2.linkType.GetAttributes().Concat(r2.linkType.Parents).Distinct().ToList();
+            if (r1.linkType.HasProperty("isNegative") != r2.linkType.HasProperty("isNegative")) return true;
 
             foreach (Thought t1 in r1Attribs)
             {

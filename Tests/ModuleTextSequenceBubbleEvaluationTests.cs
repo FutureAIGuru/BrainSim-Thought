@@ -101,8 +101,11 @@ public class ModuleTextSequenceBubbleEvaluationTests
         // executes it and retains the resulting ordinary relationship.
         Thought bird = uks.Labeled("bird");
         Thought fly = uks.Labeled("fly");
-        Assert.Null(uks.GetLink(bird, uks.Labeled("SET.can"), fly));
+        Assert.Null(uks.GetLink(bird, uks.Labeled("!.can"), fly));
         Assert.NotNull(uks.GetLink(bird, uks.Labeled("can"), fly));
+        Assert.DoesNotContain(uks.AtomicThoughts.SelectMany(thought => thought.LinksTo),
+            link => link.LinkType?.HasProperty("setRelationship") == true &&
+                link.LinksFrom.Any(metadata => metadata.LinkType?.Label == "demonstrates"));
 
         int learnedActionTemplates = ModuleText.LearnActionsFromExemplars();
 
@@ -114,10 +117,10 @@ public class ModuleTextSequenceBubbleEvaluationTests
             .OfType<Link>()
             .Select(action => action.LinkType.Label)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("SET.is-a", learnedActionTypes);
-        Assert.Contains("SET.is", learnedActionTypes);
-        Assert.Contains("SET.has", learnedActionTypes);
-        Assert.Contains("SET.can", learnedActionTypes);
+        Assert.Contains("!.is-a", learnedActionTypes);
+        Assert.Contains("!.is", learnedActionTypes);
+        Assert.Contains("!.has", learnedActionTypes);
+        Assert.Contains("!.can", learnedActionTypes);
 
         // "otter" has never appeared in the corpus. Known predicate values
         // make the intended learned frame unambiguous in this first version.
@@ -144,13 +147,13 @@ public class ModuleTextSequenceBubbleEvaluationTests
         // has.4 rather than treating the quantity as an ordinary object.
         UKS.UKS uks = CreateTextUKS();
         ModuleText.AddActionExemplar(
-            "dog has four legs", "[dog->SET.has.4->leg]");
+            "dog has four legs", "[dog->!.has.4->leg]");
         ModuleText.AddActionExemplar(
-            "cat has 4 legs", "[cat->SET.has.4->leg]");
+            "cat has 4 legs", "[cat->!.has.4->leg]");
         ModuleText.AddActionExemplar(
-            "rabbit has four legs", "[rabbit->SET.has.4->leg]");
+            "rabbit has four legs", "[rabbit->!.has.4->leg]");
         ModuleText.AddActionExemplar(
-            "horse has 4 legs", "[horse->SET.has.4->leg]");
+            "horse has 4 legs", "[horse->!.has.4->leg]");
 
         int learnedActionTemplates = ModuleText.LearnActionsFromExemplars();
         var module = new ModuleText { theUKS = uks };
@@ -176,10 +179,10 @@ public class ModuleTextSequenceBubbleEvaluationTests
     public void WildcardQueryTemplatesReturnAttributesAndRelationships()
     {
         UKS.UKS uks = CreateTextUKS();
-        ModuleText.AddActionExemplar("What is a dog like", "[dog->TEST.??->??]");
-        ModuleText.AddActionExemplar("What is a sheep like", "[sheep->TEST.??->??]");
-        ModuleText.AddActionExemplar("How is Mary related to John", "[Mary->TEST.??->John]");
-        ModuleText.AddActionExemplar("How is Alice related to Bob", "[Alice->TEST.??->Bob]");
+        ModuleText.AddActionExemplar("What is a dog like", "[dog->?.??->??]");
+        ModuleText.AddActionExemplar("What is a sheep like", "[sheep->?.??->??]");
+        ModuleText.AddActionExemplar("How is Mary related to John", "[Mary->?.??->John]");
+        ModuleText.AddActionExemplar("How is Alice related to Bob", "[Alice->?.??->Bob]");
         ModuleText.LearnActionsFromExemplars();
 
         uks.AddStatement("cat", "can", "meow");
@@ -197,7 +200,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
     public void ExactActionExemplarRemainsUsableBeforeAQueryTemplateCanBeLearned()
     {
         UKS.UKS uks = CreateTextUKS();
-        ModuleText.AddActionExemplar("How is Mary related to John", "[Mary->TEST.??->John]");
+        ModuleText.AddActionExemplar("How is Mary related to John", "[Mary->?.??->John]");
         uks.AddStatement("Mary", "knows", "John");
         ModuleText module = new() { theUKS = uks };
 
@@ -219,10 +222,10 @@ public class ModuleTextSequenceBubbleEvaluationTests
         uks.AddStatement("Spot", "is", "brown");
         uks.AddStatement("Spot", "is", "large");
         uks.AddStatement("dog", "has.4", "leg");
-        ModuleText.AddActionExemplar("What color is Fido", "[[Fido->TEST.is->??]->filterBy->Color]");
-        ModuleText.AddActionExemplar("What color is Rover", "[[Rover->TEST.is->??]->filterBy->Color]");
-        ModuleText.AddActionExemplar("How many legs does a dog have", "[[dog->TEST.has->??]->filterBy->leg]");
-        ModuleText.AddActionExemplar("How many legs does a cat have", "[[cat->TEST.has->??]->filterBy->leg]");
+        ModuleText.AddActionExemplar("What color is Fido", "[[Fido->?.is->??]->filterBy->Color]");
+        ModuleText.AddActionExemplar("What color is Rover", "[[Rover->?.is->??]->filterBy->Color]");
+        ModuleText.AddActionExemplar("How many legs does a dog have", "[[dog->?.has->??]->filterBy->leg]");
+        ModuleText.AddActionExemplar("How many legs does a cat have", "[[cat->?.has->??]->filterBy->leg]");
         ModuleText.LearnActionsFromExemplars();
         ModuleText module = new() { theUKS = uks };
 
@@ -330,8 +333,8 @@ public class ModuleTextSequenceBubbleEvaluationTests
         {
             File.WriteAllLines(corpusPath, new[]
             {
-                "A dog is an animal.\t[dog->SET.is-a->animal]",
-                "A cat is an animal.\t[cat->SET.is-a->animal]",
+                "A dog is an animal.\t[dog->!.is-a->animal]",
+                "A cat is an animal.\t[cat->!.is-a->animal]",
             });
             var module = new ModuleText { theUKS = uks };
 
@@ -342,7 +345,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
                 template.LinksTo.Any(link =>
                     link.LinkType?.Label == "means" &&
                     link.To is Link action &&
-                    action.LinkType?.Label == "SET.is-a"));
+                    action.LinkType?.Label == "!.is-a"));
         }
         finally
         {
@@ -394,11 +397,11 @@ public class ModuleTextSequenceBubbleEvaluationTests
     {
         UKS.UKS uks = CreateTextUKS();
         ModuleText.AddActionExemplar(
-            "A bird is an animal", "[bird->SET.is-a->animal]");
+            "A bird is an animal", "[bird->!.is-a->animal]");
         ModuleText.AddActionExemplar(
-            "What is a dog", "[dog->TEST.is-a->??]");
+            "What is a dog", "[dog->?.is-a->??]");
         ModuleText.AddActionExemplar(
-            "What is a cat", "[cat->TEST.is-a->??]");
+            "What is a cat", "[cat->?.is-a->??]");
 
         Assert.True(ModuleText.LearnActionsFromExemplars() > 0);
         var module = new ModuleText { theUKS = uks };
@@ -418,7 +421,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
             thought => string.IsNullOrEmpty(thought.Label));
         Assert.Equal("is-a", module.LastRelationship.LinkType.Label);
         Assert.Null(uks.GetLink(
-            uks.Labeled("bird"), uks.Labeled("TEST.is-a"), uks.Labeled("??")));
+            uks.Labeled("bird"), uks.Labeled("?.is-a"), uks.Labeled("??")));
 
         string suppressedAnswer = module.SubmitText("What is a bird", answerQueries: false);
         Assert.Null(suppressedAnswer);
@@ -426,7 +429,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         Assert.Equal("is-a", module.LastRelationship.LinkType.Label);
 
         module.SubmitText(
-            "A fish is an animal [fish->SET.is-a->animal]",
+            "A fish is an animal [fish->!.is-a->animal]",
             answerQueries: false);
         Assert.NotNull(uks.GetLink(uks.Labeled("fish"), uks.Labeled("is-a"), uks.Labeled("animal")));
     }
@@ -443,9 +446,9 @@ public class ModuleTextSequenceBubbleEvaluationTests
         uks.AddStatement(uks.GetOrAddThought("w:rover", "Word"), means, rover);
         uks.AddStatement(uks.GetOrAddThought("w:dog", "Word"), means, dog);
         ModuleText.AddActionExemplar(
-            "Fido is a dog", "[fido->SET.is-a->dog]");
+            "Fido is a dog", "[fido->!.is-a->dog]");
         ModuleText.AddActionExemplar(
-            "Rover is a dog", "[rover->SET.is-a->dog]");
+            "Rover is a dog", "[rover->!.is-a->dog]");
 
         ModuleText.LearnActionsFromExemplars();
 
@@ -471,7 +474,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         Link misleadingMeaning = uks.AddStatement(uks.GetOrAddThought("w:bark", "Word"), means, bark);
         misleadingMeaning.Weight = 0.26f;
 
-        Thought exemplar = ModuleText.AddActionExemplar("A dog can bark", "[dog->SET.can->bark]");
+        Thought exemplar = ModuleText.AddActionExemplar("A dog can bark", "[dog->!.can->bark]");
 
         Link demonstrated = Assert.IsType<Link>(exemplar.GetTargetOfFirstLinkOfType("demonstrates"));
         Assert.Same(dog, demonstrated.From);
@@ -492,12 +495,12 @@ public class ModuleTextSequenceBubbleEvaluationTests
             FindRepositoryRoot(), "BrainSimulator", "WordFIles",
             "bst_true_template_corpus.txt");
         var module = new ModuleText { theUKS = uks };
-        Thought means = uks.Labeled("means");
-        Thought animal = uks.Labeled("animal");
+        Thought means = uks.GetOrAddThought("means", "LinkType");
+        Thought animal = uks.GetOrAddThought("animal", "Object");
         Thought class0 = uks.GetOrAddThought("class0", "Object");
         class0.AddParent(animal);
-        uks.Labeled("w:dog").RemoveLinks(means);
-        uks.Labeled("w:is").RemoveLinks(means);
+        uks.GetOrAddThought("w:dog", "Word").RemoveLinks(means);
+        uks.GetOrAddThought("w:is", "Word").RemoveLinks(means);
         uks.AddStatement(uks.Labeled("w:dog"), means, class0);
         uks.AddStatement(uks.Labeled("w:is"), means, class0);
         Thought fido = uks.GetOrAddThought("O1", class0);

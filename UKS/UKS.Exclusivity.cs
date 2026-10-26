@@ -64,8 +64,8 @@ public partial class UKS
             FindCommonParents(r1.From, r2.From).Count > 0))
         {
 
-            IReadOnlyList<Thought> r1LinkiProps = r1.LinkType is { } r1LinkType ? r1LinkType.GetAttributes() : Array.Empty<Thought>();
-            IReadOnlyList<Thought> r2LinkProps = r2.LinkType is { } r2LinkType ? r2LinkType.GetAttributes() : Array.Empty<Thought>();
+            IReadOnlyList<Thought> r1LinkiProps = r1.LinkType is { } r1LinkType ? r1LinkType.GetAttributes().Concat(r1LinkType.Parents).Distinct().ToList() : Array.Empty<Thought>();
+            IReadOnlyList<Thought> r2LinkProps = r2.LinkType is { } r2LinkType ? r2LinkType.GetAttributes().Concat(r2LinkType.Parents).Distinct().ToList() : Array.Empty<Thought>();
             //handle case with properties of the target
             if (r1.To is not null && r1.To == r2.To &&
                 (r1.To.AncestorsWithSelf.Contains(r2.To) ||

@@ -50,17 +50,22 @@ public partial class ModuleAlgorithm : ModuleBase
     // once for each cycle of the engine
     public override void Fire()
     {
-        Init();
-        if (DateTime.Now < lastCycle + TimeSpan.FromMilliseconds(250))
-            return;
-        lastCycle = DateTime.Now;
+        if (theUKS is null || theUKS.SuppressFiring) return;
+        lock (theUKS)
+        {
+            if (theUKS.SuppressFiring) return;
+            Init();
+            if (DateTime.Now < lastCycle + TimeSpan.FromMilliseconds(250))
+                return;
+            lastCycle = DateTime.Now;
 
-        //handle single-step process
-        if (IsSingleStepMode && !takeStep) return;
-        takeStep = false;
+            //handle single-step process
+            if (IsSingleStepMode && !takeStep) return;
+            takeStep = false;
 
-        HandleFiringNeurons();
-        UpdateDialog();
+            HandleFiringNeurons();
+            UpdateDialog();
+        }
     }
 
     private bool HandleFiringNeurons()
@@ -106,7 +111,7 @@ public partial class ModuleAlgorithm : ModuleBase
     // Entry point: Thought with a "steps" link to a SeqElement
     private bool IsEntryPoint(Thought t)
     {
-        bool retVal = t.GetTargetOfFirstLinkOfType("steps") is not null;
+        bool retVal = t.GetTargetOfFirstLinkOfType("steps") is SeqElement;
         return retVal;
     }
     // Call: SeqElement with a VLU that has a "steps" link
@@ -129,13 +134,13 @@ public partial class ModuleAlgorithm : ModuleBase
             if (IsAssignment(s.VLU)) s.VLU.Fire();
             Thought retVal = s.NXT; //get the next statement in the sequence
             if (retVal is null) //if we're at the end of a sequence, check for a return value to jump to
-                retVal = GetReturn(s.FRST);
+                retVal = GetReturn(s.FRST ?? s);
             retVal?.Fire();
         }
     }
     private bool HandledEntryPoint(Thought t)
     {
-        SeqElement IsEntryPoint = (SeqElement)t.GetTargetOfFirstLinkOfType("steps");
+        SeqElement IsEntryPoint = t.GetTargetOfFirstLinkOfType("steps") as SeqElement;
         if (IsEntryPoint is not null)
         {
             LastAction = $"STEP {CycleCount} CALL: {t}";
@@ -267,11 +272,16 @@ public partial class ModuleAlgorithm : ModuleBase
     /// <param name="taskName">Name of the task to execute</param>
     /// <param name="param1Value">First parameter value (can be any string)</param>
     /// <param name="param2Value">Second parameter value (can be any string)</param>
-    /// <param name="executeImmediately">If true, executes all steps immediately (for testing). If false, 
+    /// <param name="executeImmediately">If true, executes all steps immediately (for testing). If false,
     /// lets the polling loop or single-step execute steps.</param>
     /// <returns>True if execution succeeded, false otherwise</returns>
     public bool ExecuteTask(string taskName, string param1Value = "", string param2Value = "", bool executeImmediately = true)
     {
+        if (theUKS?.SuppressFiring == true)
+        {
+            LastAction = "Loading knowledge; wait before executing a task.";
+            return false;
+        }
         // Starting another task also releases the previous task's protected lifetimes.
         Thought.ClearRecentlyFiredQueue();
         HandleFiringNeurons();
@@ -380,6 +390,7 @@ public partial class ModuleAlgorithm : ModuleBase
 
     private SeqElement GetReturn(Thought current)
     {
+        if (current is null) return null;
         SeqElement retVal = (SeqElement)current.GetTargetOfFirstLinkOfType("retVal");
         current.RemoveLinks("retVal");
         return retVal;
@@ -393,62 +404,6 @@ public partial class ModuleAlgorithm : ModuleBase
         bestResponse?.Fire();
         LastAction = $"CONTEXT: {contextRoot.Label} JMP: {bestResponse?.Label}";
         return bestResponse;
-    }
-
-    private Thought SelectBestContextResponse(Thought contextRoot)
-    {
-        Thought bestResponse = null;
-        float bestWeight = 0;
-
-        foreach (Thought caseThought in contextRoot.Children)
-        {
-            float weight = ScoreContextCase(caseThought);
-            if (weight <= bestWeight) continue;
-
-            bestResponse = caseThought.GetTargetOfFirstLinkOfType("response");
-            bestWeight = weight;
-        }
-
-        return bestResponse;
-    }
-
-    private float ScoreContextCase(Thought caseThought)
-    {
-        float weight = 0;
-
-        foreach (Link l in caseThought.LinksTo.Where(x => x.LinkType?.Label == "has"))
-        {
-            if (l.To is not Link test) continue;
-            if (test.LinkType?.HasAncestor("test") != true) continue;
-
-            bool not = test.LinkType.HasAncestor("not");
-            Thought testType = test.LinkType.LinksTo.FindFirst(x =>
-                string.Equals(x.LinkType?.Label, "is", StringComparison.OrdinalIgnoreCase) &&
-                x.To?.Label != "TEST")?.To;
-            Thought src = HandleIndirection(test.From);
-            if (src is null) continue;
-
-            if (test.LinkType.HasAncestor("same") ||
-                test.LinkType.Label.Contains("same", StringComparison.OrdinalIgnoreCase))
-            {
-                Thought target = HandleIndirection(test.To);
-                if (!not && src == target) weight += l.Weight;
-                if (not && src != target) weight += l.Weight;
-            }
-            else if (test.To?.Label == "??")
-            {
-                if (!not && src.HasLink(testType) is not null) weight += l.Weight * test.Weight;
-                if (not && src.HasLink(testType) is null) weight += l.Weight * test.Weight;
-            }
-            else
-            {
-                Thought target = HandleIndirection(test.To);
-                if (!not && src.HasLink(testType, target) is not null) weight += l.Weight * test.Weight;
-                if (not && src.HasLink(testType, target) is null) weight += l.Weight * test.Weight;
-            }
-        }
-
-        return weight;
     }
 
     private Thought HandleIndirection(Thought to)

@@ -19,12 +19,12 @@ public class UKSActionsTests
         Thought has = uks.GetOrAddThought("has", "LinkType");
         Thought location = uks.GetOrAddThought("location", "LinkType");
         location.AddProperty(uks.GetOrAddThought("isExclusive"));
-        uks.GetOrAddThought("SET", "LinkType");
-        Thought setHas = uks.GetOrAddThought("SET.has", "LinkType");
-        Thought setLocation = uks.GetOrAddThought("SET.location", "LinkType");
+        uks.GetOrAddThought("!", "LinkType");
+        Thought setHas = uks.GetOrAddThought("!.has", "LinkType");
+        Thought setLocation = uks.GetOrAddThought("!.location", "LinkType");
         Assert.Contains(location, setLocation.Parents);
 
-        // Applying SET.location must use inheritance, not its optional dotted
+        // Applying !.location must use inheritance, not its optional dotted
         // metadata link. Removing that metadata should not affect execution.
         setLocation.RemoveLinks("is");
 
@@ -44,13 +44,13 @@ public class UKSActionsTests
     [Fact]
     public void DottedSetActionPreservesTheCompleteRelationshipType()
     {
-        // SET.has.4 means to assert has.4, not to discard the numeric
+        // !.has.4 means to assert has.4, not to discard the numeric
         // specialization and assert the more general relationship "has".
         var uks = new UKS(clear: true);
         uks.CreateInitialStructure();
         Thought dog = uks.GetOrAddThought("dog");
         Thought leg = uks.GetOrAddThought("leg");
-        Thought setHasFour = uks.GetOrAddThought("SET.has.4", "LinkType");
+        Thought setHasFour = uks.GetOrAddThought("!.has.4", "LinkType");
 
         List<Link> results = uks.ApplyTestOrSetAction(new Link(dog, setHasFour, leg));
         Link result = Assert.Single(results);

@@ -376,6 +376,22 @@ public partial class UKS
             }
         }
  
+        // Demonstrated operations are retained by their exemplars, not asserted
+        // on their subjects. Restore that distinction after every link is wired.
+        foreach (Link operation in AtomicThoughts.SelectMany(thought => thought.LinksTo)
+            .Where(link => ReferenceEquals(link.LinkType, Labeled("demonstrates")))
+            .Select(link => link.To).OfType<Link>().ToList())
+        {
+            if (operation.From is null || operation.To is null || operation.LinkType is null ||
+                (!operation.LinkType.HasProperty("setRelationship") && !operation.LinkType.HasProperty("isPossible"))) continue;
+            lock (operation.From.LinksToWriteable)
+                operation.From.LinksToWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+            lock (operation.To.LinksFromWriteable)
+                operation.To.LinksFromWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+            lock (operation.LinkType.LinksAsTypeWriteable)
+                operation.LinkType.LinksAsTypeWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+        }
+
         //remove temporary labels
         foreach (sThought st in UKSTemp)
         {

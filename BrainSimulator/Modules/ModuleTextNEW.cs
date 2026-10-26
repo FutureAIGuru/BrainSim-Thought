@@ -85,8 +85,6 @@ public class ModuleTextNEW : ModuleBase
             ("LearnedTemplate", "LanguageElement"),
             ("ActionExemplar", "LanguageElement"),
             ("SpellingPattern", "LanguageElement"),
-            ("TEST", "LinkType"),
-            ("SET", "LinkType"),
             ("hasWords", "LinkType"),
             ("hasAction", "LinkType"),
             ("means", "LinkType"),

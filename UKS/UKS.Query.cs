@@ -306,10 +306,7 @@ public partial class UKS
                 // this changes the query result, never the stored rule or its premise.
                 if (r1.LinkType?.HasProperty("isPossible") == true)
                 {
-                    Thought? ordinaryType = r1.LinkType.LinksTo.LastOrDefault(link =>
-                        ReferenceEquals(link.LinkType, Labeled("is")) && link.To is not null &&
-                        !link.To.HasProperty("isPossible"))?.To ??
-                        r1.LinkType.Parents.FirstOrDefault(parent => !parent.HasProperty("isPossible"));
+                    Thought? ordinaryType = GetAssertionLinkType(r1.LinkType);
                     if (ordinaryType is null)
                     {
                         failedConditions.Add(r1);
@@ -328,11 +325,10 @@ public partial class UKS
     private Thought GetAssertionLinkType(Thought conditionalLinkType)
     {
         if (!conditionalLinkType.HasProperty("isPossible")) return conditionalLinkType;
-        return conditionalLinkType.LinksTo.LastOrDefault(link =>
-            ReferenceEquals(link.LinkType, Labeled("is")) && link.To is not null &&
-            !link.To.HasProperty("isPossible"))?.To ??
-            conditionalLinkType.Parents.FirstOrDefault(parent => !parent.HasProperty("isPossible")) ??
-            conditionalLinkType;
+        var ordinaryParents = conditionalLinkType.Parents.Where(parent =>
+            !parent.HasProperty("isPossible") && !parent.HasProperty("setRelationship")).ToList();
+        return ordinaryParents.FirstOrDefault(parent => ordinaryParents.All(other => parent.HasAncestor(other)))
+            ?? ordinaryParents.FirstOrDefault() ?? conditionalLinkType;
     }
 
     /// <summary>
@@ -376,10 +372,9 @@ public partial class UKS
     int GetCount(Thought t)
     {
         int retVal = 1;
-        foreach (Link r in t.LinksTo)
-            if (r.LinkType?.Label == "is")
-                if (int.TryParse(r.To?.Label, out int val))
-                    return val;
+        foreach (Thought parent in t.AncestorsWithSelf)
+            if (parent.HasAncestor("number") && int.TryParse(parent.Label, out int val))
+                return val;
         return retVal;
     }
 
@@ -413,10 +408,7 @@ public partial class UKS
             Thought relationshipType = r.LinkType;
             if (relationshipType.HasProperty("isPossible"))
             {
-                Thought? ordinaryType = relationshipType.LinksTo.LastOrDefault(link =>
-                    ReferenceEquals(link.LinkType, Labeled("is")) && link.To is not null &&
-                    !link.To.HasProperty("isPossible"))?.To ??
-                    relationshipType.Parents.FirstOrDefault(parent => !parent.HasProperty("isPossible"));
+                Thought? ordinaryType = GetAssertionLinkType(relationshipType);
                 if (ordinaryType is null) return null;
                 relationshipType = ordinaryType;
             }
