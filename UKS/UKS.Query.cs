@@ -20,6 +20,8 @@ public partial class UKS
     //keeps track of the conditions of the previous query in order to answer "Why?" or "Why not?"
     List<Link> failedConditions = new();
     List<Link> succeededConditions = new();
+    private int conditionalQueryDepth = 0;
+    private readonly HashSet<Link> evaluatingConditions = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
     /// Gets all links to a single Thought including inherited links.
@@ -30,36 +32,42 @@ public partial class UKS
     /// <returns>List of matching links.</returns>
     public List<Link> GetAttributes(Thought source, Link? filter = null, int maxResults = 0) //with inheritance, conflicts, etc
     {
-        succeededConditions.Clear();
-        failedConditions.Clear();
-
-        List<Link> result2 = new();
-        if (source is null) return result2;
-
-        List<Thought> sources = new() { source };
-
-        var querySources = sources.ToList();
-        var result1 = BuildSearchList(sources);
-        result2 = GetAllLinksInternal(result1);
-
-        // Apply either populated filter component independently, or both together.
-        if (filter is not null)
+        if (conditionalQueryDepth == 0)
         {
-            result2 = result2.Where(link =>
-                (filter.LinkType is null || link.LinkType?.HasAncestor(filter.LinkType) == true) &&
-                (filter.To is null || link.To?.HasAncestor(filter.To) == true)).ToList();
+            failedConditions.Clear();
+            succeededConditions.Clear();
         }
+        conditionalQueryDepth++;
+        try
+        {
+            List<Link> result2 = new();
+            if (sources.Count == 0) return result2;
+            //expand search list to include instances of given objects  WHY??
+            for (int i = 0; i < sources.Count; i++)
+            {
+                Thought t = sources[i];
+                foreach (Thought child in t.Children)
+                {
+                    Thought? isInstance = "isInstance";
+                    if (isInstance is not null && child.HasProperty(isInstance))
+                        sources.Add(child);
+                }
+            }
 
-        if (result2.Count < 200)  //the conflict-remover is really slow on large numbers
-            RemoveConflictingResults(result2, querySources);
-        RemoveFalseConditionals(result2);
-        SortLinks(ref result2);
-
-        // Apply max results limit if specified
-        if (maxResults > 0 && result2.Count > maxResults)
-            result2 = result2.Take(maxResults).ToList();
-
-        return result2;
+            var querySources = sources.ToList();
+            var result1 = BuildSearchList(sources);
+            result2 = GetAllLinksInternal(result1);
+            // An unsupported local rule must not suppress an otherwise valid fact/default.
+            RemoveFalseConditionals(result2);
+            if (result2.Count < 200)  //the conflict-remover is really slow on large numbers
+                RemoveConflictingResults(result2, querySources);
+            SortLinks(ref result2);
+            return result2;
+        }
+        finally
+        {
+            conditionalQueryDepth--;
+        }
     }
 
     private void SortLinks(ref List<Link> result2)
@@ -164,10 +172,16 @@ public partial class UKS
             foreach (Link r in t.LinksTo)
             {
                 if (r.LinkType == Thought.IsA) continue;
+                bool conditional = r.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true);
+                // A possible Relationship supplies no evidence unless a conditional
+                // supports it as a conclusion. Premises cannot assert their own truth.
+                if (r.LinkType?.HasProperty("isPossible") == true && !conditional) continue;
                 //only add the new relationship to the list if it is not already in the list
                 bool ignoreSource = thoughtsToExamine[i].hopCount > 1;
                 Link? existing = result.FindFirst(x => LinksAreEqual(x, r, ignoreSource));
-                if (existing is not null) continue;
+                bool existingConditional = existing is not null && existing.LinksTo.Any(link =>
+                    link.LinkType?.HasProperty("isConditional") == true);
+                if (existing is not null && !conditional && !existingConditional) continue;
 
                 //this is a fun hack which allows us to say that mary has 10 fingers because mary has 2 hands and
                 //each hand has 5 fingers.  The "has" link type is special-cased here to allow this kind of transitive counting.
@@ -275,7 +289,9 @@ public partial class UKS
         for (int i = 0; i < result.Count; i++)
         {
             Link r1 = result[i];
-            if (!IsConditionalLinkType(r1.LinkType)) continue;
+            bool hasCondition = r1.LinksTo.Any(link =>
+                link.LinkType?.HasProperty("isConditional") == true);
+            if (!hasCondition) continue;
             if (!ConditionsAreMet(r1))
             {
                 failedConditions.Add(r1);
@@ -284,6 +300,22 @@ public partial class UKS
             }
             else
             {
+                // A satisfied possibility is returned as an ordinary Relationship;
+                // this changes the query result, never the stored rule or its premise.
+                if (r1.LinkType?.HasProperty("isPossible") == true)
+                {
+                    Thought? ordinaryType = r1.LinkType.LinksTo.LastOrDefault(link =>
+                        ReferenceEquals(link.LinkType, Labeled("is")) && link.To is not null &&
+                        !link.To.HasProperty("isPossible"))?.To ??
+                        r1.LinkType.Parents.FirstOrDefault(parent => !parent.HasProperty("isPossible"));
+                    if (ordinaryType is null)
+                    {
+                        failedConditions.Add(r1);
+                        result.RemoveAt(i--);
+                        continue;
+                    }
+                    r1.LinkType = ordinaryType;
+                }
                 succeededConditions.Add(r1);
                 if (r1.LinkType is not null)
                     r1.LinkType = GetAssertionLinkType(r1.LinkType);
@@ -354,77 +386,55 @@ public partial class UKS
 
     bool ConditionsAreMet(Link r)
     {
-        bool foundIf = false;
+        bool foundCondition = false;
         foreach (Link r1 in r.LinksTo)
         {
-            if (r1.LinkType?.Label != "IF") continue;
-            foundIf = true;
-
-            if (r1.To is not Link condition || !ConditionIsMet(condition))
-            {
-                failedConditions.Add(r1);
-                failedConditions.Add(r1.To as Link);
+            if (r1.LinkType?.HasProperty("isConditional") != true) continue;
+            foundCondition = true;
+            if (r1.To is not Link condition || GetUnconditionalLink(condition) is null)
                 return false;
-            }
-            succeededConditions.Add(r1);
-            succeededConditions.Add(r1.To as Link);
         }
-        return foundIf;
+        return foundCondition;
+    }
 
-        bool ConditionIsMet(Link condition)
+    Link? GetUnconditionalLink(Link? r)
+    {
+        if (r?.From is null || r.LinkType is null || r.To is null) return null;
+        // Re-entering the same premise cannot supply independent support for a rule.
+        if (!evaluatingConditions.Add(r)) return null;
+        try
         {
-            if (condition.LinkType?.Label == "AND")
+            if (r.LinkType.HasProperty("isConjunction"))
             {
-                if (condition.From is not Link left || condition.To is not Link right)
-                    return false;
-
-                return ConditionIsMet(left) && ConditionIsMet(right);
+                // Evaluate both branches so explanations include every failed leaf.
+                bool left = r.From is Link leftCondition && GetUnconditionalLink(leftCondition) is not null;
+                bool right = r.To is Link rightCondition && GetUnconditionalLink(rightCondition) is not null;
+                return left && right ? r : null;
             }
-
-            if (condition.From is null || condition.LinkType is null)
-                return false;
-            if (!IsConditionalLinkType(condition.LinkType))
-                return false;
-
-            Thought? semanticBase = condition.LinkType.Parents
-                .FirstOrDefault(parent => !IsConditionalLinkType(parent));
-            if (semanticBase is null)
-                return false;
-
-            List<Thought> requiredAttributes = condition.LinkType.GetAttributes();
-            foreach (Link candidate in condition.From.LinksTo)
+            Thought relationshipType = r.LinkType;
+            if (relationshipType.HasProperty("isPossible"))
             {
-                if (candidate.LinkType is null || candidate.To != condition.To) continue;
-                if (IsConditionalLinkType(candidate.LinkType)) continue;
-                if (!candidate.LinkType.HasAncestor(semanticBase)) continue;
-
-                List<Thought> candidateAttributes = candidate.LinkType.GetAttributes();
-                bool conditionIsNegative = IsNegativeLinkType(condition.LinkType, requiredAttributes);
-                bool candidateIsNegative = IsNegativeLinkType(candidate.LinkType, candidateAttributes);
-                if (conditionIsNegative != candidateIsNegative) continue;
-
-                bool isSuperseded = condition.From.LinksTo.Any(other =>
-                    other != candidate &&
-                    !IsConditionalLinkType(other.LinkType) &&
-                    other.Weight > candidate.Weight &&
-                    LinksAreExclusive(candidate, other));
-                if (isSuperseded) continue;
-
-                bool hasRequiredAttributes = requiredAttributes.All(required =>
-                    candidateAttributes.Any(actual => actual == required || actual.HasAncestor(required)));
-                if (hasRequiredAttributes)
-                    return true;
+                Thought? ordinaryType = relationshipType.LinksTo.LastOrDefault(link =>
+                    ReferenceEquals(link.LinkType, Labeled("is")) && link.To is not null &&
+                    !link.To.HasProperty("isPossible"))?.To ??
+                    relationshipType.Parents.FirstOrDefault(parent => !parent.HasProperty("isPossible"));
+                if (ordinaryType is null) return null;
+                relationshipType = ordinaryType;
             }
-
-            return false;
-
-            static bool IsNegativeLinkType(Thought linkType, List<Thought> attributes) =>
-                attributes.Any(attribute => IsNegativeComponent(attribute.Label)) ||
-                linkType.Label.Split('.').Any(IsNegativeComponent);
-
-            static bool IsNegativeComponent(string component) =>
-                component.Equals("not", StringComparison.OrdinalIgnoreCase) ||
-                component.Equals("no", StringComparison.OrdinalIgnoreCase);
+            // Use the established inheritance/conflict pipeline, so local exceptions also
+            // override inherited conditions. is.not is matched as an ordinary type identity.
+            Link? evidence = GetAllLinks(new List<Thought> { r.From }).FirstOrDefault(candidate =>
+                ReferenceEquals(candidate.LinkType, relationshipType) && ReferenceEquals(candidate.To, r.To));
+            if (evidence is null)
+            {
+                if (!failedConditions.Contains(r)) failedConditions.Add(r);
+            }
+            else if (!succeededConditions.Contains(r)) succeededConditions.Add(r);
+            return evidence;
+        }
+        finally
+        {
+            evaluatingConditions.Remove(r);
         }
     }
 
@@ -645,11 +655,9 @@ public partial class UKS
     public List<Link> SearchForRelationships(Link l)
     {
         List<Link> results = new List<Link>();
-        Thought? from = l.From?.Label.Contains("??") is true ? null : l.From;
-        Thought? linkType = l.LinkType?.Label.Contains("??") is true ? null : l.LinkType;
-        Thought? to = l.To?.Label.Contains("??") is true ? null : l.To;
-        Thought? filterTarget = l.GetTargetOfFirstLinkOfType("filterBy");
-        Link? filter = filterTarget is null ? null : new Link { To = filterTarget };
+        Thought? from = l.From?.HasProperty("isWildcard") is true ? null : l.From;
+        Thought? linkType = l.LinkType?.HasProperty("isWildcard") is true ? null : l.LinkType;
+        Thought? to = l.To?.HasProperty("isWildcard") is true ? null : l.To;
         if (from is null && to is null && linkType is null) return results;
 
         // hack to handle is-a searches

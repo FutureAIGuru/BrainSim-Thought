@@ -50,8 +50,9 @@ public partial class UKS
 
         if (r1.To != r2.To && (r1.To is null || r2.To is null)) return false;
         if (r1.To == r2.To && r1.LinkType == r2.LinkType) return false;
-        //Conditional clauses describe rules rather than competing assertions.
-        if (IsConditionalLinkType(r1.LinkType) || IsConditionalLinkType(r2.LinkType)) return false;
+        // Rule descriptions and possible Relationships are not competing assertions.
+        if (r1.LinkType?.HasProperty("isPossible") == true || r1.LinkType?.HasProperty("isConditional") == true) return false;
+        if (r2.LinkType?.HasProperty("isPossible") == true || r2.LinkType?.HasProperty("isConditional") == true) return false;
 
         if (LinkTypesAreExclusive(r1, r2))
             return true;
@@ -116,13 +117,13 @@ public partial class UKS
                 return true;
 
             //if one of the linkypes contains negation and not the other
-            Thought? r1Not = r1LinkiProps.FindFirst(x => x.Label.ToLower() == "not" || x.Label.ToLower() == "no");
-            Thought? r2Not = r2LinkProps.FindFirst(x => x.Label.ToLower() == "not" || x.Label.ToLower() == "no");
+            bool r1Negative = IsNegative(r1.LinkType);
+            bool r2Negative = IsNegative(r2.LinkType);
             if (r1.From is not null && r2.From is not null &&
                 (r1.From == r2.From || r1.From.Ancestors.Contains(r2.From) ||
                 r2.From.Ancestors.Contains(r1.From)) &&
                 r1.To == r2.To &&
-                (r1Not is null && r2Not is not null || r1Not is not null && r2Not is null))
+                r1Negative != r2Negative)
                 return true;
         }
         else
@@ -144,25 +145,17 @@ public partial class UKS
     private bool LinkTypesAreExclusive(Link r1, Link r2)
     {
         if (r1.LinkType is null || r2.LinkType is null) return false;
-        IReadOnlyList<Thought> r1RelProps = r1.LinkType.GetAttributes();
-        IReadOnlyList<Thought> r2RelProps = r2.LinkType.GetAttributes();
-        Thought? r1Not = r1RelProps.FindFirst(x => x.Label == "not" || x.Label == "no");
-        Thought? r2Not = r2RelProps.FindFirst(x => x.Label == "not" || x.Label == "no");
-        if (r1.To == r2.To &&
-            (r1Not is null && r2Not is not null || r1Not is not null && r2Not is null))
+        if (r1.To == r2.To && IsNegative(r1.LinkType) != IsNegative(r2.LinkType))
             return true;
         return false;
     }
 
-    private bool HasAttribute(Thought t, string name)
+    private static bool IsNegative(Thought? t)
     {
         if (t is null) return false;
-        foreach (Link r in t.LinksTo)
-        {
-            if (r.LinkType is not null && r.LinkType.Label == "is" && r.To?.Label == name)
-                return true;
-        }
-        return false;
+        // Old knowledge may attach the marker as an attribute instead of an is-a parent.
+        // Both forms obtain negation from the marker's property, never its label.
+        return t.HasProperty("isNegative") || t.GetAttributes().Any(attribute => attribute.HasProperty("isNegative"));
     }
 
     private Thought? ThoughtFromString(string label, string defaultParent, Thought? source = null)

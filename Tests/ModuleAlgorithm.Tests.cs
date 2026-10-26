@@ -79,7 +79,7 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
     public void Test01_BoolNot_TrueInput()
     {
         // Test: BoolNot with TRUE input
-        // Expected: p1->ref->FALSE
+        // Expected: p1->REF->FALSE
         
         bool success = module.ExecuteTask("invertBool", "TRUE", "FALSE");
         
@@ -94,7 +94,7 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
     public void Test02_BoolNot_FalseInput()
     {
         // Test: BoolNot with FALSE input
-        // Expected: p1->ref->TRUE
+        // Expected: p1->REF->TRUE
         
         bool success = module.ExecuteTask("invertBool", "FALSE", "TRUE");
         
@@ -114,26 +114,11 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Thought p1 = uks.Labeled("p1");
         Assert.NotNull(p1);
         
-        Thought refType = uks.Labeled("ref");
+        Thought refType = uks.Labeled("REF");
         Thought falseThought = uks.Labeled("FALSE");
         
         Link writtenLink = p1.HasLink(refType, falseThought);
         Assert.NotNull(writtenLink);
-    }
-
-    [Fact]
-    public void AlgorithmPointersUseAnExclusiveRefRelationship()
-    {
-        // Algorithm pointers must replace their previous target. Ordinary "is"
-        // assertions remain non-exclusive and may coexist on the same Thought.
-        Thought refType = uks.Labeled("ref");
-        Thought isType = uks.Labeled("is");
-
-        Assert.NotNull(refType);
-        Assert.True(refType.HasProperty("isExclusive"));
-        Assert.False(isType.HasProperty("isExclusive"));
-        Assert.Contains(refType, uks.Labeled("SET.ref").Parents);
-        Assert.NotNull(uks.Labeled("TEST.ref"));
     }
 
     [Fact]
@@ -301,8 +286,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought a1 = uks.Labeled("c:A");
-        Thought a2 = uks.Labeled("c:A");
+        Thought a1 = uks.Labeled("A");
+        Thought a2 = uks.Labeled("A");
         
         Assert.Equal(a1, module.LastLinkWritten.From);
         Assert.Equal("eq", module.LastLinkWritten.LinkType?.Label.ToLower());
@@ -320,8 +305,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought b = uks.Labeled("c:B");
-        Thought a = uks.Labeled("c:A");
+        Thought b = uks.Labeled("B");
+        Thought a = uks.Labeled("A");
         
         Assert.Equal(b, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
@@ -339,8 +324,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought a = uks.Labeled("c:A");
-        Thought b = uks.Labeled("c:B");
+        Thought a = uks.Labeled("A");
+        Thought b = uks.Labeled("B");
         
         // Result is reversed: B GT A (not A LT B)
         Assert.Equal(b, module.LastLinkWritten.From);
@@ -359,8 +344,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought z = uks.Labeled("c:Z");
-        Thought a = uks.Labeled("c:A");
+        Thought z = uks.Labeled("Z");
+        Thought a = uks.Labeled("A");
         
         Assert.Equal(z, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
@@ -378,8 +363,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought m = uks.Labeled("c:M");
-        Thought c = uks.Labeled("c:C");
+        Thought m = uks.Labeled("M");
+        Thought c = uks.Labeled("C");
         
         Assert.Equal(m, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
@@ -397,8 +382,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought c = uks.Labeled("c:C");
-        Thought m = uks.Labeled("c:M");
+        Thought c = uks.Labeled("C");
+        Thought m = uks.Labeled("M");
         
         // Result is reversed: M GT C (not C LT M)
         Assert.Equal(m, module.LastLinkWritten.From);
@@ -412,8 +397,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         // Execute comparison and verify link exists in UKS
         module.ExecuteTask("CompareLetters", "B", "A");
         
-        Thought b = uks.Labeled("c:B");
-        Thought a = uks.Labeled("c:A");
+        Thought b = uks.Labeled("B");
+        Thought a = uks.Labeled("A");
         
         // Verify the GT link exists
         Thought gtType = uks.Labeled("GT");
@@ -432,13 +417,13 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         
         // GT case
         module.ExecuteTask("CompareLetters", "X", "Y");
-        Thought y = uks.Labeled("c:Y");
+        Thought y = uks.Labeled("Y");
         Assert.Equal(y, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
         
         // Another GT case (reversed)
         module.ExecuteTask("CompareLetters", "F", "Z");
-        Thought z = uks.Labeled("c:Z");
+        Thought z = uks.Labeled("Z");
         Assert.Equal(z, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
     }

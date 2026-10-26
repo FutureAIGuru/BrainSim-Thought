@@ -136,9 +136,6 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             if (l.LinksTo.Count > 0)  //there is provenance on this is-a link
                 AddLinks(l, tviChild, 1, parentLabel);
 
-            int childCount = child.Children.Count;
-            int linkCount = child.LinksTo.Count(x => x.LinkType.Label != "is-a");
-            int linkFromCount = child.LinksFrom.Count;
             if (tviChild.IsExpanded)
             {
                 // load children and links
@@ -152,7 +149,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (t.LinksTo.Count == 0 && t is not Link lnk) return;
 
         //build the entry for the tabel of expanded items
-        string currentLabel = "|" + parentLabel + "|" + t.Label;
+        string currentLabel = "|" + parentLabel + "|" + (string.IsNullOrEmpty(t.Label) ? t.ToString() : t.Label);
         if (theUKS.IsSequenceElement(t)) //this skips over the level of the sequence element itself and only shows the links
             currentLabel = "|" + parentLabel;
         currentLabel = currentLabel.Replace("||", "|"); //needed to make top level work
@@ -168,9 +165,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             //if (l.LinkType.Label != "means") continue;
             if (showConditionals.IsChecked != true && l.LinkType.Label == "evidence") continue;
             if (showConditionals.IsChecked != true)
-                if (UKS.UKS.IsConditionalLinkType(l.LinkType)) continue;
-            var x = expandedItems;
-
+                if (l.LinkType?.HasProperty("isPossible") == true || l.LinkType?.HasProperty("isConditional") == true ||
+                    l.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true)) continue;
             TreeViewItem tviLink = GetTreeChildFormatted(currentLabel, l);
             tviLink.ContextMenu = GetLinkContextMenu(l);
             tvi.Items.Add(tviLink);
@@ -188,7 +184,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (t.LinksFrom.Count == 0 && t is not Link lnk) return;
 
         //add the entry to the entry of expanded items
-        parentLabel = "|" + parentLabel + "|" + t.ToString();
+        parentLabel = "|" + parentLabel + "|" + (string.IsNullOrEmpty(t.Label) ? t.ToString() : t.Label);
         parentLabel = parentLabel.Replace("||", "|"); //needed to make top level work
 
         //add each of the links as a "child" of the parent entry
@@ -197,7 +193,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         foreach (Link r in sortedLinks)
         {
             if (showConditionals.IsChecked != true)
-                if (UKS.UKS.IsConditionalLinkType(r.LinkType)) continue;
+                if (r.LinkType?.HasProperty("isPossible") == true || r.LinkType?.HasProperty("isConditional") == true ||
+                    r.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true)) continue;
 
             TreeViewItem tviLink = GetTreeChildFormatted(parentLabel, r);
             tviLink.ContextMenu = GetLinkContextMenu(r);
@@ -292,6 +289,18 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (child.AncestorsWithSelf.Contains(expandAll) &&
             (child.Label == "" || !parentLabel.Contains("|" + child.Label)))
             tviChild.IsExpanded = true;
+        // A collapsed item needs a placeholder child for WPF to show its expansion handle.
+        if (!tviChild.IsExpanded &&
+            (child.Children.Count > 0 ||
+             child.LinksTo.Any(link =>
+                 (detailsCB.IsChecked != false || link.LinkType?.Label != "is-a") &&
+                 (showConditionals.IsChecked == true ||
+                  (link.LinkType?.HasProperty("isPossible") != true &&
+                   link.LinkType?.HasProperty("isConditional") != true &&
+                   !link.LinksTo.Any(condition => condition.LinkType?.HasProperty("isConditional") == true)))) ||
+             (reverseCB.IsChecked == true && child.LinksFrom.Count > 0) ||
+             (child is Link relationship && theUKS.IsSequenceElement(relationship.To))))
+            tviChild.Items.Add(new TreeViewItem());
         tviChild.Expanded += EmptyChild_Expanded;
 
         //WPF displays an expansion handle only when the item already has content.
@@ -470,9 +479,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         // what tree view item is this
         if (sender is TreeViewItem tvi)
         {
-            string name = tvi.Header.ToString(); // to help debug
             Thought t = (Thought)tvi.GetValue(ThoughtObjectProperty);
-            string parentLabel = "|" + t.ToString();
+            string parentLabel = "";
             TreeViewItem tvi1 = tvi;
             int depth = 0;
             //work your way up the tree to find all ancestors of this leaf
@@ -483,18 +491,20 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 parentLabel = "|" + (string.IsNullOrEmpty(t1?.Label) ? t1?.ToString() : t1?.Label) + parentLabel;
                 depth++;
             }
-            if (!expandedItems.Contains(parentLabel))
-                expandedItems.Add(parentLabel);
+            string currentLabel = (parentLabel + "|" + (string.IsNullOrEmpty(t.Label) ? t.ToString() : t.Label))
+                .Replace("||", "|");
+            if (!expandedItems.Contains(currentLabel))
+                expandedItems.Add(currentLabel);
 
             tvi.Items.Clear(); // delete empty child
             if (t.Children.Count > 0)
-                AddChildren(t, tvi, depth, parentLabel);
+                AddChildren(t, tvi, depth, currentLabel);
             if (t.LinksTo.Count > 0)
                 AddLinks(t, tvi, 1, parentLabel);
-            if (reverseCB.IsChecked == true && t.LinksFrom.Count > 0)
+            else if (reverseCB.IsChecked == true && t.LinksFrom.Count > 0)
                 AddLinksFrom(t, tvi, parentLabel);
             if (theUKS.IsSequenceElement((t as Link)?.To))
-                AddLinks((t as Link)?.To, tvi, 1, parentLabel);
+                AddLinks((t as Link)?.To, tvi, 1, currentLabel);
             e.Handled = true;
         }
     }
@@ -504,10 +514,11 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         foreach (TreeViewItem tvi1 in items)
         {
-            var t = tvi1.GetValue(ThoughtObjectProperty);
-            if (t is null) continue;
-            if (tvi1.IsExpanded) expandedItems.Add(parentLabel + "|" + t.ToString());
-            FindExpandedItems(tvi1.Items, parentLabel + "|" + t.ToString());
+            if (tvi1.GetValue(ThoughtObjectProperty) is not Thought t) continue;
+            string currentLabel = (parentLabel + "|" + (string.IsNullOrEmpty(t.Label) ? t.ToString() : t.Label))
+                .Replace("||", "|");
+            if (tvi1.IsExpanded) expandedItems.Add(currentLabel);
+            FindExpandedItems(tvi1.Items, currentLabel);
         }
     }
 

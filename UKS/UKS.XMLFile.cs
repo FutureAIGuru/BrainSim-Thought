@@ -240,7 +240,10 @@ public partial class UKS
         //more hacks for compatibility old file formatting
         //this does nothought on updated file content
         AddStatement("inheritable", "is-a", "Property");
-        EnsureSequenceSearchDefinitions();
+        // Supply the negation capability to marker Thoughts in older saved knowledge.
+        Thought? isNegative = GetOrAddThought("isNegative", "Property");
+        foreach (string markerLabel in new[] { "NOT", "NO" })
+            Labeled(markerLabel)?.AddLink("hasProperty", isNegative);
         if (Labeled("has-child") is Thought hasChild)
         {
             Thought? inverseOf = "inverseOf";
@@ -362,14 +365,12 @@ public partial class UKS
                 theLink.TimeToLive = TimeSpan.MaxValue;
                 if (theLink.From is null || theLink.LinkType is null)
                     continue;
-                Link? newLink = theLink.From.AddLink(theLink.LinkType, theLink.To);
-                if (newLink is null)
-                    continue;
-                newLink.Weight = st.weight;
-                newLink.maxWeight = st.maxWeight;
-                newLink.isPlastic = st.isPlastic;
-                if (!AtomicThoughts.Contains(newLink))
-                    AtomicThoughts.Add(newLink);
+                // Wire the deserialized Relationship itself. Creating another Link here
+                // separates its endpoints from the IF/property metadata attached by label,
+                // and can turn a saved condition into an unconditional assertion.
+                WriteTheLink(theLink);
+                if (!AtomicThoughts.Any(thought => ReferenceEquals(thought, theLink)))
+                    AtomicThoughts.Add(theLink);
                 if (linkType?.Label == "VLU")
                     PromoteToSeqElement(theLink.From);
             }

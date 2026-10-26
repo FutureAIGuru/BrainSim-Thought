@@ -13,15 +13,17 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using UKS;
 
 namespace BrainSimulator.Modules;
 
-public class ModuleAlgorithm : ModuleBase
+public partial class ModuleAlgorithm : ModuleBase
 {
-    private TimeSpan linkTimeToLive = TimeSpan.FromSeconds(30);
+    private TimeSpan linkTimeToLive = TimeSpan.FromSeconds(5);
+    // Working Relationships must survive engine delays and pauses in single-step mode.
+    // Their normal lifetimes resume once execution ends.
+    private readonly Dictionary<Link, TimeSpan> taskLinkLifetimes = new(ReferenceEqualityComparer.Instance);
     //private SeqElement currentStep = null;
     private DateTime lastCycle = DateTime.Now;
 
@@ -68,17 +70,16 @@ public class ModuleAlgorithm : ModuleBase
         Thought.ClearRecentlyFiredQueue();
         foreach (var activeStep in activeSteps)
         {
-            if (activeStep is SeqElement step && !IsExecutableStep(step))
+            Thought.DeleteFromRecentlyFired(activeStep); //ensure we detect thought firing only once
+            // Data sequences (including Paths) are not Instruction Blocks.
+            if (activeStep is SeqElement step)
             {
-                Debug.WriteLine($"Data sequence ignored: {step}");
-                continue;
+                SeqElement first = step.FRST ?? step;
+                Thought stepsType = theUKS.Labeled("steps");
+                if (!first.LinksFrom.Any(link => ReferenceEquals(link.LinkType, stepsType)))
+                    continue;
+                LastExecutedStep = step;
             }
-
-            Debug.WriteLine($"activeStep: {activeStep}");
-
-            if (activeStep is SeqElement executableStep)
-                LastExecutedStep = executableStep;
-
             CycleCount++;
             FireNextStatement(activeStep);
             //Cases: EntryPoint, Call, Context, Assignment
@@ -91,6 +92,12 @@ public class ModuleAlgorithm : ModuleBase
         }
         if (activeSteps.Count == 0)
         {
+            foreach (var entry in taskLinkLifetimes)
+            {
+                entry.Key.LastFiredTime = DateTime.Now;
+                entry.Key.TimeToLive = entry.Value;
+            }
+            taskLinkLifetimes.Clear();
             LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten?.ToString()}";
             return false;
         }
@@ -104,33 +111,11 @@ public class ModuleAlgorithm : ModuleBase
         return retVal;
     }
     // Call: SeqElement with a VLU that has a "steps" link
-    private bool IsCall(Thought t)
-    {
-        bool retVal = t is not null && t is not Link &&
-            t.GetTargetOfFirstLinkOfType("steps") is not null && t.HasAncestor("Task");
-        return retVal;
-    }
-    // Context: Thought with no "steps" link and not a call or assignment
-    private bool IsContext(Thought value)
-    {
-        return value is not null &&
-            value.Children.Any(caseThought =>
-                caseThought.GetTargetOfFirstLinkOfType("response") is not null);
-    }
-    
-    // Assignment: Link with a "set" ancestor
-    private bool IsAssignment(Thought t)
-    {
-        bool retVal = t is Link link && link.LinkType?.HasAncestor("set") == true;
-        return retVal;
-    }
-
-    private bool IsExecutableStep(SeqElement step)
-    {
-        SeqElement first = step.FRST ?? step;
-        bool retVal = first.LinksFrom.Any(link =>link.LinkType?.Label == "steps");
-        return retVal;
-    }
+    private bool IsCall(Thought t) { return t is not null && t is not Link && t.GetTargetOfFirstLinkOfType("steps") is not null; }
+    // A Context Block has candidate children with response Relationships.
+    private bool IsContext(Thought t) { return t is not null && t is not Link && t is not SeqElement && t.Children.Any(candidate => candidate.GetTargetOfFirstLinkOfType("response") is not null); }
+    // Assignment capability is inherited, independently of the action type's label.
+    private bool IsAssignment(Thought t) { return t is Link link && link.LinkType?.HasProperty("setRelationship") == true; }
 
     private void FireNextStatement(Thought activeStep)
     {
@@ -146,7 +131,6 @@ public class ModuleAlgorithm : ModuleBase
             if (retVal is null) //if we're at the end of a sequence, check for a return value to jump to
                 retVal = GetReturn(s.FRST);
             retVal?.Fire();
-            Debug.WriteLine($"Next Statement: {retVal}");
         }
     }
     private bool HandledEntryPoint(Thought t)
@@ -154,7 +138,6 @@ public class ModuleAlgorithm : ModuleBase
         SeqElement IsEntryPoint = (SeqElement)t.GetTargetOfFirstLinkOfType("steps");
         if (IsEntryPoint is not null)
         {
-            //Debug.WriteLine($"Handle entry point: {IsEntryPoint}");
             LastAction = $"STEP {CycleCount} CALL: {t}";
             return true;
         }
@@ -176,31 +159,63 @@ public class ModuleAlgorithm : ModuleBase
     private bool HandledAssignment(Thought t)
     {
         // Get the action from the current step
-        if (t is Link action)
+        if (t is Link action && IsAssignment(action))
         {
-            Debug.WriteLine($"Handle assignment: {action}");
             Thought newTarget = HandleIndirection(action.To);
             Thought newFrom = HandleIndirection(action.From);
-            if (action.LinkType.HasAncestor("set") && newFrom is not null)
+            if (newFrom is not null && newTarget is not null)
             {
-                Thought newLinkType = action.LinkType.GetTargetOfFirstLinkOfType("is");
+                // New compounds inherit their ordinary type. Legacy WRITE compounds
+                // also retain their original attribute links until migration is complete.
+                Thought newLinkType = null;
+                foreach (Thought actionType in action.LinkType.AncestorsWithSelf)
+                {
+                    if (!actionType.HasProperty("setRelationship")) continue;
+                    newLinkType = actionType.LinksTo.LastOrDefault(link =>
+                        ReferenceEquals(link.LinkType, theUKS.Labeled("is")) && link.To is not null &&
+                        !link.To.HasProperty("setRelationship") && !link.To.HasProperty("isPossible"))?.To;
+                    if (newLinkType is not null) break;
+                    List<Thought> ordinaryParents = actionType.Parents.Where(parent =>
+                        !parent.HasProperty("setRelationship") && !parent.HasProperty("isPossible")).ToList();
+                    newLinkType = ordinaryParents.FirstOrDefault(parent =>
+                        ordinaryParents.All(other => parent.HasAncestor(other))) ?? ordinaryParents.FirstOrDefault();
+                    if (newLinkType is not null) break;
+                }
                 if (newLinkType is null) return false;
                 Link existingLink = theUKS.GetLink(newFrom, newLinkType, newTarget);
-                Link fullStatement = new(newFrom, action.LinkType, newTarget);
-                Link newLink = theUKS.ApplyTestOrSetAction(fullStatement).FirstOrDefault();
-                if (newLink is null) return false;
+                // All operands have resolved before any existing Relationship is removed.
+                if (newLinkType.HasProperty("isExclusive"))
+                    foreach (Link oldLink in newFrom.LinksTo.Where(link =>
+                        ReferenceEquals(link.LinkType, newLinkType) &&
+                        !ReferenceEquals(link, existingLink)).ToList())
+                    {
+                        newFrom.RemoveLink(oldLink);
+                        taskLinkLifetimes.Remove(oldLink);
+                    }
                 if (existingLink is null)
                 {
-                    newLink.TimeToLive = linkTimeToLive;
+                    Link newLink = theUKS.AddStatement(newFrom, newLinkType, newTarget);
+                    if (newLink is null) return false;
+                    taskLinkLifetimes[newLink] = linkTimeToLive;
+                    newLink.TimeToLive = TimeSpan.MaxValue;
                     LastLinkWritten = newLink; // <-- Save the last link written for UI
                     LastAction = $"STEP {CycleCount}: {newLink.ToString()}"; //also for UI
                 }
                 else //extend the TLL of an existing link.  This should become an inherent property of Thoughts
                 {
+                    if (taskLinkLifetimes.TryGetValue(existingLink, out TimeSpan savedLifetime))
+                    {
+                        existingLink.LastFiredTime = DateTime.Now;
+                        existingLink.TimeToLive = savedLifetime;
+                    }
                     existingLink.Fire();
                     if (existingLink.TimeToLive < TimeSpan.MaxValue / 2)
                         existingLink.TimeToLive *= 2;
-                    Debug.WriteLine($"Existing link extended: {existingLink.ToString()}  TTL: {existingLink.TimeToLive}");
+                    if (existingLink.TimeToLive != TimeSpan.MaxValue)
+                    {
+                        taskLinkLifetimes[existingLink] = existingLink.TimeToLive;
+                        existingLink.TimeToLive = TimeSpan.MaxValue;
+                    }
                     LastLinkWritten = existingLink; // <-- Save as the last link written
                     LastAction = $"STEP {CycleCount}: {existingLink.ToString()}";
                 }
@@ -212,7 +227,6 @@ public class ModuleAlgorithm : ModuleBase
 
     private bool HandledContext(Thought t)
     {
-        //Debug.WriteLine($"Handle context: {t}");
         if (IsContext(t))
         {
             EvaluateContext(t);
@@ -231,18 +245,22 @@ public class ModuleAlgorithm : ModuleBase
     // called whenever the UKS performs an Initialize()
     public override void UKSInitializedNotification()
     {
-        //initialization stuff  MOVE
+        // Configure the capability Thoughts used by the algorithm editor and interpreter.
+        foreach (string property in new[] { "followPath", "isPossible", "setRelationship", "isEqual", "isWildcard" })
+            theUKS.GetOrAddThought(property, "Property");
+        theUKS.GetOrAddThought("@", "Property").AddLink("hasProperty", theUKS.Labeled("followPath"));
+        theUKS.GetOrAddThought("?", "Property").AddLink("hasProperty", theUKS.Labeled("isPossible"));
+        theUKS.GetOrAddThought("!", "Property").AddLink("hasProperty", theUKS.Labeled("setRelationship"));
+        theUKS.GetOrAddThought("Comparison", "LinkType");
+        theUKS.GetOrAddThought("same", "Comparison").AddLink("hasProperty", theUKS.Labeled("isEqual"));
+        Thought unrestrictedWildcard = theUKS.GetOrAddThought("??", "Property");
+        unrestrictedWildcard.AddLink("hasProperty", theUKS.Labeled("isWildcard"));
         theUKS.GetOrAddThought("Task", "Thought");
-        theUKS.GetOrAddThought("TEST", "LinkType");
-        theUKS.GetOrAddThought("SET", "LinkType");
+        theUKS.GetOrAddThought("EXIST", "LinkType");
+        theUKS.GetOrAddThought("WRITE", "LinkType");
         theUKS.GetOrAddThought("EQ", "Comparison");
         theUKS.GetOrAddThought("GT", "Comparison");
-        Thought refType = theUKS.GetOrAddThought("ref", "LinkType");
-        refType.AddProperty(theUKS.GetOrAddThought("isExclusive"));
-
-        theUKS.CreateThoughtFromMultipleAttributes("set EQ", true);
-        theUKS.CreateThoughtFromMultipleAttributes("set GT", true);
-        theUKS.CreateThoughtFromMultipleAttributes("set ref", true);
+        theUKS.GetOrAddThought("REF", "LinkType").AddLink("hasProperty", theUKS.GetOrAddThought("isExclusive", "Property"));
     }
 
     /// <summary>
@@ -256,38 +274,53 @@ public class ModuleAlgorithm : ModuleBase
     /// <returns>True if execution succeeded, false otherwise</returns>
     public bool ExecuteTask(string taskName, string param1Value = "", string param2Value = "", bool executeImmediately = true)
     {
-        bool retVal = false;
+        // Starting another task also releases the previous task's protected lifetimes.
+        Thought.ClearRecentlyFiredQueue();
+        HandleFiringNeurons();
         // Set link time-to-live based on execution mode
         // Single-step mode gets longer TTL since user is manually stepping through
         linkTimeToLive = IsSingleStepMode ? TimeSpan.FromSeconds(60) : TimeSpan.FromSeconds(30);
         LastLinkWritten = null;
         CycleCount = 0;
         LastAction = "";
-        Thought.ClearRecentlyFiredQueue();
 
-        if (theUKS == null) return retVal;
+        if (theUKS == null) return false;
+        UKSInitializedNotification();
+        Thought.ClearRecentlyFiredQueue();
 
         // Get or create param1 and param2 thoughts
         Thought param1Thought = theUKS.GetOrAddThought("param1", "Variable");
         Thought param2Thought = theUKS.GetOrAddThought("param2", "Variable");
-        Thought setRefType = theUKS.GetOrAddThought("SET.ref", "LinkType");
+        Thought refType = theUKS.GetOrAddThought("REF", "LinkType");
 
         // Process param1
         if (!string.IsNullOrEmpty(param1Value))
         {
-            Thought param1ValueThought = GetOrCreateParameterValue(param1Value);
-            // Link: param1 -> ref -> param1ValueThought
-            Link param1Action = new(param1Thought, setRefType, param1ValueThought);
-            theUKS.ApplyTestOrSetAction(param1Action);
+            Thought param1ValueThought = theUKS.Labeled(param1Value);
+            if (param1ValueThought == null)
+            {
+                // Create new thought with spelling sequence
+                param1ValueThought = theUKS.GetOrAddThought(param1Value, "Thing");
+                CreateSpellingSequence(param1Value, param1ValueThought);
+            }
+            // Link: param1 -> REF -> param1ValueThought
+            param1Thought.RemoveLinks(refType);
+            param1Thought.AddLink(refType, param1ValueThought);
         }
 
         // Process param2
         if (!string.IsNullOrEmpty(param2Value))
         {
-            Thought param2ValueThought = GetOrCreateParameterValue(param2Value);
-            // Link: param2 -> ref -> param2ValueThought
-            Link param2Action = new(param2Thought, setRefType, param2ValueThought);
-            theUKS.ApplyTestOrSetAction(param2Action);
+            Thought param2ValueThought = theUKS.Labeled(param2Value);
+            if (param2ValueThought == null)
+            {
+                // Create new thought with spelling sequence
+                param2ValueThought = theUKS.GetOrAddThought(param2Value, "Thing");
+                CreateSpellingSequence(param2Value, param2ValueThought);
+            }
+            // Link: param2 -> REF -> param2ValueThought
+            param2Thought.RemoveLinks(refType);
+            param2Thought.AddLink(refType, param2ValueThought);
         }
 
         // Get the task thought
@@ -340,6 +373,8 @@ public class ModuleAlgorithm : ModuleBase
         {
             if (CycleCount > maxCycles)
             {
+                Thought.ClearRecentlyFiredQueue();
+                HandleFiringNeurons();
                 LastAction = $"TASK ABORTED (>{maxCycles} cycles): possible interpreter loop";
                 return false;
             }
@@ -367,9 +402,15 @@ public class ModuleAlgorithm : ModuleBase
 
     private Thought EvaluateContext(Thought contextRoot)
     {
-        Thought bestResponse = SelectBestContextResponse(contextRoot);
+        // Ch.4 AND-gate: activate context root + has relationship before attribute matching.
+        theUKS.CurrentTraversal.Activate(contextRoot);
+        Thought? hasType = theUKS.Labeled("has");
+        if (hasType is not null)
+            theUKS.CurrentTraversal.ActivateRelationship(hasType);
 
-        Debug.WriteLine($"Context: {contextRoot} returned {bestResponse}");
+        ContextCaseResult? selected = SelectBestContextCase(contextRoot, HandleIndirection);
+        Thought bestResponse = selected?.Response;
+
         bestResponse?.Fire();
         LastAction = $"CONTEXT: {contextRoot.Label} JMP: {bestResponse?.Label}";
         return bestResponse;
@@ -434,11 +475,32 @@ public class ModuleAlgorithm : ModuleBase
     private Thought HandleIndirection(Thought to)
     {
         if (to is null) return null;
+        if (to.HasProperty("followPath"))
+        {
+            // Path traversal uses sequence values and exact Relationship-type identities.
+            // Do not flatten: a sequence used as an element is itself an ordinary Thought.
+            if (to is not SeqElement path || path.VLU is null) return null;
+            Thought current = path.VLU;
+            HashSet<Thought> visited = new(ReferenceEqualityComparer.Instance) { path };
+            for (SeqElement element = path.NXT; element is not null; element = element.NXT)
+            {
+                if (!visited.Add(element) || element.VLU is null) return null;
+                current = current.LinksTo.FirstOrDefault(link =>ReferenceEquals(link.LinkType, element.VLU))?.To;
+                if (current is null) return null;
+            }
+            return current;
+        }
+        // Temporary compatibility for saved dotted paths. Ordinary compound
+        // Thoughts remain literal; new Paths above never depend on label content.
+        if (to is SeqElement) return to;
         string toLabel = to.Label;
-        if (string.IsNullOrEmpty(toLabel)) return null;
+        if (string.IsNullOrEmpty(toLabel) || !toLabel.Contains('.')) return to;
 
         string[] parts = toLabel.Split(".");
         Thought newTarget = theUKS.Labeled(parts[0]);
+        if (newTarget is null || parts.Skip(1).Any(part =>
+            to.Parents.Any(parent => ReferenceEquals(parent, theUKS.Labeled(part)))))
+            return to;
         for (int i = 1; i < parts.Length; i++)
         {
             Thought linkType = theUKS.Labeled(parts[i]);

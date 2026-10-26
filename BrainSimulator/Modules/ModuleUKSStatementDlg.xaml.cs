@@ -89,21 +89,50 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         if (pluralizer.IsPlural(fromString) && pluralizer.IsPlural(toString) && linkTypeString == "are")
             linkTypeString = "is-a";
 
+        // Initialize the dialog's conventional capabilities in the active store. Loading
+        // a network does not necessarily run CreateInitialStructure before entering a rule.
+        Thought possibleMarker = UKSStatement.theUKS.GetOrAddThought("?", "Property");
+        possibleMarker.AddLink("hasProperty", UKSStatement.theUKS.GetOrAddThought("isPossible", "Property"));
+        UKSStatement.theUKS.GetOrAddThought("IF", "ClauseType").AddLink("hasProperty",
+            UKSStatement.theUKS.GetOrAddThought("isConditional", "Property"));
+        UKSStatement.theUKS.GetOrAddThought("AND", "ClauseType").AddLink("hasProperty",
+            UKSStatement.theUKS.GetOrAddThought("isConjunction", "Property"));
+        Thought tLink = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(linkTypeString, true);
+        bool conditional = tLink?.HasProperty("isConditional") == true || tLink?.HasProperty("isConjunction") == true;
+        if (conditional)
+        {
+            tSource = UKSStatement.theUKS.ProcessSingleLineWithNesting(fromString, true);
+            tTarget = UKSStatement.theUKS.ProcessSingleLineWithNesting(toString, true);
+            if (tSource is not Link || tTarget is not Link)
+            {
+                SetStatus("IF requires a Relationship or condition expression in both From and To");
+                tSource = null;
+                tTarget = null;
+                return;
+            }
+        }
 
         //handle source though which is itself a link
-        var sourceParts = UKSStatement.Singular(fromString.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-        if (sourceParts.Length == 3)
+        string sourceInput = fromString.Trim().Trim('[', ']').Replace("→", "->");
+        var sourceParts = sourceInput.Contains("->")
+            ? sourceInput.Split("->", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            : UKSStatement.Singular(sourceInput.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+        if (!sourceInput.Contains("->") && sourceParts.Length > 3)
+            sourceParts = new[] { sourceParts[0], string.Join(" ", sourceParts.Skip(1).Take(sourceParts.Length - 2)), sourceParts[^1] };
+        if (tSource is null && sourceParts.Length == 3 && !sourceParts[0].StartsWith("^"))
         {
             sourceParts[1] = ModuleUKSStatement.ConditionalLinkType(linkTypeString, sourceParts[1]);
             Link r2 = new()
             {
-                From = UKSStatement.theUKS.GetOrAddThought(sourceParts[0]),
-                LinkType = UKSStatement.theUKS.GetOrAddThought(sourceParts[1]),
-                To = UKSStatement.theUKS.GetOrAddThought(sourceParts[2])
+                From = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[0], false),
+                LinkType = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[1], true),
+                To = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[2], false)
             };
             var existing = UKSStatement.theUKS.GetLinks(r2);
-            if (existing.Count == 0)
-                tSource = UKSStatement.theUKS.AddStatement(sourceParts[0], sourceParts[1], sourceParts[2]);
+            if (conditional)
+                tSource = r2;
+            else if (existing.Count == 0)
+                tSource = UKSStatement.theUKS.AddStatement(r2.From, r2.LinkType, r2.To);
             else
             {
                 // multiple matches, create a dropdown in the UI to select which one?
@@ -141,19 +170,26 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         }
 
         //handle target though which is itself a link
-        var targetParts = UKSStatement.Singular(toString.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-        if (targetParts.Length == 3 && !targetParts[0].StartsWith("^"))
+        string targetInput = toString.Trim().Trim('[', ']').Replace("→", "->");
+        var targetParts = targetInput.Contains("->")
+            ? targetInput.Split("->", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            : UKSStatement.Singular(targetInput.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+        if (!targetInput.Contains("->") && targetParts.Length > 3)
+            targetParts = new[] { targetParts[0], string.Join(" ", targetParts.Skip(1).Take(targetParts.Length - 2)), targetParts[^1] };
+        if (tTarget is null && targetParts.Length == 3 && !targetParts[0].StartsWith("^"))
         {
             targetParts[1] = ModuleUKSStatement.ConditionalLinkType(linkTypeString, targetParts[1]);
             Link r2 = new()
             {
-                From = UKSStatement.theUKS.GetOrAddThought(targetParts[0]),
-                LinkType = UKSStatement.theUKS.GetOrAddThought(targetParts[1]),
-                To = UKSStatement.theUKS.GetOrAddThought(targetParts[2])
+                From = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[0], false),
+                LinkType = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[1], true),
+                To = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[2], false)
             };
             var existing = UKSStatement.theUKS.GetLinks(r2);
-            if (existing.Count == 0)
-                tTarget = UKSStatement.theUKS.AddStatement(targetParts[0], targetParts[1], targetParts[2]);
+            if (conditional)
+                tTarget = r2;
+            else if (existing.Count == 0)
+                tTarget = UKSStatement.theUKS.AddStatement(r2.From, r2.LinkType, r2.To);
             else
             {
                 // multiple matches, create a dropdown in the UI to select which one?
@@ -244,11 +280,18 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         sourceCombo.Visibility = Visibility.Hidden;
         if (cbi.Content.ToString() == "<New>")
         {
-            var sourceParts = UKSStatement.Singular(sourceText.Text.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+            string input = sourceText.Text.Trim().Trim('[', ']').Replace("→", "->");
+            var sourceParts = input.Contains("->")
+                ? input.Split("->", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                : UKSStatement.Singular(input.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+            if (!input.Contains("->") && sourceParts.Length > 3)
+                sourceParts = new[] { sourceParts[0], string.Join(" ", sourceParts.Skip(1).Take(sourceParts.Length - 2)), sourceParts[^1] };
             if (sourceParts.Length == 3)
             {
-                sourceParts[1] = ModuleUKSStatement.ConditionalLinkType(linkText.Text, sourceParts[1]);
-                tSource = UKSStatement.theUKS.AddStatement(sourceParts[0], sourceParts[1], sourceParts[2]);
+                tSource = UKSStatement.theUKS.AddStatement(
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[0], false),
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[1], true),
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[2], false));
                 sourceText.Text = tSource.ToString();
             }
         }
@@ -265,11 +308,18 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         targetCombo.Visibility = Visibility.Hidden;
         if (cbi.Content.ToString() == "<New>")
         {
-            var targetParts = UKSStatement.Singular(targetText.Text.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+            string input = targetText.Text.Trim().Trim('[', ']').Replace("→", "->");
+            var targetParts = input.Contains("->")
+                ? input.Split("->", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                : UKSStatement.Singular(input.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+            if (!input.Contains("->") && targetParts.Length > 3)
+                targetParts = new[] { targetParts[0], string.Join(" ", targetParts.Skip(1).Take(targetParts.Length - 2)), targetParts[^1] };
             if (targetParts.Length == 3)
             {
-                targetParts[1] = ModuleUKSStatement.ConditionalLinkType(linkText.Text, targetParts[1]);
-                tTarget = UKSStatement.theUKS.AddStatement(targetParts[0], targetParts[1], targetParts[2]);
+                tTarget = UKSStatement.theUKS.AddStatement(
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[0], false),
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[1], true),
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[2], false));
                 targetText.Text = tTarget.ToString();
             }
         }

@@ -224,6 +224,35 @@ public partial class UKS
 
             return thoughtToReturn;
         }
+        // Readable input notation is expanded once, when creating the Thought.
+        // The resulting Path is an ordinary, uncompressed sequence with inherited properties.
+        int sequenceMarker = label.IndexOf(".^", StringComparison.Ordinal);
+        if (sequenceMarker > 0)
+        {
+            Thought? capability = GetOrAddThought(label[..sequenceMarker]);
+            string[] elements = label[(sequenceMarker + 2)..]
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (capability is null || elements.Length == 0) return null;
+            List<Thought> values = new();
+            foreach (string element in elements)
+            {
+                Thought? value = GetOrAddThought(element);
+                if (value is null) return null;
+                values.Add(value);
+            }
+
+            SeqElement sequence = CreateFirstElement("path*", values[0]);
+            SeqElement last = sequence;
+            foreach (Thought value in values.Skip(1))
+                last = AddElement(last, value);
+            sequence.Label = label;
+            sequence.AddParent(capability);
+            if (correctParent is not null && correctParent != Labeled("Unknown"))
+                sequence.AddParent(correctParent);
+            return sequence;
+        }
+        //. are used to indicate attributes to be added
+        if (label.Contains(".") && label != "." && !label.Contains(".py"))
         //. are used to indicate attributes to be added. Common image-file
         //extensions are kept atomic so a hasImage target can use the actual
         //portable filename as its Thought label.
@@ -237,14 +266,25 @@ public partial class UKS
         if (label.Contains(".") && label != "." && !label.Contains(".py") && !isImageFileName)
         {
             string[] attribs = label.Split(".");
+            // Materialize the ordinary compound before adding execution capabilities.
+            // Thus is.not.? retains is.not as an identifiable Relationship type; execution
+            // never has to strip punctuation or reconstruct a type from label text.
+            List<Thought> components = new();
+            foreach (string componentLabel in attribs)
+            {
+                Thought? component = Labeled(componentLabel) ?? AddThought(componentLabel, "Unknown");
+                if (component is not null) components.Add(component);
+            }
+            Thought? ordinaryCompound = null;
+            if (components.Any(component => component.HasProperty("isPossible") || component.HasProperty("setRelationship")))
+            {
+                List<Thought> ordinaryComponents = components.Where(component =>
+                    !component.HasProperty("isPossible") && !component.HasProperty("setRelationship")).ToList();
+                if (ordinaryComponents.Count > 1)
+                    ordinaryCompound = GetOrAddThought(string.Join(".", ordinaryComponents.Select(component => component.Label)));
+            }
             Thought? baseThought = Labeled(attribs[0]) ?? AddThought(attribs[0], "Unknown");
             Thought? instanceThought = Labeled(label) ?? AddThought(label, baseThought);
-            if (instanceThought is not null && baseThought?.Label.ToLower() == "not")
-            {
-                Thought? parentAttrib = ThoughtLabels.GetThought(attribs[1]);
-                if (parentAttrib is not null)
-                    instanceThought.AddParent(parentAttrib);
-            }
             if (instanceThought is not null)
             {
                 for (int i = 1; i < attribs.Length; i++)
@@ -258,9 +298,18 @@ public partial class UKS
                     }
                     Thought? attrib = Labeled(attribs[i]) ?? AddThought(attribs[i], "Unknown");
                     if (attrib is not null)
+                    {
+                        // Keep the existing attribute links for saved structures and
+                        // conflict processing, while also inheriting each component's properties.
+                        instanceThought.AddParent(attrib);
                         instanceThought.AddLink("is", attrib);
+                    }
                 }
-                AddActionTypeInheritance(instanceThought, label);
+                if (ordinaryCompound is not null)
+                {
+                    instanceThought.AddParent(ordinaryCompound);
+                    instanceThought.AddLink("is", ordinaryCompound);
+                }
             }
             return instanceThought;
         }

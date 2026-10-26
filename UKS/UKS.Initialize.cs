@@ -73,6 +73,7 @@ public partial class UKS
         GetOrAddThought("inverseOf", "LinkType");
         GetOrAddThought("hasProperty", "LinkType");
         GetOrAddThought("is", "LinkType");
+        GetOrAddThought("REF", "LinkType");
 
         AddStatement("has-child", "inverseOf", "is-a");
         AddStatement("hasAttribute", "is-a", "LinkType");
@@ -97,13 +98,48 @@ public partial class UKS
         AddStatement("inheritable", "is-a", "Property");
         AddStatement("isEphemeral", "is-a", "Property");
         AddStatement("isConditional", "is-a", "Property");
-        AddStatement("isGrounding", "is-a", "Property");
-        AddStatement("isAnonymousClass", "is-a", "Property");
-        AddStatement("?", "is-a", "LinkType");
-        AddStatement("?", "hasProperty", "isConditional");
+        AddStatement("isConjunction", "is-a", "Property");
+        AddStatement("followPath", "is-a", "Property");
+        AddStatement("isPossible", "is-a", "Property");
+        AddStatement("setRelationship", "is-a", "Property");
+        AddStatement("isEqual", "is-a", "Property");
+        AddStatement("isNegative", "is-a", "Property");
+        AddStatement("@", "is-a", "Property");
+        AddStatement("?", "is-a", "Property");
+        AddStatement("!", "is-a", "Property");
+        AddStatement("Comparison", "is-a", "LinkType");
+        AddStatement("same", "is-a", "Comparison");
+        AddStatement("@", "hasProperty", "followPath");
+        AddStatement("?", "hasProperty", "isPossible");
+        AddStatement("!", "hasProperty", "setRelationship");
+        AddStatement("same", "hasProperty", "isEqual");
+        AddStatement("REF", "hasProperty", "isExclusive");
 
         //sequence search options
-        EnsureSequenceSearchDefinitions();
+        AddStatement("??", "is-a", "Property");
+        AddStatement("??", "hasProperty", "isWildcard");
+        AddStatement("SearchOption", "is-a", "Property");
+        AddStatement("mustMatchFirst", "is-a", "SearchOption");
+        AddStatement("mustMatchLast", "is-a", "SearchOption");
+        AddStatement("allowWildcards", "is-a", "SearchOption");
+        AddStatement("allowNestedSequences", "is-a", "SearchOption");
+        AddStatement("allowCircularSearch", "is-a", "SearchOption");
+        AddStatement("allowOutOfOrder", "is-a", "SearchOption");
+        AddStatement("preferFirstLast", "is-a", "SearchOption");
+        AddStatement("allowPartialMatch", "is-a", "SearchOption");
+        AddStatement("ExactSequenceSearch", "is-a", "SearchOption");
+        AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
+        AddStatement("MelodySearchOptions", "is-a", "SearchOption");
+        AddStatement("OrderSearchOptions", "is-a", "SearchOption");
+        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
+        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
+        AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");
+        AddStatement("TemplateSequenceSearch", "hasProperty", "allowWildcards");
+        AddStatement("MelodySearchOptions", "hasProperty", "allowNestedSequences");
+        AddStatement("MelodySearchOptions", "hasProperty", "preferFirstLast");
+        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchFirst");
+        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchLast");
+        AddStatement("OrderSearchOptions", "hasProperty", "allowNestedSequences");
 
         //colors
         AddStatement("color", "is-a", "Abstract");
@@ -153,6 +189,7 @@ public partial class UKS
         //Clauses
         AddStatement("ClauseType", "is-a", "LinkType");
         AddStatement("IF", "is-a", "ClauseType");
+        AddStatement("IF", "hasProperty", "isConditional");
         AddStatement("BECAUSE", "is-a", "ClauseType");
         AddStatement("AFTER", "is-a", "ClauseType");
         AddStatement("BEFORE", "is-a", "ClauseType");
@@ -160,14 +197,16 @@ public partial class UKS
         AddStatement("NXT", "is-a", "ClauseType");
         AddStatement("VLU", "is-a", "ClauseType");
         AddStatement("AND", "is-a", "ClauseType");
+        AddStatement("AND", "hasProperty", "isConjunction");
         AddStatement("OR", "is-a", "ClauseType");
         AddStatement("NOT", "is-a", "ClauseType");
         AddStatement("NO", "is-a", "ClauseType");
+        AddStatement("NOT", "hasProperty", "isNegative");
+        AddStatement("NO", "hasProperty", "isNegative");
         AddStatement("FRST", "is-a", "ClauseType");
 
         //Numbers
         GetOrAddThought("number", "abstract");
-        AddStatement("Comparison", "is-a", "LinkType");
         AddStatement("order", "is-a", "Comparison");
         AddStatement("greaterThan", "is-a", "Comparison");
         AddStatement("greaterThan", "hasProperty", "isTransitive");
