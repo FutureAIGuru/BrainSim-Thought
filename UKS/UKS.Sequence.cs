@@ -531,14 +531,16 @@ public partial class UKS
             .Where(r => r.LinkType?.Label == "VLU")
             .Select(r => (seqNode: r.From, matchedCount: 1))
             .ToList();
-        if (targets[0].HasAncestor("word"))
-        {
-            var wildCardNodes = Labeled("w:??").LinksFrom
+        var wildcardOptions = CreateSearchOptions(allowWildcard: true);
+        var wildCardNodes = AtomicThoughts
+            .Where(thought => thought.HasProperty("isWildcard") &&
+                SequenceElementMatches(thought, targets[0], wildcardOptions))
+            .SelectMany(thought => thought.LinksFrom)
             .Where(r => r.LinkType?.Label == "VLU")
             .Select(r => (seqNode: r.From, matchedCount: 1))
             .ToList();
-            candidateNodes.AddRange(wildCardNodes);
-        }
+        candidateNodes.AddRange(wildCardNodes.Where(candidate =>
+            !candidateNodes.Any(existing => ReferenceEquals(existing.seqNode, candidate.seqNode))));
 
         foreach (var candidate in candidateNodes)
         {
@@ -573,7 +575,7 @@ public partial class UKS
                 nextThought = searchCandidates[j].curPos.Current;
                 // Check if the next thought matches the current target
                 Thought theNextValue = GetElementValue(nextThought);
-                if (theNextValue != currentTarget && theNextValue != Labeled("w:??"))
+                if (!SequenceElementMatches(theNextValue, currentTarget, wildcardOptions))
                 {
                     searchCandidates.RemoveAt(j);
                     j--; // Adjust index after removal
@@ -809,7 +811,7 @@ public partial class UKS
     public Thought CreateSearchOptions(bool mustMatchFirst = false, bool mustMatchLast = false,
         bool allowWildcard = false, bool allowNestedSequences = false)
     {
-        Thought searchOptions = GetOrAddThought("SequenceSearchOptions*");
+        Thought searchOptions = GetOrAddThought("SearchOption*", "SearchOption");
 
         if (mustMatchFirst)
             searchOptions.AddLink("hasProperty", GetOrAddThought("mustMatchFirst"));
@@ -993,25 +995,23 @@ public partial class UKS
 
         if (!searchOptions.HasProperty("allowWildcards")) return false;
 
-        // Check if patternElement is a wildcard with the "isWildcard" property
-        if (sequenceElementValue.HasProperty("isWildcard"))
+        foreach (var (wildcard, actual) in new[]
+            { (patternElement, sequenceElementValue), (sequenceElementValue, patternElement) })
         {
-            // Check if sequenceElementValue has any of the wildcard's parents as an ancestor
-            foreach (var parent in sequenceElementValue.Parents)
-            {
-                if (patternElement.HasAncestor(parent))
-                    return true;
-            }
-        }
-        // Check if patternElement is a wildcard with the "isWildcard" property
-        if (patternElement.HasProperty("isWildcard"))
-        {
-            // Check if sequenceElementValue has any of the wildcard's parents as an ancestor
-            foreach (var parent in patternElement.Parents)
-            {
-                if (sequenceElementValue.HasAncestor(parent))
-                    return true;
-            }
+            if (!wildcard.HasProperty("isWildcard")) continue;
+
+            // Capability parents supply behavior; ordinary class parents restrict matches.
+            var constraints = wildcard.AncestorsWithSelf
+                .Where(ancestor => ancestor.HasProperty("isWildcard"))
+                .SelectMany(ancestor => ancestor.Parents)
+                .Where(parent => !parent.HasProperty("isWildcard") &&
+                    !ReferenceEquals(parent, Labeled("Property")) &&
+                    !ReferenceEquals(parent, Labeled("Thought")) &&
+                    !ReferenceEquals(parent, Labeled("Unknown")))
+                .ToList();
+            if (constraints.Count == 0 || constraints.Any(constraint =>
+                actual.AncestorsWithSelf.Any(ancestor => ReferenceEquals(ancestor, constraint))))
+                return true;
         }
         return false;
     }

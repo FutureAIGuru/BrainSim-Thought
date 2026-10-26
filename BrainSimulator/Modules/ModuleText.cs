@@ -322,7 +322,7 @@ public class ModuleText : ModuleBase
                 for (int i = matches.Count - 1; i >= 0; i--)
                 {
                     var fullSequence = theUKS.FlattenSequence(matches[i].seqNode);
-                    if (fullSequence.FindFirst(x => x.HasAncestor(wildcard)) != null)
+                    if (fullSequence.FindFirst(x => x.HasProperty("isWildcard")) != null)
                     {
                         matches.RemoveAt(i);
                         continue;

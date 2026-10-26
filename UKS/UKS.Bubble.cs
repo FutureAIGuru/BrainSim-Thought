@@ -184,9 +184,7 @@ public partial class UKS
         {
             IReadOnlyList<Thought> r1Attribs = r1.linkType.GetAttributes();
             IReadOnlyList<Thought> r2Attribs = r2.linkType.GetAttributes();
-            Thought? r1Not = r1Attribs.FindFirst(x => x.Label is "not" or "no");
-            Thought? r2Not = r2Attribs.FindFirst(x => x.Label is "not" or "no");
-            if (r1Not is null != (r2Not is null)) return true;
+            if (IsNegative(r1.linkType) != IsNegative(r2.linkType)) return true;
 
             foreach (Thought t1 in r1Attribs)
             {

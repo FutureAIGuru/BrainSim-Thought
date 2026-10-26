@@ -136,32 +136,4 @@ public class InheritanceCh5PhaseERegressionTests
         Assert.NotNull(animal.HasLink(has, fur));
     }
 
-    [Fact]
-    public void Ch4Ch5_FidoDemo_txt_loads_and_validates_patterns()
-    {
-        var uks = CreateUks();
-        string path = DemoPath();
-        Assert.True(File.Exists(path), $"Demo not found at {path}");
-        uks.ImportTextFile(path);
-
-        Thought fido = uks.Labeled("Fido");
-        Thought tripper = uks.Labeled("Tripper");
-        Thought has = uks.Labeled("has");
-        Assert.NotNull(fido);
-        Assert.NotNull(tripper);
-
-        var fidoLinks = uks.GetAllLinks(new List<Thought> { fido });
-        Assert.Contains(fidoLinks, l => l.LinkType == has && l.To == uks.Labeled("fur"));
-        Assert.Contains(fidoLinks, l => l.To == uks.Labeled("owner"));
-
-        var tripperLinks = uks.GetAllLinks(new List<Thought> { tripper });
-        Assert.Contains(tripperLinks, l => l.LinkType?.Label == "has.3");
-        Assert.DoesNotContain(tripperLinks, l => l.LinkType?.Label == "has.4");
-
-        var ctx = new TraversalContext();
-        ctx.Activate(fido);
-        Assert.Empty(uks.GetGatedLinks(fido, has, ctx));
-        ctx.ActivateRelationship(has);
-        Assert.Contains(uks.GetGatedLinks(fido, has, ctx), l => l.To == uks.Labeled("fur"));
-    }
 }

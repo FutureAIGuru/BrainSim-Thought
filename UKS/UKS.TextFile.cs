@@ -188,7 +188,7 @@ public partial class UKS
         string code = StripEolComment(line);
         if (string.IsNullOrWhiteSpace(code)) return null;
 
-        code = code.Trim();
+        code = code.Trim().Replace("→", "->");
 
         var tokens = TokenizeTopLevel(code);
         if (tokens.Count < 2) return null;
@@ -196,6 +196,10 @@ public partial class UKS
         var stmt = ParseBracketStmt(tokens[1], 0);
         if (stmt.Count < 2) return null;
 
+        if (stmt.Any(part => part.TrimStart().StartsWith("[")) ||
+            Labeled(stmt[1])?.HasProperty("isConditional") == true ||
+            Labeled(stmt[1])?.HasProperty("isConjunction") == true)
+            return AddLinkStmtWithNesting(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
         return AddLinkStmt(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
     }
     // Adds a link, handling nested links in src, type, or target
@@ -261,14 +265,16 @@ public partial class UKS
     /// </summary>
     /// <param name="line">The line to process in UKS text format (e.g., "label[from->linkType->to] weight")</param>
     /// <returns>The created Thought/Link, or null if parsing failed.</returns>
-    public Thought? ProcessSingleLineWithNesting(string line)
+    public Thought? ProcessSingleLineWithNesting(string line, bool asPattern = false)
     {
         if (string.IsNullOrWhiteSpace(line)) return null;
 
         string code = StripEolComment(line);
         if (string.IsNullOrWhiteSpace(code)) return null;
 
-        code = code.Trim();
+        code = code.Trim().Replace("→", "->");
+
+        if (asPattern) return ProcessThoughtOrLink(code, true);
 
         var tokens = TokenizeTopLevel(code);
         if (tokens.Count < 2) return null;
@@ -280,7 +286,7 @@ public partial class UKS
     }
 
     // Adds a link, handling nested links in src, type, or target
-    private Thought? AddLinkStmtWithNesting(string label, List<string> linkParts, string? sWeight)
+    private Thought? AddLinkStmtWithNesting(string label, List<string> linkParts, string? sWeight, bool asPattern = false)
     {
         if (linkParts.Count < 2) return null;
 
@@ -295,31 +301,47 @@ public partial class UKS
             t1?.Delete();
         }
 
-        // Process 'from' - may be a nested link
-        Thought? from = ProcessThoughtOrLink(linkParts[0]);
-        if (from is null) from = GetOrAddThought(linkParts[0]);
-
-        // Process 'linkType' - may be a nested link
         Thought? linkType = ProcessThoughtOrLink(linkParts[1]);
-        if (linkType is null) linkType = GetOrAddThought(linkParts[1]);
+        if (linkType is null) linkType = CreateThoughtFromMultipleAttributes(linkParts[1], true);
+        if (linkType is null) return null;
+        bool structural = linkType.HasProperty("isConditional") || linkType.HasProperty("isConjunction");
+
+        // Conditional and conjunction operands are patterns, never new assertions.
+        Thought? from = ProcessThoughtOrLink(linkParts[0], asPattern || structural);
+        if (from is null) from = CreateThoughtFromMultipleAttributes(linkParts[0], false);
 
         // Process 'to' - may be a nested link
         Thought? to = null;
         if (linkParts.Count > 2)
         {
-            to = ProcessThoughtOrLink(linkParts[2]);
+            to = ProcessThoughtOrLink(linkParts[2], asPattern || structural);
             if (to is null && linkParts[2].StartsWith("unl_")) 
             { 
                 to = new Link(); 
                 to.Label = linkParts[2]; 
             }
-            if (to is null) to = GetOrAddThought(linkParts[2]);
+            if (to is null) to = CreateThoughtFromMultipleAttributes(linkParts[2], false);
         }
 
         if (from is null || linkType is null) return null;
+        if (structural && (from is not Link || to is not Link)) return null;
 
         //        Link r = AddStatement(from, linkType, to, label);
-        Link? r = from.AddLink(linkType, to);
+        Link? r;
+        if (asPattern || structural)
+        {
+            if (asPattern && !structural && !linkType.HasProperty("isPossible"))
+            {
+                Thought ordinaryType = linkType;
+                linkType = GetOrAddThought(ordinaryType.Label + ".?");
+                linkType.AddParent(ordinaryType);
+                linkType.AddParent(GetOrAddThought("?", "Property"));
+            }
+            r = new Link(from, linkType, to);
+            r.AddDefaultLabel();
+            WriteTheLink(r);
+        }
+        else r = from.AddLink(linkType, to);
         if (r is null) return null;
         if (!string.IsNullOrEmpty(label))
             r.Label = label;
@@ -350,30 +372,70 @@ public partial class UKS
     /// </summary>
     /// <param name="part">The string to process</param>
     /// <returns>Thought if found/created, Link if nested, null if not found</returns>
-    private Thought? ProcessThoughtOrLink(string part)
+    private Thought? ProcessThoughtOrLink(string part, bool asPattern = false)
     {
         if (string.IsNullOrWhiteSpace(part)) return null;
 
 
-        var tokens = TokenizeTopLevel(part);
-        if (tokens.Count < 2) return null;
-        string trimmed = tokens[1].Trim();
+        string trimmed = part.Trim().Replace("→", "->");
 
         // Check if this is a nested link (starts with '[')
         if (trimmed.StartsWith("[") && trimmed.EndsWith("]"))
         {
+            int depth = 0;
+            for (int i = 0; i < trimmed.Length; i++)
+            {
+                if (trimmed[i] == '[') depth++;
+                if (trimmed[i] == ']') depth--;
+                if (depth == 0 && i < trimmed.Length - 1)
+                {
+                    trimmed = "[" + trimmed + "]";
+                    break;
+                }
+            }
             // Parse the nested link
             var nestedStmt = ParseBracketStmt(trimmed, 0);
-            if (nestedStmt.Count >= 2)
-            {
-                // Recursively create the nested link (with empty label)
-                return AddLinkStmtWithNesting("", nestedStmt, null);
-            }
+            if (nestedStmt.Count == 3)
+                return AddLinkStmtWithNesting("", nestedStmt, null, asPattern);
+            if (asPattern && nestedStmt.Count == 1)
+                return ProcessThoughtOrLink(nestedStmt[0], true);
             return null;
         }
 
         // Not a nested link, try to find existing thought
-        return Labeled(trimmed);
+        Thought? existing = Labeled(trimmed);
+        if (asPattern && existing is Link relationship && relationship.LinkType is not null &&
+            !relationship.LinkType.HasProperty("isConditional") && !relationship.LinkType.HasProperty("isConjunction"))
+        {
+            Thought patternType = relationship.LinkType;
+            if (!patternType.HasProperty("isPossible"))
+            {
+                patternType = GetOrAddThought(relationship.LinkType.Label + ".?");
+                patternType.AddParent(relationship.LinkType);
+                patternType.AddParent(GetOrAddThought("?", "Property"));
+            }
+            Link pattern = new(relationship.From, patternType, relationship.To);
+            pattern.AddDefaultLabel();
+            WriteTheLink(pattern);
+            return pattern;
+        }
+        if (existing is not null) return existing;
+        if (asPattern)
+        {
+            if (trimmed.Contains("->"))
+            {
+                var nestedStmt = ParseBracketStmt("[" + trimmed + "]", 0);
+                if (nestedStmt.Count == 3) return AddLinkStmtWithNesting("", nestedStmt, null, true);
+            }
+            else
+            {
+                var words = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (words.Length >= 3 && !trimmed.StartsWith("^"))
+                    return AddLinkStmtWithNesting("", new List<string> {
+                        words[0], string.Join(" ", words.Skip(1).Take(words.Length - 2)), words[^1] }, null, true);
+            }
+        }
+        return null;
     }
 
     // Parse "[F->L->T]" or "[S,R,O,N]" (comma separated, quotes allowed around items)
@@ -405,6 +467,22 @@ public partial class UKS
         }
 
         result.Add(sb.ToString().Trim());
+        // Accept [condition] AND [condition] as readable input for a nested triple.
+        if (result.Count == 1 && s.TrimStart().StartsWith("["))
+        {
+            int depth = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] == '[') depth++;
+                if (s[i] != ']') continue;
+                if (--depth != 0) continue;
+                string remainder = s[(i + 1)..].Trim();
+                int separator = remainder.IndexOf(' ');
+                if (separator > 0 && remainder[(separator + 1)..].TrimStart().StartsWith("["))
+                    return new List<string> { s[..(i + 1)].Trim(), remainder[..separator], remainder[(separator + 1)..].Trim() };
+                break;
+            }
+        }
         return result;
     }
 

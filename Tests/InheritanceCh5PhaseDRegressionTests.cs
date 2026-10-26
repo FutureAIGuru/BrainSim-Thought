@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BrainSimulator.Modules;
 using UKS;
 using Xunit;
 
@@ -32,14 +33,9 @@ public class InheritanceCh5PhaseDRegressionTests
         return uks.Labeled(t.Label) ?? t;
     }
 
-    private static void EnsureExistOntology(UKS uks)
+    private static void EnsurePossibleOntology(UKS uks)
     {
-        uks.AddStatement("exist", "is-a", "LinkType");
-        uks.AddStatement("EXIST", "is-a", "exist");
-        uks.AddStatement("exist.is-a", "is-a", "exist");
-        Thought existIsA = uks.Labeled("exist.is-a");
-        Thought isA = uks.Labeled("is-a");
-        existIsA.AddLink(uks.Labeled("is"), isA);
+        uks.GetOrAddThought("is-a.?");
     }
 
     [Fact]
@@ -132,7 +128,7 @@ public class InheritanceCh5PhaseDRegressionTests
     public void ContextResolver_selects_higher_weight_case()
     {
         var uks = CreateUks();
-        EnsureExistOntology(uks);
+        EnsurePossibleOntology(uks);
 
         Thought fido = uks.GetOrAddThought("Fido", "Object");
         Thought dog = uks.GetOrAddThought("dog", "Object");
@@ -144,16 +140,17 @@ public class InheritanceCh5PhaseDRegressionTests
         Thought caseDog = uks.GetOrAddThought("case-dog", contextRoot);
         Thought casePet = uks.GetOrAddThought("case-pet", contextRoot);
         Thought has = uks.Labeled("has");
-        Thought existIsA = uks.Labeled("exist.is-a");
+        Thought membershipTest = uks.Labeled("is-a.?");
 
-        Link dogCheck = new Link(fido, existIsA, dog);
-        Link petCheck = new Link(fido, existIsA, pet);
+        Link dogCheck = new Link(fido, membershipTest, dog);
+        Link petCheck = new Link(fido, membershipTest, pet);
         Link dogWrap = caseDog.AddLink(has, dogCheck);
         Link petWrap = casePet.AddLink(has, petCheck);
         dogWrap.Weight = 1;
         petWrap.Weight = 2;
 
-        ContextCaseResult? selected = uks.SelectBestContextCase(contextRoot, t => ResolveLabel(uks, t));
+        var module = new ModuleAlgorithm { theUKS = uks };
+        ContextCaseResult? selected = module.SelectBestContextCase(contextRoot, t => ResolveLabel(uks, t));
         Assert.NotNull(selected);
         Assert.Equal("case-pet", selected.Case?.Label);
     }
@@ -162,7 +159,7 @@ public class InheritanceCh5PhaseDRegressionTests
     public void FilterLinksByContext_keeps_preferred_category_inherited_links()
     {
         var uks = CreateUks();
-        EnsureExistOntology(uks);
+        EnsurePossibleOntology(uks);
 
         Thought fido = uks.GetOrAddThought("Fido", "Object");
         Thought dog = uks.GetOrAddThought("dog", "Object");
@@ -178,10 +175,10 @@ public class InheritanceCh5PhaseDRegressionTests
         Thought caseDog = uks.GetOrAddThought("case-dog", contextRoot);
         Thought casePet = uks.GetOrAddThought("case-pet", contextRoot);
         Thought has = uks.Labeled("has");
-        Thought existIsA = uks.Labeled("exist.is-a");
+        Thought membershipTest = uks.Labeled("is-a.?");
 
-        Link dogCheck = new Link(fido, existIsA, dog);
-        Link petCheck = new Link(fido, existIsA, pet);
+        Link dogCheck = new Link(fido, membershipTest, dog);
+        Link petCheck = new Link(fido, membershipTest, pet);
         Link dogWrap = caseDog.AddLink(has, dogCheck);
         Link petWrap = casePet.AddLink(has, petCheck);
         dogWrap.Weight = 1;
@@ -191,7 +188,8 @@ public class InheritanceCh5PhaseDRegressionTests
         Assert.True(HasLink(all, "has", "loud", uks));
         Assert.True(HasLink(all, "has", "calm", uks));
 
-        var filtered = uks.FilterLinksByContext(all, fido, contextRoot, t => ResolveLabel(uks, t));
+        var module = new ModuleAlgorithm { theUKS = uks };
+        var filtered = module.FilterLinksByContext(all, fido, contextRoot, t => ResolveLabel(uks, t));
         Assert.True(HasLink(filtered, "has", "calm", uks));
         Assert.False(HasLink(filtered, "has", "loud", uks));
     }

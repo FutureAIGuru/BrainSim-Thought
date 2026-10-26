@@ -65,7 +65,7 @@ public class ModuleTextIn : ModuleBase
         //now convert words to meanings
         if (parameters?.Count > 2)
         {
-            bool isQuery = parameters.FindFirst(x => x.Label.Contains(":??")) is not null;
+            bool isQuery = parameters.FindFirst(x => x.HasProperty("isWildcard")) is not null;
             Link l = BuildLink(parameters[0..3]);
             //Statement or query?  Submit
             if (isQuery)
@@ -157,7 +157,7 @@ public class ModuleTextIn : ModuleBase
 
     /// <summary>
     /// Finds and applies templates to map input word sequences to output link structures.
-    /// Templates support wildcards (w:??) that are captured and referenced in outputs.
+    /// Templates support wildcards identified by their isWildcard property.
     /// </summary>
     private List<Thought> FindAndMapTemplates(List<Thought> keywords)
     {
@@ -186,13 +186,13 @@ public class ModuleTextIn : ModuleBase
                         // Fill in parameters in the output template
                         for (int j = 0; j < outputParams.Count; j++)
                         {
-                            if (outputParams[j].Label.Contains("??")) //is-a paramword
+                            if (outputParams[j].HasProperty("isWildcard"))
                             {
-                                if (int.TryParse(outputParams[j].Label[4..], out int index))
+                                if (int.TryParse(outputParams[j].V?.ToString(), out int index) && index > 0)
                                 {
                                     index--; //make is zero-based
                                     int inputPos = inputParams.Select((word, i) => new { word, index = i })
-                                        .Where(x => x.word.Label == "w:??")
+                                        .Where(x => x.word.HasProperty("isWildcard"))
                                         .ElementAt(index).index;
                                     outputParams[j] = keywords[inputPos];
                                 }
