@@ -35,16 +35,15 @@ public partial class UKS
     public void CreateInitialStructure()
     {
         //this hack is needed to preserve the info relating to module layout
-        for (int i = 0; i < AtomicThoughts.Count; i++)
+        foreach (Thought t in AtomicThoughts.ToList())
         {
-            Thought t = AtomicThoughts[i];
             if (t.Label == "BrainSim") continue;
             if (t.HasAncestor("BrainSim")) continue;
             if (t.Label == "is-a") continue;
             if (t.Label == "hasAttribute") continue;
+            if (t is Link) continue;
 
             t.Delete();
-            i--;
         }
 
         //This deletes all the labels then adds back in the ones still in the AtomicThoughts list
@@ -91,6 +90,9 @@ public partial class UKS
         AddStatement("isTransitive", "is-a", "Property");
         AddStatement("isInstance", "is-a", "Property");
         AddStatement("isWildcard", "is-a", "Property");
+        AddStatement("isOptionalWildcard", "is-a", "Property");
+        AddStatement("is*Wildcard", "is-a", "Property");
+        AddStatement("is+Wildcard", "is-a", "Property");
         AddStatement("isCommutative", "is-a", "Property");
         AddStatement("allowMultiple", "is-a", "Property");
         AddStatement("inheritable", "is-a", "Property");
@@ -102,6 +104,7 @@ public partial class UKS
         AddStatement("setRelationship", "is-a", "Property");
         AddStatement("isEqual", "is-a", "Property");
         AddStatement("isNegative", "is-a", "Property");
+        AddStatement("isAnonymousClass", "is-a", "Property");
         AddStatement("@", "is-a", "Property");
         AddStatement("?", "is-a", "Property");
         AddStatement("!", "is-a", "Property");
@@ -116,32 +119,10 @@ public partial class UKS
         //sequence search options
         AddStatement("??", "is-a", "Property");
         AddStatement("??", "hasProperty", "isWildcard");
-        AddStatement("SearchOption", "is-a", "Property");
-        AddStatement("mustMatchFirst", "is-a", "SearchOption");
-        AddStatement("mustMatchLast", "is-a", "SearchOption");
-        AddStatement("allowWildcards", "is-a", "SearchOption");
-        AddStatement("allowNestedSequences", "is-a", "SearchOption");
-        AddStatement("allowCircularSearch", "is-a", "SearchOption");
-        AddStatement("allowOutOfOrder", "is-a", "SearchOption");
-        AddStatement("preferFirstLast", "is-a", "SearchOption");
-        AddStatement("allowPartialMatch", "is-a", "SearchOption");
-        AddStatement("ExactSequenceSearch", "is-a", "SearchOption");
-        AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
-        AddStatement("MelodySearchOptions", "is-a", "SearchOption");
-        AddStatement("OrderSearchOptions", "is-a", "SearchOption");
-        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
-        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
-        AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");
-        AddStatement("TemplateSequenceSearch", "hasProperty", "allowWildcards");
-        AddStatement("MelodySearchOptions", "hasProperty", "allowNestedSequences");
-        AddStatement("MelodySearchOptions", "hasProperty", "preferFirstLast");
-        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchFirst");
-        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchLast");
-        AddStatement("OrderSearchOptions", "hasProperty", "allowNestedSequences");
+        EnsureSequenceSearchDefinitions();
 
         //colors
         AddStatement("color", "is-a", "Abstract");
-        AddStatement("color", "hasProperty", "isExclusive");
         AddStatement("red", "is-a", "color");
         AddStatement("orange", "is-a", "color");
         AddStatement("yellow", "is-a", "color");
@@ -218,7 +199,7 @@ public partial class UKS
         AddStatement("hasDigit", "is-a", "has");
 
 
-       //put in digits
+        //put in digits
         GetOrAddThought("some", "number");
         GetOrAddThought("many", "number");
         GetOrAddThought("none", "number");
@@ -243,26 +224,24 @@ public partial class UKS
 
         //demo to add PI to the structure
         AddStatement("pi", "is-a", "number");
+        List<Thought> piDigits = new();
+        foreach (string d in new[] { "3", ".", "1", "4", "1", "5", "9" })
         {
-            List<Thought> piDigits = new();
-            foreach (string d in new[] { "3", ".", "1", "4", "1", "5", "9" })
-            {
-                Thought? digit = GetOrAddThought(d, "digit");
-                if (digit is not null) piDigits.Add(digit);
-            }
-            Thought? piThought = Labeled("pi");
-            Thought? hasDigitLink = GetOrAddThought("hasDigit", "has");
-            if (piThought is not null && hasDigitLink is not null)
-                AddSequenceAndLink(piThought, hasDigitLink, piDigits);
+            Thought? digit = GetOrAddThought(d, "digit");
+            if (digit is not null) piDigits.Add(digit);
         }
+        Thought? piThought = Labeled("pi");
+        Thought? hasDigitLink = GetOrAddThought("hasDigit", "has");
+        if (piThought is not null && hasDigitLink is not null)
+            AddSequenceAndLink(piThought, hasDigitLink, piDigits);
 
-        //put in letters
-        GetOrAddThought("letter", "Abstract");
+        //put in characters used by the alphabet
+        GetOrAddThought("character", "Abstract");
         List<Thought> theAlphabet = new();
         for (char c = 'A'; c <= 'Z'; c++)
         {
-            Thought? letter = GetOrAddThought("l:" + c, "Letter");
-            if (letter is not null) theAlphabet.Add(letter);
+            Thought character = GetOrAddCharacter(c);
+            if (character is not null) theAlphabet.Add(character);
         }
         GetOrAddThought("alphabet", "abstract");
         Thought? alphabetThought = GetOrAddThought("alphabet", "abstract");
@@ -279,5 +258,35 @@ public partial class UKS
             AddThought("BrainSim", null);
         GetOrAddThought("AvailableModule", "BrainSim");
         GetOrAddThought("ActiveModule", "BrainSim");
+    }
+
+    private void EnsureSequenceSearchDefinitions()
+    {
+        CreateWildcard("??", new List<Thought>());
+        AddStatement("SearchOption", "is-a", "Property");
+        AddStatement("mustMatchFirst", "is-a", "SearchOption");
+        AddStatement("mustMatchLast", "is-a", "SearchOption");
+        AddStatement("allowWildcards", "is-a", "SearchOption");
+        AddStatement("allowNestedSequences", "is-a", "SearchOption");
+        AddStatement("allowCircularSearch", "is-a", "SearchOption");
+        AddStatement("allowOutOfOrder", "is-a", "SearchOption");
+        AddStatement("preferFirstLast", "is-a", "SearchOption");
+        AddStatement("allowPartialMatch", "is-a", "SearchOption");
+        AddStatement("allowNewClassMembers", "is-a", "SearchOption");
+        AddStatement("ExactSequenceSearch", "is-a", "SearchOption");
+        AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
+        AddStatement("TemplateLearningSearch", "is-a", "TemplateSequenceSearch");
+        AddStatement("MelodySearchOptions", "is-a", "SearchOption");
+        AddStatement("OrderSearchOptions", "is-a", "SearchOption");
+        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
+        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
+        AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");
+        AddStatement("TemplateSequenceSearch", "hasProperty", "allowWildcards");
+        AddStatement("TemplateLearningSearch", "hasProperty", "allowNewClassMembers");
+        AddStatement("MelodySearchOptions", "hasProperty", "allowNestedSequences");
+        AddStatement("MelodySearchOptions", "hasProperty", "preferFirstLast");
+        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchFirst");
+        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchLast");
+        AddStatement("OrderSearchOptions", "hasProperty", "allowNestedSequences");
     }
 }

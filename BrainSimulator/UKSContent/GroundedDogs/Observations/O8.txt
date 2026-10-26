@@ -1,0 +1,8 @@
+# subject: O8
+# Anonymous demo-scene observation; no spoken name is stored here.
+
+[Grass.png->is-a->Image] 1.00
+[O8->hasImage->Grass.png] 1.00
+[O8->has->blade] 1.00
+[O8->is->green] 1.00
+[O8->is->ground] 1.00

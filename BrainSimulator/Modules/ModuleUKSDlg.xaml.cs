@@ -11,10 +11,12 @@
  * See the LICENSE file in the project root for full license information.
  */
 
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -22,7 +24,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using UKS;
-using Microsoft.Win32;
 
 namespace BrainSimulator.Modules;
 
@@ -48,12 +49,19 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private DispatcherTimer dt;
     private string expandAll = "";  //all the children below this named node will be expanded
     private UKS.UKS theUKS = null;
+    private readonly Dictionary<Thought, List<(ProgressBar Bar, TextBlock Value)>>
+        _weightDisplays = new();
+
+    public double DefaultThoughtWeightMaximum { get; set; } = 3;
+    public double WeightBarWidth { get; set; } = 64;
+    public double WeightBarHeight { get; set; } = 12;
 
 
     public ModuleUKSDlg()
     {
         InitializeComponent();
         theUKS = MainWindow.theUKS;
+        Closed += (_, _) => dt?.Stop();
     }
     public override bool Draw(bool checkDrawTimer)
     {
@@ -61,7 +69,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         //only updates 10x per second
         if (!base.Draw(checkDrawTimer)) return false;
         if (busy) return false;
-        if (!checkBoxAuto.IsChecked == true) { return false; }
+        if (checkBoxAuto.IsChecked != true) return false;
         Refresh();
         return true;
     }
@@ -72,10 +80,10 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         ModuleUKS parent = (ModuleUKS)ParentModule;
         expandAll = parent.GetSavedDlgAttribute("ExpandAll");
         string root = parent.GetSavedDlgAttribute("Root");
-        //root = "BrainSim";
         Thought Root = theUKS.Labeled(root);
 
         if (Root is null) Root = (Thought)"Thought";
+        if (Root is null) return;
         string sizeString = parent.GetSavedDlgAttribute("fontSize");
         int.TryParse(sizeString, out int fontSize);
         if (fontSize != 0)
@@ -85,7 +93,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (!string.IsNullOrEmpty(root?.Trim()))
         {
             totalItemCount = 0;
-            TreeViewItem tvi = new() { Header = Root.ToString() };
+            TreeViewItem tvi = new() { Header = CreateThoughtHeader(Root, Root.ToString()) };
             tvi.ContextMenu = GetContextMenu(Root, tvi);
             tvi.IsExpanded = true; //always expand the top-level item
             theTreeView.Items.Add(tvi);
@@ -95,12 +103,11 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         }
         else //search for unattached Thoughts
         {
-            for (int i = 0; i < theUKS.AtomicThoughts.Count; i++)
+            foreach (Thought t1 in theUKS.AtomicThoughts)
             {
-                Thought t1 = theUKS.AtomicThoughts[i];
                 if (t1.Parents.Count == 0 && t1 is not Link)
                 {
-                    TreeViewItem tvi = new() { Header = t1.Label };
+                    TreeViewItem tvi = new() { Header = CreateThoughtHeader(t1, t1.Label) };
                     tvi.ContextMenu = GetContextMenu(t1, tvi);
                     theTreeView.Items.Add(tvi);
                 }
@@ -114,7 +121,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (depth > maxDepth) return;
 
         List<Link> theChildren = t.LinksFrom.Where(x => x.LinkType.Label.StartsWith("is-a") && x.To is not null).ToList();
-        theChildren = theChildren.OrderBy(x => x.From.Label).ToList();
+        theChildren = theChildren.OrderBy(x => x.From.Label, NaturalLabelComparer.Instance).ToList();
         if (detailsCB.IsChecked == true)
             theChildren = theChildren.OrderByDescending(x => x.From.Weight).ToList();
 
@@ -154,6 +161,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             sortedLinks = t.LinksTo.Where(x => x.LinkType.Label != "is-a").OrderBy(x => x?.LinkType?.Label).ToList();
         foreach (Link l in sortedLinks)
         {
+            //FOR DEMO ONLY...
+            //if (l.LinkType.Label != "means") continue;
+            if (showConditionals.IsChecked != true && l.LinkType.Label == "evidence") continue;
             if (showConditionals.IsChecked != true)
                 if (l.LinkType?.HasProperty("isPossible") == true || l.LinkType?.HasProperty("isConditional") == true ||
                     l.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true)) continue;
@@ -203,7 +213,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         else if (t is Link r)
         {
             //format a link-like line in the treeview
-            header = r.ToString();
+            header = FormatLinkForDisplay(r);
             //show sequence content unless details are selected
             if (r.From is SeqElement)
             {
@@ -218,7 +228,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             {
                 var seqElements = theUKS.FlattenSequence(s);
                 string joinCharacter = " ";
-                if (r.LinkType.Label == "events" || seqElements.Count(x=>x is Link l)>0) joinCharacter = "\n\t\t"; //hack for better dieplay of longer items
+                if (r.LinkType.Label == "events" || seqElements.Count(x => x is Link l) > 0) joinCharacter = "\n\t\t"; //hack for better dieplay of longer items
                 if (r.LinkType.Label == "NXT" || r.LinkType.Label == "FRST")
                 {
                     header = $"[{r.From.Label}→{r.LinkType.Label}→{r.To.Label}]";
@@ -234,7 +244,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                             else
                                 seqLabels.Add(t1.Label);
                         int i = seqLabels[0].IndexOf(':');
-                        string leftSide = seqLabels[0][..(i+1)];
+                        string leftSide = seqLabels[0][..(i + 1)];
 
                         seqLabels = seqLabels
                             .Select(s =>
@@ -242,7 +252,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                                 int i = s.IndexOf(':');
                                 return i >= 0 ? s[(i + 1)..] : s;
                             }).ToList();
-                        string sequence = "^" +leftSide +  string.Join(joinCharacter, seqLabels);
+                        string sequence = "^" + leftSide + string.Join(joinCharacter, seqLabels);
                         header = $"[{r.From.Label}→{r.LinkType.Label}→{sequence}]";
                     }
                 }
@@ -259,7 +269,10 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         header = AddDetails(t, header);
 
         //create the treeview entry
-        TreeViewItem tviChild = new() { Header = header };
+        TreeViewItem tviChild = new() { Header = CreateThoughtHeader(child, header) };
+
+        if (detailsCB.IsChecked != true)
+            SetLearnedStructureBackground(tviChild, child);
 
         //change color of thoughts which just fired or are about to expire
         tviChild.SetValue(ThoughtObjectProperty, child);
@@ -290,8 +303,153 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             tviChild.Items.Add(new TreeViewItem());
         tviChild.Expanded += EmptyChild_Expanded;
 
+        //WPF displays an expansion handle only when the item already has content.
+        //Use an empty child as a placeholder until the real content is loaded.
+        if (!tviChild.IsExpanded && HasExpandableContent(child))
+            tviChild.Items.Add(new TreeViewItem());
+
         totalItemCount++;
         return tviChild;
+    }
+
+    /// <summary>Shows secondary query parameters which Link.ToString does not include.</summary>
+    internal static string FormatLinkForDisplay(Link link)
+    {
+        string fromText = link.From?.ToString() ?? string.Empty;
+        string typeText = link.LinkType?.ToString() ?? string.Empty;
+        string toText = link.To is Link nestedLink
+            ? FormatLinkForDisplay(nestedLink)
+            : link.To?.ToString() ?? string.Empty;
+        string display = $"[{fromText}→{typeText}→{toText}]";
+        Thought filterTarget = link.GetTargetOfFirstLinkOfType("filterBy");
+        if (filterTarget is not null) display = $"[{display}→filterBy→{filterTarget.Label}]";
+        string retVal = display;
+        return retVal;
+    }
+
+    private object CreateThoughtHeader(Thought thought, string text)
+    {
+        ImageSource imageSource = GroundedImageResolver.LoadImage(thought);
+        bool showWeight = weightBarsCB?.IsChecked == true &&
+            (thought.isPlastic || thought.Weight != 1f);
+        if (imageSource is null && !showWeight) return text;
+
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        if (imageSource is not null)
+        {
+            panel.Children.Add(new Image
+            {
+                Source = imageSource,
+                Width = 32,
+                Height = 32,
+                Stretch = Stretch.UniformToFill,
+                Margin = new Thickness(0, 1, 6, 1),
+            });
+        }
+        if (showWeight)
+        {
+            var thermometer = new ProgressBar
+            {
+                Minimum = 0,
+                Width = Math.Max(20, WeightBarWidth),
+                Height = Math.Max(6, WeightBarHeight),
+                Margin = new Thickness(0, 0, 4, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            var weightValue = new TextBlock
+            {
+                Width = 38,
+                Margin = new Thickness(0, 0, 7, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Right,
+                FontSize = Math.Max(10, theTreeView.FontSize - 3),
+            };
+            UpdateWeightDisplay(thought, thermometer, weightValue);
+            if (!_weightDisplays.TryGetValue(thought, out var displays))
+            {
+                displays = new List<(ProgressBar Bar, TextBlock Value)>();
+                _weightDisplays.Add(thought, displays);
+            }
+            displays.Add((thermometer, weightValue));
+            panel.Children.Add(thermometer);
+            panel.Children.Add(weightValue);
+        }
+        panel.Children.Add(new TextBlock
+        {
+            Text = text,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        return panel;
+    }
+
+    private void UpdateWeightDisplays()
+    {
+        foreach (var entry in _weightDisplays)
+            foreach (var display in entry.Value)
+                UpdateWeightDisplay(entry.Key, display.Bar, display.Value);
+    }
+
+    private void UpdateWeightDisplay(
+        Thought thought,
+        ProgressBar thermometer,
+        TextBlock weightValue)
+    {
+        double maximum = Math.Max(0.01, thought.maxWeight);
+        if (thought is not Link && maximum <= 1)
+            maximum = Math.Max(maximum, DefaultThoughtWeightMaximum);
+        double value = Math.Clamp(thought.Weight, 0, maximum);
+        thermometer.Maximum = maximum;
+        thermometer.Value = value;
+        double fraction = value / maximum;
+        if (fraction >= 0.7)
+            thermometer.Foreground = thought.isPlastic ? Brushes.LimeGreen : Brushes.SeaGreen;
+        else if (fraction >= 0.3)
+            thermometer.Foreground = Brushes.DodgerBlue;
+        else
+            thermometer.Foreground = Brushes.DarkOrange;
+        string state = thought.isPlastic ? "Plastic" : "Non-plastic";
+        thermometer.ToolTip = $"{state}; weight {thought.Weight:0.00} / {maximum:0.00}";
+        weightValue.Text = thought.Weight.ToString("0.00");
+    }
+
+    private static void SetLearnedStructureBackground(
+        TreeViewItem treeItem,
+        Thought thought)
+    {
+        Thought learnedParent = thought.Parents.FirstOrDefault(parent =>
+            parent.Label == "LearnedClass" || parent.Label == "LearnedTemplate");
+        if (learnedParent is null) return;
+
+        if (!thought.isPlastic)
+        {
+            //treeItem.Background = new SolidColorBrush(Colors.LightBlue);
+            return;
+        }
+
+        List<Thought> plasticSiblings = learnedParent.Children
+            .Where(sibling => sibling.isPlastic)
+            .OrderBy(sibling => sibling.Weight)
+            .ThenBy(sibling => sibling.LastFiredTime)
+            .ToList();
+        bool isLowestScoring = plasticSiblings.Count > 1 &&
+            ReferenceEquals(plasticSiblings[0], thought);
+        if (isLowestScoring)
+            treeItem.Background = new SolidColorBrush(Colors.LightYellow);
+        if (thought.Weight > 10)
+            treeItem.Background = new SolidColorBrush(Colors.MediumAquamarine);
+    }
+
+    private bool HasExpandableContent(Thought t)
+    {
+        bool retVal = t.Children.Count > 0 || t.LinksTo.Count > 1; //The 1 assumse a single is-a relationship
+
+        if (!retVal && reverseCB.IsChecked == true)
+            retVal = t.LinksFrom.Count > 0;
+
+        if (!retVal && t is Link link)
+            retVal = theUKS.IsSequenceElement(link.To);
+
+        return retVal;
     }
 
     //if the "details" box is checked, add the details
@@ -370,18 +528,17 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         ContextMenu menu = new ContextMenu();
         menu.SetValue(ThoughtObjectProperty, t);
         menu.SetValue(TreeViewItemProperty, tvi);
-        int ID = theUKS.AtomicThoughts.IndexOf(t);
         MenuItem mi = new();
         string thoughtLabel = "___";
         if (t is not null)
             thoughtLabel = t.Label;
-        mi.Header = "Name: " + thoughtLabel + "  Index: " + ID;
+        mi.Header = "Name: " + thoughtLabel;
         mi.IsEnabled = false;
         menu.Items.Add(mi);
 
-        TextBox renameBox = new() { Text = thoughtLabel, Width = 200, Name = "RenameBox",Foreground=Brushes.White,Background=Brushes.DarkBlue };
+        TextBox renameBox = new() { Text = thoughtLabel, Width = 200, Name = "RenameBox", Foreground = Brushes.White, Background = Brushes.DarkBlue };
         renameBox.PreviewKeyDown += RenameBox_PreviewKeyDown;
-      
+
         mi = new();
         mi.Header = renameBox;
         menu.Items.Add(mi);
@@ -493,15 +650,24 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         mi.Header = $"Weight:  {r.Weight.ToString("0.00")}";
         mi.IsEnabled = false;
         menu.Items.Add(mi);
+
         mi = new();
         string timeToLive = (r.TimeToLive == TimeSpan.MaxValue ? "∞" : (r.LastFiredTime + r.TimeToLive - DateTime.Now).ToString(@"mm\:ss"));
         mi.Header = $"TTL: {timeToLive}";
         mi.IsEnabled = false;
         menu.Items.Add(mi);
+
         mi = new();
         mi.Click += Mi_Click;
         mi.Header = "Delete";
         menu.Items.Add(mi);
+
+        //mi = new();
+        //mi.Click += Mi_Click;
+        //mi.Header = "Copy Text";
+        //mi.SetValue(ThoughtObjectProperty, r);
+        //menu.Items.Add(mi);
+
         mi = new();
         mi.Header = "Go To:";
         mi.IsEnabled = false;
@@ -553,6 +719,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             ModuleUKS parent = (ModuleUKS)ParentModule;
             switch (mi.Header)
             {
+                case "Copy Text":
+                    //copy the text of the link to the clipboard
+                    break;
                 case "Expand All":
                     expandAll = t.Label;
                     expandedItems.Clear();
@@ -578,7 +747,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                         ActionModule.TakeActrion(t);
                     break;
                 case "Delete":
-                    theUKS.DeleteAllChildrenAndLinks(t);
+                    //theUKS.DeleteAllChildrenAndLinks(t);
                     t.Delete();
                     break;
                 case "Delete Child":
@@ -587,7 +756,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     DependencyObject parent1 = VisualTreeHelper.GetParent((DependencyObject)tvi);
                     while (parent1 is not null && !(parent1 is TreeViewItem))
                         parent1 = VisualTreeHelper.GetParent(parent1);
-                    Thought parentThought = (Thought)parent1.GetValue(ThoughtObjectProperty);
+                    Thought parentThought = (Thought)parent1?.GetValue(ThoughtObjectProperty);
                     //now delete the link
                     if (parentThought is not null && t is not null)
                         parentThought.RemoveChild(t);
@@ -646,6 +815,17 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             return;
 
         string searchText = comboRoot.Text;
+        if (comboRoot.SelectedItem is string selectedRoot &&
+            !selectedRoot.Equals(searchText, StringComparison.OrdinalIgnoreCase))
+        {
+            // Editing the text does not automatically clear the ComboBox
+            // selection. Without this, the old history item remains selected
+            // and choosing it from the dropdown produces no selection change.
+            _isTextChangingInternally = true;
+            comboRoot.SelectedIndex = -1;
+            comboRoot.Text = searchText;
+            _isTextChangingInternally = false;
+        }
         if (!string.IsNullOrEmpty(searchText))
         {
             var suggestion = ThoughtLabels.LabelList.Keys
@@ -668,12 +848,30 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 _isTextChangingInternally = false;
             }
         }
-        ModuleUKS parent = (ModuleUKS)ParentModule;
-        if (parent is null) return;
-        parent.SetSavedDlgAttribute("Root", comboRoot.Text); //why?
-        Refresh();
-
+        CommitRoot(comboRoot.Text);
     }
+
+    private void ComboRoot_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isTextChangingInternally) return;
+        string selectedRoot = comboRoot.SelectedItem as string;
+        if (string.IsNullOrWhiteSpace(selectedRoot)) return;
+
+        _isTextChangingInternally = true;
+        comboRoot.Text = selectedRoot;
+        _isTextChangingInternally = false;
+        CommitRoot(selectedRoot);
+    }
+
+    private void CommitRoot(string root)
+    {
+        ModuleUKS parent = ParentModule as ModuleUKS;
+        if (parent is null) return;
+
+        parent.SetSavedDlgAttribute("Root", root);
+        Refresh();
+    }
+
     //using the mouse-wheel while pressing ctrl key changes the font size
     private void theTreeView_MouseWheel(object sender, MouseWheelEventArgs e)
     {
@@ -697,36 +895,54 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private void CheckBoxAuto_Checked(object sender, RoutedEventArgs e)
     {
         if (dt is null)
+        {
             dt = new DispatcherTimer
             {
                 Interval = new TimeSpan(0, 0, 0, 0, 200)
             };
-        dt.Tick += Dt_Tick;
+            dt.Tick += Dt_Tick;
+        }
         dt.Start();
     }
 
     private void Dt_Tick(object sender, EventArgs e)
     {
+        if (checkBoxAuto.IsChecked != true || !IsVisible) return;
         if (!mouseInWindow)
             Draw(true);
+        else if (weightBarsCB?.IsChecked == true)
+            UpdateWeightDisplays();
         if (RefreshButton is not null)
             RefreshButton.Visibility = Visibility.Hidden;
     }
 
     private void CheckBoxAuto_Unchecked(object sender, RoutedEventArgs e)
     {
-        dt.Stop();
-        RefreshButton.Visibility = Visibility.Visible;
+        dt?.Stop();
+        if (RefreshButton is not null) RefreshButton.Visibility = Visibility.Visible;
     }
 
     private void CheckBox_Checked(object sender, RoutedEventArgs e)
     {
+        SaveWeightBarsPreference(sender);
         Draw(false);
     }
 
     private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
     {
+        SaveWeightBarsPreference(sender);
         Draw(false);
+    }
+
+    private void SaveWeightBarsPreference(object sender)
+    {
+        if (!ReferenceEquals(sender, weightBarsCB) ||
+            ParentModule is not ModuleUKS parent)
+            return;
+
+        parent.SetSavedDlgAttribute(
+            "WeightBars",
+            weightBarsCB.IsChecked == true ? "True" : "");
     }
 
     private void TheTreeView_MouseEnter(object sender, MouseEventArgs e)
@@ -761,6 +977,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
             UpdateStatusLabel();
 
+            _weightDisplays.Clear();
             theTreeView.Items.Clear();
             LoadContentToTreeView();
         }
@@ -812,6 +1029,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         ModuleUKS parent = (ModuleUKS)ParentModule;
         LoadRootHistory(parent.GetSavedDlgAttribute("RootHistory"));
         comboRoot.Text = parent.GetSavedDlgAttribute("Root");
+        weightBarsCB.IsChecked =
+            parent.GetSavedDlgAttribute("WeightBars") == "True";
     }
 
     private string Browse(bool open)
@@ -936,9 +1155,12 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void UpdateRootHistoryItems()
     {
+        string currentText = comboRoot.Text;
         _isTextChangingInternally = true;
         comboRoot.ItemsSource = null;
         comboRoot.ItemsSource = _rootHistory.ToList();
+        comboRoot.SelectedIndex = -1;
+        comboRoot.Text = currentText;
         _isTextChangingInternally = false;
     }
 
@@ -987,6 +1209,47 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     tbHeader.SelectionBrush = fg;
                 }
             }
+        }
+    }
+    /// <summary>
+    /// Compares labels so that trailing numeric suffixes are sorted numerically
+    /// (e.g. class1, class2, class10, class11) instead of purely lexicographically
+    /// (which would produce class1, class10, class11, class2).
+    /// </summary>
+    private class NaturalLabelComparer : IComparer<string>
+    {
+        public static readonly NaturalLabelComparer Instance = new();
+
+        private static readonly Regex TrailingNumberRegex = new(@"^(.*?)(\d+)$", RegexOptions.Compiled);
+
+        public int Compare(string x, string y)
+        {
+            if (x == null && y == null) return 0;
+            if (x == null) return -1;
+            if (y == null) return 1;
+
+            var mx = TrailingNumberRegex.Match(x);
+            var my = TrailingNumberRegex.Match(y);
+
+            if (mx.Success && my.Success)
+            {
+                string prefixX = mx.Groups[1].Value;
+                string prefixY = my.Groups[1].Value;
+                int prefixCompare = string.Compare(prefixX, prefixY, StringComparison.OrdinalIgnoreCase);
+                if (prefixCompare != 0) return prefixCompare;
+
+                // Prefixes match (or both empty) - compare numerically.
+                // Use BigInteger-safe comparison by comparing length first, then value,
+                // to correctly handle arbitrarily long numeric suffixes.
+                string numX = mx.Groups[2].Value;
+                string numY = my.Groups[2].Value;
+                if (numX.Length != numY.Length)
+                    return numX.Length.CompareTo(numY.Length);
+                return string.Compare(numX, numY, StringComparison.Ordinal);
+            }
+
+            // Fall back to standard string comparison when there's no trailing numeric suffix.
+            return string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

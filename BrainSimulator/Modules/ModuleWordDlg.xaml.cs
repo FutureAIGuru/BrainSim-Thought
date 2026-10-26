@@ -12,6 +12,7 @@
  */
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -166,9 +167,15 @@ public partial class ModuleWordDlg : ModuleBaseDlg
         if (module != null)
         {
             SetStatus("Loading words...");
-            
-            int count = module.LoadWordsFromFile(filePath);
-            
+            //spawn the following as a separate thread so the UI can update
+            Task backgroundTask = Task.Run(() =>
+            {
+                for (int i = 0; i < 100; i++)
+                    module.LoadWordsFromFile(filePath);
+            });
+            int count = 24;// module.LoadWordsFromFile(filePath);
+            //int count = module.LoadWordsFromFile(filePath);
+
             SetStatus($"Successfully loaded {count} word(s) from file.");
         }
         else

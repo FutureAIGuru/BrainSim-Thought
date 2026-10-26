@@ -79,11 +79,22 @@ public class ModuleAttention : ModuleBase
         var mm = GetMentalModel();
         if (mm is null) return;
 
-        CenterAzimuthDeg = azimuthDeg;
-        CenterElevationDeg = elevationDeg;
         Thought targetCell = mm.GetCell(azimuthDeg, elevationDeg);
-        Link l = mm.BindThoughtToMentalModel("attention", targetCell);
-        l.TimeToLive = TimeSpan.MaxValue;
+        SetCenterOfAttention(targetCell);
+    }
+
+    public void SetCenterOfAttention(Thought targetCell)
+    {
+        var mm = GetMentalModel();
+        if (mm is null) return;
+
+        targetCell = mm.SetAttentionCell(targetCell);
+        if (targetCell is null) return;
+
+        var position = mm.GetAnglesFromCell(targetCell);
+        CenterAzimuthDeg = position.azimuth;
+        CenterElevationDeg = position.elevation;
+        _attentionCell = targetCell;
     }
 
     private void UpdateAttentionPositionInMentalModel(Thought focus = null)
@@ -97,10 +108,7 @@ public class ModuleAttention : ModuleBase
         Thought targetCell = ResolveAttentionCell(focus, mm);
         if (targetCell is null) return;
 
-        theUKS.GetOrAddThought("attention", "Abstract");
-        Link l = mm.BindThoughtToMentalModel("attention", targetCell);
-        l.TimeToLive = TimeSpan.MaxValue;
-        _attentionCell = targetCell;
+        SetCenterOfAttention(targetCell);
 
     }
 
@@ -160,7 +168,7 @@ public class ModuleAttention : ModuleBase
         var pool = new List<(Thought item, Thought target, double weight)>();
         foreach (var (item, target) in EnumerateQueueItems())
         {
-            float salience = ComputeSalience(target, mm, 0, item.UseCount, item.LastFiredTime);
+            float salience = ComputeSalience(target, mm, 0, item.LastFiredTime);
             item.Weight = salience;
             double adjusted = salience;
             if (_lastFocus == target) adjusted *= SameTargetPenalty;
@@ -199,8 +207,7 @@ public class ModuleAttention : ModuleBase
         }
 
         item.LastFiredTime = DateTime.Now;
-        item.UseCount++;
-        item.Weight = ComputeSalience(t, mm, surprise, item.UseCount, item.LastFiredTime);
+        item.Weight = ComputeSalience(t, mm, surprise, item.LastFiredTime);
         return item;
     }
 
@@ -213,7 +220,7 @@ public class ModuleAttention : ModuleBase
                 target.TimeToLive != TimeSpan.MaxValue &&
                 target.LastFiredTime + target.TimeToLive < now;
 
-            double sal = ComputeSalience(target, mm, 0, item.UseCount, item.LastFiredTime);
+            double sal = ComputeSalience(target, mm, 0, item.LastFiredTime);
             bool tooLow = sal < SalienceFloor;
             bool stale = (now - item.LastFiredTime).TotalSeconds > AttentionStaleSeconds;
 
@@ -256,7 +263,7 @@ public class ModuleAttention : ModuleBase
         item.Delete();
     }
 
-    private float ComputeSalience(Thought t, ModuleMentalModel mm, double surprise, int seenCount, DateTime lastSeen)
+    private float ComputeSalience(Thought t, ModuleMentalModel mm, double surprise, DateTime lastSeen)
     {
         return .5f;
     }

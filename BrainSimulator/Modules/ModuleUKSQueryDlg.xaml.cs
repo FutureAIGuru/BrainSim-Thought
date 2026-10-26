@@ -23,24 +23,25 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using System.Windows.Input;
 using UKS;
-using static BrainSimulator.Modules.ModuleAttributeBubble;
 
 namespace BrainSimulator.Modules;
 
 public partial class ModuleUKSQueryDlg : ModuleBaseDlg
 {
+    private static readonly TimeSpan NormalRequeryInterval = TimeSpan.FromSeconds(3);
     DispatcherTimer requeryTimer = new DispatcherTimer();
 
     public ModuleUKSQueryDlg()
     {
         InitializeComponent();
-        requeryTimer.Interval = TimeSpan.FromSeconds(3);
+        requeryTimer.Interval = NormalRequeryInterval;
         requeryTimer.Tick += RequeryTimer_Tick;
         requeryTimer.Start();
     }
 
     private void RequeryTimer_Tick(object sender, EventArgs e)
     {
+        requeryTimer.Interval = NormalRequeryInterval;
         if (CBAutoRefresh.IsChecked == false) return;
         QueryForAttributes();
         QueryByAttributes();
@@ -58,6 +59,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
 
     private void BtnWhy_Click(object sender, RoutedEventArgs e)
     {
+        DelayRequeryForExplanation();
         ModuleUKSQuery UKSQuery = (ModuleUKSQuery)ParentModule;
         UKS.UKS theUKS = UKSQuery.theUKS;
         Thought? source = theUKS.Labeled(sourceText.Text);
@@ -66,8 +68,25 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             resultText.Text = "Why? — source not found";
             return;
         }
+        List<Link> links = theUKS.GetAttributes(source);
+        List<Link> whyNot = theUKS.WhyNot()
+            .Where(link => link is not null)
+            .ToList();
+        if (whyNot.Count > 0)
+        {
+            resultText.Text = "Why not?" + Environment.NewLine + FormatWhyNot(whyNot);
+            return;
+        }
 
-        List<Link> links = theUKS.GetAllLinks(new List<Thought> { source });
+        List<Link> why = theUKS.Why()
+            .Where(link => link is not null)
+            .ToList();
+        if (why.Count > 0)
+        {
+            resultText.Text = "Why?" + Environment.NewLine + FormatWhy(why);
+            return;
+        }
+
         Link? match = null;
         if (!string.IsNullOrWhiteSpace(targetText.Text))
             match = links.FirstOrDefault(l => l.To?.Label == targetText.Text);
@@ -82,8 +101,87 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             return;
         }
 
-        List<Thought> trace = theUKS.ExplainLink(match, source);
+        List<Thought> trace = UKSQuery.ExplainInheritance(match, source);
         resultText.Text = "Why? " + string.Join(" → ", trace.Select(t => t.Label));
+    }
+
+    private static string FormatWhy(IEnumerable<Link> links) =>
+        FormatConditionalExplanation(links, conditionWasVerified: true);
+
+    private static string FormatWhyNot(IEnumerable<Link> links) =>
+        FormatConditionalExplanation(links, conditionWasVerified: false);
+
+    private static string FormatConditionalExplanation(IEnumerable<Link> links, bool conditionWasVerified)
+    {
+        List<Link> conditionLinks = links.Where(link => link is not null).ToList();
+        Link ifLink = conditionLinks.FirstOrDefault(link =>
+            string.Equals(link.LinkType?.Label, "IF", StringComparison.OrdinalIgnoreCase) &&
+            link.From is Link && link.To is Link);
+
+        if (ifLink?.From is not Link result || ifLink.To is not Link condition)
+            return FormatLinks(conditionLinks);
+
+        string inclusion = conditionWasVerified ? "included" : "not included";
+        string verification = conditionWasVerified ? "verified" : "not verified";
+        return $"{Capitalize(FormatClause(result))} {inclusion} because " +
+            $"{FormatClause(condition)} was {verification}.";
+    }
+
+    private static string FormatLinks(IEnumerable<Link> links) =>
+        string.Join(Environment.NewLine, links
+            .Where(link => link is not null)
+            .Select(FormatLink)
+            .Distinct());
+
+    private static string FormatLink(Link link) =>
+        $"[{FormatThought(link.From)} → {link.LinkType?.Label ?? "?"} → {FormatThought(link.To)}]";
+
+    private static string FormatThought(Thought thought)
+    {
+        if (thought is null) return "?";
+        return thought is Link link ? FormatLink(link) : thought.Label;
+    }
+
+    private static string FormatClause(Link link)
+    {
+        if (string.Equals(link.LinkType?.Label, "AND", StringComparison.OrdinalIgnoreCase) &&
+            link.From is Link left && link.To is Link right)
+            return $"{FormatClause(left)} and {FormatClause(right)}";
+
+        return $"{FormatThought(link.From)} {NaturalPredicate(link.LinkType)} {FormatThought(link.To)}";
+    }
+
+    private static string NaturalPredicate(Thought linkType)
+    {
+        string predicate = linkType?.Label ?? "?";
+        if (UKS.UKS.IsConditionalLinkType(linkType))
+            predicate = string.Join(" ", predicate.Split('.').Where(part => part != "?"));
+        string normalized = predicate.ToLowerInvariant();
+        if (normalized == "is-a") return "is a";
+        if (normalized is "is" or "has" or "can" or "owns" or "goes" or "does" or "must" or "should" or "will")
+            return predicate;
+        if (predicate.EndsWith("s", StringComparison.OrdinalIgnoreCase)) return predicate;
+        if (predicate.EndsWith("y", StringComparison.OrdinalIgnoreCase) && predicate.Length > 1 &&
+            !"aeiou".Contains(char.ToLowerInvariant(predicate[^2])))
+            return predicate[..^1] + "ies";
+        if (predicate.EndsWith("ch", StringComparison.OrdinalIgnoreCase) ||
+            predicate.EndsWith("sh", StringComparison.OrdinalIgnoreCase) ||
+            predicate.EndsWith("x", StringComparison.OrdinalIgnoreCase) ||
+            predicate.EndsWith("z", StringComparison.OrdinalIgnoreCase) ||
+            predicate.EndsWith("o", StringComparison.OrdinalIgnoreCase))
+            return predicate + "es";
+        return predicate + "s";
+    }
+
+    private static string Capitalize(string text) =>
+        string.IsNullOrEmpty(text) ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
+    private void DelayRequeryForExplanation()
+    {
+        if (!requeryTimer.IsEnabled) return;
+        requeryTimer.Stop();
+        requeryTimer.Interval = TimeSpan.FromSeconds(5);
+        requeryTimer.Start();
     }
 
     private void BtnLinks_Click(object sender, RoutedEventArgs e)
@@ -123,11 +221,12 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         string source = sourceText.Text;
         string type = typeText.Text;
         string target = targetText.Text;
+        string filter = filterText?.Text ?? "";
 
         List<Thought> thoughts;
         List<Link> links;
         ModuleUKSQuery UKSQuery = (ModuleUKSQuery)ParentModule;
-        var results1 = UKSQuery.GetAttributes(source, type, target,out thoughts, out links);
+        var results1 = UKSQuery.GetAttributes(source, type, target, filter, out thoughts, out links);
 
         if (results1 is not null)
         {
@@ -157,7 +256,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             return;
         }
 
-        var allResults = theUKS.SearchForClosestMatch(queryThought, ancestor);
+        var allResults = theUKS.SearchByAttributes(queryThought, ancestor);
 
         if (allResults.Count == 0)
         {
@@ -248,7 +347,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         }
         SetStatus("OK");
 
-        var allResults = theUKS.SearchForClosestMatch(queryThought, ancestor);
+        var allResults = theUKS.SearchByAttributes(queryThought, ancestor);
 
         if (allResults.Count == 0)
         {
@@ -371,14 +470,14 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         var parent = queryThought.Parents[0];
         //build a List of counts of the attributes
         //build a List of all the Links which this thought's children have
-        List<LinkDest> attributes = new();
+        Dictionary<(Thought linkType, Thought target), List<Link>> attributes = new();
         foreach (var child in parent.Children)
             CountAttributes(child, attributes);
 
-        foreach (var key in attributes)
+        foreach (var item in attributes)
         {
-            if (key.links.Count < 2 || key.links.Count < parent.Children.Count) continue;
-            parent.AddLink(key.linkType, key.target).Weight = .9f;
+            if (item.Value.Count < 2 || item.Value.Count < parent.Children.Count) continue;
+            parent.AddLink(item.Key.linkType, item.Key.target).Weight = .9f;
         }
         foreach (var child in parent.Children)
         {
@@ -418,7 +517,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         var theUKS = UKSQuery.theUKS;
 
         List<Link> missingAttributes = new();
-        var inheritableLinks = theUKS.GetAllLinks(new List<Thought> { foundThought });
+        var inheritableLinks = theUKS.GetAttributes(foundThought);
         foreach (Link r in queryThought.LinksTo)
         {
             if (inheritableLinks.FindFirst(x => x.LinkType == r.LinkType && x.To == r.To) is null)
@@ -456,7 +555,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         }
         SetStatus("OK");
 
-        var allResults = theUKS.SearchForClosestMatch(queryThought, ancestor);
+        var allResults = theUKS.SearchByAttributes(queryThought, ancestor);
         if (allResults.Count == 0)
         {
             if (queryThought is not null)
@@ -514,7 +613,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         int minCommonAttributes = 2;
         //build a List of counts of the attributes
         //build a List of all the Links which this thought's children have
-        List<LinkDest> attributes = new();
+        Dictionary<(Thought linkType, Thought target), List<Link>> attributes = new();
 
         CountAttributes(tExisting, attributes);
         CountAttributes(tNew, attributes);
@@ -524,14 +623,14 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         ModuleUKSQuery UKSQuery = (ModuleUKSQuery)ParentModule;
         Thought newParent = null;
 
-        foreach (var key in attributes)
+        foreach (var item in attributes)
         {
-            if (key.links.Count >= minCommonAttributes)
+            if (item.Value.Count >= minCommonAttributes)
             {
                 if (newParent is null)
                     newParent = UKSQuery.theUKS.GetOrAddThought("newParent", tExisting.Parents[0]);
-                newParent.AddLink(key.linkType, key.target);
-                foreach (Link r in key.links)
+                newParent.AddLink(item.Key.linkType, item.Key.target);
+                foreach (Link r in item.Value)
                 {
                     Thought tChild = (Thought)r.From;
                     Thought rp = tChild.AddParent(newParent);
@@ -545,21 +644,23 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         newParent.Label = "Unl*";
     }
 
-    private static void CountAttributes(Thought tExisting, List<LinkDest> attributes)
+    private static void CountAttributes(
+        Thought tExisting,
+        Dictionary<(Thought linkType, Thought target), List<Link>> attributes)
     {
         foreach (Link r in tExisting.LinksTo)
         {
-            if (r.LinkType == Thought.IsA) continue;
-            Thought useLinkType = GetInstanceType(r.LinkType);
+            if (r.LinkType is null || r.To is null || r.LinkType == Thought.IsA) continue;
+            Thought useLinkType = r.LinkType;
 
-            LinkDest foundItem = attributes.FindFirst(x => x.linkType == useLinkType && x.target == r.To);
-            if (foundItem is null)
+            var key = (useLinkType, r.To);
+            if (!attributes.TryGetValue(key, out List<Link> links))
             {
-                foundItem = new LinkDest { linkType = useLinkType, target = r.To };
-                attributes.Add(foundItem);
+                links = new List<Link>();
+                attributes.Add(key, links);
             }
-            if (foundItem.links.FindFirst(x => x.From == r.From && x.To == r.To) is null)
-                foundItem.links.Add(r);
+            if (links.FindFirst(x => x.From == r.From && x.To == r.To) is null)
+                links.Add(r);
         }
     }
 

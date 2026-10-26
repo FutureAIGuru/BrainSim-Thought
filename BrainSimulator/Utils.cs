@@ -945,7 +945,8 @@ namespace BrainSimulator
         {
             var listOfBs = (from domainAssembly in AppDomain.CurrentDomain.GetAssemblies()
                             from assemblyType in domainAssembly.GetTypes()
-                            where typeof(ModuleBase).IsAssignableFrom(assemblyType)
+                            where typeof(ModuleBase).IsAssignableFrom(assemblyType) &&
+                                  !typeof(IManualAgent).IsAssignableFrom(assemblyType)
                             orderby assemblyType.Name
                             select assemblyType
                 ).ToArray();

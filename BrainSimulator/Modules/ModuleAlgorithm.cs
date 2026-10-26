@@ -50,22 +50,29 @@ public partial class ModuleAlgorithm : ModuleBase
     // once for each cycle of the engine
     public override void Fire()
     {
-        Init();
-        if (DateTime.Now < lastCycle + TimeSpan.FromMilliseconds(250))
-            return;
-        lastCycle = DateTime.Now;
+        if (theUKS is null || theUKS.SuppressFiring) return;
+        lock (theUKS)
+        {
+            if (theUKS.SuppressFiring) return;
+            Init();
+            if (DateTime.Now < lastCycle + TimeSpan.FromMilliseconds(250))
+                return;
+            lastCycle = DateTime.Now;
 
-        //handle single-step process
-        if (IsSingleStepMode && !takeStep) return;
-        takeStep = false;
+            //handle single-step process
+            if (IsSingleStepMode && !takeStep) return;
+            takeStep = false;
 
-        HandleFiringNeurons();
-        UpdateDialog();
+            HandleFiringNeurons();
+            UpdateDialog();
+        }
     }
 
     private bool HandleFiringNeurons()
     {
+        //return false;
         var activeSteps = Thought.GetRecentlyFiredThoughts(TimeSpan.MaxValue); //for debug, no timeout
+        Thought.ClearRecentlyFiredQueue();
         foreach (var activeStep in activeSteps)
         {
             Thought.DeleteFromRecentlyFired(activeStep); //ensure we detect thought firing only once
@@ -79,8 +86,8 @@ public partial class ModuleAlgorithm : ModuleBase
                 LastExecutedStep = step;
             }
             CycleCount++;
-            //Cases: EntryPoint, Call, Context, Assignment
             FireNextStatement(activeStep);
+            //Cases: EntryPoint, Call, Context, Assignment
             if (HandledEntryPoint(activeStep)) continue;  //program start
             if (HandledCall(activeStep)) continue;  //program start or call
             if (HandledAssignment(activeStep)) continue;
@@ -101,9 +108,12 @@ public partial class ModuleAlgorithm : ModuleBase
         return true;
     }
 
-    //WE COULD REPLACE THESE WITH PROPERTIES
     // Entry point: Thought with a "steps" link to a SeqElement
-    private bool IsEntryPoint(Thought t) { return t.GetTargetOfFirstLinkOfType("steps") is not null; }
+    private bool IsEntryPoint(Thought t)
+    {
+        bool retVal = t.GetTargetOfFirstLinkOfType("steps") is SeqElement;
+        return retVal;
+    }
     // Call: SeqElement with a VLU that has a "steps" link
     private bool IsCall(Thought t) { return t is not null && t is not Link && t.GetTargetOfFirstLinkOfType("steps") is not null; }
     // A Context Block has candidate children with response Relationships.
@@ -114,6 +124,8 @@ public partial class ModuleAlgorithm : ModuleBase
     private void FireNextStatement(Thought activeStep)
     {
         if (IsEntryPoint(activeStep)) { activeStep.GetTargetOfFirstLinkOfType("steps").Fire(); return; }
+        if (activeStep is SeqElement step && !(step.FRST ?? step).LinksFrom.Any(link =>
+            ReferenceEquals(link.LinkType, theUKS.Labeled("steps")))) return;
         if (activeStep is SeqElement s)
         {
             //do NOT step next if this is a CALL or a CONTEXT
@@ -122,13 +134,13 @@ public partial class ModuleAlgorithm : ModuleBase
             if (IsAssignment(s.VLU)) s.VLU.Fire();
             Thought retVal = s.NXT; //get the next statement in the sequence
             if (retVal is null) //if we're at the end of a sequence, check for a return value to jump to
-                retVal = GetReturn(s.FRST);
+                retVal = GetReturn(s.FRST ?? s);
             retVal?.Fire();
         }
     }
     private bool HandledEntryPoint(Thought t)
     {
-        SeqElement IsEntryPoint = (SeqElement)t.GetTargetOfFirstLinkOfType("steps");
+        SeqElement IsEntryPoint = t.GetTargetOfFirstLinkOfType("steps") as SeqElement;
         if (IsEntryPoint is not null)
         {
             LastAction = $"STEP {CycleCount} CALL: {t}";
@@ -260,17 +272,22 @@ public partial class ModuleAlgorithm : ModuleBase
     /// <param name="taskName">Name of the task to execute</param>
     /// <param name="param1Value">First parameter value (can be any string)</param>
     /// <param name="param2Value">Second parameter value (can be any string)</param>
-    /// <param name="executeImmediately">If true, executes all steps immediately (for testing). If false, 
+    /// <param name="executeImmediately">If true, executes all steps immediately (for testing). If false,
     /// lets the polling loop or single-step execute steps.</param>
     /// <returns>True if execution succeeded, false otherwise</returns>
     public bool ExecuteTask(string taskName, string param1Value = "", string param2Value = "", bool executeImmediately = true)
     {
+        if (theUKS?.SuppressFiring == true)
+        {
+            LastAction = "Loading knowledge; wait before executing a task.";
+            return false;
+        }
         // Starting another task also releases the previous task's protected lifetimes.
         Thought.ClearRecentlyFiredQueue();
         HandleFiringNeurons();
         // Set link time-to-live based on execution mode
         // Single-step mode gets longer TTL since user is manually stepping through
-        linkTimeToLive = IsSingleStepMode ? TimeSpan.FromSeconds(20) : TimeSpan.FromSeconds(10);
+        linkTimeToLive = IsSingleStepMode ? TimeSpan.FromSeconds(60) : TimeSpan.FromSeconds(30);
         LastLinkWritten = null;
         CycleCount = 0;
         LastAction = "";
@@ -287,13 +304,7 @@ public partial class ModuleAlgorithm : ModuleBase
         // Process param1
         if (!string.IsNullOrEmpty(param1Value))
         {
-            Thought param1ValueThought = theUKS.Labeled(param1Value);
-            if (param1ValueThought == null)
-            {
-                // Create new thought with spelling sequence
-                param1ValueThought = theUKS.GetOrAddThought(param1Value, "Thing");
-                CreateSpellingSequence(param1Value, param1ValueThought);
-            }
+            Thought param1ValueThought = GetOrCreateParameterValue(param1Value);
             // Link: param1 -> REF -> param1ValueThought
             param1Thought.RemoveLinks(refType);
             param1Thought.AddLink(refType, param1ValueThought);
@@ -302,13 +313,7 @@ public partial class ModuleAlgorithm : ModuleBase
         // Process param2
         if (!string.IsNullOrEmpty(param2Value))
         {
-            Thought param2ValueThought = theUKS.Labeled(param2Value);
-            if (param2ValueThought == null)
-            {
-                // Create new thought with spelling sequence
-                param2ValueThought = theUKS.GetOrAddThought(param2Value, "Thing");
-                CreateSpellingSequence(param2Value, param2ValueThought);
-            }
+            Thought param2ValueThought = GetOrCreateParameterValue(param2Value);
             // Link: param2 -> REF -> param2ValueThought
             param2Thought.RemoveLinks(refType);
             param2Thought.AddLink(refType, param2ValueThought);
@@ -340,32 +345,20 @@ public partial class ModuleAlgorithm : ModuleBase
         }
 
         // Execute immediately for tests, or let the polling loop handle it
-        if (executeImmediately)
-            return ExecuteAllSteps();
-
-        return true;
+        return executeImmediately ? ExecuteAllSteps() : true;
     }
 
-    private void CreateSpellingSequence(string word, Thought wordThought)
+    private Thought GetOrCreateParameterValue(string value)
     {
-        List<Thought> letters = new List<Thought>();
-        foreach (char c in word.ToUpper())
-        {
-            string letterName = c.ToString();
-            Thought letterThought = theUKS.GetOrAddThought(letterName, "Letter");
-            letters.Add(letterThought);
-        }
+        if (value.Length == 1)
+            return theUKS.GetOrAddCharacter(value[0]);
 
-        if (letters.Count > 0)
-        {
-            SeqElement spellingSeq = theUKS.AddSequence(word + "-spelling", letters);
-            if (spellingSeq != null)
-            {
-                spellingSeq.Label = word + "-seq0";
-                Thought spelledType = theUKS.GetOrAddThought("spelled", "LinkType");
-                wordThought.AddLink(spelledType, spellingSeq);
-            }
-        }
+        Thought valueThought = theUKS.Labeled(value);
+        if (valueThought is not null) return valueThought;
+
+        valueThought = theUKS.GetOrAddThought(value, "Thing");
+        theUKS.CreateSpellingSequence(value, valueThought);
+        return valueThought;
     }
 
     private bool ExecuteAllSteps()
@@ -397,6 +390,7 @@ public partial class ModuleAlgorithm : ModuleBase
 
     private SeqElement GetReturn(Thought current)
     {
+        if (current is null) return null;
         SeqElement retVal = (SeqElement)current.GetTargetOfFirstLinkOfType("retVal");
         current.RemoveLinks("retVal");
         return retVal;
@@ -404,12 +398,6 @@ public partial class ModuleAlgorithm : ModuleBase
 
     private Thought EvaluateContext(Thought contextRoot)
     {
-        // Ch.4 AND-gate: activate context root + has relationship before attribute matching.
-        theUKS.CurrentTraversal.Activate(contextRoot);
-        Thought? hasType = theUKS.Labeled("has");
-        if (hasType is not null)
-            theUKS.CurrentTraversal.ActivateRelationship(hasType);
-
         ContextCaseResult? selected = SelectBestContextCase(contextRoot, HandleIndirection);
         Thought bestResponse = selected?.Response;
 
@@ -417,6 +405,7 @@ public partial class ModuleAlgorithm : ModuleBase
         LastAction = $"CONTEXT: {contextRoot.Label} JMP: {bestResponse?.Label}";
         return bestResponse;
     }
+
     private Thought HandleIndirection(Thought to)
     {
         if (to is null) return null;

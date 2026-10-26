@@ -12,7 +12,6 @@
  */
 
 using System.Windows;
-using System.Windows.Controls;
 
 namespace BrainSimulator.Modules
 {
@@ -45,14 +44,5 @@ namespace BrainSimulator.Modules
             parent.DoTheWork();
         }
 
-        private void Enable_Checked(object sender, RoutedEventArgs e)
-        {
-            if (sender is CheckBox cb)
-            {
-                ModuleAddCounts parent = (ModuleAddCounts)base.ParentModule;
-                if (parent is not null)
-                    parent.isEnabled = cb.IsChecked == true;
-            }
-        }
     }
 }

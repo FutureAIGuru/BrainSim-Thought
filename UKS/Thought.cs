@@ -34,6 +34,22 @@ public class Link : Thought
         LinkType = linkType;
         To = to;
     }
+    public Link(Link l)
+    {
+        if (l.From is Link l1)
+            From = new(l1);
+        else
+            From = l.From;
+        if (l.LinkType is Link l2)
+            LinkType = new(l2);
+        else
+            LinkType = l.LinkType;
+        if (l.To is Link l3)    
+            To = new(l3);   
+        else
+            To = l.To;
+    }
+
 
     public Thought? From { get; set; }
     public Thought? LinkType { get; set; }
@@ -68,15 +84,19 @@ public partial class Thought
 {
     private static readonly Queue<Thought> recentlyFired = new();
     private static readonly object recentlyFiredLock = new();
+    private static readonly Queue<Thought> recentlyCreated = new();
+    private static readonly object recentlyCreatedLock = new();
 
     public static Thought IsA => ThoughtLabels.GetThought("is-a")!;  //this is a cache value shortcut for (Thought)"is-a"
     private readonly List<Link> _linksTo = new();   // links to "has", "is", is-a, many others
     private readonly List<Link> _linksFrom = new(); // links from
+    private readonly List<Link> _linksAsType = new(); // links which use this Thought as their LinkType
 
     /// <summary>Unsafe writeable list of outgoing links.</summary>
     public List<Link> LinksToWriteable { get => _linksTo; }
     /// <summary>Unsafe writeable list of incoming links.</summary>
     public List<Link> LinksFromWriteable { get => _linksFrom; }
+    internal List<Link> LinksAsTypeWriteable { get => _linksAsType; }
     /// <summary>Safe snapshot of outgoing links.</summary>
     //public IReadOnlyList<Link> LinksTo { get { lock (_linksTo) { return new List<Link>(_linksTo.AsReadOnly()); } } }
     public IReadOnlyList<Link> LinksTo
@@ -110,32 +130,66 @@ public partial class Thought
 
     public void Delete()
     {
-        if (LinksFrom.FindFirst(x => x.LinkType?.Label == "VLU") is not null)
+        // A Link is also a Thought. If it is still installed in the graph, detach
+        // it first; RemoveLink calls back here after the detachment is complete.
+        if (this is Link link && link.From is not null)
         {
-            //this Thought is the object of a sequence.  
-        }
-        foreach (Link r in _linksTo.Where(x => (x.To as SeqElement)?.FRST == x.To))
-        {
-            if (r.To is SeqElement seq)
-                UKS.theUKS.DeleteSequence(seq);
-        }
-        for (int i = 0; i < _linksTo.Count; i++)
-        {
-            Link r = _linksTo[i];
-            RemoveLink(r);
-            i--;
-        }
-
-        for (int i = 0; i < _linksFrom.Count; i++)
-        {
-            Link r = _linksFrom[i];
-            if (r.From?.LinksTo.Count > 0)  //HACK: corrects for certain broken links
+            bool isAttached;
+            lock (link.From._linksTo)
+                isAttached = link.From._linksTo.Any(candidate => ReferenceEquals(candidate, link));
+            if (isAttached)
             {
-                r.From.RemoveLink(r);
-                i--;
+                link.From.RemoveLink(link);
+                return;
             }
         }
 
+        List<Thought> replacementParents = this is Link ? new() : Parents.ToList();
+        List<Thought> childrenToReparent = this is Link ? new() : Children.ToList();
+
+        if (this is not Link)
+        {
+            UKS.theUKS.ReplaceDeletedSequenceValues(this);
+
+            foreach (Link typedLink in _linksAsType.ToList())
+                typedLink.From?.RemoveLink(typedLink);
+        }
+
+        foreach (Link r in _linksTo
+            .Where(candidate => candidate.To is SeqElement seq && ReferenceEquals(seq.FRST, seq))
+            .ToList())
+        {
+            if (r.To is SeqElement sequence)
+                UKS.theUKS.DeleteSequence(sequence);
+        }
+
+        foreach (Link r in _linksTo.ToList())
+            RemoveLink(r);
+
+        foreach (Link r in _linksFrom.ToList())
+            (r.From ?? this).RemoveLink(r);
+
+        foreach (Thought child in childrenToReparent)
+        {
+            // A class-specific wildcard has no meaning after its class is
+            // deleted. Promoting it to the class's parent turns an internal
+            // matcher into an ordinary sibling, so remove it instead.
+            if (child.HasProperty("isWildcard"))
+            {
+                child.Delete();
+                continue;
+            }
+
+            foreach (Thought parent in replacementParents)
+                if (!ReferenceEquals(child, parent) && !ReferenceEquals(parent, this))
+                    child.AddParent(parent);
+
+            if (child.Parents.Count == 0 && ThoughtLabels.GetThought("Unknown") is Thought unknown)
+                child.AddParent(unknown);
+        }
+
+        DeleteFromRecentlyFired(this);
+        DeleteFromRecentlyCreated(this);
         ThoughtLabels.RemoveThoughtLabel(Label);
         lock (UKS.theUKS.AtomicThoughts)
             UKS.theUKS.AtomicThoughts.Remove(this);
@@ -165,8 +219,8 @@ public partial class Thought
         return true;
     }
 
-    public int UseCount = 0;
     public DateTime LastFiredTime = DateTime.MinValue;
+    public DateTime CreatedTime { get; } = DateTime.Now;
 
     private TimeSpan _timeToLive = TimeSpan.MaxValue;
     /// <summary>Makes a Thought transient when set to a finite time.</summary>
@@ -203,9 +257,19 @@ public partial class Thought
     }
 
     /// <summary>
+    /// True when ordinary learning and forgetting are allowed to change this
+    /// Thought's persistent weight. Structural Thoughts and Links are not
+    /// plastic by default.
+    /// </summary>
+    public bool isPlastic { get; set; }
+
+    /// <summary>
     /// Default constructor.
     /// </summary>
-    public Thought() { }
+    public Thought()
+    {
+        AddToRecentlyCreated();
+    }
 
     /// <summary>
     /// Copy constructor. For link thoughts, construct a Link instead.
@@ -213,12 +277,15 @@ public partial class Thought
     /// <param name="r">Thought to copy.</param>
     public Thought(Thought r)
     {
-        // Copy only common fields; link-specific fields handled via Link subclass.
+        AddToRecentlyCreated();
         if (r is Link)
             return;
         Weight = r.Weight;
+        maxWeight = r.maxWeight;
+        isPlastic = r.isPlastic;
         V = r.V;
         Label = r.Label;
+        
     }
 
     /// <summary>
@@ -283,29 +350,6 @@ public partial class Thought
         if (string.IsNullOrEmpty(Label))
             Label = "R*";
         return this;
-    }
-
-    /// <summary>
-    /// Returns direct children plus any subclass children.
-    /// </summary>
-    public IReadOnlyList<Thought> ChildrenWithSubclasses
-    {
-        get
-        {
-            List<Thought> retVal = new();
-            HashSet<Thought> seen = new();
-            foreach (Thought child in Children)
-            {
-                if (seen.Add(child))
-                    retVal.Add(child);
-                foreach (Thought descendant in child.Descendants)
-                {
-                    if (seen.Add(descendant))
-                        retVal.Add(descendant);
-                }
-            }
-            return retVal;
-        }
     }
 
     /// <summary>
@@ -394,7 +438,6 @@ public partial class Thought
             return;
             
         LastFiredTime = DateTime.Now;
-        UseCount++;
         AddToRecentlyFired();
         UpdateTimeToLive();
     }
@@ -467,12 +510,49 @@ public partial class Thought
             recentlyFired.Clear();
     }
 
+    private void AddToRecentlyCreated()
+    {
+        const int maxCount = 100;
+        lock (recentlyCreatedLock)
+        {
+            recentlyCreated.Enqueue(this);
+            while (recentlyCreated.Count > maxCount) _ = recentlyCreated.Dequeue();
+        }
+    }
+
+    public static void DeleteFromRecentlyCreated(Thought thought)
+    {
+        lock (recentlyCreatedLock)
+        {
+            List<Thought> remaining = recentlyCreated
+                .Where(item => !ReferenceEquals(item, thought)).ToList();
+            recentlyCreated.Clear();
+            foreach (Thought item in remaining) recentlyCreated.Enqueue(item);
+        }
+    }
+
+    public static IReadOnlyList<Thought> GetRecentlyCreatedThoughts(TimeSpan recency)
+    {
+        DateTime cutoff = DateTime.MinValue;
+        if (recency < DateTime.Now - DateTime.MinValue) cutoff = DateTime.Now - recency;
+        Thought[] retVal;
+        lock (recentlyCreatedLock)
+            retVal = recentlyCreated.Where(thought => thought.CreatedTime > cutoff).ToArray();
+        return retVal;
+    }
+
+    public static void ClearRecentlyCreatedQueue()
+    {
+        lock (recentlyCreatedLock)
+            recentlyCreated.Clear();
+    }
+
     private void UpdateTimeToLive()
     {
         float baseSeconds = 10;
         float growthFactor = 2;
         float maxSeconds = 60 * 60 * 24; //1 day
-        double ttlSeconds = baseSeconds * Math.Pow(growthFactor, UseCount);
+        double ttlSeconds = baseSeconds * Math.Pow(growthFactor, 1);
         ttlSeconds = Math.Min(ttlSeconds, maxSeconds);
         // Prevent overflow of TimeSpan when extending
         var increment = TimeSpan.FromSeconds(ttlSeconds);
@@ -512,20 +592,24 @@ public partial class Thought
             To = to,
             LastFiredTime = DateTime.Now,
         };
-        if (to is not null && linkType is not null)
+        if (to is not null)
         {
             lock (_linksTo)
+                lock (linkType._linksAsType)
                 lock (to._linksFrom)
                 {
                     LinksToWriteable.Add(r);
+                    linkType._linksAsType.Add(r);
                     to.LinksFromWriteable.Add(r);
                 }
         }
         else
         {
             lock (_linksTo)
+            lock (linkType._linksAsType)
             {
                 LinksToWriteable.Add(r);
+                linkType._linksAsType.Add(r);
             }
         }
         return r;
@@ -567,45 +651,29 @@ public partial class Thought
     {
         if (r is null) return;
         if (r.LinkType is null) return;
-        if (r.From is null)
-        {
-            if (r.To is null) return;
-            lock (r.LinkType._linksFrom)
-            {
-                lock (r.To._linksFrom)
-                {
-                    r.LinkType._linksFrom.RemoveAll(x => x.From == r.From && x.LinkType == r.LinkType && x.To == r.To);
-                    r.To._linksFrom.RemoveAll(x => x.From == r.From && x.LinkType == r.LinkType && x.To == r.To);
-                }
-            }
-        }
-        else if (r.To is null)
+
+        Link? storedLink = r;
+        if (r.From is not null)
         {
             lock (r.From._linksTo)
-            {
-                lock (r.LinkType._linksFrom)
-                {
-                    r.From._linksTo.RemoveAll(x => x.From == r.From && x.LinkType == r.LinkType && x.To is null);
-                    r.LinkType._linksFrom.RemoveAll(x => x.From == r.From && x.LinkType == r.LinkType && x.To is null);
-                }
-            }
+                storedLink = r.From._linksTo.Find(candidate =>
+                    ReferenceEquals(candidate, r) ||
+                    (ReferenceEquals(candidate.From, r.From) &&
+                     ReferenceEquals(candidate.LinkType, r.LinkType) &&
+                     ReferenceEquals(candidate.To, r.To)));
         }
-        else
-        {
-            lock (r.From._linksTo)
-            {
-                lock (r.LinkType._linksFrom)
-                {
-                    lock (r.To._linksFrom)
-                    {
-                        r.From._linksTo.Remove(r);
-                        r.LinkType._linksFrom.Remove(r);
-                        r.To._linksFrom.Remove(r);
-                    }
-                }
-            }
-        }
-        r.Delete();
+        if (storedLink is null) return;
+
+        if (storedLink.From is not null)
+            lock (storedLink.From._linksTo)
+                storedLink.From._linksTo.Remove(storedLink);
+        lock (storedLink.LinkType!._linksAsType)
+            storedLink.LinkType._linksAsType.Remove(storedLink);
+        if (storedLink.To is not null)
+            lock (storedLink.To._linksFrom)
+                storedLink.To._linksFrom.Remove(storedLink);
+
+        storedLink.Delete();
     }
 
     public Thought? GetTargetOfFirstLinkOfType(Thought linkType)
@@ -616,6 +684,16 @@ public partial class Thought
     public Thought? GetTargetOfFirstLinkOfType(string linkTypeLabel)
     {
         return LinksTo.FindFirst(x =>
+            string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.To;
+    }
+    public Thought? GetSourceOfFirstLinkOfType(string linkTypeLabel)
+    {
+        return LinksFrom.FindFirst(x =>
+            string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.From;
+    }
+    public Thought? GetTargetOfHighestWeightLinkOfType(string linkTypeLabel)
+    {
+        return LinksTo.OrderByDescending(x => x.Weight).ToList().FindFirst(x =>
             string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.To;
     }
     private static bool LinkTypesMatch(Thought? a, Thought? b)
@@ -713,6 +791,14 @@ public partial class Thought
         Thought? t = ThoughtLabels.GetThought(label);
         return t is not null && HasProperty(t);
     }
+    public Thought AddProperty(Thought t)
+    {
+        if (t is not null && !HasProperty(t))
+        {
+            AddLink("hasProperty", t);
+        }
+        return t;
+    }
 
     public bool HasProperty(Thought? t)  //with inheritance
     {
@@ -729,7 +815,11 @@ public partial class Thought
     /// </summary>
     public IEnumerable<Thought> EnumerateSubThoughts()
     {
-        var visited = new HashSet<Thought>();
+        // This is graph traversal, so distinct objects must remain distinct even
+        // when Thought.Equals considers them structurally equivalent. In
+        // particular, anonymous sequence values may be equal links that still
+        // require separate persistence entries.
+        var visited = new HashSet<Thought>(ReferenceEqualityComparer.Instance);
         var q = new Queue<Thought>();
 
         void EnqueueIfNew(Thought? t)

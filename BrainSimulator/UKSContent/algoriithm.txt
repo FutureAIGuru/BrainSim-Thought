@@ -1,42 +1,893 @@
-unl_4d55a419   [InvertBoolean->is-a->Task] 1.00
-unl_6686eed1   [boolNOT->is-a->InvertBoolean] 1.00
-unl_e5f56241   [ContextNot->is-a->InvertBoolean] 1.00
-unl_3c754fc3   [writeTrue->is-a->InvertBoolean] 0.90
-unl_e3ec906c   [writeFalse->is-a->InvertBoolean] 0.90
-unl_772af474   [boolNOT->steps->boolNOT-seq0] 1.00
-unl_8b1cfaac   [cTrue->is-a->ContextNot] 1.00
-unl_28ad649c   [cFalse->is-a->ContextNot] 1.00
-unl_72457a17   [writeTrue->steps->writeTrue-seq0] 1.00
-unl_5f9218c7   [writeFalse->steps->writeFalse-seq0] 1.00
-unl_4a07a5d7   [is-a->hasProperty->isTransitive] 1.00
-unl_e73f1c07   [is-a->hasProperty->inheritable] 1.00
-unl_95583d3f   [boolNOT-seq0->VLU->GetInputParameters] 1.00
-unl_25439046   [boolNOT-seq0->FRST->boolNOT-seq0] 1.00
-unl_4ed35984   [boolNOT-seq0->NXT->boolNOT-seq1] 1.00
-unl_0bbd06c8   [cTrue->has->unl_7b8eb373] 1.00
-unl_7b8eb373   [p1->EXIST.is->TRUE] 1.00
-unl_d9fd4d34   [cTrue->response->writeFalse] 1.00
-unl_f17c96c3   [cFalse->has->unl_34f83396] 1.00
-unl_34f83396   [p1->EXIST.is->FALSE] 1.00
-unl_4e02bc70   [cFalse->response->writeTrue] 1.00
-unl_7e25ef13   [writeTrue-seq0->VLU->unl_b64a3353] 1.00
-unl_b64a3353   [p1->WRITE.is->TRUE] 1.00
-unl_f88a697b   [writeTrue-seq0->FRST->writeTrue-seq0] 1.00
-unl_97c67e90   [writeFalse-seq0->VLU->unl_09614972] 1.00
-unl_09614972   [p1->WRITE.is->FALSE] 1.00
-unl_787f9a8f   [writeFalse-seq0->FRST->writeFalse-seq0] 1.00
-unl_5ee270cd   [boolNOT-seq1->FRST->boolNOT-seq0] 1.00
-unl_5db2b328   [boolNOT-seq1->VLU->ContextNot] 1.00
-unl_1d98e28b   [GetInputParameters->steps->GetInput-seq0] 1.00
-unl_f03f0fca   [GetInput-seq0->VLU->unl_48e21eae] 1.00
-unl_48e21eae   [p1->WRITE.is->param1] 1.00
-unl_1c78843f   [GetInput-seq0->FRST->GetInput-seq0] 1.00
-unl_298a3617   [GetInput-seq0->NXT->GetInput-seq1] 1.00
-unl_1d9258ab   [hasDigit->is-a->has] 1.00
-unl_26a9dd63   [has->hasProperty->isTransitive] 1.00
-unl_2aa8feab   [has->hasProperty->inheritable] 1.00
-unl_44b99e90   [EXIST.is->IS->IS] 1.00
-unl_893bf39c   [WRITE.is->IS->IS] 1.00
-unl_e756d7b5   [GetInput-seq1->FRST->GetInput-seq0] 1.00
-unl_54577af8   [GetInput-seq1->VLU->unl_1dd01e67] 1.00
-unl_1dd01e67   [p2->WRITE.is->param2] 1.00
+Task            1.00 1.00 False
+unl_07dd509d   [Task->is-a->Thought] 1.00 1.00 False
+is-a            1.00 1.00 False
+Thought         1.00 1.00 False
+unl_56a5f727   [GetInputParameters->is-a->Task] 1.00 1.00 False
+GetInputParameters 1.00 1.00 False
+unl_026ee406   [CompareLetters->is-a->Task] 1.00 1.00 False
+CompareLetters  1.00 1.00 False
+unl_6a245861   [InvertBool->is-a->Task] 1.00 1.00 False
+InvertBool      1.00 1.00 False
+unl_0df90e3d   [variable->is-a->Task] 1.00 1.00 False
+variable        1.00 1.00 False
+unl_88d57dea   [SeqLength->is-a->Task] 1.00 1.00 False
+SeqLength       1.00 1.00 False
+unl_3333661d   [Alphabetize->is-a->Task] 1.00 1.00 False
+Alphabetize     1.00 1.00 False
+unl_00b51ba4   [FollowSequence->is-a->Task] 1.00 1.00 False
+FollowSequence  1.00 1.00 False
+unl_62584952   [GetInputParameters->steps->GetInputParameters-seq0] 1.00 1.00 False
+steps           1.00 1.00 False
+GetInputParameters-seq0 1.00 1.00 False
+unl_7eda7120   [GetInputParameters->retVal->Alphabetize_main-seq1] 1.00 1.00 False
+retVal          1.00 1.00 False
+Alphabetize_main-seq1 1.00 1.00 False
+unl_2d8ba580   [advanceA->is-a->CompareLetters] 1.00 1.00 False
+advanceA        1.00 1.00 False
+unl_3cd3a271   [ContextAlpha->is-a->CompareLetters] 1.00 1.00 False
+ContextAlpha    1.00 1.00 False
+unl_71922eb5   [CompareLetters_main->is-a->CompareLetters] 1.00 1.00 False
+CompareLetters_main 1.00 1.00 False
+unl_43d3ea58   [lettersequal->is-a->CompareLetters] 1.00 1.00 False
+lettersequal    1.00 1.00 False
+unl_63411f84   [p1First->is-a->CompareLetters] 1.00 1.00 False
+p1First         1.00 1.00 False
+unl_c232a6b5   [p2First->is-a->CompareLetters] 1.00 1.00 False
+p2First         1.00 1.00 False
+unl_76d9ac9a   [InvertBool_main->is-a->InvertBool] 1.00 1.00 False
+InvertBool_main 1.00 1.00 False
+unl_7bcd1087   [ContextNot->is-a->InvertBool] 1.00 1.00 False
+ContextNot      1.00 1.00 False
+unl_4d0dbb8b   [writeTrue->is-a->InvertBool] 1.00 1.00 False
+writeTrue       1.00 1.00 False
+unl_04f570de   [writeFalse->is-a->InvertBool] 1.00 1.00 False
+writeFalse      1.00 1.00 False
+unl_a3e0ac4b   [param2->is-a->variable] 1.00 1.00 False
+param2          1.00 1.00 False
+unl_972e01ee   [param1->is-a->variable] 1.00 1.00 False
+param1          1.00 1.00 False
+unl_f305c30f   [p1->is-a->variable] 1.00 1.00 False
+p1              1.00 1.00 False
+unl_70a8134b   [p2->is-a->variable] 1.00 1.00 False
+p2              1.00 1.00 False
+unl_4b4f5416   [a1->is-a->variable] 1.00 1.00 False
+a1              1.00 1.00 False
+unl_acdaece8   [retVal->is-a->variable] 1.00 1.00 False
+unl_e568089d   [SeqLength_main->is-a->SeqLength] 1.00 1.00 False
+SeqLength_main  1.00 1.00 False
+unl_4d527b02   [GetInputParameters->is-a->SeqLength] 1.00 1.00 False
+unl_9fe9d411   [ContextLength->is-a->SeqLength] 1.00 1.00 False
+ContextLength   1.00 1.00 False
+unl_9f0d776d   [p1Longer->is-a->SeqLength] 1.00 1.00 False
+p1Longer        1.00 1.00 False
+unl_23f5c7f5   [p2Longer->is-a->SeqLength] 1.00 1.00 False
+p2Longer        1.00 1.00 False
+unl_40096940   [continue->is-a->SeqLength] 1.00 1.00 False
+continue        1.00 1.00 False
+unl_ed94df68   [equal->is-a->SeqLength] 1.00 1.00 False
+equal           1.00 1.00 False
+unl_be6c7c65   [Alphabetize_main->is-a->Alphabetize] 1.00 1.00 False
+Alphabetize_main 1.00 1.00 False
+unl_004cd636   [cWords->is-a->Alphabetize] 1.00 1.00 False
+cWords          1.00 1.00 False
+unl_6c510551   [w1First->is-a->Alphabetize] 1.00 1.00 False
+w1First         1.00 1.00 False
+unl_467b7d9e   [w2First->is-a->Alphabetize] 1.00 1.00 False
+w2First         1.00 1.00 False
+unl_c6021145   [wordsEqual->is-a->Alphabetize] 1.00 1.00 False
+wordsEqual      1.00 1.00 False
+unl_725cbc9e   [advanceWordLetters->is-a->Alphabetize] 1.00 1.00 False
+advanceWordLetters 1.00 1.00 False
+unl_b825fbe7   [compare2Letters->is-a->Alphabetize] 1.00 1.00 False
+compare2Letters 1.00 1.00 False
+unl_547f7d97   [cLetters->is-a->Alphabetize] 1.00 1.00 False
+cLetters        1.00 1.00 False
+unl_d94aff6f   [advanceLetter->is-a->Alphabetize] 1.00 1.00 False
+advanceLetter   1.00 1.00 False
+unl_85fb9422   [FollowSequence_main->is-a->FollowSequence] 1.00 1.00 False
+FollowSequence_main 1.00 1.00 False
+unl_97816783   [FollowSequence_Responses1->is-a->FollowSequence] 1.00 1.00 False
+FollowSequence_Responses1 1.00 1.00 False
+unl_2bbc1997   [FollowSequence_Continue->is-a->FollowSequence] 1.00 1.00 False
+FollowSequence_Continue 1.00 1.00 False
+unl_3d29e202   [FollowSequence_Done->is-a->FollowSequence] 1.00 1.00 False
+FollowSequence_Done 1.00 1.00 False
+unl_afcd5ed5   [is-a->hasProperty->isTransitive] 1.00 1.00 False
+hasProperty     1.00 1.00 False
+isTransitive    1.00 1.00 False
+unl_2db86188   [is-a->hasProperty->inheritable] 1.00 1.00 False
+inheritable     1.00 1.00 False
+unl_dc90a473   [is-a->hasProperty->isTransitive] 1.00 1.00 False
+unl_9e910229   [is-a->hasProperty->inheritable] 1.00 1.00 False
+unl_852c0982   [GetInputParameters-seq0->VLU->unl_72ac1006] 1.00 1.00 False
+VLU             1.00 1.00 False
+unl_72ac1006   [p1->REF.!->@.^param1 REF] 1.00 1.00 False
+REF.!           1.00 1.00 False
+@.^param1 REF   1.00 1.00 False
+unl_d93c9a09   [GetInputParameters-seq0->FRST->GetInputParameters-seq0] 1.00 1.00 False
+FRST            1.00 1.00 False
+unl_d08dc2dc   [GetInputParameters-seq0->NXT->GetInputParameters-seq1] 1.00 1.00 False
+NXT             1.00 1.00 False
+GetInputParameters-seq1 1.00 1.00 False
+unl_f74f94ea   [Alphabetize_main-seq1->VLU->unl_f9ecdcc3] 1.00 1.00 False
+unl_f9ecdcc3   [p1->REF.!->@.^p1 REF spelled] 1.00 1.00 False
+@.^p1 REF spelled 1.00 1.00 False
+unl_6cf42c11   [Alphabetize_main-seq1->FRST->Alphabetize_main-seq0] 1.00 1.00 False
+Alphabetize_main-seq0 1.00 1.00 False
+unl_ba7f3cbc   [Alphabetize_main-seq1->NXT->Alphabetize_main-seq2] 1.00 1.00 False
+Alphabetize_main-seq2 1.00 1.00 False
+unl_ecd048ea   [advanceA->steps->advanceA-seq0] 1.00 1.00 False
+advanceA-seq0   1.00 1.00 False
+unl_7c9ac436   [cf1->is-a->ContextAlpha] 1.00 1.00 False
+cf1             1.00 1.00 False
+unl_eae0f947   [cf2->is-a->ContextAlpha] 1.00 1.00 False
+cf2             1.00 1.00 False
+unl_e2b4529a   [cEqual->is-a->ContextAlpha] 1.00 1.00 False
+cEqual          1.00 1.00 False
+unl_fe739b0e   [cP1First->is-a->ContextAlpha] 1.00 1.00 False
+cP1First        1.00 1.00 False
+unl_986882b9   [cp2First->is-a->ContextAlpha] 1.00 1.00 False
+cp2First        1.00 1.00 False
+unl_031a5115   [cContinue->is-a->ContextAlpha] 1.00 1.00 False
+cContinue       1.00 1.00 False
+unl_bd430935   [CompareLetters_main->steps->CompareLetters_main-seq0] 1.00 1.00 False
+CompareLetters_main-seq0 1.00 1.00 False
+unl_32d51445   [lettersequal->steps->lettersequal-seq0] 1.00 1.00 False
+lettersequal-seq0 1.00 1.00 False
+unl_d85e24ea   [p1First->steps->p1First-seq0] 1.00 1.00 False
+p1First-seq0    1.00 1.00 False
+unl_ebb3c5fb   [p2First->steps->p2First-seq0] 1.00 1.00 False
+p2First-seq0    1.00 1.00 False
+unl_d09f2c67   [InvertBool_main->steps->boolNOT-seq0] 1.00 1.00 False
+boolNOT-seq0    1.00 1.00 False
+unl_beee1169   [cTrue->is-a->ContextNot] 1.00 1.00 False
+cTrue           1.00 1.00 False
+unl_4ae43328   [cFalse->is-a->ContextNot] 1.00 1.00 False
+cFalse          1.00 1.00 False
+unl_bb9d0292   [writeTrue->steps->writeTrue-seq0] 1.00 1.00 False
+writeTrue-seq0  1.00 1.00 False
+unl_0bc9dfef   [writeFalse->steps->writeFalse-seq0] 1.00 1.00 False
+writeFalse-seq0 1.00 1.00 False
+unl_0ad43232   [param2->REF->cat] 1.00 1.00 False
+REF             1.00 1.00 False
+cat             1.00 1.00 False
+unl_c0e74ed5   [param1->REF->dog] 1.00 1.00 False
+dog             1.00 1.00 False
+unl_c243164a   [p1->REF.!->@.^param1 REF] 1.00 1.00 False
+unl_26073f52   [p1->REF.!->@.^p1 REF spelled] 1.00 1.00 False
+unl_845c9d4e   [p1->REF.!->param1] 1.00 1.00 False
+unl_c484056c   [p1->REF.!->@.^p1 REF NXT] 1.00 1.00 False
+@.^p1 REF NXT   1.00 1.00 False
+unl_13e854da   [p1->REF.!->@.^p1 REF] 1.00 1.00 False
+@.^p1 REF       1.00 1.00 False
+unl_806f951c   [p1->REF.!->p1] 1.00 1.00 False
+unl_bb9720b2   [p1->REF.!->@.^digit order] 1.00 1.00 False
+@.^digit order  1.00 1.00 False
+unl_dc08733b   [p1->REF.?->TRUE] 1.00 1.00 False
+REF.?           1.00 1.00 False
+TRUE            1.00 1.00 False
+unl_e77501f3   [p1->REF.?->FALSE] 1.00 1.00 False
+FALSE           1.00 1.00 False
+unl_9f5d1cf1   [p1->REF.!->TRUE] 1.00 1.00 False
+unl_b4377511   [p1->REF.!->FALSE] 1.00 1.00 False
+unl_cb7f46ec   [p1->NXT.?->??] 1.00 1.00 False
+NXT.?           1.00 1.00 False
+??              1.00 1.00 False
+unl_06baec92   [p1->NXT.?->??] 1.00 1.00 False
+unl_04215908   [p1->REF.?->TRUE] 1.00 1.00 False
+unl_983c4340   [p1->REF.?->FALSE] 1.00 1.00 False
+unl_d1b9259b   [p1->REF.!->TRUE] 1.00 1.00 False
+unl_257afbff   [p1->REF.!->FALSE] 1.00 1.00 False
+unl_46fbd7dd   [p1->REF.!->@.^p1 REF NXT] 1.00 1.00 False
+unl_88af4be0   [p1->REF.!->@.^p1 REF NXT] 1.00 1.00 False
+unl_12bc8313   [p1->REF.!->@.^p1 REF spelled] 1.00 1.00 False
+unl_1620e47a   [p2->REF.!->@.^p2 REF spelled] 1.00 1.00 False
+@.^p2 REF spelled 1.00 1.00 False
+unl_fa62985e   [p2->REF.!->@.^p2 REF NXT] 1.00 1.00 False
+@.^p2 REF NXT   1.00 1.00 False
+unl_d59eb548   [p2->NXT.?->??] 1.00 1.00 False
+unl_2ad8264c   [p2->NXT.?->??] 1.00 1.00 False
+unl_490d7156   [p2->REF.!->param2] 1.00 1.00 False
+unl_53b18566   [p2->REF.!->@.^param2 REF] 1.00 1.00 False
+@.^param2 REF   1.00 1.00 False
+unl_7646c08c   [p2->REF.!->@.^param2 REF] 1.00 1.00 False
+unl_1db23b6d   [p2->REF.!->@.^p2 REF spelled] 1.00 1.00 False
+unl_511e5aa9   [p2->REF.!->@.^p2 REF spelled] 1.00 1.00 False
+unl_79d00ee3   [p2->REF.!->@.^p2 REF NXT] 1.00 1.00 False
+unl_95ec0866   [p2->REF.!->@.^p2 REF NXT] 1.00 1.00 False
+unl_492bb1cd   [a1->REF.!->@.^a1 REF NXT] 1.00 1.00 False
+@.^a1 REF NXT   1.00 1.00 False
+unl_22beb588   [a1->REF.!->@.^a1 NXT] 1.00 1.00 False
+@.^a1 NXT       1.00 1.00 False
+unl_71c70f38   [a1->REF.!->@.^alphabet order] 1.00 1.00 False
+@.^alphabet order 1.00 1.00 False
+unl_ace74959   [a1->REF.!->@.^a1 REF NXT] 1.00 1.00 False
+unl_ff7b011c   [a1->REF.!->@.^alphabet order] 1.00 1.00 False
+unl_b4a6f6e7   [a1->REF.!->@.^a1 REF NXT] 1.00 1.00 False
+unl_981fe5e2   [a1->REF.!->@.^alphabet order] 1.00 1.00 False
+unl_c3008278   [a1->REF.!->@.^a1 REF NXT] 1.00 1.00 False
+unl_4ed9a199   [a1->REF.!->@.^alphabet order] 1.00 1.00 False
+unl_d4d44ee3   [SeqLength_main->steps->SeqLength_main-seq0] 1.00 1.00 False
+SeqLength_main-seq0 1.00 1.00 False
+unl_cb42daa7   [clContinue->is-a->ContextLength] 1.00 1.00 False
+clContinue      1.00 1.00 False
+unl_e46e60f1   [clEqual->is-a->ContextLength] 1.00 1.00 False
+clEqual         1.00 1.00 False
+unl_205f2372   [clP1Longer->is-a->ContextLength] 1.00 1.00 False
+clP1Longer      1.00 1.00 False
+unl_602ee052   [clP2Longer->is-a->ContextLength] 1.00 1.00 False
+clP2Longer      1.00 1.00 False
+unl_ef003b7c   [p1Longer->steps->p1Longer-seq0] 1.00 1.00 False
+p1Longer-seq0   1.00 1.00 False
+unl_200ce64a   [p2Longer->steps->p2Longer-seq0] 1.00 1.00 False
+p2Longer-seq0   1.00 1.00 False
+unl_58595dc2   [continue->steps->continue-seq0] 1.00 1.00 False
+continue-seq0   1.00 1.00 False
+unl_b6e9bc87   [equal->steps->equal-seq0] 1.00 1.00 False
+equal-seq0      1.00 1.00 False
+unl_dfd9925d   [Alphabetize_main->steps->Alphabetize_main-seq0] 1.00 1.00 False
+unl_881a863f   [cWordsContinue->is-a->cWords] 1.00 1.00 False
+cWordsContinue  1.00 1.00 False
+unl_ceb4ac95   [cWordsP1Ends->is-a->cWords] 1.00 1.00 False
+cWordsP1Ends    1.00 1.00 False
+unl_34f8ea13   [cWordsP2Ends->is-a->cWords] 1.00 1.00 False
+cWordsP2Ends    1.00 1.00 False
+unl_da6a70b2   [cWordsBothEnd->is-a->cWords] 1.00 1.00 False
+cWordsBothEnd   1.00 1.00 False
+unl_32a98f4f   [cDifferent->is-a->cWords] 1.00 1.00 False
+cDifferent      1.00 1.00 False
+unl_21e316ef   [w1First->steps->w1First-seq0] 1.00 1.00 False
+w1First-seq0    1.00 1.00 False
+unl_155de010   [w2First->steps->w2First-seq0] 1.00 1.00 False
+w2First-seq0    1.00 1.00 False
+unl_0186ca78   [wordsEqual->steps->wordsEqual-seq0] 1.00 1.00 False
+wordsEqual-seq0 1.00 1.00 False
+unl_577002d0   [advanceWordLetters->steps->advanceWordLetters-seq0] 1.00 1.00 False
+advanceWordLetters-seq0 1.00 1.00 False
+unl_a9ba0cb8   [compare2Letters->steps->Compare2Letters-seq0] 1.00 1.00 False
+Compare2Letters-seq0 1.00 1.00 False
+unl_32cc6eaf   [cLettersP1First->is-a->cLetters] 1.00 1.00 False
+cLettersP1First 1.00 1.00 False
+unl_9bdda15f   [cLettersP2First->is-a->cLetters] 1.00 1.00 False
+cLettersP2First 1.00 1.00 False
+unl_be8591a8   [cLettersContinue->is-a->cLetters] 1.00 1.00 False
+cLettersContinue 1.00 1.00 False
+unl_e414f42c   [advanceLetter->steps->advanceLetter-seq0] 1.00 1.00 False
+advanceLetter-seq0 1.00 1.00 False
+unl_239bbc07   [FollowSequence_main->steps->FollowSequence_main-seq0] 1.00 1.00 False
+FollowSequence_main-seq0 1.00 1.00 False
+unl_d9f7b6c7   [cResponses1Continue->is-a->FollowSequence_Responses1] 1.00 1.00 False
+cResponses1Continue 1.00 1.00 False
+unl_e4ae788a   [cResponses1Done->is-a->FollowSequence_Responses1] 1.00 1.00 False
+cResponses1Done 1.00 1.00 False
+unl_8785c0aa   [FollowSequence_Continue->steps->FollowSequence_Continue-seq0] 1.00 1.00 False
+FollowSequence_Continue-seq0 1.00 1.00 False
+unl_e2f8c0e5   [GetInputParameters-seq1->VLU->unl_7646c08c] 1.00 1.00 False
+unl_6485650c   [GetInputParameters-seq1->FRST->GetInputParameters-seq0] 1.00 1.00 False
+unl_9190b79d   [Alphabetize_main-seq2->VLU->unl_1db23b6d] 1.00 1.00 False
+unl_2774e2be   [Alphabetize_main-seq2->FRST->Alphabetize_main-seq0] 1.00 1.00 False
+unl_92e83fe3   [Alphabetize_main-seq2->NXT->Alphabetize_main-seq3] 1.00 1.00 False
+Alphabetize_main-seq3 1.00 1.00 False
+unl_0bf67a38   [Alphabetize_main-seq3->VLU->cWords] 1.00 1.00 False
+unl_d2d611e2   [Alphabetize_main-seq3->FRST->Alphabetize_main-seq0] 1.00 1.00 False
+unl_34950410   [Alphabetize_main-seq0->VLU->GetInputParameters] 1.00 1.00 False
+unl_a061dd65   [Alphabetize_main-seq0->FRST->Alphabetize_main-seq0] 1.00 1.00 False
+unl_432d9682   [Alphabetize_main-seq0->NXT->Alphabetize_main-seq1] 1.00 1.00 False
+unl_ae434c2d   [advanceA-seq0->VLU->unl_ace74959] 1.00 1.00 False
+unl_5f17b7d4   [advanceA-seq0->FRST->advanceA-seq0] 1.00 1.00 False
+unl_c815f905   [advanceA-seq0->NXT->advanceA-seq1] 1.00 1.00 False
+advanceA-seq1   1.00 1.00 False
+unl_396c4bf1   [cf1->has->unl_b91e959c] 1.00 1.00 False
+has             1.00 1.00 False
+unl_b91e959c   [@.^p2 REF->GT.?->@.^p1 REF] 1.00 1.00 False
+@.^p2 REF       1.00 1.00 False
+GT.?            1.00 1.00 False
+unl_9c922b4a   [cf1->response->p1First] 1.00 1.00 False
+response        1.00 1.00 False
+unl_64533c07   [cf2->has->unl_9a5ffc22] 1.00 1.00 False
+unl_9a5ffc22   [@.^p1 REF->GT.?->@.^p2 REF] 1.00 1.00 False
+unl_1b8fc4e5   [cf2->response->p2First] 1.00 1.00 False
+unl_8ddcc7fd   [cEqual->has->unl_535f9849] 1.00 1.00 False
+unl_535f9849   [@.^p1 REF->same.?->@.^p2 REF] 1.00 1.00 False
+same.?          1.00 1.00 False
+unl_59b23488   [cEqual->response->lettersequal] 1.00 1.00 False
+unl_569fc655   [cP1First->has->unl_38b0ef4d] 1.00 1.00 False
+unl_38b0ef4d   [@.^a1 REF VLU->same.?->@.^p1 REF] 1.00 1.00 False
+@.^a1 REF VLU   1.00 1.00 False
+unl_a05c7bf4   [cP1First->response->p1First] 1.00 1.00 False
+unl_bedf7698   [cp2First->has->unl_4f46d652] 1.00 1.00 False
+unl_4f46d652   [@.^a1 REF VLU->same.?->@.^p2 REF] 1.00 1.00 False
+unl_3a55e736   [cp2First->response->p2First] 1.00 1.00 False
+unl_ed0df917   [cContinue->has->unl_28310395] 0.50 1.00 False
+unl_28310395   [@.^a1 REF->NXT.?->??] 1.00 1.00 False
+@.^a1 REF       1.00 1.00 False
+unl_c608e059   [cContinue->response->advanceA] 1.00 1.00 False
+unl_b094aced   [CompareLetters_main-seq0->VLU->GetInputParameters] 1.00 1.00 False
+unl_82bce282   [CompareLetters_main-seq0->FRST->CompareLetters_main-seq0] 1.00 1.00 False
+unl_3423b16e   [CompareLetters_main-seq0->NXT->CompareLetters_main-seq1] 1.00 1.00 False
+CompareLetters_main-seq1 1.00 1.00 False
+unl_1975ffc1   [lettersequal-seq0->VLU->unl_e981b1a9] 1.00 1.00 False
+unl_e981b1a9   [@.^param1 REF->EQ.!->@.^param2 REF] 1.00 1.00 False
+EQ.!            1.00 1.00 False
+unl_fda854f4   [lettersequal-seq0->FRST->lettersequal-seq0] 1.00 1.00 False
+unl_9539018d   [p1First-seq0->VLU->unl_bddf61e5] 1.00 1.00 False
+unl_bddf61e5   [@.^param2 REF->GT.!->@.^param1 REF] 1.00 1.00 False
+GT.!            1.00 1.00 False
+unl_07eb4733   [p1First-seq0->FRST->p1First-seq0] 1.00 1.00 False
+unl_6643ba37   [p2First-seq0->VLU->unl_e322252f] 1.00 1.00 False
+unl_e322252f   [@.^param1 REF->GT.!->@.^param2 REF] 1.00 1.00 False
+unl_bd3cfb0e   [p2First-seq0->FRST->p2First-seq0] 1.00 1.00 False
+unl_dfb0ac17   [boolNOT-seq0->VLU->GetInputParameters] 1.00 1.00 False
+unl_d1149859   [boolNOT-seq0->FRST->boolNOT-seq0] 1.00 1.00 False
+unl_5fea4610   [boolNOT-seq0->NXT->boolNOT-seq1] 1.00 1.00 False
+boolNOT-seq1    1.00 1.00 False
+unl_9b14311d   [cTrue->has->unl_04215908] 1.00 1.00 False
+unl_1fe0d823   [cTrue->response->writeFalse] 1.00 1.00 False
+unl_ccffc0ba   [cFalse->has->unl_983c4340] 1.00 1.00 False
+unl_18379fb7   [cFalse->response->writeTrue] 1.00 1.00 False
+unl_53fcf464   [writeTrue-seq0->VLU->unl_d1b9259b] 1.00 1.00 False
+unl_b7c6680e   [writeTrue-seq0->FRST->writeTrue-seq0] 1.00 1.00 False
+unl_b537d954   [writeFalse-seq0->VLU->unl_257afbff] 1.00 1.00 False
+unl_7dd9beb3   [writeFalse-seq0->FRST->writeFalse-seq0] 1.00 1.00 False
+unl_340ebc23   [cat->spelled->cat-seq0] 1.00 1.00 False
+spelled         1.00 1.00 False
+cat-seq0        1.00 1.00 False
+unl_a4f1d469   [dog->spelled->dog-seq0] 1.00 1.00 False
+dog-seq0        1.00 1.00 False
+algorithm-link-1554[@.^param1 REF->VLU->param1] 1.00 1.00 False
+unl_960af935   [@.^param1 REF->EQ.!->@.^param2 REF] 1.00 1.00 False
+unl_116818d3   [@.^param1 REF->GT.!->@.^param2 REF] 1.00 1.00 False
+unl_86861cfd   [@.^param1 REF->FRST->@.^param1 REF] 1.00 1.00 False
+unl_bc6df95e   [@.^param1 REF->GT.!->@.^param2 REF] 1.00 1.00 False
+unl_66a4f72d   [@.^param1 REF->EQ.!->@.^param2 REF] 1.00 1.00 False
+unl_4105268d   [@.^param1 REF->GT.!->@.^param2 REF] 1.00 1.00 False
+unl_984830c0   [@.^param1 REF->EQ.!->@.^param2 REF] 1.00 1.00 False
+algorithm-link-1555[@.^param1 REF->NXT->path-656-1] 1.00 1.00 False
+path-656-1      1.00 1.00 False
+unl_1e115a87   [@.^p1 REF spelled->VLU->p1] 1.00 1.00 False
+unl_75ae44f2   [@.^p1 REF spelled->FRST->@.^p1 REF spelled] 1.00 1.00 False
+algorithm-link-1560[@.^p1 REF spelled->NXT->path-665-1] 1.00 1.00 False
+path-665-1      1.00 1.00 False
+unl_87dd30a0   [@.^p1 REF NXT->VLU->p1] 1.00 1.00 False
+unl_76878136   [@.^p1 REF NXT->FRST->@.^p1 REF NXT] 1.00 1.00 False
+algorithm-link-1568[@.^p1 REF NXT->NXT->path-707-1] 1.00 1.00 False
+path-707-1      1.00 1.00 False
+algorithm-link-1583[@.^p1 REF->VLU->p1] 1.00 1.00 False
+unl_35457e95   [@.^p1 REF->GT.?->@.^p2 REF] 1.00 1.00 False
+unl_e85bd489   [@.^p1 REF->same.?->@.^p2 REF] 1.00 1.00 False
+unl_89cd15cc   [@.^p1 REF->EQ.!->@.^p2 REF] 1.00 1.00 False
+unl_db38fd57   [@.^p1 REF->GT.!->@.^p2 REF] 1.00 1.00 False
+unl_c2e389f9   [@.^p1 REF->NXT.?->??] 1.00 1.00 False
+unl_de184ecd   [@.^p1 REF->NXT.?->??] 1.00 1.00 False
+unl_45912cb8   [@.^p1 REF->FRST->@.^p1 REF] 1.00 1.00 False
+unl_290f0cf1   [@.^p1 REF->same.?->@.^p1 REF] 1.00 1.00 False
+unl_5615a656   [@.^p1 REF->NXT.?->??] 1.00 1.00 False
+unl_1d38fc73   [@.^p1 REF->NXT.?->??] 1.00 1.00 False
+unl_73ad054c   [@.^p1 REF->NXT.?->??] 1.00 1.00 False
+unl_201e6a7e   [@.^p1 REF->NXT.?->??] 1.00 1.00 False
+algorithm-link-1584[@.^p1 REF->NXT->path-712-1] 1.00 1.00 False
+path-712-1      1.00 1.00 False
+algorithm-link-1549[@.^digit order->VLU->digit] 1.00 1.00 False
+digit           1.00 1.00 False
+unl_0812ae2c   [@.^digit order->FRST->@.^digit order] 1.00 1.00 False
+algorithm-link-1550[@.^digit order->NXT->path-645-1] 1.00 1.00 False
+path-645-1      1.00 1.00 False
+algorithm-link-1491[??->hasProperty->isWildcard] 1.00 1.00 False
+isWildcard      1.00 1.00 False
+unl_072ebf92   [@.^p2 REF spelled->VLU->p2] 1.00 1.00 False
+unl_710f2c49   [@.^p2 REF spelled->FRST->@.^p2 REF spelled] 1.00 1.00 False
+algorithm-link-1597[@.^p2 REF spelled->NXT->path-730-1] 1.00 1.00 False
+path-730-1      1.00 1.00 False
+unl_4d778774   [@.^p2 REF NXT->VLU->p2] 1.00 1.00 False
+unl_83daf3d7   [@.^p2 REF NXT->FRST->@.^p2 REF NXT] 1.00 1.00 False
+algorithm-link-1605[@.^p2 REF NXT->NXT->path-732-1] 1.00 1.00 False
+path-732-1      1.00 1.00 False
+algorithm-link-1544[@.^param2 REF->VLU->param2] 1.00 1.00 False
+unl_e7b9045e   [@.^param2 REF->FRST->@.^param2 REF] 1.00 1.00 False
+unl_cce83054   [@.^param2 REF->GT.!->@.^param1 REF] 1.00 1.00 False
+unl_47b8e5af   [@.^param2 REF->GT.!->@.^param1 REF] 1.00 1.00 False
+unl_b554db9d   [@.^param2 REF->GT.!->@.^param1 REF] 1.00 1.00 False
+algorithm-link-1545[@.^param2 REF->NXT->path-577-1] 1.00 1.00 False
+path-577-1      1.00 1.00 False
+unl_a8f5c525   [@.^a1 REF NXT->VLU->a1] 1.00 1.00 False
+unl_1d3857c5   [@.^a1 REF NXT->FRST->@.^a1 REF NXT] 1.00 1.00 False
+algorithm-link-1618[@.^a1 REF NXT->NXT->path-743-1] 1.00 1.00 False
+path-743-1      1.00 1.00 False
+algorithm-link-1625[@.^a1 NXT->VLU->a1] 1.00 1.00 False
+unl_ce6c35bb   [@.^a1 NXT->FRST->@.^a1 NXT] 1.00 1.00 False
+algorithm-link-1626[@.^a1 NXT->NXT->path-747-1] 1.00 1.00 False
+path-747-1      1.00 1.00 False
+algorithm-link-1539[@.^alphabet order->VLU->alphabet] 1.00 1.00 False
+alphabet        1.00 1.00 False
+unl_cdf8f492   [@.^alphabet order->FRST->@.^alphabet order] 1.00 1.00 False
+algorithm-link-1540[@.^alphabet order->NXT->path-455-1] 1.00 1.00 False
+path-455-1      1.00 1.00 False
+unl_9282f576   [SeqLength_main-seq0->VLU->GetInputParameters] 1.00 1.00 False
+unl_d4185f5d   [SeqLength_main-seq0->FRST->SeqLength_main-seq0] 1.00 1.00 False
+unl_4e886cb3   [SeqLength_main-seq0->NXT->SeqLength_main-seq1] 1.00 1.00 False
+SeqLength_main-seq1 1.00 1.00 False
+unl_0e0422e8   [clContinue->has->unl_5615a656] 1.00 1.00 False
+unl_92deccdc   [clContinue->has->unl_d16b9338] 1.00 1.00 False
+unl_d16b9338   [@.^p2 REF->NXT.?->??] 1.00 1.00 False
+unl_0ce0e3a2   [clContinue->response->continue] 1.00 1.00 False
+unl_9045f546   [clEqual->has->unl_1d38fc73] -1.00 1.00 False
+unl_7a85eb63   [clEqual->has->unl_14600517] -1.00 1.00 False
+unl_14600517   [@.^p2 REF->NXT.?->??] 1.00 1.00 False
+unl_fbd62604   [clEqual->response->equal] 1.00 1.00 False
+algorithm-link-1629[clEqual->has->unl_290f0cf1] 1.00 1.00 False
+algorithm-link-1632[clEqual->has->algorithm-link-1631] 1.00 1.00 False
+algorithm-link-1631[@.^p2 REF->same.?->@.^p2 REF] 1.00 1.00 False
+unl_edfd5c9d   [clP1Longer->has->unl_5615a656] 1.00 1.00 False
+unl_7ae0ba28   [clP1Longer->has->unl_14600517] -1.00 1.00 False
+unl_0ec512cb   [clP1Longer->response->p1Longer] 1.00 1.00 False
+algorithm-link-1633[clP1Longer->has->algorithm-link-1631] 1.00 1.00 False
+unl_9a26bcca   [clP2Longer->has->unl_1d38fc73] -1.00 1.00 False
+unl_c1c4717f   [clP2Longer->has->unl_d16b9338] 1.00 1.00 False
+unl_bbd9f796   [clP2Longer->response->p2Longer] 1.00 1.00 False
+algorithm-link-1630[clP2Longer->has->unl_290f0cf1] 1.00 1.00 False
+unl_2af958e2   [p1Longer-seq0->VLU->unl_bc6df95e] 1.00 1.00 False
+unl_83d84090   [p1Longer-seq0->FRST->p1Longer-seq0] 1.00 1.00 False
+unl_d29f3158   [p2Longer-seq0->VLU->unl_47b8e5af] 1.00 1.00 False
+unl_ef6e3068   [p2Longer-seq0->FRST->p2Longer-seq0] 1.00 1.00 False
+unl_3378c15c   [continue-seq0->VLU->unl_46fbd7dd] 1.00 1.00 False
+unl_5fd7ac73   [continue-seq0->FRST->continue-seq0] 1.00 1.00 False
+unl_7ae0f24d   [continue-seq0->NXT->continue-seq1] 1.00 1.00 False
+continue-seq1   1.00 1.00 False
+unl_16155669   [equal-seq0->VLU->unl_66a4f72d] 1.00 1.00 False
+unl_8f6bd828   [equal-seq0->FRST->equal-seq0] 1.00 1.00 False
+unl_d0b0f8ea   [cWordsContinue->has->unl_9fb0b2e8] 1.00 1.00 False
+unl_9fb0b2e8   [@.^p1 REF VLU->same.?->@.^p2 REF VLU] 1.00 1.00 False
+@.^p1 REF VLU   1.00 1.00 False
+@.^p2 REF VLU   1.00 1.00 False
+unl_c5065fba   [cWordsContinue->has->unl_73ad054c] 1.00 1.00 False
+unl_e4df62ff   [cWordsContinue->has->unl_f8c6d5b0] 1.00 1.00 False
+unl_f8c6d5b0   [@.^p2 REF->NXT.?->??] 1.00 1.00 False
+unl_d95b7396   [cWordsContinue->response->advanceWordLetters] 1.00 1.00 False
+unl_a87375aa   [cWordsP1Ends->has->unl_9fb0b2e8] 1.00 1.00 False
+unl_cc120a46   [cWordsP1Ends->has->unl_201e6a7e] -1.00 1.00 False
+unl_9f83d4be   [cWordsP1Ends->has->unl_f8c6d5b0] 1.00 1.00 False
+unl_09f1ddf6   [cWordsP1Ends->response->w1First] 1.00 1.00 False
+algorithm-link-1634[cWordsP1Ends->has->unl_290f0cf1] 1.00 1.00 False
+unl_9bf63f10   [cWordsP2Ends->has->unl_9fb0b2e8] 1.00 1.00 False
+unl_2ab8410f   [cWordsP2Ends->has->unl_73ad054c] 1.00 1.00 False
+unl_bc3014d4   [cWordsP2Ends->has->unl_f4fcec55] -1.00 1.00 False
+unl_f4fcec55   [@.^p2 REF->NXT.?->??] 1.00 1.00 False
+unl_6a945817   [cWordsP2Ends->response->w2First] 1.00 1.00 False
+algorithm-link-1636[cWordsP2Ends->has->algorithm-link-1631] 1.00 1.00 False
+unl_6953d806   [cWordsBothEnd->has->unl_9fb0b2e8] 1.00 1.00 False
+unl_09c3d424   [cWordsBothEnd->has->unl_201e6a7e] -1.00 1.00 False
+unl_0b03a216   [cWordsBothEnd->has->unl_f4fcec55] -1.00 1.00 False
+unl_850c69dc   [cWordsBothEnd->response->wordsEqual] 1.00 1.00 False
+algorithm-link-1635[cWordsBothEnd->has->unl_290f0cf1] 1.00 1.00 False
+algorithm-link-1637[cWordsBothEnd->has->algorithm-link-1631] 1.00 1.00 False
+unl_e8e988b1   [cDifferent->has->unl_67114d24] 3.00 1.00 False
+unl_67114d24   [@.^p1 REF VLU->same.not.?->@.^p2 REF VLU] 1.00 1.00 False
+same.not.?      1.00 1.00 False
+unl_abbe73b5   [cDifferent->response->compare2Letters] 1.00 1.00 False
+unl_d83ca91c   [w1First-seq0->VLU->unl_b554db9d] 1.00 1.00 False
+unl_7e9d661c   [w1First-seq0->FRST->w1First-seq0] 1.00 1.00 False
+unl_159c8dd1   [w2First-seq0->VLU->unl_4105268d] 1.00 1.00 False
+unl_2a90a6e9   [w2First-seq0->FRST->w2First-seq0] 1.00 1.00 False
+unl_b0a11ab5   [wordsEqual-seq0->VLU->unl_984830c0] 1.00 1.00 False
+unl_c455bd1c   [wordsEqual-seq0->FRST->wordsEqual-seq0] 1.00 1.00 False
+unl_83784905   [advanceWordLetters-seq0->VLU->unl_88af4be0] 1.00 1.00 False
+unl_052f14de   [advanceWordLetters-seq0->FRST->advanceWordLetters-seq0] 1.00 1.00 False
+unl_a96ae39e   [advanceWordLetters-seq0->NXT->advanceWordLetters-seq1] 1.00 1.00 False
+advanceWordLetters-seq1 1.00 1.00 False
+unl_c719dd57   [Compare2Letters-seq0->VLU->unl_ff7b011c] 1.00 1.00 False
+unl_94ba3d60   [Compare2Letters-seq0->FRST->Compare2Letters-seq0] 1.00 1.00 False
+unl_b34da73b   [Compare2Letters-seq0->NXT->Compare2Letters-seq1] 1.00 1.00 False
+Compare2Letters-seq1 1.00 1.00 False
+unl_185252b4   [cLettersP1First->has->unl_7aeea16a] 1.00 1.00 False
+unl_7aeea16a   [@.^a1 REF VLU->same.?->@.^p1 REF VLU] 1.00 1.00 False
+unl_2a191fb2   [cLettersP1First->response->w1First] 1.00 1.00 False
+unl_ebff928a   [cLettersP2First->has->unl_4a738856] 1.00 1.00 False
+unl_4a738856   [@.^a1 REF VLU->same.?->@.^p2 REF VLU] 1.00 1.00 False
+unl_11de3a05   [cLettersP2First->response->w2First] 1.00 1.00 False
+unl_2a3dd7d6   [cLettersContinue->has->unl_6fc1db6b] 1.00 1.00 False
+unl_6fc1db6b   [@.^a1 REF->NXT.?->??] 1.00 1.00 False
+unl_f96729b4   [cLettersContinue->response->advanceLetter] 1.00 1.00 False
+unl_bee8adbb   [advanceLetter-seq0->VLU->unl_b4a6f6e7] 1.00 1.00 False
+unl_95d8c24f   [advanceLetter-seq0->FRST->advanceLetter-seq0] 1.00 1.00 False
+unl_312b0641   [advanceLetter-seq0->NXT->advanceLetter-seq1] 1.00 1.00 False
+advanceLetter-seq1 1.00 1.00 False
+unl_b5d7656b   [FollowSequence_main-seq0->VLU->unl_981fe5e2] 1.00 1.00 False
+unl_c0273ffc   [FollowSequence_main-seq0->FRST->FollowSequence_main-seq0] 1.00 1.00 False
+unl_d6569b0f   [FollowSequence_main-seq0->NXT->FollowSequence_main-seq1] 1.00 1.00 False
+FollowSequence_main-seq1 1.00 1.00 False
+unl_b8422eca   [cResponses1Continue->has->unl_32e40814] 1.00 1.00 False
+unl_32e40814   [@.^a1 REF->NXT.?->??] 1.00 1.00 False
+unl_7faa4759   [cResponses1Continue->response->FollowSequence_Continue] 1.00 1.00 False
+unl_b70952a6   [cResponses1Done->has->unl_dfb8ab65] -1.00 1.00 False
+unl_dfb8ab65   [@.^a1 REF->NXT.?->??] 1.00 1.00 False
+unl_ca6cfa18   [cResponses1Done->response->FollowSequence_Done] 1.00 1.00 False
+algorithm-link-1639[cResponses1Done->has->algorithm-link-1638] 1.00 1.00 False
+algorithm-link-1638[@.^a1 REF->same.?->@.^a1 REF] 1.00 1.00 False
+unl_4aa8a5b1   [FollowSequence_Continue-seq0->VLU->unl_c3008278] 1.00 1.00 False
+unl_890fed8d   [FollowSequence_Continue-seq0->FRST->FollowSequence_Continue-seq0] 1.00 1.00 False
+unl_55be20c5   [FollowSequence_Continue-seq0->NXT->FollowSequence_Continue-seq1] 1.00 1.00 False
+FollowSequence_Continue-seq1 1.00 1.00 False
+unl_0b4232c8   [REF.!->is->REF] 1.00 1.00 False
+is              1.00 1.00 False
+unl_4199662b   [NXT.?->is-a->NXT] 1.00 1.00 False
+algorithm-link-1501[NXT.not->is-a->NXT] 1.00 1.00 False
+NXT.not         1.00 1.00 False
+unl_1d7f9892   [advanceA-seq1->VLU->ContextAlpha] 1.00 1.00 False
+unl_b355be86   [advanceA-seq1->FRST->advanceA-seq0] 1.00 1.00 False
+unl_e7a418fd   [CompareLetters_main-seq1->VLU->unl_4ed9a199] 1.00 1.00 False
+unl_bc2a4204   [CompareLetters_main-seq1->FRST->CompareLetters_main-seq0] 1.00 1.00 False
+unl_cf75d659   [CompareLetters_main-seq1->NXT->CompareLetters_main-seq2] 1.00 1.00 False
+CompareLetters_main-seq2 1.00 1.00 False
+unl_6f4a86d8   [CompareLetters_main-seq2->VLU->ContextAlpha] 1.00 1.00 False
+unl_4d3f3132   [CompareLetters_main-seq2->FRST->CompareLetters_main-seq0] 1.00 1.00 False
+unl_c6cb1fbf   [boolNOT-seq1->VLU->ContextNot] 1.00 1.00 False
+unl_0227886d   [boolNOT-seq1->FRST->boolNOT-seq0] 1.00 1.00 False
+unl_45678995   [REF.?->is-a->REF] 1.00 1.00 False
+unl_7555edec   [REF.!->is-a->REF] 1.00 1.00 False
+algorithm-link-1488[REF->hasProperty->isExclusive] 1.00 1.00 False
+isExclusive     1.00 1.00 False
+unl_e6d8135c   [cat-seq0->VLU->c:C] 1.00 1.00 False
+c:C             1.00 1.00 False
+unl_58ef6059   [cat-seq0->FRST->cat-seq0] 1.00 1.00 False
+unl_89d08c59   [cat-seq0->NXT->cat-seq1] 1.00 1.00 False
+cat-seq1        1.00 1.00 False
+unl_5c352c14   [dog-seq0->VLU->c:D] 1.00 1.00 False
+c:D             1.00 1.00 False
+unl_3fe8e7bd   [dog-seq0->FRST->dog-seq0] 1.00 1.00 False
+unl_25191e0a   [dog-seq0->NXT->dog-seq1] 1.00 1.00 False
+dog-seq1        1.00 1.00 False
+algorithm-link-1557[path-656-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1556[path-656-1->FRST->@.^param1 REF] 1.00 1.00 False
+algorithm-link-1562[path-665-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1561[path-665-1->FRST->@.^p1 REF spelled] 1.00 1.00 False
+algorithm-link-1563[path-665-1->NXT->path-665-2] 1.00 1.00 False
+path-665-2      1.00 1.00 False
+algorithm-link-1565[path-665-2->VLU->spelled] 1.00 1.00 False
+algorithm-link-1564[path-665-2->FRST->@.^p1 REF spelled] 1.00 1.00 False
+algorithm-link-1570[path-707-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1569[path-707-1->FRST->@.^p1 REF NXT] 1.00 1.00 False
+algorithm-link-1571[path-707-1->NXT->path-707-2] 1.00 1.00 False
+path-707-2      1.00 1.00 False
+algorithm-link-1573[path-707-2->VLU->NXT] 1.00 1.00 False
+algorithm-link-1572[path-707-2->FRST->@.^p1 REF NXT] 1.00 1.00 False
+algorithm-link-1586[path-712-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1585[path-712-1->FRST->@.^p1 REF] 1.00 1.00 False
+algorithm-link-1612[@.^p2 REF->VLU->p2] 1.00 1.00 False
+unl_bd129abf   [@.^p2 REF->GT.?->@.^p1 REF] 1.00 1.00 False
+unl_184f998e   [@.^p2 REF->GT.!->@.^p1 REF] 1.00 1.00 False
+unl_f1aef16a   [@.^p2 REF->NXT.?->??] 1.00 1.00 False
+unl_3f05b16c   [@.^p2 REF->NXT.?->??] 1.00 1.00 False
+unl_f6a466bd   [@.^p2 REF->FRST->@.^p2 REF] 1.00 1.00 False
+algorithm-link-1613[@.^p2 REF->NXT->path-734-1] 1.00 1.00 False
+path-734-1      1.00 1.00 False
+algorithm-link-1552[path-645-1->VLU->order] 1.00 1.00 False
+order           1.00 1.00 False
+algorithm-link-1551[path-645-1->FRST->@.^digit order] 1.00 1.00 False
+unl_33e59a77   [-->is-a->digit] 1.00 1.00 False
+-               1.00 1.00 False
+unl_2b95cf04   [.->is-a->digit] 1.00 1.00 False
+.               1.00 1.00 False
+unl_d55d0175   [0->is-a->digit] 1.00 1.00 False
+0               1.00 1.00 False
+unl_63b231ff   [1->is-a->digit] 1.00 1.00 False
+1               1.00 1.00 False
+unl_b37ce460   [2->is-a->digit] 1.00 1.00 False
+2               1.00 1.00 False
+unl_4d789615   [3->is-a->digit] 1.00 1.00 False
+3               1.00 1.00 False
+unl_6a811715   [4->is-a->digit] 1.00 1.00 False
+4               1.00 1.00 False
+unl_8e49999e   [5->is-a->digit] 1.00 1.00 False
+5               1.00 1.00 False
+unl_b23a9671   [6->is-a->digit] 1.00 1.00 False
+6               1.00 1.00 False
+unl_6d0545a1   [7->is-a->digit] 1.00 1.00 False
+7               1.00 1.00 False
+unl_d4b6261f   [8->is-a->digit] 1.00 1.00 False
+8               1.00 1.00 False
+unl_2d3df272   [9->is-a->digit] 1.00 1.00 False
+9               1.00 1.00 False
+unl_4d1c5302   [digit->order->digit-seq0] 1.00 1.00 False
+digit-seq0      1.00 1.00 False
+unl_9793d0c4   [REF.?->is->REF] 1.00 1.00 False
+unl_2178d5c6   [NXT.?->is->NXT] 1.00 1.00 False
+algorithm-link-1599[path-730-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1598[path-730-1->FRST->@.^p2 REF spelled] 1.00 1.00 False
+algorithm-link-1600[path-730-1->NXT->path-730-2] 1.00 1.00 False
+path-730-2      1.00 1.00 False
+algorithm-link-1602[path-730-2->VLU->spelled] 1.00 1.00 False
+algorithm-link-1601[path-730-2->FRST->@.^p2 REF spelled] 1.00 1.00 False
+algorithm-link-1607[path-732-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1606[path-732-1->FRST->@.^p2 REF NXT] 1.00 1.00 False
+algorithm-link-1608[path-732-1->NXT->path-732-2] 1.00 1.00 False
+path-732-2      1.00 1.00 False
+algorithm-link-1610[path-732-2->VLU->NXT] 1.00 1.00 False
+algorithm-link-1609[path-732-2->FRST->@.^p2 REF NXT] 1.00 1.00 False
+algorithm-link-1547[path-577-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1546[path-577-1->FRST->@.^param2 REF] 1.00 1.00 False
+algorithm-link-1620[path-743-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1619[path-743-1->FRST->@.^a1 REF NXT] 1.00 1.00 False
+algorithm-link-1621[path-743-1->NXT->path-743-2] 1.00 1.00 False
+path-743-2      1.00 1.00 False
+algorithm-link-1623[path-743-2->VLU->NXT] 1.00 1.00 False
+algorithm-link-1622[path-743-2->FRST->@.^a1 REF NXT] 1.00 1.00 False
+algorithm-link-1628[path-747-1->VLU->NXT] 1.00 1.00 False
+algorithm-link-1627[path-747-1->FRST->@.^a1 NXT] 1.00 1.00 False
+algorithm-link-1542[path-455-1->VLU->order] 1.00 1.00 False
+algorithm-link-1541[path-455-1->FRST->@.^alphabet order] 1.00 1.00 False
+unl_2918590a   [alphabet->order->alphabet-seq0] 1.00 1.00 False
+alphabet-seq0   1.00 1.00 False
+unl_fcf8cf2d   [SeqLength_main-seq1->VLU->unl_12bc8313] 1.00 1.00 False
+unl_b9575e0a   [SeqLength_main-seq1->FRST->SeqLength_main-seq0] 1.00 1.00 False
+unl_a7e80fb3   [SeqLength_main-seq1->NXT->SeqLength_main-seq2] 1.00 1.00 False
+SeqLength_main-seq2 1.00 1.00 False
+unl_be218737   [SeqLength_main-seq2->VLU->unl_511e5aa9] 1.00 1.00 False
+unl_7638a23d   [SeqLength_main-seq2->FRST->SeqLength_main-seq0] 1.00 1.00 False
+unl_c0d2120e   [SeqLength_main-seq2->NXT->SeqLength_main-seq3] 1.00 1.00 False
+SeqLength_main-seq3 1.00 1.00 False
+unl_1e544632   [SeqLength_main-seq3->VLU->ContextLength] 1.00 1.00 False
+unl_936a42e2   [SeqLength_main-seq3->FRST->SeqLength_main-seq0] 1.00 1.00 False
+unl_2586e5aa   [continue-seq1->VLU->unl_79d00ee3] 1.00 1.00 False
+unl_ae4634d9   [continue-seq1->FRST->continue-seq0] 1.00 1.00 False
+unl_b2183766   [continue-seq1->NXT->continue-seq2] 1.00 1.00 False
+continue-seq2   1.00 1.00 False
+unl_0cfec7e8   [continue-seq2->VLU->ContextLength] 1.00 1.00 False
+unl_e33623c7   [continue-seq2->FRST->continue-seq0] 1.00 1.00 False
+unl_2a4ac919   [advanceWordLetters-seq1->VLU->unl_95ec0866] 1.00 1.00 False
+unl_be7514ac   [advanceWordLetters-seq1->FRST->advanceWordLetters-seq0] 1.00 1.00 False
+unl_6fd61258   [advanceWordLetters-seq1->NXT->advanceWordLetters-seq2] 1.00 1.00 False
+advanceWordLetters-seq2 1.00 1.00 False
+unl_f158cb07   [advanceWordLetters-seq2->VLU->cWords] 1.00 1.00 False
+unl_3f87ae4c   [advanceWordLetters-seq2->FRST->advanceWordLetters-seq0] 1.00 1.00 False
+unl_6b9e09fb   [Compare2Letters-seq1->VLU->cLetters] 1.00 1.00 False
+unl_10d7aecd   [Compare2Letters-seq1->FRST->Compare2Letters-seq0] 1.00 1.00 False
+unl_40199937   [advanceLetter-seq1->VLU->cLetters] 1.00 1.00 False
+unl_95b6fd1c   [advanceLetter-seq1->FRST->advanceLetter-seq0] 1.00 1.00 False
+unl_850e6bca   [FollowSequence_main-seq1->VLU->FollowSequence_Responses1] 1.00 1.00 False
+unl_36a0062f   [FollowSequence_main-seq1->FRST->FollowSequence_main-seq0] 1.00 1.00 False
+unl_820fe7c6   [FollowSequence_Continue-seq1->VLU->FollowSequence_Responses1] 1.00 1.00 False
+unl_a512f597   [FollowSequence_Continue-seq1->FRST->FollowSequence_Continue-seq0] 1.00 1.00 False
+unl_d0b97c85   [NXT.not.?->is-a->NXT.not] 1.00 1.00 False
+NXT.not.?       1.00 1.00 False
+unl_f9ce5a75   [hasDigit->is-a->has] 1.00 1.00 False
+hasDigit        1.00 1.00 False
+unl_cee8713f   [has->hasProperty->isTransitive] 1.00 1.00 False
+unl_83042c34   [has->hasProperty->inheritable] 1.00 1.00 False
+unl_d2a39829   [GT.?->is->GT] 1.00 1.00 False
+GT              1.00 1.00 False
+unl_107a934e   [same.?->is->SAME] 1.00 1.00 False
+SAME            1.00 1.00 False
+unl_4154a233   [EQ.!->is->EQ] 1.00 1.00 False
+EQ              1.00 1.00 False
+unl_3458a363   [GT.!->is->GT] 1.00 1.00 False
+unl_d903e9b5   [cat-seq1->VLU->c:A] 1.00 1.00 False
+c:A             1.00 1.00 False
+unl_d00ee78a   [cat-seq1->FRST->cat-seq0] 1.00 1.00 False
+unl_bd297b43   [cat-seq1->NXT->cat-seq2] 1.00 1.00 False
+cat-seq2        1.00 1.00 False
+unl_6110495d   [cat-seq2->VLU->c:T] 1.00 1.00 False
+c:T             1.00 1.00 False
+unl_f5908941   [cat-seq2->FRST->cat-seq0] 1.00 1.00 False
+unl_e3c7d23c   [dog-seq1->VLU->c:O] 1.00 1.00 False
+c:O             1.00 1.00 False
+unl_12693901   [dog-seq1->FRST->dog-seq0] 1.00 1.00 False
+unl_57223c2a   [dog-seq1->NXT->dog-seq2] 1.00 1.00 False
+dog-seq2        1.00 1.00 False
+unl_d3506cf5   [dog-seq2->VLU->c:G] 1.00 1.00 False
+c:G             1.00 1.00 False
+unl_eb131655   [dog-seq2->FRST->dog-seq0] 1.00 1.00 False
+algorithm-link-1615[path-734-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1614[path-734-1->FRST->@.^p2 REF] 1.00 1.00 False
+unl_724ea1c7   [1->greaterThan->0] 1.00 1.00 False
+greaterThan     1.00 1.00 False
+unl_4b756f05   [2->greaterThan->1] 1.00 1.00 False
+unl_d21a9d39   [3->greaterThan->2] 1.00 1.00 False
+unl_3fb763ba   [4->greaterThan->3] 1.00 1.00 False
+unl_c95f9cbf   [5->greaterThan->4] 1.00 1.00 False
+unl_62126263   [6->greaterThan->5] 1.00 1.00 False
+unl_9ade8551   [7->greaterThan->6] 1.00 1.00 False
+unl_7bc7852a   [8->greaterThan->7] 1.00 1.00 False
+unl_14cdc50e   [9->greaterThan->8] 1.00 1.00 False
+unl_972bbb07   [digit-seq0->VLU->0] 1.00 1.00 False
+unl_f632ff6a   [digit-seq0->FRST->digit-seq0] 1.00 1.00 False
+unl_eb722003   [digit-seq0->NXT->digit-seq1] 1.00 1.00 False
+digit-seq1      1.00 1.00 False
+unl_98af6dd8   [alphabet-seq0->VLU->c:A] 1.00 1.00 False
+unl_5e5aed22   [alphabet-seq0->FRST->alphabet-seq0] 1.00 1.00 False
+unl_443f0d42   [alphabet-seq0->NXT->alphabet-seq1] 1.00 1.00 False
+alphabet-seq1   1.00 1.00 False
+unl_13aca27a   [@.^p2 REF VLU->VLU->p2] 1.00 1.00 False
+unl_41fc7335   [@.^p2 REF VLU->FRST->@.^p2 REF VLU] 1.00 1.00 False
+algorithm-link-1527[@.^p2 REF VLU->NXT->path-359-1] 1.00 1.00 False
+path-359-1      1.00 1.00 False
+unl_a7107e38   [same.not.?->is->same.not] 1.00 1.00 False
+same.not        1.00 1.00 False
+unl_d4bd1268   [same.not.?->is->same.not] 1.00 1.00 False
+unl_216959b1   [@.^p1 REF VLU->VLU->p1] 1.00 1.00 False
+unl_2112e868   [@.^p1 REF VLU->FRST->@.^p1 REF VLU] 1.00 1.00 False
+unl_33d8149d   [@.^p1 REF VLU->same.?->@.^p2 REF VLU] 1.00 1.00 False
+unl_b00d1298   [@.^p1 REF VLU->same.not.?->@.^p2 REF VLU] 1.00 1.00 False
+algorithm-link-1519[@.^p1 REF VLU->NXT->path-355-1] 1.00 1.00 False
+path-355-1      1.00 1.00 False
+algorithm-link-1534[@.^a1 REF->VLU->a1] 1.00 1.00 False
+unl_f66f3b67   [@.^a1 REF->NXT.?->??] 1.00 1.00 False
+unl_17958611   [@.^a1 REF->FRST->@.^a1 REF] 1.00 1.00 False
+unl_4a3713eb   [@.^a1 REF->NXT.?->??] 1.00 1.00 False
+algorithm-link-1535[@.^a1 REF->NXT->path-363-1] 1.00 1.00 False
+path-363-1      1.00 1.00 False
+unl_e88c7bd1   [NXT.not.?->is->NXT.not] 1.00 1.00 False
+unl_076c0781   [GT.?->is-a->GT] 1.00 1.00 False
+unl_a001bd58   [GT.!->is-a->GT] 1.00 1.00 False
+unl_49ced50f   [same.?->is-a->SAME] 1.00 1.00 False
+algorithm-link-1498[same.not->is-a->SAME] 1.00 1.00 False
+algorithm-link-1487[SAME->hasProperty->isEqual] 1.00 1.00 False
+isEqual         1.00 1.00 False
+unl_4e23a828   [EQ.!->is-a->EQ] 1.00 1.00 False
+unl_80e50d4f   [digit-seq1->VLU->1] 1.00 1.00 False
+unl_cbb1d47f   [digit-seq1->FRST->digit-seq0] 1.00 1.00 False
+unl_f73d1609   [digit-seq1->NXT->digit-seq2] 1.00 1.00 False
+digit-seq2      1.00 1.00 False
+unl_40f75af7   [digit-seq2->VLU->2] 1.00 1.00 False
+unl_43818de0   [digit-seq2->FRST->digit-seq0] 1.00 1.00 False
+unl_885e6af3   [digit-seq2->NXT->digit-seq3] 1.00 1.00 False
+digit-seq3      1.00 1.00 False
+unl_0b9a33e2   [digit-seq3->VLU->3] 1.00 1.00 False
+unl_85eda327   [digit-seq3->FRST->digit-seq0] 1.00 1.00 False
+unl_7e644f07   [digit-seq3->NXT->digit-seq4] 1.00 1.00 False
+digit-seq4      1.00 1.00 False
+unl_70ce8e4a   [digit-seq4->VLU->4] 1.00 1.00 False
+unl_67849618   [digit-seq4->FRST->digit-seq0] 1.00 1.00 False
+unl_b7b35737   [digit-seq4->NXT->digit-seq5] 1.00 1.00 False
+digit-seq5      1.00 1.00 False
+unl_7d26f2fd   [digit-seq5->VLU->5] 1.00 1.00 False
+unl_bc78b279   [digit-seq5->FRST->digit-seq0] 1.00 1.00 False
+unl_61b1ebcb   [digit-seq5->NXT->digit-seq6] 1.00 1.00 False
+digit-seq6      1.00 1.00 False
+unl_dbd5a9e8   [digit-seq6->VLU->6] 1.00 1.00 False
+unl_54bd6369   [digit-seq6->FRST->digit-seq0] 1.00 1.00 False
+unl_f1c7209c   [digit-seq6->NXT->digit-seq7] 1.00 1.00 False
+digit-seq7      1.00 1.00 False
+unl_0ccc04c9   [digit-seq7->VLU->7] 1.00 1.00 False
+unl_22ba515d   [digit-seq7->FRST->digit-seq0] 1.00 1.00 False
+unl_86ec1365   [digit-seq7->NXT->digit-seq8] 1.00 1.00 False
+digit-seq8      1.00 1.00 False
+unl_152e5ffb   [digit-seq8->VLU->8] 1.00 1.00 False
+unl_a9451a70   [digit-seq8->FRST->digit-seq0] 1.00 1.00 False
+unl_92dfa236   [digit-seq8->NXT->digit-seq9] 1.00 1.00 False
+digit-seq9      1.00 1.00 False
+unl_80ba064e   [digit-seq9->VLU->9] 1.00 1.00 False
+unl_b24a0e64   [digit-seq9->FRST->digit-seq0] 1.00 1.00 False
+unl_a207a2d8   [alphabet-seq1->VLU->c:B] 1.00 1.00 False
+c:B             1.00 1.00 False
+unl_d42f0534   [alphabet-seq1->FRST->alphabet-seq0] 1.00 1.00 False
+unl_354e8bbb   [alphabet-seq1->NXT->alphabet-seq2] 1.00 1.00 False
+alphabet-seq2   1.00 1.00 False
+unl_5bffd098   [alphabet-seq2->VLU->c:C] 1.00 1.00 False
+unl_4c05806b   [alphabet-seq2->FRST->alphabet-seq0] 1.00 1.00 False
+unl_992bb134   [alphabet-seq2->NXT->alphabet-seq3] 1.00 1.00 False
+alphabet-seq3   1.00 1.00 False
+unl_e20e0121   [alphabet-seq3->VLU->c:D] 1.00 1.00 False
+unl_1ec69bf8   [alphabet-seq3->FRST->alphabet-seq0] 1.00 1.00 False
+unl_277eddd8   [alphabet-seq3->NXT->alphabet-seq4] 1.00 1.00 False
+alphabet-seq4   1.00 1.00 False
+unl_ff177789   [alphabet-seq4->VLU->c:E] 1.00 1.00 False
+c:E             1.00 1.00 False
+unl_646b7970   [alphabet-seq4->FRST->alphabet-seq0] 1.00 1.00 False
+unl_2dad9033   [alphabet-seq4->NXT->alphabet-seq5] 1.00 1.00 False
+alphabet-seq5   1.00 1.00 False
+unl_f2f6faa6   [alphabet-seq5->VLU->c:F] 1.00 1.00 False
+c:F             1.00 1.00 False
+unl_9f9be7da   [alphabet-seq5->FRST->alphabet-seq0] 1.00 1.00 False
+unl_2586c457   [alphabet-seq5->NXT->alphabet-seq6] 1.00 1.00 False
+alphabet-seq6   1.00 1.00 False
+unl_14a3e0de   [alphabet-seq6->VLU->c:G] 1.00 1.00 False
+unl_760650a0   [alphabet-seq6->FRST->alphabet-seq0] 1.00 1.00 False
+unl_c2207d48   [alphabet-seq6->NXT->alphabet-seq7] 1.00 1.00 False
+alphabet-seq7   1.00 1.00 False
+unl_c4112aac   [alphabet-seq7->VLU->c:H] 1.00 1.00 False
+c:H             1.00 1.00 False
+unl_0f9e24ab   [alphabet-seq7->FRST->alphabet-seq0] 1.00 1.00 False
+unl_5b62bc42   [alphabet-seq7->NXT->alphabet-seq8] 1.00 1.00 False
+alphabet-seq8   1.00 1.00 False
+unl_ac318ccc   [alphabet-seq8->VLU->c:I] 1.00 1.00 False
+c:I             1.00 1.00 False
+unl_489a666e   [alphabet-seq8->FRST->alphabet-seq0] 1.00 1.00 False
+unl_74e83b8d   [alphabet-seq8->NXT->alphabet-seq9] 1.00 1.00 False
+alphabet-seq9   1.00 1.00 False
+unl_42295c39   [alphabet-seq9->VLU->c:J] 1.00 1.00 False
+c:J             1.00 1.00 False
+unl_90c0c6cc   [alphabet-seq9->FRST->alphabet-seq0] 1.00 1.00 False
+unl_41ac2226   [alphabet-seq9->NXT->alphabet-seq10] 1.00 1.00 False
+alphabet-seq10  1.00 1.00 False
+unl_e51727dc   [alphabet-seq10->VLU->c:K] 1.00 1.00 False
+c:K             1.00 1.00 False
+unl_19d0c4ac   [alphabet-seq10->FRST->alphabet-seq0] 1.00 1.00 False
+unl_2f230923   [alphabet-seq10->NXT->alphabet-seq11] 1.00 1.00 False
+alphabet-seq11  1.00 1.00 False
+unl_25177328   [alphabet-seq11->VLU->c:L] 1.00 1.00 False
+c:L             1.00 1.00 False
+unl_6646c65f   [alphabet-seq11->FRST->alphabet-seq0] 1.00 1.00 False
+unl_3030ae4b   [alphabet-seq11->NXT->alphabet-seq12] 1.00 1.00 False
+alphabet-seq12  1.00 1.00 False
+unl_c554819b   [alphabet-seq12->VLU->c:M] 1.00 1.00 False
+c:M             1.00 1.00 False
+unl_be24ba4d   [alphabet-seq12->FRST->alphabet-seq0] 1.00 1.00 False
+unl_3df9f850   [alphabet-seq12->NXT->alphabet-seq13] 1.00 1.00 False
+alphabet-seq13  1.00 1.00 False
+unl_f0abddfd   [alphabet-seq13->VLU->c:N] 1.00 1.00 False
+c:N             1.00 1.00 False
+unl_6a362653   [alphabet-seq13->FRST->alphabet-seq0] 1.00 1.00 False
+unl_f9d711b9   [alphabet-seq13->NXT->alphabet-seq14] 1.00 1.00 False
+alphabet-seq14  1.00 1.00 False
+unl_a81d6816   [alphabet-seq14->VLU->c:O] 1.00 1.00 False
+unl_bffba4b9   [alphabet-seq14->FRST->alphabet-seq0] 1.00 1.00 False
+unl_41575e46   [alphabet-seq14->NXT->alphabet-seq15] 1.00 1.00 False
+alphabet-seq15  1.00 1.00 False
+unl_846be3fb   [alphabet-seq15->VLU->c:P] 1.00 1.00 False
+c:P             1.00 1.00 False
+unl_c53aa24a   [alphabet-seq15->FRST->alphabet-seq0] 1.00 1.00 False
+unl_28b7af6c   [alphabet-seq15->NXT->alphabet-seq16] 1.00 1.00 False
+alphabet-seq16  1.00 1.00 False
+unl_8f1b6812   [alphabet-seq16->VLU->c:Q] 1.00 1.00 False
+c:Q             1.00 1.00 False
+unl_5d61158d   [alphabet-seq16->FRST->alphabet-seq0] 1.00 1.00 False
+unl_08ebfcd8   [alphabet-seq16->NXT->alphabet-seq17] 1.00 1.00 False
+alphabet-seq17  1.00 1.00 False
+unl_62883696   [alphabet-seq17->VLU->c:R] 1.00 1.00 False
+c:R             1.00 1.00 False
+unl_7c50424d   [alphabet-seq17->FRST->alphabet-seq0] 1.00 1.00 False
+unl_7f0af562   [alphabet-seq17->NXT->alphabet-seq18] 1.00 1.00 False
+alphabet-seq18  1.00 1.00 False
+unl_fc615751   [alphabet-seq18->VLU->c:S] 1.00 1.00 False
+c:S             1.00 1.00 False
+unl_e8831c38   [alphabet-seq18->FRST->alphabet-seq0] 1.00 1.00 False
+unl_909ea9be   [alphabet-seq18->NXT->alphabet-seq19] 1.00 1.00 False
+alphabet-seq19  1.00 1.00 False
+unl_64456002   [alphabet-seq19->VLU->c:T] 1.00 1.00 False
+unl_21d7ddf3   [alphabet-seq19->FRST->alphabet-seq0] 1.00 1.00 False
+unl_4929812a   [alphabet-seq19->NXT->alphabet-seq20] 1.00 1.00 False
+alphabet-seq20  1.00 1.00 False
+unl_aa758d73   [alphabet-seq20->VLU->c:U] 1.00 1.00 False
+c:U             1.00 1.00 False
+unl_79c9e152   [alphabet-seq20->FRST->alphabet-seq0] 1.00 1.00 False
+unl_3586fcb3   [alphabet-seq20->NXT->alphabet-seq21] 1.00 1.00 False
+alphabet-seq21  1.00 1.00 False
+unl_162794d2   [alphabet-seq21->VLU->c:V] 1.00 1.00 False
+c:V             1.00 1.00 False
+unl_307be67a   [alphabet-seq21->FRST->alphabet-seq0] 1.00 1.00 False
+unl_2d463fb3   [alphabet-seq21->NXT->alphabet-seq22] 1.00 1.00 False
+alphabet-seq22  1.00 1.00 False
+unl_8b4f0eba   [alphabet-seq22->VLU->c:W] 1.00 1.00 False
+c:W             1.00 1.00 False
+unl_c85a67d0   [alphabet-seq22->FRST->alphabet-seq0] 1.00 1.00 False
+unl_d5783c91   [alphabet-seq22->NXT->alphabet-seq23] 1.00 1.00 False
+alphabet-seq23  1.00 1.00 False
+unl_c66ba71a   [alphabet-seq23->VLU->c:X] 1.00 1.00 False
+c:X             1.00 1.00 False
+unl_53d8e97e   [alphabet-seq23->FRST->alphabet-seq0] 1.00 1.00 False
+unl_38344972   [alphabet-seq23->NXT->alphabet-seq24] 1.00 1.00 False
+alphabet-seq24  1.00 1.00 False
+unl_c056bead   [alphabet-seq24->VLU->c:Y] 1.00 1.00 False
+c:Y             1.00 1.00 False
+unl_93c0b26f   [alphabet-seq24->FRST->alphabet-seq0] 1.00 1.00 False
+unl_aa47e99b   [alphabet-seq24->NXT->alphabet-seq25] 1.00 1.00 False
+alphabet-seq25  1.00 1.00 False
+unl_5098077f   [alphabet-seq25->VLU->c:Z] 1.00 1.00 False
+c:Z             1.00 1.00 False
+unl_0e52f7d3   [alphabet-seq25->FRST->alphabet-seq0] 1.00 1.00 False
+algorithm-link-1529[path-359-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1528[path-359-1->FRST->@.^p2 REF VLU] 1.00 1.00 False
+algorithm-link-1530[path-359-1->NXT->path-359-2] 1.00 1.00 False
+path-359-2      1.00 1.00 False
+algorithm-link-1532[path-359-2->VLU->VLU] 1.00 1.00 False
+algorithm-link-1531[path-359-2->FRST->@.^p2 REF VLU] 1.00 1.00 False
+unl_be6e04bf   [same.not.?->is-a->same.not] 1.00 1.00 False
+algorithm-link-1521[path-355-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1520[path-355-1->FRST->@.^p1 REF VLU] 1.00 1.00 False
+algorithm-link-1522[path-355-1->NXT->path-355-2] 1.00 1.00 False
+path-355-2      1.00 1.00 False
+algorithm-link-1524[path-355-2->VLU->VLU] 1.00 1.00 False
+algorithm-link-1523[path-355-2->FRST->@.^p1 REF VLU] 1.00 1.00 False
+algorithm-link-1537[path-363-1->VLU->REF] 1.00 1.00 False
+algorithm-link-1536[path-363-1->FRST->@.^a1 REF] 1.00 1.00 False
+unl_28ca5770   [greaterThan->hasProperty->isTransitive] 1.00 1.00 False

@@ -13,58 +13,42 @@
  
 
 using System.Collections.Generic;
-using System.Threading;
+using System.Linq;
 using UKS;
-using static BrainSimulator.Modules.ModuleAttributeBubble;
 
 namespace BrainSimulator.Modules;
 
-public class ModuleClassCreate : ModuleBase
+public class ModuleClassCreate : ModuleBase, IManualAgent
 {
+    public string AgentName => "Class Create";
+    public string DebugLog => debugString;
+
+    public void RunOnce(UKS.UKS uks)
+    {
+        theUKS = uks;
+        DoTheWork();
+    }
     // Fill this method in with code which will execute
     // once for each cycle of the engine
     public override void Fire()
     {
-        //This agent works on a timer and "Fire" is not used
-
         Init();
-
         UpdateDialog();
     }
-
-    public new bool isEnabled { get; set; }
-
-    private Timer timer;
-    //private UKS.UKS theUKS1;
     public string debugString = "Initialized\n";
     private int maxChildren = 12;
-    private int minCommonAttributes = 3;
+    private int minClassMembers = 3;
     public int MaxChildren { get => maxChildren; set => maxChildren = value; }
-
-    private void Setup()
-    {
-        if (timer is null)
-        {
-            timer = new Timer(SameThreadCallback, null, 0, 10000);
-        }
-    }
-    private void SameThreadCallback(object state)
-    {
-        if (!isEnabled) return;
-        new Thread(() =>
-        {
-            DoTheWork();
-        }).Start();
-    }
-
+    public int MinClassMembers { get => minClassMembers; set => minClassMembers = value; }
 
     public void DoTheWork()
     {
         debugString = "Agent Started\n";
-        for (int i = 0; i < theUKS.AtomicThoughts.Count; i++)
+        foreach (Thought t in new List<Thought>(theUKS.AtomicThoughts))
         {
-            Thought t = theUKS.AtomicThoughts[i];
-            if (t.HasAncestor("Object") && !t.Label.Contains(".") && !t.Label.Contains("unknown"))
+            if (t.HasAncestor("Object") &&
+                !HasDirectProperty(t, "isAnonymousClass") &&
+                !t.Label.Contains("unknown", System.StringComparison.OrdinalIgnoreCase))
             {
                 HandleClassWithCommonAttributes(t);
             }
@@ -75,42 +59,80 @@ public class ModuleClassCreate : ModuleBase
 
     void HandleClassWithCommonAttributes(Thought t)
     {
-        //build a List of counts of the attributes
-        //build a List of all the Links which this thought's children have
-        List<LinkDest> attributes = new();
-        foreach (Thought t1 in t.ChildrenWithSubclasses)
-        {
-            foreach (Link r in t1.LinksTo)
-            {
-                if (r.LinkType == Thought.IsA) continue;
-                Thought useLinkType = GetInstanceType(r.LinkType);
+        // Work one taxonomy level at a time. Every parent is visited by the
+        // agent, so scanning descendants here would repeatedly rediscover the
+        // same population and create nested duplicate classes.
+        List<Thought> candidates = t.Children
+            .Where(child => child is not Link && !HasDirectProperty(child, "isAnonymousClass"))
+            .ToList();
+        if (candidates.Count < minClassMembers) return;
 
-                LinkDest foundItem = attributes.FindFirst(x => x.linkType == useLinkType && x.target == r.To);
-                if (foundItem is null)
-                {
-                    foundItem = new LinkDest { linkType = useLinkType, target = r.To };
-                    attributes.Add(foundItem);
-                }
-                if (foundItem.links.FindFirst(x=>x.From == r.From && x.To == r.To) is null)
-                    foundItem.links.Add(r);
-            }
-        }
-        //create intermediate parent Thoughts
-        foreach (var key in attributes)
+        // Record the member set supporting each semantic attribute. Attributes
+        // with exactly the same supporting population describe one discovered
+        // class, rather than one class being created per attribute.
+        Dictionary<(Thought linkType, Thought target), HashSet<Thought>> attributes = new();
+        foreach (Thought child in candidates)
         {
-            if (key.links.Count >= minCommonAttributes)
+            foreach (Link link in child.LinksTo)
             {
-                Thought newParent = theUKS.GetOrAddThought(t.Label + "." + key.linkType + "." + key.target, t);
-                newParent.AddLink(key.linkType, key.target);
-                debugString += "Created new subclass " + newParent;
-                foreach (Link r in key.links)
+                if (link.LinkType is null || link.To is null || link.LinkType == Thought.IsA)
+                    continue;
+                if (link.LinkType.Label.Equals("hasProperty", System.StringComparison.OrdinalIgnoreCase) ||
+                    link.LinkType.Label.Equals("hasImage", System.StringComparison.OrdinalIgnoreCase) ||
+                    link.LinkType.HasProperty("isGrounding"))
+                    continue;
+
+                var key = (link.LinkType, link.To);
+                if (!attributes.TryGetValue(key, out HashSet<Thought> members))
                 {
-                    Thought tChild = (Thought)r.From;
-                    tChild.AddParent(newParent);
-                    tChild.RemoveParent(t);
+                    members = new HashSet<Thought>();
+                    attributes.Add(key, members);
                 }
+                members.Add(child);
             }
         }
+
+        List<(HashSet<Thought> members, List<(Thought linkType, Thought target)> attributes)> groups = new();
+        foreach (var item in attributes.Where(item =>
+            item.Value.Count >= minClassMembers && item.Value.Count <= maxChildren))
+        {
+            var group = groups.FirstOrDefault(existing => existing.members.SetEquals(item.Value));
+            if (group.members is null)
+            {
+                group = (new HashSet<Thought>(item.Value), new List<(Thought, Thought)>());
+                groups.Add(group);
+            }
+            group.attributes.Add(item.Key);
+        }
+
+        foreach (var group in groups.OrderByDescending(group => group.members.Count))
+        {
+            Thought existingClass = t.Children.FirstOrDefault(child =>
+                child.Children.ToHashSet().SetEquals(group.members));
+            Thought newParent = theUKS.GetOrCreateThoughtClass(t, group.members, "class*");
+            if (existingClass is null)
+                newParent.AddProperty(theUKS.GetOrAddThought("isAnonymousClass", "Property"));
+
+            foreach (Thought child in group.members)
+                child.RemoveParent(t);
+
+            string sharedAttributes = string.Join(", ", group.attributes.Select(attribute =>
+                $"{attribute.linkType.Label} {attribute.target.Label}"));
+            debugString += $"Created {newParent.Label} for " +
+                $"{string.Join(", ", group.members.Select(member => member.Label))}" +
+                $" (shared: {sharedAttributes})\n";
+        }
+    }
+
+    private static bool HasDirectProperty(Thought thought, string propertyLabel)
+    {
+        return thought.LinksTo.Any(link =>
+            link.LinkType?.Label.Equals(
+                "hasProperty",
+                System.StringComparison.OrdinalIgnoreCase) == true &&
+            link.To?.Label.Equals(
+                propertyLabel,
+                System.StringComparison.OrdinalIgnoreCase) == true);
     }
 
     // Fill this method in with code which will execute once
@@ -118,7 +140,6 @@ public class ModuleClassCreate : ModuleBase
     // or when the engine restart button is pressed
     public override void Initialize()
     {
-        Setup();
     }
 
     // The following can be used to massage public data to be different in the xml file
@@ -128,7 +149,6 @@ public class ModuleClassCreate : ModuleBase
     }
     public override void SetUpAfterLoad()
     {
-        Setup();
     }
 
     // called whenever the UKS performs an Initialize()

@@ -24,11 +24,13 @@ public partial class UKS
     private readonly HashSet<Link> evaluatingConditions = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
-    /// Gets all links to a group of Thoughts including inherited links.
+    /// Gets all links to a single Thought including inherited links.
     /// </summary>
-    /// <param name="sources">Thoughts that seed the search for related links.</param>
+    /// <param name="source">Thought that seeds the search for related links.</param>
+    /// <param name="filter">Optional partially populated link filter. When set, LinkType and To each require the corresponding result component to have that ancestor, self-inclusive.</param>
+    /// <param name="maxResults">Optional maximum number of results to return (0 = no limit).</param>
     /// <returns>List of matching links.</returns>
-    public List<Link> GetAllLinks(List<Thought> sources) //with inheritance, conflicts, etc
+    public List<Link> GetAttributes(Thought source, Link? filter = null, int maxResults = 0) //with inheritance, conflicts, etc
     {
         if (conditionalQueryDepth == 0)
         {
@@ -39,27 +41,29 @@ public partial class UKS
         try
         {
             List<Link> result2 = new();
-            if (sources.Count == 0) return result2;
-            //expand search list to include instances of given objects  WHY??
-            for (int i = 0; i < sources.Count; i++)
-            {
-                Thought t = sources[i];
-                foreach (Thought child in t.Children)
-                {
-                    Thought? isInstance = "isInstance";
-                    if (isInstance is not null && child.HasProperty(isInstance))
-                        sources.Add(child);
-                }
-            }
+            if (source is null) return result2;
 
+            List<Thought> sources = new() { source };
             var querySources = sources.ToList();
             var result1 = BuildSearchList(sources);
             result2 = GetAllLinksInternal(result1);
+
             // An unsupported local rule must not suppress an otherwise valid fact/default.
             RemoveFalseConditionals(result2);
             if (result2.Count < 200)  //the conflict-remover is really slow on large numbers
                 RemoveConflictingResults(result2, querySources);
+            // Filter after resolving conditions and conflicts; excluded exceptions must
+            // still be able to suppress inherited defaults, and proven types are ordinary.
+            if (filter is not null)
+            {
+                result2 = result2.Where(link =>
+                    (filter.LinkType is null || link.LinkType?.HasAncestor(filter.LinkType) == true) &&
+                    (filter.To is null || link.To?.HasAncestor(filter.To) == true)).ToList();
+            }
             SortLinks(ref result2);
+            // Apply max results limit if specified
+            if (maxResults > 0 && result2.Count > maxResults)
+                result2 = result2.Take(maxResults).ToList();
             return result2;
         }
         finally
@@ -111,6 +115,7 @@ public partial class UKS
             });
         }
 
+        //follow inheritable links to find all related thoughts, up to a maximum number of hops
         for (int i = 0; i < thoughtsToExamine.Count; i++)
         {
             ThoughtWithQueryParams entry = thoughtsToExamine[i];
@@ -156,20 +161,6 @@ public partial class UKS
         return thoughtsToExamine;
     }
 
-    private List<Link> GetLinksBetween(Thought t1, Thought t2)
-    {
-        List<Link> retVal = new();
-        foreach (Link r in t1.LinksTo)
-            if (r.To == t2) retVal.Add(r);
-        foreach (Link r in t1.LinksFrom)
-            if (r.To == t2) retVal.Add(r);
-        foreach (Link r in t2.LinksTo)
-            if (r.To == t1) retVal.Add(r);
-        foreach (Link r in t2.LinksFrom)
-            if (r.To == t1) retVal.Add(r);
-        return retVal;
-    }
-
     private List<Link> GetAllLinksInternal(List<ThoughtWithQueryParams> thoughtsToExamine)
     {
         List<Link> result = new();
@@ -194,6 +185,8 @@ public partial class UKS
                     link.LinkType?.HasProperty("isConditional") == true);
                 if (existing is not null && !conditional && !existingConditional) continue;
 
+                //this is a fun hack which allows us to say that mary has 10 fingers because mary has 2 hands and
+                //each hand has 5 fingers.  The "has" link type is special-cased here to allow this kind of transitive counting.
                 Thought? hasAncestor = "has";
                 if (haveCount > 1 && hasAncestor is not null && r.LinkType?.HasAncestor(hasAncestor) == true)
                 {
@@ -313,10 +306,7 @@ public partial class UKS
                 // this changes the query result, never the stored rule or its premise.
                 if (r1.LinkType?.HasProperty("isPossible") == true)
                 {
-                    Thought? ordinaryType = r1.LinkType.LinksTo.LastOrDefault(link =>
-                        ReferenceEquals(link.LinkType, Labeled("is")) && link.To is not null &&
-                        !link.To.HasProperty("isPossible"))?.To ??
-                        r1.LinkType.Parents.FirstOrDefault(parent => !parent.HasProperty("isPossible"));
+                    Thought? ordinaryType = GetAssertionLinkType(r1.LinkType);
                     if (ordinaryType is null)
                     {
                         failedConditions.Add(r1);
@@ -326,8 +316,29 @@ public partial class UKS
                     r1.LinkType = ordinaryType;
                 }
                 succeededConditions.Add(r1);
+                if (r1.LinkType is not null)
+                    r1.LinkType = GetAssertionLinkType(r1.LinkType);
             }
         }
+    }
+
+    private Thought GetAssertionLinkType(Thought conditionalLinkType)
+    {
+        if (!conditionalLinkType.HasProperty("isPossible")) return conditionalLinkType;
+        var ordinaryParents = conditionalLinkType.Parents.Where(parent =>
+            !parent.HasProperty("isPossible") && !parent.HasProperty("setRelationship")).ToList();
+        return ordinaryParents.FirstOrDefault(parent => ordinaryParents.All(other => parent.HasAncestor(other)))
+            ?? ordinaryParents.FirstOrDefault() ?? conditionalLinkType;
+    }
+
+    /// <summary>
+    /// Determines whether a link type represents a conditional clause.
+    /// </summary>
+    /// <param name="linkType">Link type to inspect.</param>
+    /// <returns>True when the link type inherits the isConditional property.</returns>
+    public static bool IsConditionalLinkType(Thought? linkType)
+    {
+        return linkType?.HasProperty("isConditional") == true;
     }
 
     /// <summary>
@@ -361,10 +372,9 @@ public partial class UKS
     int GetCount(Thought t)
     {
         int retVal = 1;
-        foreach (Link r in t.LinksTo)
-            if (r.LinkType?.Label == "is")
-                if (int.TryParse(r.To?.Label, out int val))
-                    return val;
+        foreach (Thought parent in t.AncestorsWithSelf)
+            if (parent.HasAncestor("number") && int.TryParse(parent.Label, out int val))
+                return val;
         return retVal;
     }
 
@@ -398,16 +408,13 @@ public partial class UKS
             Thought relationshipType = r.LinkType;
             if (relationshipType.HasProperty("isPossible"))
             {
-                Thought? ordinaryType = relationshipType.LinksTo.LastOrDefault(link =>
-                    ReferenceEquals(link.LinkType, Labeled("is")) && link.To is not null &&
-                    !link.To.HasProperty("isPossible"))?.To ??
-                    relationshipType.Parents.FirstOrDefault(parent => !parent.HasProperty("isPossible"));
+                Thought? ordinaryType = GetAssertionLinkType(relationshipType);
                 if (ordinaryType is null) return null;
                 relationshipType = ordinaryType;
             }
             // Use the established inheritance/conflict pipeline, so local exceptions also
             // override inherited conditions. is.not is matched as an ordinary type identity.
-            Link? evidence = GetAllLinks(new List<Thought> { r.From }).FirstOrDefault(candidate =>
+            Link? evidence = GetAttributes(r.From).FirstOrDefault(candidate =>
                 ReferenceEquals(candidate.LinkType, relationshipType) && ReferenceEquals(candidate.To, r.To));
             if (evidence is null)
             {
@@ -448,7 +455,7 @@ public partial class UKS
     /// <param name="root">All searching is done within the descendants of this Thought.</param>
     /// <param name="confidence">Unused output parameter reserved for match quality (not currently assigned).</param>
     /// <returns>Ordered list of candidate thoughts with confidence scores.</returns>
-    public List<(Thought t, float conf)> SearchForClosestMatch(Thought target, Thought root)
+    public List<(Thought t, float conf)> SearchByAttributes(Thought target, Thought root)
     {
         List<(Thought t, float conf)> retVal = new();
         if (target.LinksTo.Count == 0) return retVal;
@@ -498,7 +505,8 @@ public partial class UKS
                     }
                 }
             }
-            foreach (Link r1 in r.To?.LinksFrom ?? Enumerable.Empty<Link>())
+            if (r.To is null) continue;
+            foreach (Link r1 in r.To.LinksFrom)
             {
                 if (r1.From == target || r1.From is null) continue;
                 var existing = thoughtsToSearch.FindFirst(x => x == r1.From);
@@ -518,6 +526,8 @@ public partial class UKS
                 }
             }
         }
+
+        int inheritedValueCount = 0;
         //fan out from these seeds following all "inheritable" reverse connections.
         while (thoughtsToSearch.Count > 0)
         {
@@ -526,10 +536,10 @@ public partial class UKS
             alreadySearched.Add(t);
             foreach (Link r in t.LinksFrom)
             {
-                Thought? inheritable = "inheritable";
-                if (inheritable is null || r.LinkType?.HasProperty(inheritable) != true) continue;
+                if (r.LinkType?.HasProperty("inheritable") != true) continue;
                 if (r.From == target || r.From is null) continue;
                 AddToQueues(t, r.From);
+                inheritedValueCount++;
                 //TODO fix this to handle isSimilarTo  (and transitive...?)
                 //var similarThoughts = GetListOfSimilarThoughts(r.source);
                 //foreach (Thought t1 in similarThoughts)
@@ -537,23 +547,26 @@ public partial class UKS
             }
         }
 
-        foreach (var key in searchCandidates.ToList())
+        if (inheritedValueCount > 0)
         {
-            if (!ThoughtsHaveConflictingLink(key.Key, target)) continue;
-            searchCandidates[key.Key] = searchCandidates[key.Key] - .5f;
-        }
-        if (searchCandidates.Count == 0)
-            return retVal;
-
-        // delete items which have ancestor in list too
-        for (int i = 0; i < searchCandidates.Keys.Count; i++)
-        {
-            Thought t = searchCandidates.Keys.ToList()[i];
-            foreach (Thought t1 in t.AncestorsWithSelf)
+            foreach (var key in searchCandidates.ToList())
             {
-                if (t1 != t && searchCandidates.ContainsKey(t1) && searchCandidates[t1] < 0)
-                    searchCandidates.Remove(t);
+                if (!ThoughtsHaveConflictingLink(key.Key, target)) continue;
+                searchCandidates[key.Key] = searchCandidates[key.Key] - .5f;
             }
+            if (searchCandidates.Count == 0)
+                return retVal;
+            // delete items which have ancestor in list too
+            for (int i = 0; i < searchCandidates.Keys.Count; i++)
+            {
+                Thought t = searchCandidates.Keys.ToList()[i];
+                foreach (Thought t1 in t.AncestorsWithSelf)
+                {
+                    if (t1 != t && searchCandidates.ContainsKey(t1) && searchCandidates[t1] < 0)
+                        searchCandidates.Remove(t);
+                }
+            }
+
         }
 
         //create the output list
@@ -636,6 +649,8 @@ public partial class UKS
         Thought? from = l.From?.HasProperty("isWildcard") is true ? null : l.From;
         Thought? linkType = l.LinkType?.HasProperty("isWildcard") is true ? null : l.LinkType;
         Thought? to = l.To?.HasProperty("isWildcard") is true ? null : l.To;
+        Thought? filterTarget = l.GetTargetOfFirstLinkOfType("filterBy");
+        Link? filter = filterTarget is null ? null : new Link { To = filterTarget };
         if (from is null && to is null && linkType is null) return results;
 
         // hack to handle is-a searches
@@ -643,14 +658,15 @@ public partial class UKS
         {
             foreach (Thought child in from.Parents)
             {
+                if (filterTarget is not null && !child.HasAncestor(filterTarget)) continue;
                 results.Add(new Link { From = from, LinkType = linkType, To = child });
             }
             return results;
         }
-           // If from is specified, start there for efficiency (most constrained search)
+        // If from is specified, start there for efficiency (most constrained search)
         if (from is not null)
         {
-            var attribs = GetAllLinks(new List<Thought> { from });
+            var attribs = GetAttributes(from, filter);
             foreach (Link link in attribs)
             {
                 if ((linkType is null || link.LinkType?.HasAncestor(linkType) == true) &&

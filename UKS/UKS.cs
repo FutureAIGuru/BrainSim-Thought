@@ -22,17 +22,17 @@ using Pluralize.NET;
 public partial class UKS
 {
     //This is the actual internal Universal Knowledge Store
-    static private List<Thought> uKSList = new();// { Capacity = 1000000, };
+    static private HashSet<Thought> uKSList = new(ReferenceEqualityComparer.Instance);
 
     //This is a reformatted temporary copy of the UKS which used internally during the save and restore process to 
     //break circular links by storing index values instead of actual links Note the use of SThought instead of Thought
     private List<sThought> UKSTemp = new();
 
     /// <summary>
-    /// Occasionally a list of all the Thoughts in the UKS is needed. This is READ ONLY.
-    /// There is only one (shared) list for the App.
+    /// Occasionally a set of all the atomic Thoughts in the UKS is needed.
+    /// Membership uses object identity so changing a label cannot invalidate an entry.
     /// </summary>
-    public List<Thought> AtomicThoughts { get => uKSList; }
+    public HashSet<Thought> AtomicThoughts { get => uKSList; }
 
     public static UKS theUKS = new UKS();
 
@@ -61,7 +61,7 @@ public partial class UKS
     /// <returns>The newly created thought.</returns>
     public virtual Thought AddThought(string label, Thought? parent)
     {
-        if (label == "WRITE.EQ")
+        if (label == "SET.EQ")
         { }
         Thought newThought = new();
         newThought.Label = label;
@@ -218,6 +218,8 @@ public partial class UKS
                 thoughtToReturn.RemoveParent("Unknown");
                 thoughtToReturn.AddParent(correctParent);
             }
+            if (label.Split('.').Contains("?") && Labeled("?") is Thought conditionalType)
+                thoughtToReturn.AddParent(conditionalType);
 
             return thoughtToReturn;
         }
@@ -249,7 +251,8 @@ public partial class UKS
             return sequence;
         }
         //. are used to indicate attributes to be added
-        if (label.Contains(".") && label != "." && !label.Contains(".py"))
+        if (label.Contains(".") && label != "." && !label.Contains(".py") &&
+            !new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" }.Contains(Path.GetExtension(label), StringComparer.OrdinalIgnoreCase))
         {
             string[] attribs = label.Split(".");
             // Materialize the ordinary compound before adding execution capabilities.
@@ -278,16 +281,13 @@ public partial class UKS
                     Thought? attrib = Labeled(attribs[i]) ?? AddThought(attribs[i], "Unknown");
                     if (attrib is not null)
                     {
-                        // Keep the existing attribute links for saved structures and
-                        // conflict processing, while also inheriting each component's properties.
+                        // Compound components contribute through ordinary inheritance.
                         instanceThought.AddParent(attrib);
-                        instanceThought.AddLink("is", attrib);
                     }
                 }
                 if (ordinaryCompound is not null)
                 {
                     instanceThought.AddParent(ordinaryCompound);
-                    instanceThought.AddLink("is", ordinaryCompound);
                 }
             }
             return instanceThought;
@@ -316,7 +316,6 @@ public partial class UKS
         return thoughtToReturn;
     }
 
-
     /// <summary>
     /// Finds or creates a subclass from a phrase, attaching attributes as dotted parts.
     /// Example: "has 4" becomes thought {has.4} and [has.4 is 4].
@@ -335,8 +334,7 @@ public partial class UKS
             {
                 if (label1.Length == 1)
                 {
-                    Thought? letterParent = theUKS.GetOrAddThought("letter", "Object");
-                    Thought? t1 = theUKS.GetOrAddThought(label1.ToUpper(), letterParent!);
+                    Thought? t1 = theUKS.GetOrAddCharacter(label1[0]);
                     if (t1 is not null) targets.Add(t1);
                 }
                 else

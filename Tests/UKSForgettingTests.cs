@@ -84,13 +84,15 @@ public class UKSForgettingTests
         Thought t = uks.GetOrAddThought("ttl-grow");
         t.TimeToLive = TimeSpan.FromSeconds(10);
         var ttl1 = t.TimeToLive;
-        t.Fire(); // UseCount = 1 => +20s
+        t.Fire(); // fixed +20s
         var ttl2 = t.TimeToLive;
-        t.Fire(); // UseCount = 2 => +40s
+        t.Fire(); // another fixed +20s
         var ttl3 = t.TimeToLive;
 
         Assert.True(ttl2 > ttl1, "Thought TTL should increase after first fire");
         Assert.True(ttl3 > ttl2, "Thought TTL should increase after second fire");
+        Assert.Equal(TimeSpan.FromSeconds(20), ttl2 - ttl1);
+        Assert.Equal(TimeSpan.FromSeconds(20), ttl3 - ttl2);
 
         // Link TTL growth
         Thought src = uks.GetOrAddThought("src-grow");
@@ -99,13 +101,15 @@ public class UKSForgettingTests
         Link link = src.AddLink("rel-grow", dst);
         link.TimeToLive = TimeSpan.FromSeconds(5);
         var lttl1 = link.TimeToLive;
-        link.Fire(); // UseCount = 1 => +20s
+        link.Fire(); // fixed +20s
         var lttl2 = link.TimeToLive;
-        link.Fire(); // UseCount = 2 => +40s
+        link.Fire(); // another fixed +20s
         var lttl3 = link.TimeToLive;
 
         Assert.True(lttl2 > lttl1, "Link TTL should increase after first fire");
         Assert.True(lttl3 > lttl2, "Link TTL should increase after second fire");
+        Assert.Equal(TimeSpan.FromSeconds(20), lttl2 - lttl1);
+        Assert.Equal(TimeSpan.FromSeconds(20), lttl3 - lttl2);
     }
 
     [Fact]
