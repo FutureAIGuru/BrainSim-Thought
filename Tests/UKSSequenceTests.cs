@@ -35,7 +35,7 @@ public class UKSSequenceTests
 
     private static Thought CreatePartialSequenceSearchOptions(UKS uks)
     {
-        var searchOptions = uks.GetOrAddThought("PartialSequenceSearch", "SequenceSearchOptions");
+        var searchOptions = uks.GetOrAddThought("PartialSequenceSearch", "SearchOption");
         searchOptions.AddLink("hasProperty", "allowNestedSequences");
         searchOptions.AddLink("hasProperty", "allowPartialMatch");
         return searchOptions;
@@ -166,7 +166,6 @@ public class UKSSequenceTests
         var searchOptions = uks.Labeled("TemplateSequenceSearch");
         var wildcard = uks.Labeled("??");
         wildcard.AddLink("hasProperty", "isWildcard");
-        wildcard.AddParent("Thought");
 
         var cat = uks.AddSequenceAndLink(uks.GetOrAddThought("CAT"), "spelled", new List<Thought> { "C", "A", "T" });
         var cot = uks.AddSequenceAndLink(uks.GetOrAddThought("COT"), "spelled", new List<Thought> { "C", "O", "T" });
@@ -201,7 +200,7 @@ public class UKSSequenceTests
     public void FindSequencesByActivation_MatchesClassBasedWildcards()
     {
         var uks = CreateUKS();
-        var searchOptions = uks.GetOrAddThought("ClassWildcardSearch", "SequenceSearchOptions");
+        var searchOptions = uks.GetOrAddThought("ClassWildcardSearch", "SearchOption");
         searchOptions.AddLink("hasProperty", "allowWildcards");
 
         // Create word classes
@@ -222,11 +221,11 @@ public class UKSSequenceTests
         cat.AddParent(noun);
 
         // Create class-based wildcards with isWildcard property
-        var verbWildcard = uks.GetOrAddThought("??verb", "Wildcard");
+        var verbWildcard = uks.GetOrAddThought("??verb", "Property");
         verbWildcard.AddLink("hasProperty", "isWildcard");
         verbWildcard.AddParent(verb);
 
-        var nounWildcard = uks.GetOrAddThought("??noun", "Wildcard");
+        var nounWildcard = uks.GetOrAddThought("??noun", "Property");
         nounWildcard.AddLink("hasProperty", "isWildcard");
         nounWildcard.AddParent(noun);
 

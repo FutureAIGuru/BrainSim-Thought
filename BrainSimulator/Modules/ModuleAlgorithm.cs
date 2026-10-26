@@ -238,47 +238,20 @@ public partial class ModuleAlgorithm : ModuleBase
     // called whenever the UKS performs an Initialize()
     public override void UKSInitializedNotification()
     {
-        // Also install capabilities when an older saved knowledge structure is loaded.
+        // Configure the capability Thoughts used by the algorithm editor and interpreter.
         foreach (string property in new[] { "followPath", "isPossible", "setRelationship", "isEqual", "isWildcard" })
             theUKS.GetOrAddThought(property, "Property");
-        theUKS.GetOrAddThought("@", "Thought").AddLink("hasProperty", theUKS.Labeled("followPath"));
-        theUKS.GetOrAddThought("?", "Thought").AddLink("hasProperty", theUKS.Labeled("isPossible"));
-        theUKS.GetOrAddThought("!", "Thought").AddLink("hasProperty", theUKS.Labeled("setRelationship"));
+        theUKS.GetOrAddThought("@", "Property").AddLink("hasProperty", theUKS.Labeled("followPath"));
+        theUKS.GetOrAddThought("?", "Property").AddLink("hasProperty", theUKS.Labeled("isPossible"));
+        theUKS.GetOrAddThought("!", "Property").AddLink("hasProperty", theUKS.Labeled("setRelationship"));
+        theUKS.GetOrAddThought("Comparison", "LinkType");
         theUKS.GetOrAddThought("same", "Comparison").AddLink("hasProperty", theUKS.Labeled("isEqual"));
-        theUKS.GetOrAddThought("Wildcard", "Thought");
-        Thought unrestrictedWildcard = theUKS.GetOrAddThought("??", "Wildcard");
+        Thought unrestrictedWildcard = theUKS.GetOrAddThought("??", "Property");
         unrestrictedWildcard.AddLink("hasProperty", theUKS.Labeled("isWildcard"));
-        // Old examples classified the unrestricted wildcard as a Boolean. The old
-        // matcher ignored that category; remove obsolete constraints during migration.
-        foreach (Link membership in unrestrictedWildcard.LinksTo.Where(link =>
-            ReferenceEquals(link.LinkType, theUKS.Labeled("is-a")) &&
-            !ReferenceEquals(link.To, theUKS.Labeled("Wildcard")) &&
-            !ReferenceEquals(link.To, theUKS.Labeled("Thought"))).ToList())
-            unrestrictedWildcard.RemoveLink(membership);
-        //initialization stuff  MOVE
         theUKS.GetOrAddThought("Task", "Thought");
-        theUKS.GetOrAddThought("EXIST", "LinkType");
-        theUKS.GetOrAddThought("WRITE", "LinkType");
         theUKS.GetOrAddThought("EQ", "Comparison");
         theUKS.GetOrAddThought("GT", "Comparison");
         theUKS.GetOrAddThought("REF", "LinkType").AddLink("hasProperty", theUKS.GetOrAddThought("isExclusive", "Property"));
-        theUKS.Labeled("EXIST").AddLink("hasProperty", theUKS.Labeled("isPossible"));
-        theUKS.Labeled("WRITE").AddLink("hasProperty", theUKS.Labeled("setRelationship"));
-
-        // Saved WRITE actions used replacement unconditionally. Preserve that behavior
-        // explicitly during migration; newly created ordinary types have no such default.
-        foreach (Thought legacyWrite in theUKS.Labeled("WRITE").Descendants.ToList())
-        {
-            Thought ordinaryType = legacyWrite.GetTargetOfFirstLinkOfType("is");
-            if (ordinaryType is null || legacyWrite.Parents.Any(parent => ReferenceEquals(parent, ordinaryType)))
-                continue;
-            ordinaryType.AddLink("hasProperty", theUKS.GetOrAddThought("isExclusive", "Property"));
-            legacyWrite.AddParent(ordinaryType);
-        }
-
-        theUKS.CreateThoughtFromMultipleAttributes("write EQ", true);
-        theUKS.CreateThoughtFromMultipleAttributes("write GT", true);
-        theUKS.CreateThoughtFromMultipleAttributes("write REF", true);
     }
 
     /// <summary>

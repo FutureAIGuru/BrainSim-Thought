@@ -89,9 +89,28 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         if (pluralizer.IsPlural(fromString) && pluralizer.IsPlural(toString) && linkTypeString == "are")
             linkTypeString = "is-a";
 
+        // Initialize the dialog's conventional capabilities in the active store. Loading
+        // a network does not necessarily run CreateInitialStructure before entering a rule.
+        Thought possibleMarker = UKSStatement.theUKS.GetOrAddThought("?", "Property");
+        possibleMarker.AddLink("hasProperty", UKSStatement.theUKS.GetOrAddThought("isPossible", "Property"));
+        UKSStatement.theUKS.GetOrAddThought("IF", "ClauseType").AddLink("hasProperty",
+            UKSStatement.theUKS.GetOrAddThought("isConditional", "Property"));
+        UKSStatement.theUKS.GetOrAddThought("AND", "ClauseType").AddLink("hasProperty",
+            UKSStatement.theUKS.GetOrAddThought("isConjunction", "Property"));
         Thought tLink = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(linkTypeString, true);
-        bool conditional = tLink?.HasProperty("isCondition") == true ||
-            tLink?.HasAncestor(UKSStatement.theUKS.Labeled("IF")) == true;
+        bool conditional = tLink?.HasProperty("isConditional") == true || tLink?.HasProperty("isConjunction") == true;
+        if (conditional)
+        {
+            tSource = UKSStatement.theUKS.ProcessSingleLineWithNesting(fromString, true);
+            tTarget = UKSStatement.theUKS.ProcessSingleLineWithNesting(toString, true);
+            if (tSource is not Link || tTarget is not Link)
+            {
+                SetStatus("IF requires a Relationship or condition expression in both From and To");
+                tSource = null;
+                tTarget = null;
+                return;
+            }
+        }
 
         //handle source though which is itself a link
         string sourceInput = fromString.Trim().Trim('[', ']').Replace("→", "->");
@@ -102,7 +121,6 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             sourceParts = new[] { sourceParts[0], string.Join(" ", sourceParts.Skip(1).Take(sourceParts.Length - 2)), sourceParts[^1] };
         if (tSource is null && sourceParts.Length == 3 && !sourceParts[0].StartsWith("^"))
         {
-            if (conditional) sourceParts[1] += ".?";
             Link r2 = new()
             {
                 From = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[0], false),
@@ -159,7 +177,6 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             targetParts = new[] { targetParts[0], string.Join(" ", targetParts.Skip(1).Take(targetParts.Length - 2)), targetParts[^1] };
         if (tTarget is null && targetParts.Length == 3 && !targetParts[0].StartsWith("^"))
         {
-            if (conditional) targetParts[1] += ".?";
             Link r2 = new()
             {
                 From = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[0], false),
@@ -205,33 +222,6 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         if (tTarget is null)
         {
             tTarget = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(toString, false);
-        }
-
-        if (conditional)
-        {
-            if (tSource is not Link conclusion || tTarget is not Link premise)
-            {
-                SetStatus("IF requires a Relationship in both From and To");
-                tSource = null;
-                tTarget = null;
-                return;
-            }
-            // Separate rule patterns from existing assertions with the same endpoints.
-            // In particular, entering the premise must not assert the weather condition.
-            tSource = new Link(conclusion.From, conclusion.LinkType, conclusion.To);
-            tSource.AddDefaultLabel();
-            //tSource.AddLink("hasProperty", UKSStatement.theUKS.GetOrAddThought("isResult", "Property"));
-            tTarget = new Link(premise.From, premise.LinkType, premise.To);
-            tTarget.AddDefaultLabel();
-            //tTarget.AddLink("hasProperty", UKSStatement.theUKS.GetOrAddThought("isCondition", "Property"));
-            Link r3 = new()
-            {
-                From = tSource,
-                LinkType = tLink,
-                To = tTarget,
-            };
-
-            UKS.UKS.WriteTheLink((Link)tSource);
         }
 
         var r1 = UKSStatement.theUKS.AddStatement(tSource, tLink, tTarget);

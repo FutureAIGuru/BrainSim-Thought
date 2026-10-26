@@ -120,7 +120,7 @@ public partial class ModuleAlgorithm
                         .Where(ancestor => ancestor.HasProperty("isWildcard"))
                         .SelectMany(ancestor => ancestor.Parents)
                         .Where(parent => !parent.HasProperty("isWildcard") &&
-                            !ReferenceEquals(parent, theUKS.Labeled("Wildcard")) &&
+                            !ReferenceEquals(parent, theUKS.Labeled("Property")) &&
                             !ReferenceEquals(parent, theUKS.Labeled("Thought")) &&
                             !ReferenceEquals(parent, theUKS.Labeled("Unknown")))
                         .ToList();
