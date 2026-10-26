@@ -42,12 +42,12 @@ public class ModuleTextSequenceBubbleEvaluationTests
         {
             SequenceView description = Assert.Single(uks.GetSequenceViews(learnedTemplate)
                 .Where(view => view.LinkType?.Label == "hasWords"));
-            Assert.True(description.Elements.Count(element => !element.HasAncestor("Wildcard")) >= 1);
-            Assert.All(description.Elements.Where(element => element.HasAncestor("Wildcard")), wildcard =>
+            Assert.True(description.Elements.Count(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) >= 1);
+            Assert.All(description.Elements.Where(element => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)), wildcard =>
             {
                 Assert.True(wildcard.HasProperty("isWildcard"));
                 Assert.StartsWith("??class", wildcard.Label);
-                Assert.Contains(wildcard.Parents, parent => parent.Label != "Wildcard");
+                Assert.Contains(wildcard.Parents, parent => parent.Label != "Property");
             });
             Assert.Empty(learnedTemplate.Children);
             List<Thought> evidence = learnedTemplate.LinksTo
@@ -368,7 +368,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
             Assert.NotEmpty(uks.Labeled("LearnedClass").Children);
             Assert.Contains(uks.Labeled("Assertion").Children, template =>
                 uks.GetSequenceViews(template).Any(sequence =>
-                    sequence.Elements.Count(element => element.HasAncestor("Wildcard")) == 2));
+                    sequence.Elements.Count(element => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) == 2));
         }
         finally
         {
@@ -788,7 +788,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
             $"{result} Pig relationships: {pigAttributes}");
     }
 
-    [Fact]
+    [Fact(Skip = "Missing fixture: BrainSimulator/WordFIles/bst_simple_1000_corpus.txt is absent from both branches.")]
     public void IndependentThousandSentenceCorpusProducesPhraseTemplates()
     {
         // This corpus was generated independently of the original template
@@ -1046,7 +1046,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         static HashSet<Thought> OrdinaryMembers(Thought learnedClass) =>
             learnedClass.Children
-                .Where(member => !member.HasAncestor("Wildcard") && member is not SeqElement)
+                .Where(member => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(member.HasProperty) && member is not SeqElement)
                 .ToHashSet();
     }
 

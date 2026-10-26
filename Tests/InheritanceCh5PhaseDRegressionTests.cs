@@ -165,7 +165,7 @@ public class InheritanceCh5PhaseDRegressionTests
         dogWrap.Weight = 1;
         petWrap.Weight = 2;
 
-        var all = uks.GetAllLinks(new List<Thought> { fido });
+        var all = uks.GetAttributes(fido);
         Assert.True(HasLink(all, "has", "loud", uks));
         Assert.True(HasLink(all, "has", "calm", uks));
 

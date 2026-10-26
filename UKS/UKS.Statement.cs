@@ -19,7 +19,7 @@ public partial class UKS
     /// Creates a Thought. <br/>
     /// Parameters are strings. If the Thoughts with those labels
     /// do not exist, they will be created. <br/>
-    /// If the LinkType has an inverse, the inverse will be used and the Thought will be reversed so that 
+    /// If the LinkType has an inverse, the inverse will be used and the Thought will be reversed so that
     /// Fido Is-a Dog become Dog Has-child Fido.<br/>
     /// </summary>
     /// <param name="sSource">string or Thought for the source.</param>
@@ -121,11 +121,12 @@ public partial class UKS
             }
             else if (LinksAreExclusive(newLink, existingLink))
             {
-                if (existingLink.LinkType is not null && newLink.LinkType?.Children.Contains(existingLink.LinkType) == true && HasAttribute(existingLink.LinkType, "not"))
+                if (existingLink.LinkType is not null &&
+                    newLink.LinkType?.Children.Contains(existingLink.LinkType) == true && existingLink.LinkType.HasProperty("isNegative"))
                 {
                     existingLink.From?.RemoveLink(existingLink);
                 }
-                else if (newLink.LinkType is not null && existingLink.LinkType?.Children.Contains(newLink.LinkType) == true && HasAttribute(newLink.LinkType, "not"))
+                else if (newLink.LinkType is not null && existingLink.LinkType?.Children.Contains(newLink.LinkType) == true && newLink.LinkType.HasProperty("isNegative"))
                 {
                     existingLink.From?.RemoveLink(existingLink);
                 }

@@ -128,13 +128,13 @@ public class UKSSequenceBubbleTests
         SequenceView first = Observation(uks, hasWords, "p1", "A", "X", "C");
         SequenceView second = Observation(uks, hasWords, "p2", "A", "Y", "C");
         int thoughtCount = uks.AtomicThoughts.Count;
-        int wildcardCount = uks.Labeled("Wildcard").Children.Count;
+        int wildcardCount = uks.AtomicThoughts.Count(thought => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(thought.HasProperty));
 
         CommonSequencePattern pattern = uks.FindCommonSequence(new[] { first, second });
 
         Assert.NotNull(pattern);
         Assert.Equal(thoughtCount, uks.AtomicThoughts.Count);
-        Assert.Equal(wildcardCount, uks.Labeled("Wildcard").Children.Count);
+        Assert.Equal(wildcardCount, uks.AtomicThoughts.Count(thought => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(thought.HasProperty)));
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public class UKSSequenceBubbleTests
         SequenceView description = Assert.Single(uks.GetSequenceViews(phraseClass));
         Assert.Same(hasWords, description.LinkType);
         Assert.Equal("bark", description.Elements[1].Label);
-        Assert.True(description.Elements[0].HasAncestor("Wildcard"));
+        Assert.True(description.Elements[0].HasAncestor("Property"));
         Assert.True(description.Elements[0].HasProperty("isWildcard"));
         Assert.Contains(first.Owner.LinksTo, link => link.To == firstSequence);
         Assert.Contains(second.Owner.LinksTo, link => link.To == secondSequence);
@@ -250,9 +250,9 @@ public class UKSSequenceBubbleTests
         Assert.Equal("runs", description.Elements[2].Label);
         Thought subjectWildcard = description.Elements[1];
         Assert.StartsWith("??class", subjectWildcard.Label);
-        Thought subjectClass = subjectWildcard.Parents.Single(parent => parent.Label != "Wildcard");
+        Thought subjectClass = subjectWildcard.Parents.Single(parent => parent.Label != "Property");
         Assert.Equal(new HashSet<Thought> { uks.Labeled("dog"), uks.Labeled("cat"), uks.Labeled("bird") },
-            subjectClass.Children.Where(child => !child.HasAncestor("Wildcard")).ToHashSet());
+            subjectClass.Children.Where(child => !child.HasProperty("isWildcard")).ToHashSet());
     }
 
     [Fact]

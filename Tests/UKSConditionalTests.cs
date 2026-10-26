@@ -26,10 +26,10 @@ public class UKSConditionalTests
     }
 
     [Fact]
-    public void Question_mark_component_creates_a_conditional_link_type()
+    public void Question_mark_component_creates_a_possible_link_type()
     {
         // English intent: "play.?" means the semantic relationship "play" used as a clause,
-        // not as an assertion. It therefore inherits from both "play" and the conditional "?" category.
+        // not as an assertion. It therefore inherits from both "play" and the possible "?" category.
         var uks = new UKS(clear: true);
         uks.CreateInitialStructure();
 
@@ -37,8 +37,9 @@ public class UKSConditionalTests
 
         Assert.Contains(conditionalPlay.Parents, parent => parent.Label == "play");
         Assert.Contains(conditionalPlay.Parents, parent => parent.Label == "?");
-        Assert.True(conditionalPlay.HasProperty("isConditional"));
-        Assert.True(UKS.IsConditionalLinkType(conditionalPlay));
+        Assert.True(conditionalPlay.HasProperty("isPossible"));
+        Assert.False(conditionalPlay.HasProperty("isConditional"));
+        Assert.False(UKS.IsConditionalLinkType(conditionalPlay));
         Assert.DoesNotContain(conditionalPlay.GetAttributes(), attribute => attribute.Label == "?");
     }
 

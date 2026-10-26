@@ -702,7 +702,7 @@ public class ModuleText : ModuleBase
             : MainWindow.theUKS.GetSequenceViews(queryTemplate)
                 .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
         HashSet<Thought> queryFixedWords = querySequence?.Elements
-            .Where(element => !element.HasAncestor("Wildcard"))
+            .Where(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty))
             .ToHashSet() ?? new HashSet<Thought>();
 
         var candidates = assertionRoot.Children
@@ -724,7 +724,7 @@ public class ModuleText : ModuleBase
                 bool sourceCompatible = SurfaceWordMatchesTemplateElement(
                     sourceSurfaceWord, sequence.Elements[sourcePosition]);
                 int sharedFixedWords = sequence.Elements.Count(element =>
-                    !element.HasAncestor("Wildcard") &&
+                    !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty) &&
                     queryFixedWords.Contains(element));
                 int evidence = template.LinksTo.Count(link => link.LinkType?.Label == "evidence");
                 Thought targetWord = GetSurfaceWordForTemplateElement(
@@ -773,7 +773,7 @@ public class ModuleText : ModuleBase
             .Skip(selected.SourcePosition + 1)
             .Take(selected.TargetPosition - selected.SourcePosition - 1))
         {
-            if (connector.HasAncestor("Wildcard")) continue;
+            if (new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(connector.HasProperty)) continue;
             string connectorText = GetSurfaceText(connector);
             if (connectorText.Equals("a", StringComparison.OrdinalIgnoreCase) ||
                 connectorText.Equals("an", StringComparison.OrdinalIgnoreCase))
@@ -878,7 +878,7 @@ public class ModuleText : ModuleBase
     private static bool SurfaceWordMatchesTemplateElement(Thought surfaceWord, Thought templateElement)
     {
         if (surfaceWord is null || templateElement is null) return false;
-        if (!templateElement.HasAncestor("Wildcard")) return surfaceWord == templateElement;
+        if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(templateElement.HasProperty)) return surfaceWord == templateElement;
 
         Thought learnedClassRoot = MainWindow.theUKS?.Labeled("LearnedClass");
         List<Thought> constraints = learnedClassRoot is null
@@ -1215,7 +1215,7 @@ public class ModuleText : ModuleBase
     {
         List<Thought> retVal = learnedClass.Children
             .Where(member => member is not SeqElement &&
-                !member.HasAncestor("Wildcard") &&
+                !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(member.HasProperty) &&
                 (member.HasAncestor("Word") ||
                     member.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase)))
             .ToList();
@@ -1312,12 +1312,12 @@ public class ModuleText : ModuleBase
                 int classifiedMatches = sequence is null ? 0 : sequence.Elements
                     .Select((element, position) => (element, position))
                     .Count(item => item.position < phraseSequence.Elements.Count &&
-                        item.element.HasAncestor("Wildcard") &&
+                        new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(item.element.HasProperty) &&
                         item.element.Parents.Any(parent =>
-                            parent != theUKS.Labeled("Wildcard") &&
+                            parent != theUKS.Labeled("Property") &&
                             phraseSequence.Elements[item.position].HasAncestor(parent)));
                 int fixedElements = sequence?.Elements.Count(element =>
-                    !element.HasAncestor("Wildcard")) ?? 0;
+                    !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) ?? 0;
                 int evidence = candidate.Key.LinksTo.Count(link =>
                     link.LinkType?.Label == "evidence");
                 bool hasAction = GetParameterizedTemplateOperation(candidate.Key) is not null;
@@ -1460,7 +1460,7 @@ public class ModuleText : ModuleBase
             if (firstSlot > 0)
             {
                 Thought boundary = sequence.Elements[firstSlot - 1];
-                if (!boundary.HasAncestor("Wildcard"))
+                if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(boundary.HasProperty))
                 {
                     boundaryMembers.Add(boundary);
                     boundaryEvidence.Add(template);
@@ -1476,7 +1476,7 @@ public class ModuleText : ModuleBase
                 List<Thought> fixedSegment = sequence.Elements
                     .Skip(segmentStart)
                     .Take(segmentEnd - segmentStart)
-                    .Where(element => !element.HasAncestor("Wildcard"))
+                    .Where(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty))
                     .ToList();
                 if (fixedSegment.Count == 0) continue;
 
@@ -1533,7 +1533,7 @@ public class ModuleText : ModuleBase
     /// <summary>Returns the learned class constraining a wildcard template element.</summary>
     private static Thought GetWildcardClass(Thought value, Thought learnedClassRoot)
     {
-        if (value is null || learnedClassRoot is null || !value.HasAncestor("Wildcard")) return null;
+        if (value is null || learnedClassRoot is null || !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(value.HasProperty)) return null;
         Thought retVal = value.Parents.FirstOrDefault(learnedClassRoot.Children.Contains);
         return retVal;
     }

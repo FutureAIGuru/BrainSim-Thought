@@ -432,7 +432,7 @@ public partial class UKS
         // does the exact sequence already exist?
         //  (wildcards are not allowed)
         var existing = FindSequencesByActivation(targets, "ExactSequenceSearch");
-        if (existing.Count > 0) 
+        if (existing.Count > 0)
             return existing[0].seqNode;
 
 
@@ -945,7 +945,7 @@ public partial class UKS
             throw new ArgumentException("Occurrence locations require a flat, literal search.", nameof(getFirstElements));
 
         if (searchOptions.HasProperty("allowWildcards") &&
-            pattern.Any(x => x.HasAncestor("Wildcard")))
+            pattern.Any(x => IsWildcardPatternElement(x, searchOptions)))
             return FindExactWildcardMatches(pattern);
 
         int seedPatternIndex = pattern.FindIndex(p => !IsWildcardPatternElement(p, searchOptions));
@@ -1002,7 +1002,7 @@ public partial class UKS
     private List<(SeqElement seqNode, float confidence)> FindExactWildcardMatches(List<Thought> pattern)
     {
         Thought anchor = pattern
-            .Where(x => !x.HasAncestor("Wildcard"))
+            .Where(x => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(x.HasProperty))
             .OrderBy(x => x.LinksFrom.Count(link => link.LinkType?.Label == "VLU"))
             .FirstOrDefault();
         if (anchor is null) return new List<(SeqElement seqNode, float confidence)>();
@@ -1038,7 +1038,7 @@ public partial class UKS
             HashSet<int> nextPositions = new();
             foreach (int position in activePositions)
             {
-                if (!patternElement.HasAncestor("Wildcard"))
+                if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(patternElement.HasProperty))
                 {
                     if (position < sequence.Count && ReferenceEquals(patternElement, sequence[position]))
                         nextPositions.Add(position + 1);
@@ -1081,9 +1081,15 @@ public partial class UKS
 
     private static bool WildcardMatchesValue(Thought wildcard, Thought value)
     {
-        Thought wildcardClass = ThoughtLabels.GetThought("Wildcard");
-        List<Thought> constraints = wildcard.Parents
-            .Where(parent => parent != wildcardClass)
+        if (wildcard is null || value is null ||
+            !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(wildcard.HasProperty)) return false;
+        List<Thought> constraints = wildcard.AncestorsWithSelf
+            .Where(ancestor => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(ancestor.HasProperty))
+            .SelectMany(ancestor => ancestor.Parents)
+            .Where(parent => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(parent.HasProperty) &&
+                !ReferenceEquals(parent, ThoughtLabels.GetThought("Property")) &&
+                !ReferenceEquals(parent, ThoughtLabels.GetThought("Thought")) &&
+                !ReferenceEquals(parent, ThoughtLabels.GetThought("Unknown")))
             .ToList();
         return constraints.Count == 0 || constraints.Any(value.HasAncestor);
     }
@@ -1278,49 +1284,28 @@ public partial class UKS
 
         if (!searchOptions.HasProperty("allowWildcards")) return false;
 
-        foreach (var (wildcard, actual) in new[]
-            { (patternElement, sequenceElementValue), (sequenceElementValue, patternElement) })
-        {
-            if (!wildcard.HasProperty("isWildcard")) continue;
-
-            // Capability parents supply behavior; ordinary class parents restrict matches.
-            var constraints = wildcard.AncestorsWithSelf
-                .Where(ancestor => ancestor.HasProperty("isWildcard"))
-                .SelectMany(ancestor => ancestor.Parents)
-                .Where(parent => !parent.HasProperty("isWildcard") &&
-                    !ReferenceEquals(parent, Labeled("Property")) &&
-                    !ReferenceEquals(parent, Labeled("Thought")) &&
-                    !ReferenceEquals(parent, Labeled("Unknown")))
-                .ToList();
-            if (constraints.Count == 0 || constraints.Any(constraint =>
-                actual.AncestorsWithSelf.Any(ancestor => ReferenceEquals(ancestor, constraint))))
-                return true;
-        }
-            // The stored sequence may itself be a template. Wildcard is the
-            // abstract implementation parent, not a value-class constraint.
-            if (WildcardMatchesValue(sequenceElementValue, patternElement))
-                return true;
-            // Manual template learning may propose a new member for the class
-            // referenced by this particular wildcard. The value may already
-            // belong to another learned class; that other observation must not
-            // prevent it from acquiring an additional syntactic role.
-            if (searchOptions.HasProperty("allowNewClassMembers") &&
-                HasClassConstraint(sequenceElementValue))
-                return true;
-        }
-        if (patternElement.HasAncestor("Wildcard"))
-        {
-            if (WildcardMatchesValue(patternElement, sequenceElementValue))
-                return true;
-        }
+        if (WildcardMatchesValue(patternElement, sequenceElementValue) ||
+            WildcardMatchesValue(sequenceElementValue, patternElement)) return true;
+        // Manual template learning may propose a new member for the class
+        // referenced by this particular wildcard. The value may already
+        // belong to another learned class; that other observation must not
+        // prevent it from acquiring an additional syntactic role.
+        if (searchOptions.HasProperty("allowNewClassMembers") &&
+            HasClassConstraint(sequenceElementValue))
+            return true;
         return false;
     }
-
     private static bool HasClassConstraint(Thought wildcard)
     {
-        Thought wildcardRoot = ThoughtLabels.GetThought("Wildcard");
-        return wildcard is not null && wildcard.Parents.Any(parent =>
-            !ReferenceEquals(parent, wildcardRoot));
+        return wildcard is not null &&
+            new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(wildcard.HasProperty) &&
+            wildcard.AncestorsWithSelf
+                .Where(ancestor => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(ancestor.HasProperty))
+                .SelectMany(ancestor => ancestor.Parents)
+                .Any(parent => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(parent.HasProperty) &&
+                    !ReferenceEquals(parent, ThoughtLabels.GetThought("Property")) &&
+                    !ReferenceEquals(parent, ThoughtLabels.GetThought("Thought")) &&
+                    !ReferenceEquals(parent, ThoughtLabels.GetThought("Unknown")));
     }
 
     private bool IsWildcardPatternElement(Thought patternElement, Thought searchOptions)
@@ -1329,7 +1314,7 @@ public partial class UKS
         if (searchOptions is null) return false;
         if (!searchOptions.HasProperty("allowWildcards")) return false;
 
-        return patternElement.HasAncestor("Wildcard");
+        return new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(patternElement.HasProperty);
     }
 
     private List<(SeqElement seqNode, float confidence)> CollectSequenceSearchResults(
@@ -1381,7 +1366,7 @@ public partial class UKS
         if (!cardinalityProperties.Contains(wildcardProperty, StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException("Unknown wildcard cardinality property.", nameof(wildcardProperty));
 
-        Thought wildcard = GetOrAddThought(wildcardName,"wildcard");
+        Thought wildcard = GetOrAddThought(wildcardName, "Property");
         Thought selectedProperty = GetOrAddThought(wildcardProperty, "Property");
         Thought existingProperty = wildcard.LinksTo
             .Where(x => x.LinkType?.Label == "hasProperty" && x.To is not null)

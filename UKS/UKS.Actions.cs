@@ -101,11 +101,13 @@ public partial class UKS
         Thought? setRoot = Labeled("SET");
         Thought? testRoot = Labeled("TEST");
         Thought? linkTypeRoot = Labeled("LinkType");
-        retVal = actionType.Parents.FirstOrDefault(parent =>
+        List<Thought> relationshipParents = actionType.Parents.Where(parent =>
             parent != setRoot && parent != testRoot && parent != linkTypeRoot &&
             linkTypeRoot is not null && parent.HasAncestor(linkTypeRoot) &&
             (setRoot is null || !parent.HasAncestor(setRoot)) &&
-            (testRoot is null || !parent.HasAncestor(testRoot)));
+            (testRoot is null || !parent.HasAncestor(testRoot))).ToList();
+        retVal = relationshipParents.FirstOrDefault(parent =>
+            relationshipParents.All(other => parent.HasAncestor(other))) ?? relationshipParents.FirstOrDefault();
         return retVal;
     }
 }

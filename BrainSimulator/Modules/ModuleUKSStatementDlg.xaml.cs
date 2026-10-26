@@ -226,8 +226,6 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             tTarget = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(toString, false);
         }
 
-        Thought tLink = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(linkTypeString, true);
-
         bool isNewStatement = UKSStatement.theUKS.GetLink(tSource, tLink, tTarget) is null;
         bool sourceWasNeverFired = tSource.LastFiredTime == DateTime.MinValue;
         bool linkTypeWasNeverFired = tLink.LastFiredTime == DateTime.MinValue;

@@ -88,7 +88,6 @@ public partial class ModuleAlgorithm : ModuleBase
             if (HandledAssignment(activeStep)) continue;
             if (HandledContext(activeStep)) continue;
             //if we get here...there was nothing to process
-            Debug.WriteLine($"activeStep ignored: {activeStep}");
         }
         if (activeSteps.Count == 0)
         {
@@ -120,7 +119,8 @@ public partial class ModuleAlgorithm : ModuleBase
     private void FireNextStatement(Thought activeStep)
     {
         if (IsEntryPoint(activeStep)) { activeStep.GetTargetOfFirstLinkOfType("steps").Fire(); return; }
-        if (activeStep is SeqElement step && !IsExecutableStep(step)) return;
+        if (activeStep is SeqElement step && !(step.FRST ?? step).LinksFrom.Any(link =>
+            ReferenceEquals(link.LinkType, theUKS.Labeled("steps")))) return;
         if (activeStep is SeqElement s)
         {
             //do NOT step next if this is a CALL or a CONTEXT
@@ -256,8 +256,6 @@ public partial class ModuleAlgorithm : ModuleBase
         Thought unrestrictedWildcard = theUKS.GetOrAddThought("??", "Property");
         unrestrictedWildcard.AddLink("hasProperty", theUKS.Labeled("isWildcard"));
         theUKS.GetOrAddThought("Task", "Thought");
-        theUKS.GetOrAddThought("EXIST", "LinkType");
-        theUKS.GetOrAddThought("WRITE", "LinkType");
         theUKS.GetOrAddThought("EQ", "Comparison");
         theUKS.GetOrAddThought("GT", "Comparison");
         theUKS.GetOrAddThought("REF", "LinkType").AddLink("hasProperty", theUKS.GetOrAddThought("isExclusive", "Property"));
@@ -296,13 +294,7 @@ public partial class ModuleAlgorithm : ModuleBase
         // Process param1
         if (!string.IsNullOrEmpty(param1Value))
         {
-            Thought param1ValueThought = theUKS.Labeled(param1Value);
-            if (param1ValueThought == null)
-            {
-                // Create new thought with spelling sequence
-                param1ValueThought = theUKS.GetOrAddThought(param1Value, "Thing");
-                CreateSpellingSequence(param1Value, param1ValueThought);
-            }
+            Thought param1ValueThought = GetOrCreateParameterValue(param1Value);
             // Link: param1 -> REF -> param1ValueThought
             param1Thought.RemoveLinks(refType);
             param1Thought.AddLink(refType, param1ValueThought);
@@ -311,13 +303,7 @@ public partial class ModuleAlgorithm : ModuleBase
         // Process param2
         if (!string.IsNullOrEmpty(param2Value))
         {
-            Thought param2ValueThought = theUKS.Labeled(param2Value);
-            if (param2ValueThought == null)
-            {
-                // Create new thought with spelling sequence
-                param2ValueThought = theUKS.GetOrAddThought(param2Value, "Thing");
-                CreateSpellingSequence(param2Value, param2ValueThought);
-            }
+            Thought param2ValueThought = GetOrCreateParameterValue(param2Value);
             // Link: param2 -> REF -> param2ValueThought
             param2Thought.RemoveLinks(refType);
             param2Thought.AddLink(refType, param2ValueThought);
@@ -327,7 +313,7 @@ public partial class ModuleAlgorithm : ModuleBase
         Thought taskThought = theUKS.Labeled(taskName);
         if (taskThought is null)
         {
-            return retVal;
+            return false;
         }
 
         // Get the first step of the task's sequence
@@ -349,8 +335,7 @@ public partial class ModuleAlgorithm : ModuleBase
         }
 
         // Execute immediately for tests, or let the polling loop handle it
-        retVal = executeImmediately ? ExecuteAllSteps() : true;
-        return retVal;
+        return executeImmediately ? ExecuteAllSteps() : true;
     }
 
     private Thought GetOrCreateParameterValue(string value)
@@ -402,12 +387,6 @@ public partial class ModuleAlgorithm : ModuleBase
 
     private Thought EvaluateContext(Thought contextRoot)
     {
-        // Ch.4 AND-gate: activate context root + has relationship before attribute matching.
-        theUKS.CurrentTraversal.Activate(contextRoot);
-        Thought? hasType = theUKS.Labeled("has");
-        if (hasType is not null)
-            theUKS.CurrentTraversal.ActivateRelationship(hasType);
-
         ContextCaseResult? selected = SelectBestContextCase(contextRoot, HandleIndirection);
         Thought bestResponse = selected?.Response;
 

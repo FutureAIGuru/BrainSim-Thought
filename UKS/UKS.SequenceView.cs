@@ -81,7 +81,7 @@ public partial class UKS
         ArgumentNullException.ThrowIfNull(members);
 
         HashSet<Thought> memberSet = members
-            .Where(member => member is not null && member is not SeqElement && !member.HasAncestor("Wildcard"))
+            .Where(member => member is not null && member is not SeqElement && !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(member.HasProperty))
             .ToHashSet();
         if (memberSet.Count == 0)
             throw new ArgumentException("A learned class requires at least one ordinary Thought.", nameof(members));
@@ -89,7 +89,7 @@ public partial class UKS
         Thought? learnedClass = classRoot.Children.FirstOrDefault(existing =>
         {
             HashSet<Thought> existingMembers = existing.Children
-                .Where(member => member is not SeqElement && !member.HasAncestor("Wildcard"))
+                .Where(member => member is not SeqElement && !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(member.HasProperty))
                 .ToHashSet();
             return existingMembers.SetEquals(memberSet);
         });

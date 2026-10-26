@@ -104,6 +104,7 @@ public partial class UKS
         AddStatement("setRelationship", "is-a", "Property");
         AddStatement("isEqual", "is-a", "Property");
         AddStatement("isNegative", "is-a", "Property");
+        AddStatement("isAnonymousClass", "is-a", "Property");
         AddStatement("@", "is-a", "Property");
         AddStatement("?", "is-a", "Property");
         AddStatement("!", "is-a", "Property");
@@ -118,28 +119,7 @@ public partial class UKS
         //sequence search options
         AddStatement("??", "is-a", "Property");
         AddStatement("??", "hasProperty", "isWildcard");
-        AddStatement("SearchOption", "is-a", "Property");
-        AddStatement("mustMatchFirst", "is-a", "SearchOption");
-        AddStatement("mustMatchLast", "is-a", "SearchOption");
-        AddStatement("allowWildcards", "is-a", "SearchOption");
-        AddStatement("allowNestedSequences", "is-a", "SearchOption");
-        AddStatement("allowCircularSearch", "is-a", "SearchOption");
-        AddStatement("allowOutOfOrder", "is-a", "SearchOption");
-        AddStatement("preferFirstLast", "is-a", "SearchOption");
-        AddStatement("allowPartialMatch", "is-a", "SearchOption");
-        AddStatement("ExactSequenceSearch", "is-a", "SearchOption");
-        AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
-        AddStatement("MelodySearchOptions", "is-a", "SearchOption");
-        AddStatement("OrderSearchOptions", "is-a", "SearchOption");
-        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
-        AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
-        AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");
-        AddStatement("TemplateSequenceSearch", "hasProperty", "allowWildcards");
-        AddStatement("MelodySearchOptions", "hasProperty", "allowNestedSequences");
-        AddStatement("MelodySearchOptions", "hasProperty", "preferFirstLast");
-        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchFirst");
-        AddStatement("OrderSearchOptions", "hasProperty", "mustMatchLast");
-        AddStatement("OrderSearchOptions", "hasProperty", "allowNestedSequences");
+        EnsureSequenceSearchDefinitions();
 
         //colors
         AddStatement("color", "is-a", "Abstract");
@@ -282,24 +262,22 @@ public partial class UKS
 
     private void EnsureSequenceSearchDefinitions()
     {
-        AddStatement("Wildcard", "is-a", "abstract");
         CreateWildcard("??", new List<Thought>());
         AddStatement("SearchOption", "is-a", "Property");
-        AddStatement("SequenceSearchOption", "is-a", "SearchOption");
-        AddStatement("mustMatchFirst", "is-a", "SequenceSearchOption");
-        AddStatement("mustMatchLast", "is-a", "SequenceSearchOption");
-        AddStatement("allowWildcards", "is-a", "SequenceSearchOption");
-        AddStatement("allowNestedSequences", "is-a", "SequenceSearchOption");
-        AddStatement("allowCircularSearch", "is-a", "SequenceSearchOption");
-        AddStatement("allowOutOfOrder", "is-a", "SequenceSearchOption");
-        AddStatement("preferFirstLast", "is-a", "SequenceSearchOption");
-        AddStatement("allowPartialMatch", "is-a", "SequenceSearchOption");
-        AddStatement("allowNewClassMembers", "is-a", "SequenceSearchOption");
-        AddStatement("ExactSequenceSearch", "is-a", "SequenceSearchOption");
+        AddStatement("mustMatchFirst", "is-a", "SearchOption");
+        AddStatement("mustMatchLast", "is-a", "SearchOption");
+        AddStatement("allowWildcards", "is-a", "SearchOption");
+        AddStatement("allowNestedSequences", "is-a", "SearchOption");
+        AddStatement("allowCircularSearch", "is-a", "SearchOption");
+        AddStatement("allowOutOfOrder", "is-a", "SearchOption");
+        AddStatement("preferFirstLast", "is-a", "SearchOption");
+        AddStatement("allowPartialMatch", "is-a", "SearchOption");
+        AddStatement("allowNewClassMembers", "is-a", "SearchOption");
+        AddStatement("ExactSequenceSearch", "is-a", "SearchOption");
         AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
         AddStatement("TemplateLearningSearch", "is-a", "TemplateSequenceSearch");
-        AddStatement("MelodySearchOptions", "is-a", "SequenceSearchOption");
-        AddStatement("OrderSearchOptions", "is-a", "SequenceSearchOption");
+        AddStatement("MelodySearchOptions", "is-a", "SearchOption");
+        AddStatement("OrderSearchOptions", "is-a", "SearchOption");
         AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
         AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
         AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");

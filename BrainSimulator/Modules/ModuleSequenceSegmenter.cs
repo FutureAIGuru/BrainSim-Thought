@@ -549,7 +549,6 @@ public class ModuleSequenceSegmenter : ModuleBase
         List<Thought> candidates = PatternRoot.Children.Where(thought => thought.isPlastic).ToList();
         // No forgetting below half capacity; reach the configured rate at full capacity.
         float pressure = Math.Clamp(2f * candidates.Count / CandidateCapacity - 1, 0, 1);
-        pressure = 1;
         if (pressure <= 0) return;
         float decay = CandidateDecayPerSecond * (float)elapsed.TotalSeconds * pressure;
         foreach (Thought candidate in candidates)

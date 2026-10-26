@@ -252,18 +252,8 @@ public partial class UKS
             return sequence;
         }
         //. are used to indicate attributes to be added
-        if (label.Contains(".") && label != "." && !label.Contains(".py"))
-        //. are used to indicate attributes to be added. Common image-file
-        //extensions are kept atomic so a hasImage target can use the actual
-        //portable filename as its Thought label.
-        string extension = Path.GetExtension(label);
-        bool isImageFileName = extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".gif", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".webp", StringComparison.OrdinalIgnoreCase);
-        if (label.Contains(".") && label != "." && !label.Contains(".py") && !isImageFileName)
+        if (label.Contains(".") && label != "." && !label.Contains(".py") &&
+            !new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" }.Contains(Path.GetExtension(label), StringComparer.OrdinalIgnoreCase))
         {
             string[] attribs = label.Split(".");
             // Materialize the ordinary compound before adding execution capabilities.
@@ -289,20 +279,14 @@ public partial class UKS
             {
                 for (int i = 1; i < attribs.Length; i++)
                 {
-                    if (attribs[i] == "?")
-                    {
-                        Thought? conditionalType = Labeled("?") ?? AddThought("?", Labeled("LinkType"));
-                        if (conditionalType is not null)
-                            instanceThought.AddParent(conditionalType);
-                        continue;
-                    }
                     Thought? attrib = Labeled(attribs[i]) ?? AddThought(attribs[i], "Unknown");
                     if (attrib is not null)
                     {
                         // Keep the existing attribute links for saved structures and
                         // conflict processing, while also inheriting each component's properties.
                         instanceThought.AddParent(attrib);
-                        instanceThought.AddLink("is", attrib);
+                        if (!attrib.HasProperty("isPossible") && !attrib.HasProperty("setRelationship"))
+                            instanceThought.AddLink("is", attrib);
                     }
                 }
                 if (ordinaryCompound is not null)
@@ -311,6 +295,7 @@ public partial class UKS
                     instanceThought.AddLink("is", ordinaryCompound);
                 }
             }
+            if (instanceThought is not null) AddActionTypeInheritance(instanceThought, label);
             return instanceThought;
         }
 

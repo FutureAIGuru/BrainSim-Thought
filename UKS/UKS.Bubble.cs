@@ -159,7 +159,7 @@ public partial class UKS
     private static HashSet<Thought> OrdinaryClassChildren(Thought learnedClass)
     {
         return learnedClass.Children
-            .Where(child => child is not SeqElement && !child.HasAncestor("Wildcard"))
+            .Where(child => child is not SeqElement && !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(child.HasProperty))
             .ToHashSet();
     }
 
@@ -284,4 +284,75 @@ public partial class UKS
 
         return changed;
     }
+    /*
+    private void RecordBubble(string action, Thought parent, Thought linkType, Thought target)
+    {
+        bubbleLog.Add(new BubbleLogEntry
+        {
+            When = DateTime.UtcNow,
+            ParentLabel = parent.Label,
+            LinkTypeLabel = linkType.Label,
+            TargetLabel = target.Label,
+            Action = action
+        });
+        if (bubbleLog.Count > MaxBubbleLogEntries)
+            bubbleLog.RemoveAt(0);
+    }
+
+    private static bool BubbleLinksConflict(LinkDest r1, LinkDest r2)
+    {
+        if (r1.linkType == r2.linkType && r1.target == r2.target) return false;
+        if (r1.linkType == r2.linkType)
+        {
+            foreach (Thought parent in FindBubbleCommonParents(r1.target, r2.target))
+                if (parent.HasProperty("isExclusive") || parent.HasProperty("allowMultiple")) return true;
+        }
+        if (r1.target == r2.target)
+        {
+            IReadOnlyList<Thought> r1Attribs = r1.linkType.GetAttributes();
+            IReadOnlyList<Thought> r2Attribs = r2.linkType.GetAttributes();
+            Thought? r1Not = r1Attribs.FindFirst(x => x.Label is "not" or "no");
+            Thought? r2Not = r2Attribs.FindFirst(x => x.Label is "not" or "no");
+            if (r1Not is null != (r2Not is null)) return true;
+
+            foreach (Thought t1 in r1Attribs)
+            {
+                foreach (Thought t2 in r2Attribs)
+                {
+                    if (t1 == t2) continue;
+                    foreach (Thought t3 in FindBubbleCommonParents(t1, t2))
+                    {
+                        if (t3.HasProperty("isexclusive") || t3.HasProperty("allowMultiple"))
+                            return true;
+                    }
+                }
+            }
+
+            bool hasNumber1 = r1Attribs.Any(x => x.HasAncestor("number"));
+            bool hasNumber2 = r2Attribs.Any(x => x.HasAncestor("number"));
+            if (hasNumber1 || hasNumber2) return true;
+        }
+        return false;
+    }
+
+    private static List<Thought> FindBubbleCommonParents(Thought t, Thought t1)
+    {
+        List<Thought> common = new();
+        foreach (Thought p in t.Parents)
+            if (t1.Parents.Contains(p))
+                common.Add(p);
+        return common;
+    }
+
+    public static Thought GetBubbleInstanceType(Thought t)
+    {
+        Thought useLinkType = t;
+        while (useLinkType.Parents.Count > 0 &&
+               Regex.IsMatch(useLinkType.Label, @"\d+$") &&
+               !t.Label.Contains('.') &&
+               useLinkType.Label.StartsWith(useLinkType.Parents[0].Label))
+            useLinkType = useLinkType.Parents[0];
+        return useLinkType;
+    }
+    */
 }

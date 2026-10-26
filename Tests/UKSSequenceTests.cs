@@ -205,7 +205,7 @@ public class UKSSequenceTests
             new List<Thought> { uks.Labeled("Letter") },
             wildcardProperty);
 
-        Assert.True(wildcard.HasAncestor("Wildcard"));
+        Assert.True(wildcard.HasAncestor("Property"));
         Assert.True(wildcard.HasProperty(wildcardProperty));
     }
 

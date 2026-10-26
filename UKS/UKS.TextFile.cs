@@ -155,7 +155,7 @@ public partial class UKS
             if (string.IsNullOrWhiteSpace(code)) continue;
             var tokens = TokenizeTopLevel(code);
             if (tokens.Count < 2 || !tokens[1].TrimStart().StartsWith("[")) continue;
-            
+
             var stmt = ParseBracketStmt(tokens[1], 0);
             foreach (var part in stmt)
             {
@@ -226,8 +226,14 @@ public partial class UKS
         if (stmt.Any(part => part.TrimStart().StartsWith("[")) ||
             Labeled(stmt[1])?.HasProperty("isConditional") == true ||
             Labeled(stmt[1])?.HasProperty("isConjunction") == true)
-            return AddLinkStmtWithNesting(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
-        return AddLinkStmt(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
+        {
+            return AddLinkStmtWithNesting(
+                tokens[0], stmt,
+                tokens.Count > 2 ? tokens[2] : null,
+                tokens.Count > 3 ? tokens[3] : null,
+                tokens.Count > 4 ? tokens[4] : null);
+        }
+        //return AddLinkStmt(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
         Thought? linkRetVal = AddLinkStmt(
             tokens[0], stmt,
             tokens.Count > 2 ? tokens[2] : null,
@@ -259,13 +265,13 @@ public partial class UKS
         // Process 'from'
         Thought? from = GetOrAddThought(linkParts[0]);
 
-        // Process 'linkType' 
+        // Process 'linkType'
         Thought? linkType = GetOrAddThought(linkParts[1]);
 
         // Process 'to'
         //this might be a sequence
         Thought? to = CreateThoughtFromMultipleAttributes(linkParts[2], false, false);
-        //Thought to = GetOrAddThought(linkParts[2]);       
+        //Thought to = GetOrAddThought(linkParts[2]);
 
         if (from is null || linkType is null) return null;
 
@@ -338,7 +344,7 @@ public partial class UKS
         List<string> linkParts,
         string? sWeight,
         string? sMaxWeight,
-        string? sIsPlastic)
+        string? sIsPlastic, bool asPattern = false)
     {
         if (linkParts.Count < 2) return null;
 
@@ -367,10 +373,10 @@ public partial class UKS
         if (linkParts.Count > 2)
         {
             to = ProcessThoughtOrLink(linkParts[2], asPattern || structural);
-            if (to is null && linkParts[2].StartsWith("unl_")) 
-            { 
-                to = new Link(); 
-                to.Label = linkParts[2]; 
+            if (to is null && linkParts[2].StartsWith("unl_"))
+            {
+                to = new Link();
+                to.Label = linkParts[2];
             }
             if (to is null) to = CreateThoughtFromMultipleAttributes(linkParts[2], false);
         }
@@ -389,8 +395,13 @@ public partial class UKS
                 linkType.AddParent(ordinaryType);
                 linkType.AddParent(GetOrAddThought("?", "Property"));
             }
-            r = new Link(from, linkType, to);
-            r.AddDefaultLabel();
+            // Reuse preallocated named links so forward references retain their identity.
+            r = !string.IsNullOrEmpty(label) && Labeled(label) is Link placeholder && placeholder.From is null
+                ? placeholder : new Link();
+            r.From = from;
+            r.LinkType = linkType;
+            r.To = to;
+            if (string.IsNullOrEmpty(label)) r.AddDefaultLabel();
             WriteTheLink(r);
         }
         else r = from.AddLink(linkType, to);
@@ -446,9 +457,11 @@ public partial class UKS
             if (nestedStmt.Count >= 2)
             {
                 // Recursively create the nested link (with empty label)
-                Thought? retVal = AddLinkStmtWithNesting("", nestedStmt, null, null, null);
+                Thought? retVal = AddLinkStmtWithNesting("", nestedStmt, null, null, null, asPattern);
                 return retVal;
             }
+            if (asPattern && nestedStmt.Count == 1)
+                return ProcessThoughtOrLink(nestedStmt[0], true);
             return null;
         }
 
@@ -475,14 +488,15 @@ public partial class UKS
             if (trimmed.Contains("->"))
             {
                 var nestedStmt = ParseBracketStmt("[" + trimmed + "]", 0);
-                if (nestedStmt.Count == 3) return AddLinkStmtWithNesting("", nestedStmt, null, true);
+                if (nestedStmt.Count == 3)
+                    return AddLinkStmtWithNesting("", nestedStmt, null, null, null, true);
             }
             else
             {
                 var words = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (words.Length >= 3 && !trimmed.StartsWith("^"))
                     return AddLinkStmtWithNesting("", new List<string> {
-                        words[0], string.Join(" ", words.Skip(1).Take(words.Length - 2)), words[^1] }, null, true);
+                        words[0], string.Join(" ", words.Skip(1).Take(words.Length - 2)), words[^1] }, null, null, null, true);
             }
         }
         return null;

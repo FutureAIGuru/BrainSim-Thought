@@ -41,27 +41,29 @@ public partial class UKS
         try
         {
             List<Link> result2 = new();
-            if (sources.Count == 0) return result2;
-            //expand search list to include instances of given objects  WHY??
-            for (int i = 0; i < sources.Count; i++)
-            {
-                Thought t = sources[i];
-                foreach (Thought child in t.Children)
-                {
-                    Thought? isInstance = "isInstance";
-                    if (isInstance is not null && child.HasProperty(isInstance))
-                        sources.Add(child);
-                }
-            }
+            if (source is null) return result2;
 
+            List<Thought> sources = new() { source };
             var querySources = sources.ToList();
             var result1 = BuildSearchList(sources);
             result2 = GetAllLinksInternal(result1);
+
             // An unsupported local rule must not suppress an otherwise valid fact/default.
             RemoveFalseConditionals(result2);
             if (result2.Count < 200)  //the conflict-remover is really slow on large numbers
                 RemoveConflictingResults(result2, querySources);
+            // Filter after resolving conditions and conflicts; excluded exceptions must
+            // still be able to suppress inherited defaults, and proven types are ordinary.
+            if (filter is not null)
+            {
+                result2 = result2.Where(link =>
+                    (filter.LinkType is null || link.LinkType?.HasAncestor(filter.LinkType) == true) &&
+                    (filter.To is null || link.To?.HasAncestor(filter.To) == true)).ToList();
+            }
             SortLinks(ref result2);
+            // Apply max results limit if specified
+            if (maxResults > 0 && result2.Count > maxResults)
+                result2 = result2.Take(maxResults).ToList();
             return result2;
         }
         finally
@@ -325,15 +327,12 @@ public partial class UKS
 
     private Thought GetAssertionLinkType(Thought conditionalLinkType)
     {
-        string assertionLabel = string.Join(".",
-            conditionalLinkType.Label.Split('.').Where(component => component != "?"));
-
-        if (assertionLabel == conditionalLinkType.Label)
-            return conditionalLinkType;
-
-        return Labeled(assertionLabel)
-            ?? GetOrAddThought(assertionLabel, "LinkType")
-            ?? conditionalLinkType;
+        if (!conditionalLinkType.HasProperty("isPossible")) return conditionalLinkType;
+        return conditionalLinkType.LinksTo.LastOrDefault(link =>
+            ReferenceEquals(link.LinkType, Labeled("is")) && link.To is not null &&
+            !link.To.HasProperty("isPossible"))?.To ??
+            conditionalLinkType.Parents.FirstOrDefault(parent => !parent.HasProperty("isPossible")) ??
+            conditionalLinkType;
     }
 
     /// <summary>
@@ -423,7 +422,7 @@ public partial class UKS
             }
             // Use the established inheritance/conflict pipeline, so local exceptions also
             // override inherited conditions. is.not is matched as an ordinary type identity.
-            Link? evidence = GetAllLinks(new List<Thought> { r.From }).FirstOrDefault(candidate =>
+            Link? evidence = GetAttributes(r.From).FirstOrDefault(candidate =>
                 ReferenceEquals(candidate.LinkType, relationshipType) && ReferenceEquals(candidate.To, r.To));
             if (evidence is null)
             {
@@ -658,6 +657,8 @@ public partial class UKS
         Thought? from = l.From?.HasProperty("isWildcard") is true ? null : l.From;
         Thought? linkType = l.LinkType?.HasProperty("isWildcard") is true ? null : l.LinkType;
         Thought? to = l.To?.HasProperty("isWildcard") is true ? null : l.To;
+        Thought? filterTarget = l.GetTargetOfFirstLinkOfType("filterBy");
+        Link? filter = filterTarget is null ? null : new Link { To = filterTarget };
         if (from is null && to is null && linkType is null) return results;
 
         // hack to handle is-a searches
