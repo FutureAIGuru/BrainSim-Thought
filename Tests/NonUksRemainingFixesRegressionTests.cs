@@ -50,7 +50,7 @@ public class NonUksRemainingFixesRegressionTests
     public void ModuleBalanceTreeDlg_code_behind_uses_xaml_cs_suffix()
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        var path = Path.Combine(repoRoot, "BrainSimulator", "Modules", "Agents", "ModuleBalanceTreeDlg.xaml.cs");
+        var path = Path.Combine(repoRoot, "BrainSimulator", "Modules", "Experimental", "Agents", "ModuleBalanceTreeDlg.xaml.cs");
         Assert.True(File.Exists(path), $"Expected code-behind at {path}");
         Assert.False(File.Exists(path.Replace(".xaml.cs", ".xml.cs")));
     }
