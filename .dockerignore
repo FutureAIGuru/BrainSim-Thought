@@ -1,0 +1,9 @@
+# The build context needs only these two projects.
+**
+!UKS/
+!UKS/**
+!UKSWeb/
+!UKSWeb/**
+**/bin/
+**/obj/
+UKS/Documentation/

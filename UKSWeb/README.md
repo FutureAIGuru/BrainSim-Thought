@@ -22,6 +22,29 @@ dotnet run --project UKSWeb/UKSWeb.csproj --no-build
 
 Open <http://localhost:5080>. Stop the service with **Ctrl+C**. Running a framework-dependent build requires the .NET 8 ASP.NET Core runtime (included with the .NET 8 SDK).
 
+## Deploy with Docker / Render
+
+The repository-root `Dockerfile` builds UKSWeb and UKS, then runs the published service in a Linux ASP.NET Core image. The `.dockerignore` keeps desktop files, documentation, and local build outputs out of the build context.
+
+Commit and push both files and the current UKSWeb/UKS changes to the branch selected by your host. For a Render Docker web service, use:
+
+- **Branch:** the branch containing this demo (currently `MultiUser`).
+- **Root Directory:** leave empty (the repository root). Do not set it to `UKSWeb`, because the build also needs the sibling UKS project.
+- **Dockerfile Path:** `./Dockerfile`.
+- **Docker Build Context Directory:** repository root (`.`), if this setting is shown.
+- **Docker Command:** leave empty; the image supplies its own start command.
+
+Redeploy after pushing. The application listens on all interfaces at the host's `PORT` environment variable, or port 8080 when PORT is unset. Docker is needed on the build host, not on visitors' computers.
+
+To build and run locally with Docker installed, run from the repository root:
+
+```powershell
+docker build -t uks-web .
+docker run --rm -p 5080:8080 uks-web
+```
+
+Open <http://localhost:5080>. Container restarts and deployments discard in-memory additions. The user dropdown remains a demonstration selector, including user 0; it is not authentication.
+
 ## Try it
 
 1. Add **Fido**, **is-a**, **dog** using the three fields.
