@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BrainSim Thought · UKS</title>
+  <style>
+    :root { font: 16px/1.4 system-ui, sans-serif; color: #183043; background: #f1f5f7; }
+    * { box-sizing: border-box; }
+    body { max-width: 1000px; height: calc(100dvh - 2rem); min-height: 560px; margin: 1rem auto; padding: 0 1rem; display: flex; flex-direction: column; gap: .65rem; }
+    h1 { font-size: 1.65rem; margin: 0 0 .15rem; }
+    h2 { margin: 0 0 .6rem; font-size: 1.15rem; }
+    header p { margin: .15rem 0; color: #4b6270; }
+    main { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: .65rem; }
+    section { background: white; border: 1px solid #ccd9df; border-radius: 10px; padding: .85rem; }
+    .content-section { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: end; gap: .6rem; }
+    #children-form { display: flex; align-items: end; gap: .6rem; }
+    label { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: .2rem; }
+    input, button, select { font: inherit; border-radius: 6px; padding: .45rem .6rem; }
+    .user-selector { display: inline-flex; flex-direction: row; align-items: center; gap: .5rem; margin: .35rem 0 .1rem; }
+    input { border: 1px solid #859da9; min-width: 0; }
+    button { background: #155b74; color: white; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+    button:disabled { opacity: .6; cursor: wait; }
+    :focus-visible { outline: 3px solid #d58d18; outline-offset: 3px; }
+    .status { margin: .5rem 0 0; overflow-wrap: anywhere; }
+    .status:empty { display: none; }
+    .error { color: #a51b29; }
+    #children-list { list-style: none; padding: 0 .35rem 0 0; margin: .4rem 0 0; flex: 1; min-height: 0; overflow-y: auto; }
+    #children-list li { display: flex; align-items: center; gap: 1rem; padding: .3rem 0; border-bottom: 1px solid #e7edf0; }
+    #children-list .relationship { display: block; overflow-wrap: anywhere; padding: .5rem 0; }
+    .child-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .delete-button { display: inline-flex; margin: 0; padding: .35rem; background: #a51b29; }
+    .delete-button svg { width: 20px; height: 20px; }
+    footer, .hint { font-size: .9rem; color: #4b6270; }
+    @media (max-width: 500px) {
+      .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      body { min-height: 640px; padding: 0 .5rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BrainSim Thought</h1>
+    <p>A small window into the Universal Knowledge Store.</p>
+    <label class="user-selector">User
+      <select id="user-select" aria-label="User number">
+        <option value="0">0 (shared)</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+    </label>
+    <p class="hint">Each user sees shared content from user 0 plus their own additions.</p>
+  </header>
+  <main>
+    <section aria-labelledby="add-title">
+      <h2 id="add-title">Add a relationship</h2>
+      <form id="add-form">
+        <div class="fields">
+          <label>Source<input name="source" value="Fido" required></label>
+          <label>Relationship type<input name="relationshipType" value="is-a" required></label>
+          <label>Target<input name="target" value="dog" required></label>
+          <button type="submit">Add relationship</button>
+        </div>
+      </form>
+      <p id="add-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+    <section class="content-section" aria-labelledby="children-title">
+      <h2 id="children-title">Thought content</h2>
+      <form id="children-form">
+        <label>Thought label<input name="label" value="dog" required></label>
+        <button type="submit">Show content</button>
+      </form>
+      <p id="children-status" class="status" role="status" aria-live="polite"></p>
+      <ul id="children-list" aria-label="Children and direct relationships" tabindex="0"></ul>
+    </section>
+  </main>
+  <footer>Content stays in memory while this service is running. Stopping it discards your changes.</footer>
+  <script>
+    const userSelect = document.querySelector('#user-select');
+    async function request(url, options) {
+      const response = await fetch(url + (url.includes('?') ? '&' : '?') + 'user=' + userSelect.value, options);
+      const data = await response.json();
+      if (!response.ok) {
+        const error = new Error(data.error || data.detail || data.title || 'The request failed.');
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    }
+
+    function setStatus(element, message, error = false) {
+      element.textContent = message;
+      element.classList.toggle('error', error);
+    }
+
+    const childrenForm = document.querySelector('#children-form');
+    let watchedLabel = null;
+    let renderedKey = '';
+    let renderedContent = '';
+    let refreshController = null;
+    let deleting = false;
+    async function showChildren({ automatic = false } = {}) {
+      const selectedUser = userSelect.value;
+      const label = automatic ? watchedLabel : childrenForm.elements.label.value.trim();
+      if (automatic && (refreshController || deleting || document.hidden)) return;
+      refreshController?.abort();
+      watchedLabel = label || null;
+      const status = document.querySelector('#children-status');
+      const list = document.querySelector('#children-list');
+      const button = childrenForm.querySelector('button');
+      const key = JSON.stringify([selectedUser, label]);
+      if (key !== renderedKey) {
+        list.replaceChildren();
+        renderedContent = '';
+        renderedKey = key;
+      }
+      if (!label) {
+        refreshController = null;
+        button.disabled = false;
+        setStatus(status, 'Enter a Thought label.');
+        return;
+      }
+      const controller = new AbortController();
+      refreshController = controller;
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      if (!automatic) {
+        button.disabled = true;
+        setStatus(status, 'Loading…');
+      }
+      try {
+        const data = await request('/api/children?label=' + encodeURIComponent(label), { signal: controller.signal });
+        if (controller !== refreshController || selectedUser !== userSelect.value) return;
+        const summary = `${data.label}: ${data.children.length} children · ${data.relationships.length} direct relationships. Auto-refresh: 2s.`;
+        const content = JSON.stringify(data);
+        if (content === renderedContent) {
+          setStatus(status, summary);
+          return;
+        }
+        const scrollTop = list.scrollTop;
+        const focusedLabel = list.contains(document.activeElement)
+          ? document.activeElement.getAttribute('aria-label') : null;
+        const items = data.children.map(child => {
+          const item = document.createElement('li');
+          const name = document.createElement('span');
+          name.className = 'child-label';
+          name.textContent = child.label;
+          const deleteButton = document.createElement('button');
+          deleteButton.type = 'button';
+          deleteButton.className = 'delete-button';
+          deleteButton.disabled = child.owner !== Number(selectedUser);
+          deleteButton.title = deleteButton.disabled ? 'Shared Thought: only user 0 can delete it' : `Delete ${child.label}`;
+          deleteButton.setAttribute('aria-label', `Delete Thought ${child.label}`);
+          deleteButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>';
+          deleteButton.addEventListener('click', async () => {
+            deleting = true;
+            refreshController?.abort();
+            deleteButton.disabled = true;
+            setStatus(status, `Deleting ${child.label}…`);
+            try {
+              await request('/api/thoughts?label=' + encodeURIComponent(child.label), { method: 'DELETE' });
+              await showChildren();
+            } catch (error) {
+              setStatus(status, error.message, true);
+              deleteButton.disabled = false;
+            } finally {
+              deleting = false;
+            }
+          });
+          item.append(name, deleteButton);
+          return item;
+        });
+        const relationships = data.relationships.map(relationship => {
+          const item = document.createElement('li');
+          item.className = 'relationship';
+          item.textContent = `[${relationship.source} → ${relationship.relationshipType ?? '(no type)'} → ${relationship.target ?? '(no target)'}]`;
+          return item;
+        });
+        list.replaceChildren(...items, ...relationships);
+        list.scrollTop = scrollTop;
+        if (focusedLabel) {
+          const replacement = Array.from(list.querySelectorAll('button'))
+            .find(button => button.getAttribute('aria-label') === focusedLabel);
+          if (replacement) replacement.focus({ preventScroll: true });
+          else list.focus({ preventScroll: true });
+        }
+        renderedContent = content;
+        setStatus(status, summary);
+      } catch (error) {
+        if (controller === refreshController && !deleting && selectedUser === userSelect.value) {
+          if (error.status === 404) {
+            list.replaceChildren();
+            renderedContent = '';
+          }
+          setStatus(status, controller.signal.aborted ? 'Refresh timed out. Retrying automatically…' : error.message, true);
+        }
+      } finally {
+        clearTimeout(timeout);
+        if (controller === refreshController) {
+          refreshController = null;
+          button.disabled = false;
+        }
+      }
+    }
+
+    setInterval(() => {
+      if (watchedLabel) showChildren({ automatic: true });
+    }, 2000);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && watchedLabel) showChildren({ automatic: true });
+    });
+
+    childrenForm.addEventListener('submit', event => {
+      event.preventDefault();
+      showChildren();
+    });
+
+    userSelect.addEventListener('change', () => {
+      setStatus(document.querySelector('#add-status'), '');
+      showChildren();
+    });
+
+    document.querySelector('#add-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const button = form.querySelector('button');
+      const status = document.querySelector('#add-status');
+      button.disabled = true;
+      setStatus(status, 'Adding…');
+      try {
+        const data = await request('/api/statements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.fromEntries(new FormData(form)))
+        });
+        setStatus(status, `Added [${data.source} → ${data.relationshipType} → ${data.target}].`);
+        if (childrenForm.elements.label.value.trim()) await showChildren();
+      } catch (error) {
+        setStatus(status, error.message, true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

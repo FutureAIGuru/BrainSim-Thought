@@ -21,6 +21,16 @@ using Pluralize.NET;
 /// </summary>
 public partial class UKS
 {
+    private static readonly AsyncLocal<int> currentUser = new();
+    internal static int CurrentUser => currentUser.Value;
+
+    /// <summary>Sets the owner for the current execution context; zero owns shared content.</summary>
+    public void SetUser(int user)
+    {
+        if (user < 0) throw new ArgumentOutOfRangeException(nameof(user));
+        currentUser.Value = user;
+    }
+
     //This is the actual internal Universal Knowledge Store
     static private List<Thought> uKSList = new();// { Capacity = 1000000, };
 
@@ -139,7 +149,7 @@ public partial class UKS
         if (r.From is null) return null;
         foreach (Link r1 in r.From.LinksTo)
         {
-            if (LinksAreEqual(r, r1)) return r1;
+            if (r1.Owner == CurrentUser && LinksAreEqual(r, r1)) return r1;
         }
         return null;
     }
@@ -208,6 +218,8 @@ public partial class UKS
 
         if (thoughtToReturn is not null)
         {
+            // Looking up shared content must not reparent it in a private workspace.
+            if (thoughtToReturn.Owner != CurrentUser) return thoughtToReturn;
             if (thoughtToReturn.Parents.Count == 0 &&
                 thoughtToReturn.Label.ToLower() != "brainsim" &&
                 thoughtToReturn.Label.ToLower() != "thought" &&

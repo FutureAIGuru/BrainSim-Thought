@@ -116,6 +116,7 @@ public partial class UKS
 		for (int i = 0; i < existingLinks.Count; i++)
 		{
 			Link existingLink = existingLinks[i];
+			if (existingLink.Owner != CurrentUser) continue;
 			if (existingLink == newLink)
 			{
 				newLink.Weight += (1 - newLink.Weight) / 4.0f;
@@ -148,6 +149,7 @@ public partial class UKS
 	void ClearExtraneousParents(Thought? t)
 	{
 		if (t is null) return;
+		if (t.Owner != CurrentUser) return;
 
 		bool reconnectNeeded = t.HasAncestor("Thought");
 		Thought? unknown = ThoughtLabels.GetThought("Unknown");

@@ -28,7 +28,8 @@ public class ThoughtLabels
     public static Thought? GetThought(string label)
     {
         if (label is null || label == "") return null;
-        labelList.TryGetValue(label.ToLower(), out Thought? retVal);
+        if (labelList.TryGetValue($"{UKS.CurrentUser}:{label}".ToLowerInvariant(), out Thought? retVal)) return retVal;
+        labelList.TryGetValue($"0:{label}".ToLowerInvariant(), out retVal);
         return retVal;
     }
     public static int GetLabelCount()
@@ -54,7 +55,7 @@ public class ThoughtLabels
     {
         //sets a label and appends/increments trailing digits in the event of collisions
         if (newLabel == "") return newLabel; //don't index empty lables
-        labelList.TryRemove(t.Label.ToLower(), out Thought? _);
+        labelList.TryRemove($"{t.Owner}:{t.Label}".ToLowerInvariant(), out Thought? _);
         int curDigits = -1;
         string baseString = newLabel;
         //This code allows you to put a * at the end of a label and it will auto-increment
@@ -67,7 +68,7 @@ public class ThoughtLabels
         }
 
         //autoincrement in the event of name collisions
-        while (!labelList.TryAdd(newLabel.ToLower(), t))
+        while (!labelList.TryAdd($"{t.Owner}:{newLabel}".ToLowerInvariant(), t))
         {
             curDigits++;
             newLabel = baseString + curDigits;
@@ -84,10 +85,10 @@ public class ThoughtLabels
         foreach (Thought thought in labelList.Values) { retVal.Add(thought); }
         return retVal;
     }
-    public static void RemoveThoughtLabel(string existingLabel)
+    public static void RemoveThoughtLabel(string existingLabel, int? owner = null)
     {
         if (string.IsNullOrEmpty(existingLabel)) return;
-        labelList.Remove(existingLabel.ToLower(), out Thought? _);
+        labelList.Remove($"{owner ?? UKS.CurrentUser}:{existingLabel}".ToLowerInvariant(), out Thought? _);
     }
 
 }

@@ -66,6 +66,10 @@ public class Link : Thought
 /// </summary>
 public partial class Thought
 {
+    /// <summary>Immutable creator; inherited by Links. Zero denotes shared content.</summary>
+    public readonly int Owner = UKS.CurrentUser;
+    internal bool IsVisible => Owner == 0 || Owner == UKS.CurrentUser;
+
     private static readonly Queue<Thought> recentlyFired = new();
     private static readonly object recentlyFiredLock = new();
 
@@ -84,16 +88,16 @@ public partial class Thought
         get
         { 
             if (CheckExpiredAndMaybeDelete()) return Array.Empty<Link>();
-            lock (_linksTo) { return new List<Link>(_linksTo.AsReadOnly()); }
+            lock (_linksTo) { return _linksTo.Where(x => x.IsVisible && (x.To?.IsVisible ?? true) && (x.LinkType?.IsVisible ?? true)).ToList(); }
         }
     }
     /// <summary>Safe snapshot of incoming links.</summary>
     /// 
-    public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return new List<Link>(_linksFrom.AsReadOnly()); } } }
+    public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return _linksFrom.Where(x => x.IsVisible && (x.From?.IsVisible ?? true) && (x.LinkType?.IsVisible ?? true)).ToList(); } } }
     /// <summary>Direct parents (targets of outgoing is-a links).</summary>
-    public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).OfType<Thought>().ToList(); } }
+    public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.IsVisible && x.LinkType == IsA && x.To?.IsVisible == true).Select(x => x.To).OfType<Thought>().ToList(); } }
     /// <summary>Direct children (sources of incoming is-a links).</summary>
-    public IReadOnlyList<Thought> Children { get { lock (_linksFrom) return _linksFrom.Where(x => x.LinkType?.Label == "is-a").Select(x => x.From).OfType<Thought>().ToList(); } }
+    public IReadOnlyList<Thought> Children { get { lock (_linksFrom) return _linksFrom.Where(x => x.IsVisible && x.LinkType == IsA && x.From?.IsVisible == true).Select(x => x.From).OfType<Thought>().ToList(); } }
 
     private string _label = "";
     public string Label
@@ -102,7 +106,7 @@ public partial class Thought
         set
         {
             if (value == _label) return;
-            ThoughtLabels.RemoveThoughtLabel(_label);
+            ThoughtLabels.RemoveThoughtLabel(_label, Owner);
             _label = ThoughtLabels.AddThoughtLabel(value, this);
         }
     }
@@ -110,33 +114,49 @@ public partial class Thought
 
     public void Delete()
     {
-        if (LinksFrom.FindFirst(x => x.LinkType?.Label == "VLU") is not null)
+        // Physical deletion removes references from every workspace. Authorization
+        // belongs to the caller; the web endpoint permits only the Thought's owner.
+        if (this is Link link)
         {
-            //this Thought is the object of a sequence.  
-        }
-        foreach (Link r in _linksTo.Where(x => (x.To as SeqElement)?.FRST == x.To))
-        {
-            if (r.To is SeqElement seq)
-                UKS.theUKS.DeleteSequence(seq);
-        }
-        for (int i = 0; i < _linksTo.Count; i++)
-        {
-            Link r = _linksTo[i];
-            RemoveLink(r);
-            i--;
+            if (link.From is not null)
+                lock (link.From._linksTo)
+                    link.From._linksTo.RemoveAll(x => ReferenceEquals(x, link));
+            if (link.To is not null)
+                lock (link.To._linksFrom)
+                    link.To._linksFrom.RemoveAll(x => ReferenceEquals(x, link));
         }
 
-        for (int i = 0; i < _linksFrom.Count; i++)
+        foreach (Link r in _linksTo.ToArray())
         {
-            Link r = _linksFrom[i];
-            if (r.From?.LinksTo.Count > 0)  //HACK: corrects for certain broken links
+            if (r.To is SeqElement seq && seq.FRST == seq)
+                UKS.theUKS.DeleteSequence(seq);
+            RemoveLink(r);
+        }
+        foreach (Link r in _linksFrom.ToArray())
+        {
+            if (r.From is not null) r.From.RemoveLink(r);
+            else
             {
-                r.From.RemoveLink(r);
-                i--;
+                lock (_linksFrom) _linksFrom.Remove(r);
+                r.Delete();
             }
         }
 
-        ThoughtLabels.RemoveThoughtLabel(Label);
+        // This implementation has no separate list of links using a Thought as type.
+        // Inspect the actual stored links, including private links to shared Thoughts.
+        Thought[] sources;
+        lock (UKS.theUKS.AtomicThoughts)
+            sources = UKS.theUKS.AtomicThoughts.Concat(ThoughtLabels.LabelList.Values)
+                .Distinct(ReferenceEqualityComparer.Instance).Cast<Thought>().ToArray();
+        foreach (Thought source in sources)
+        {
+            Link[] typedLinks;
+            lock (source._linksTo)
+                typedLinks = source._linksTo.Where(x => ReferenceEquals(x.LinkType, this)).ToArray();
+            foreach (Link typedLink in typedLinks) source.RemoveLink(typedLink);
+        }
+
+        ThoughtLabels.RemoveThoughtLabel(Label, Owner);
         lock (UKS.theUKS.AtomicThoughts)
             UKS.theUKS.AtomicThoughts.Remove(this);
     }
@@ -245,7 +265,7 @@ public partial class Thought
     {
         if (obj is Thought t)
         {
-            if (Label != t.Label) return false;
+            if (Owner != t.Owner || Label != t.Label) return false;
             if (this is Link l1 && t is Link l2)
             {
                 return l1.From == l2.From && l1.LinkType == l2.LinkType && l1.To == l2.To;
@@ -259,14 +279,15 @@ public partial class Thought
     public override int GetHashCode()
     {
         if (this is Link link)
-            return HashCode.Combine(Label, link.From, link.LinkType, link.To);
-        return Label.GetHashCode(StringComparison.Ordinal);
+            return HashCode.Combine(Owner, Label, link.From, link.LinkType, link.To);
+        return HashCode.Combine(Owner, Label.GetHashCode(StringComparison.Ordinal));
     }
 
     public static bool operator ==(Thought? a, Thought? b)
     {
         if (ReferenceEquals(a, b)) return true;
         if (a is null || b is null) return false;
+        if (a.Owner != b.Owner) return false;
         if (a.Label != "" && a.Label == b.Label) return true;
         if (a is Link la && b is Link lb)
             return la.From == lb.From && la.To == lb.To && la.LinkType == lb.LinkType;
@@ -501,7 +522,7 @@ public partial class Thought
     {
         if (linkType is null) return null;
 
-        Link? existing = HasLink(linkType, to);
+        Link? existing = LinksTo.FirstOrDefault(x => x.Owner == UKS.CurrentUser && x.LinkType == linkType && x.To == to);
         if (existing is not null)
             return existing;
 
@@ -566,46 +587,22 @@ public partial class Thought
     public void RemoveLink(Link r)
     {
         if (r is null) return;
-        if (r.LinkType is null) return;
-        if (r.From is null)
-        {
-            if (r.To is null) return;
-            lock (r.LinkType._linksFrom)
-            {
-                lock (r.To._linksFrom)
-                {
-                    r.LinkType._linksFrom.RemoveAll(x => x.From == r.From && x.LinkType == r.LinkType && x.To == r.To);
-                    r.To._linksFrom.RemoveAll(x => x.From == r.From && x.LinkType == r.LinkType && x.To == r.To);
-                }
-            }
-        }
-        else if (r.To is null)
+        Link? stored = r;
+        if (r.From is not null)
         {
             lock (r.From._linksTo)
             {
-                lock (r.LinkType._linksFrom)
-                {
-                    r.From._linksTo.RemoveAll(x => x.From == r.From && x.LinkType == r.LinkType && x.To is null);
-                    r.LinkType._linksFrom.RemoveAll(x => x.From == r.From && x.LinkType == r.LinkType && x.To is null);
-                }
+                stored = r.From._linksTo.FirstOrDefault(x => ReferenceEquals(x, r))
+                    ?? r.From._linksTo.FirstOrDefault(x => x.Owner == r.Owner &&
+                        x.From == r.From && x.LinkType == r.LinkType && x.To == r.To);
+                if (stored is null) return;
+                r.From._linksTo.RemoveAll(x => ReferenceEquals(x, stored));
             }
         }
-        else
-        {
-            lock (r.From._linksTo)
-            {
-                lock (r.LinkType._linksFrom)
-                {
-                    lock (r.To._linksFrom)
-                    {
-                        r.From._linksTo.Remove(r);
-                        r.LinkType._linksFrom.Remove(r);
-                        r.To._linksFrom.Remove(r);
-                    }
-                }
-            }
-        }
-        r.Delete();
+        if (stored.To is not null)
+            lock (stored.To._linksFrom)
+                stored.To._linksFrom.RemoveAll(x => ReferenceEquals(x, stored));
+        stored.Delete();
     }
 
     public Thought? GetTargetOfFirstLinkOfType(Thought linkType)
