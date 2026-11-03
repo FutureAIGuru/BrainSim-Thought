@@ -1,6 +1,7 @@
+import { sandbox, request } from './sandbox.js?v=20261103-simple';
+
 const container = document.querySelector('#graph');
 const status = document.querySelector('#status');
-const userSelect = document.querySelector('#user-select');
 const rootInput = document.querySelector('#root');
 const loadButton = document.querySelector('#load');
 const refreshButton = document.querySelector('#refresh');
@@ -22,7 +23,6 @@ let makeNodeLabel;
 let batchRefreshSupported = true;
 
 const parameters = new URLSearchParams(location.search);
-if (/^[0-4]$/.test(parameters.get('user') || '')) userSelect.value = parameters.get('user');
 if (parameters.get('root')) rootInput.value = parameters.get('root');
 
 function message(text, error = false) {
@@ -46,27 +46,19 @@ function describeEdge(link) {
   return `${nodes.get(endpoint(link.source))?.label || '?'} → ${link.type || '(unnamed type)'} → ${nodes.get(endpoint(link.target))?.label || '?'}`;
 }
 
-async function retrieve(query, user) {
-  query.set('user', user);
-  const response = await fetch('/api/graph?' + query, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
-  const data = await response.json();
-  if (!response.ok) {
-    const error = new Error(data.error || 'Could not load graph content.');
-    error.status = response.status;
-    throw error;
-  }
-  return data;
+async function retrieve(query, automatic = false) {
+  return request('/api/graph?' + query, { signal: AbortSignal.timeout(15000), automatic });
 }
 
-async function retrieveNeighborhoods(ids, user) {
+async function retrieveNeighborhoods(ids, automatic = false) {
   if (batchRefreshSupported) {
     try {
-      const data = await retrieve(new URLSearchParams({ ids: ids.join(',') }), user);
+      const data = await retrieve(new URLSearchParams({ ids: ids.join(',') }), automatic);
       if (Array.isArray(data.snapshots) && Array.isArray(data.missingIds)) return data;
       // A previously built server can serve the new page but lack the batch API.
       batchRefreshSupported = false;
     } catch (error) {
-      if (error.status !== 400 && error.status !== 404) throw error;
+      if (error.code === 'sandbox_unavailable' || (error.status !== 400 && error.status !== 404)) throw error;
       batchRefreshSupported = false;
     }
   }
@@ -75,7 +67,7 @@ async function retrieveNeighborhoods(ids, user) {
   for (let offset = 0; offset < ids.length; offset += 4) {
     await Promise.all(ids.slice(offset, offset + 4).map(async id => {
       try {
-        snapshots.push(await retrieve(new URLSearchParams({ id, expand: 'true' }), user));
+        snapshots.push(await retrieve(new URLSearchParams({ id, expand: 'true' }), automatic));
       } catch (error) {
         if (error.status === 404) missingIds.push(id);
         else throw error;
@@ -166,7 +158,6 @@ async function loadRoot(event) {
   if (!graph) return;
   const version = ++generation;
   ++revision;
-  const user = userSelect.value;
   const label = rootInput.value.trim();
   loadButton.disabled = true;
   nodes.clear();
@@ -185,9 +176,10 @@ async function loadRoot(event) {
     return;
   }
   message('Loading root…');
-  document.querySelector('#editor-link').href = '/?user=' + user + '&root=' + encodeURIComponent(label);
+  sandbox.updateRoot(label);
+  document.querySelector('#editor-link').href = sandbox.pageUrl('/', label);
   try {
-    const data = await retrieve(new URLSearchParams({ label }), user);
+    const data = await retrieve(new URLSearchParams({ label }));
     if (version !== generation) return;
     rootId = data.root;
     rootSnapshot = data;
@@ -212,11 +204,10 @@ async function expand(node) {
     return;
   }
   const version = generation;
-  const user = userSelect.value;
   pending.add(node.id);
   message(`Expanding ${node.label}…`);
   try {
-    const data = await retrieve(new URLSearchParams({ id: node.id, expand: 'true' }), user);
+    const data = await retrieve(new URLSearchParams({ id: node.id, expand: 'true' }));
     if (version !== generation) return;
     if (node.promotedFromEdge && !data.links.some(link => link.structural))
       throw new Error('Restart the web service to enable relationship-node expansion.');
@@ -246,15 +237,14 @@ async function expandEdge(link) {
 }
 
 async function refreshGraph({ automatic = false } = {}) {
-  if (!graph || rootId === null || refreshing || pending.size || loadButton.disabled || (automatic && document.hidden)) return;
+  if (!sandbox.available || !graph || rootId === null || refreshing || pending.size || loadButton.disabled || (automatic && document.hidden)) return;
   refreshing = true;
   refreshButton.disabled = true;
   const version = generation;
   const startedRevision = revision;
-  const user = userSelect.value;
   try {
     if (!neighborhoods.size) {
-      const data = await retrieve(new URLSearchParams({ id: rootId }), user);
+      const data = await retrieve(new URLSearchParams({ id: rootId }), automatic);
       if (version !== generation || startedRevision !== revision) return;
       rootSnapshot = data;
     } else {
@@ -262,7 +252,7 @@ async function refreshGraph({ automatic = false } = {}) {
       const snapshots = [];
       const missing = [];
       for (let offset = 0; offset < ids.length; offset += 256) {
-        const data = await retrieveNeighborhoods(ids.slice(offset, offset + 256), user);
+        const data = await retrieveNeighborhoods(ids.slice(offset, offset + 256), automatic);
         if (version !== generation || startedRevision !== revision) return;
         snapshots.push(...data.snapshots);
         missing.push(...data.missingIds);
@@ -292,7 +282,8 @@ async function refreshGraph({ automatic = false } = {}) {
       neighborhoods.clear();
       reconcile();
     }
-    message(`${error.message} ${rootId === null ? 'Load a root to continue.' : 'Refresh will retry automatically.'}`, true);
+    message(error.code === 'sandbox_unavailable' ? error.message
+      : `${error.message} ${rootId === null ? 'Load a root to continue.' : 'Refresh will retry automatically.'}`, true);
   } finally {
     refreshing = false;
     refreshButton.disabled = false;
@@ -300,7 +291,6 @@ async function refreshGraph({ automatic = false } = {}) {
 }
 
 document.querySelector('#root-form').addEventListener('submit', loadRoot);
-userSelect.addEventListener('change', loadRoot);
 document.querySelector('#fit').addEventListener('click', () => graph?.zoomToFit(500, 65));
 refreshButton.addEventListener('click', () => refreshGraph());
 showLabels.addEventListener('change', () => {
@@ -315,6 +305,8 @@ document.addEventListener('visibilitychange', () => {
 });
 
 try {
+  if (!await sandbox.ready) throw sandbox.error;
+  document.querySelector('#editor-link').href = sandbox.pageUrl('/', rootInput.value.trim());
   if (typeof ForceGraph3D === 'undefined') throw new Error('The 3D library could not be loaded. Check your connection to cdn.jsdelivr.net and reload this page.');
   const { default: SpriteText } = await import('https://esm.sh/three-spritetext@1.10.0');
   makeNodeLabel = node => {

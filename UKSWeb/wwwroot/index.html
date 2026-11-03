@@ -18,7 +18,12 @@
     #children-form { display: flex; align-items: end; gap: .6rem; }
     label { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: .2rem; }
     input, button, select { font: inherit; border-radius: 6px; padding: .45rem .6rem; }
-    .user-selector { display: inline-flex; flex-direction: row; align-items: center; gap: .5rem; margin: .35rem 0 .1rem; }
+    .top-line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .demo-picker { flex: 0 1 auto; display: flex; flex-direction: row; align-items: center; gap: .4rem; margin: 0; font-size: .85rem; }
+    .demo-picker select { max-width: 220px; }
+    #sandbox-status:empty { display: none; }
+    #sandbox-status { margin: .2rem 0 0; }
+    #sandbox-status.error { color: #a51b29; }
     input { border: 1px solid #859da9; min-width: 0; }
     button { background: #155b74; color: white; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
     button:disabled { opacity: .6; cursor: wait; }
@@ -28,9 +33,9 @@
     .error { color: #a51b29; }
     #children-list { list-style: none; padding: 0 .35rem 0 0; margin: .4rem 0 0; flex: 1; min-height: 0; overflow-y: auto; }
     #children-list li { display: flex; align-items: center; gap: 1rem; padding: .3rem 0; border-bottom: 1px solid #e7edf0; }
-    #children-list .relationship { display: block; overflow-wrap: anywhere; padding: .5rem 0; }
+    #children-list .relationship { padding: .5rem 0; }
     .child-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-    .delete-button { display: inline-flex; margin: 0; padding: .35rem; background: #a51b29; }
+    .delete-button { display: inline-flex; flex-shrink: 0; margin: 0; padding: .35rem; background: #a51b29; }
     .delete-button svg { width: 20px; height: 20px; }
     footer, .hint { font-size: .9rem; color: #4b6270; }
     @media (max-width: 500px) {
@@ -41,19 +46,12 @@
 </head>
 <body>
   <header>
-    <h1>BrainSim Thought</h1>
+    <div class="top-line">
+      <h1>BrainSim Thought</h1>
+      <label class="demo-picker">XML<select id="demo-select" aria-label="XML demo" disabled><option value="__choose" disabled>Choose XML file</option><option value="">Standard UKS</option></select></label>
+    </div>
     <p>A small window into the Universal Knowledge Store.</p>
     <a id="graph-link" href="/graph.html">Explore UKS in 3D</a>
-    <label class="user-selector">User
-      <select id="user-select" aria-label="User number">
-        <option value="0">0</option>
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-      </select>
-    </label>
-    <p class="hint">Each user has an independent sandbox. Changes stay within the selected user�s UKS.</p>
   </header>
   <main>
     <section aria-labelledby="add-title">
@@ -71,33 +69,25 @@
     <section class="content-section" aria-labelledby="children-title">
       <h2 id="children-title">Thought content</h2>
       <form id="children-form">
-        <label>Thought label<input name="label" value="dog" required></label>
+        <label>Thought label<input name="label" value="Thought" required></label>
         <button type="submit">Show content</button>
       </form>
       <p id="children-status" class="status" role="status" aria-live="polite"></p>
       <ul id="children-list" aria-label="Children and direct relationships" tabindex="0"></ul>
     </section>
   </main>
-  <footer>Content stays in memory while this service is running. Stopping it discards your changes.</footer>
-  <script>
-    const userSelect = document.querySelector('#user-select');
+  <footer>
+    <span id="inactivity-note">Edits are deleted after inactivity or a server restart.</span>
+    <p id="sandbox-status" role="status" aria-live="polite"></p>
+  </footer>
+  <script type="module">
+    import { sandbox, request } from './sandbox.js?v=20261103-simple';
     const pageParameters = new URLSearchParams(location.search);
-    if (/^[0-4]$/.test(pageParameters.get('user') || '')) userSelect.value = pageParameters.get('user');
     document.querySelector('#graph-link').addEventListener('click', event => {
       const root = document.querySelector('#children-form').elements.label.value.trim() || 'Thought';
-      event.currentTarget.href = '/graph.html?user=' + userSelect.value + '&root=' + encodeURIComponent(root);
+      if (!sandbox.available) { event.preventDefault(); return; }
+      event.currentTarget.href = sandbox.pageUrl('/graph.html', root);
     });
-    async function request(url, options) {
-      const response = await fetch(url + (url.includes('?') ? '&' : '?') + 'user=' + userSelect.value, options);
-      const data = await response.json();
-      if (!response.ok) {
-        const error = new Error(data.error || data.detail || data.title || 'The request failed.');
-        error.status = response.status;
-        throw error;
-      }
-      return data;
-    }
-
     function setStatus(element, message, error = false) {
       element.textContent = message;
       element.classList.toggle('error', error);
@@ -111,15 +101,17 @@
     let refreshController = null;
     let deleting = false;
     async function showChildren({ automatic = false } = {}) {
-      const selectedUser = userSelect.value;
+      if (!await sandbox.ready) return;
+      const selectedSandbox = sandbox.id;
       const label = automatic ? watchedLabel : childrenForm.elements.label.value.trim();
       if (automatic && (refreshController || deleting || document.hidden)) return;
       refreshController?.abort();
       watchedLabel = label || null;
+      if (!automatic) sandbox.updateRoot(label);
       const status = document.querySelector('#children-status');
       const list = document.querySelector('#children-list');
       const button = childrenForm.querySelector('button');
-      const key = JSON.stringify([selectedUser, label]);
+      const key = JSON.stringify([selectedSandbox, label]);
       if (key !== renderedKey) {
         list.replaceChildren();
         renderedContent = '';
@@ -139,8 +131,8 @@
         setStatus(status, 'Loading…');
       }
       try {
-        const data = await request('/api/children?label=' + encodeURIComponent(label), { signal: controller.signal });
-        if (controller !== refreshController || selectedUser !== userSelect.value) return;
+        const data = await request('/api/children?label=' + encodeURIComponent(label), { signal: controller.signal, automatic });
+        if (controller !== refreshController || selectedSandbox !== sandbox.id) return;
         const summary = `${data.label}: ${data.children.length} children · ${data.relationships.length} direct relationships. Auto-refresh: 2s.`;
         const content = JSON.stringify(data);
         if (content === renderedContent) {
@@ -150,39 +142,47 @@
         const scrollTop = list.scrollTop;
         const focusedLabel = list.contains(document.activeElement)
           ? document.activeElement.getAttribute('aria-label') : null;
+        function deleteButton(description, url) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'delete-button';
+          button.disabled = !sandbox.available;
+          button.title = `Delete ${description}`;
+          button.setAttribute('aria-label', `Delete ${description}`);
+          button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>';
+          button.addEventListener('click', async () => {
+            if (deleting) return;
+            deleting = true;
+            refreshController?.abort();
+            button.disabled = true;
+            setStatus(status, `Deleting ${description}…`);
+            try {
+              await request(url, { method: 'DELETE' });
+              await showChildren();
+            } catch (error) {
+              setStatus(status, error.message, true);
+              button.disabled = !sandbox.available;
+            } finally {
+              deleting = false;
+            }
+          });
+          return button;
+        }
         const items = data.children.map(child => {
           const item = document.createElement('li');
           const name = document.createElement('span');
           name.className = 'child-label';
           name.textContent = child.label;
-          const deleteButton = document.createElement('button');
-          deleteButton.type = 'button';
-          deleteButton.className = 'delete-button';
-          deleteButton.title = `Delete ${child.label}`;
-          deleteButton.setAttribute('aria-label', `Delete Thought ${child.label}`);
-          deleteButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>';
-          deleteButton.addEventListener('click', async () => {
-            deleting = true;
-            refreshController?.abort();
-            deleteButton.disabled = true;
-            setStatus(status, `Deleting ${child.label}…`);
-            try {
-              await request('/api/thoughts?label=' + encodeURIComponent(child.label), { method: 'DELETE' });
-              await showChildren();
-            } catch (error) {
-              setStatus(status, error.message, true);
-              deleteButton.disabled = false;
-            } finally {
-              deleting = false;
-            }
-          });
-          item.append(name, deleteButton);
+          item.append(name, deleteButton(`Thought ${child.label}`, '/api/thoughts?label=' + encodeURIComponent(child.label)));
           return item;
         });
         const relationships = data.relationships.map(relationship => {
           const item = document.createElement('li');
           item.className = 'relationship';
-          item.textContent = `[${relationship.source} → ${relationship.relationshipType ?? '(no type)'} → ${relationship.target ?? '(no target)'}]`;
+          const name = document.createElement('span');
+          name.className = 'child-label';
+          name.textContent = `[${relationship.source} → ${relationship.relationshipType ?? '(no type)'} → ${relationship.target ?? '(no target)'}]`;
+          item.append(name, deleteButton(`relationship ${name.textContent}`, '/api/relationships?id=' + relationship.id));
           return item;
         });
         list.replaceChildren(...items, ...relationships);
@@ -196,7 +196,8 @@
         renderedContent = content;
         setStatus(status, summary);
       } catch (error) {
-        if (controller === refreshController && !deleting && selectedUser === userSelect.value) {
+        if (controller === refreshController && !deleting && selectedSandbox === sandbox.id) {
+          if (error.code === 'sandbox_unavailable') watchedLabel = null;
           if (error.status === 404) {
             list.replaceChildren();
             renderedContent = '';
@@ -213,19 +214,14 @@
     }
 
     setInterval(() => {
-      if (watchedLabel) showChildren({ automatic: true });
+      if (watchedLabel && sandbox.available) showChildren({ automatic: true });
     }, 2000);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && watchedLabel) showChildren({ automatic: true });
+      if (!document.hidden && watchedLabel && sandbox.available) showChildren({ automatic: true });
     });
 
     childrenForm.addEventListener('submit', event => {
       event.preventDefault();
-      showChildren();
-    });
-
-    userSelect.addEventListener('change', () => {
-      setStatus(document.querySelector('#add-status'), '');
       showChildren();
     });
 
@@ -247,9 +243,13 @@
       } catch (error) {
         setStatus(status, error.message, true);
       } finally {
-        button.disabled = false;
+        button.disabled = !sandbox.available;
       }
     });
+    if (await sandbox.ready) {
+      document.querySelector('#graph-link').href = sandbox.pageUrl('/graph.html', childrenForm.elements.label.value.trim());
+      showChildren();
+    }
   </script>
 </body>
 </html>
