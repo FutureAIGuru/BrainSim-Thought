@@ -30,7 +30,7 @@
     #edge-detail:empty { display: none; }
     footer { padding: .35rem 1rem; font-size: .8rem; color: #afbed1; border-top: 1px solid #30425c; }
     .dot { display: inline-block; width: .65rem; height: .65rem; border-radius: 50%; margin: 0 .3rem 0 .6rem; }
-    .gold { background: #f6c66d; } .blue { background: #72b7ff; } .green { background: #4ad4b2; }
+    .gold { background: #f6c66d; } .blue { background: #72b7ff; } .green { background: #4ad4b2; } .purple { background: #c19bff; }
   </style>
 </head>
 <body>
@@ -44,15 +44,15 @@
       <button id="refresh" type="button">Refresh now</button>
       <label class="label-toggle"><input id="show-labels" type="checkbox" checked>Labels</label>
     </form>
-    <p class="help">Click a node to expand one step. Expanded nodes refresh every 2 seconds. Hover over an edge to see its type. Drag to rotate; scroll to zoom; right-drag to pan.</p>
+    <p class="help">Click nodes to expand or collapse. Click an edge to reveal its relationship node; its source/type/target connectors cannot expand. Expanded nodes refresh every 2 seconds. Drag to rotate; scroll to zoom; right-drag to pan.</p>
     <p id="status" role="status" aria-live="polite">Loading 3D renderer…</p>
   </header>
   <main>
     <div id="graph" aria-label="Interactive 3D UKS graph"></div>
     <div id="edge-detail" role="status"></div>
   </main>
-  <footer><span class="dot gold"></span>Root <span class="dot blue"></span>Unexpanded <span class="dot green"></span>Expanded · Direct relationships only · Powered by <a href="https://github.com/vasturiano/3d-force-graph" target="_blank" rel="noopener">3d-force-graph</a></footer>
+  <footer><span class="dot gold"></span>Root <span class="dot blue"></span>Unexpanded <span class="dot green"></span>Expanded <span class="dot purple"></span>Relationship · Direct relationships only · Powered by <a href="https://github.com/vasturiano/3d-force-graph" target="_blank" rel="noopener">3d-force-graph</a></footer>
   <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js"></script>
-  <script type="module" src="graph.js?v=20261103-2"></script>
+  <script type="module" src="graph.js?v=20261103-3"></script>
 </body>
 </html>

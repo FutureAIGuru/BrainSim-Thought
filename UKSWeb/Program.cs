@@ -37,6 +37,33 @@ Func<UKS.Thought, bool, object> graphSnapshot = (thought, expand) =>
         nodes.Add(link.From!);
         nodes.Add(link.To!);
     }
+    var displayedLinks = links.Select(link => new
+    {
+        id = (object)graphId(link), source = graphId(link.From!), target = graphId(link.To!),
+        type = link.LinkType!.Label, owner = link.Owner, structural = false
+    }).ToList();
+    if (expand && thought is UKS.Link relationship)
+    {
+        var relationshipId = graphId(relationship);
+        if (relationship.From is not null)
+        {
+            nodes.Add(relationship.From);
+            displayedLinks.Add(new { id = (object)$"part:{relationshipId}:source", source = graphId(relationship.From), target = relationshipId,
+                type = "source", owner = relationship.Owner, structural = true });
+        }
+        if (relationship.LinkType is not null)
+        {
+            nodes.Add(relationship.LinkType);
+            displayedLinks.Add(new { id = (object)$"part:{relationshipId}:type", source = graphId(relationship.LinkType), target = relationshipId,
+                type = "relationship type", owner = relationship.Owner, structural = true });
+        }
+        if (relationship.To is not null)
+        {
+            nodes.Add(relationship.To);
+            displayedLinks.Add(new { id = (object)$"part:{relationshipId}:target", source = relationshipId, target = graphId(relationship.To),
+                type = "target", owner = relationship.Owner, structural = true });
+        }
+    }
     return new
     {
         root = graphId(thought),
@@ -48,11 +75,7 @@ Func<UKS.Thought, bool, object> graphSnapshot = (thought, expand) =>
             owner = t.Owner,
             isRelationship = t is UKS.Link
         }).ToArray(),
-        links = links.Select(link => new
-        {
-            id = graphId(link), source = graphId(link.From!), target = graphId(link.To!),
-            type = link.LinkType!.Label, owner = link.Owner
-        }).ToArray()
+        links = displayedLinks.ToArray()
     };
 };
 

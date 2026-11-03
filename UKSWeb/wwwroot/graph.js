@@ -98,34 +98,44 @@ function render() {
   graph.graphData({ nodes: Array.from(nodes.values()), links: Array.from(links.values()) });
 }
 
-// Rebuild the revealed view from authoritative one-step snapshots, not an ever-growing union.
+// Discover neighborhoods from the root outward. An expanded descendant must not
+// keep its own branch visible after the ancestor that revealed it is collapsed.
 function reconcile(anchor = nodes.get(rootId)) {
   const nextNodes = new Map();
   const nextLinks = new Map();
-  for (const snapshot of [rootSnapshot, ...neighborhoods.values()]) {
+  const active = new Set();
+  const queue = rootId === null ? [] : [rootId];
+  const visited = new Set();
+  if (rootSnapshot) {
+    for (const node of rootSnapshot.nodes) if (node.id === rootId) nextNodes.set(node.id, node);
+  }
+  for (let index = 0; index < queue.length; index++) {
+    const id = queue[index];
+    if (visited.has(id)) continue;
+    visited.add(id);
+    const snapshot = neighborhoods.get(id);
     if (!snapshot) continue;
-    for (const node of snapshot.nodes) nextNodes.set(node.id, node);
-    for (const link of snapshot.links) nextLinks.set(link.id, link);
+    active.add(id);
+    for (const node of snapshot.nodes) {
+      nextNodes.set(node.id, node);
+      if (!visited.has(node.id)) queue.push(node.id);
+    }
+    for (const link of snapshot.links) {
+      nextLinks.set(link.id, link);
+      // A promoted edge is reachable even though its relationship Thought wasn't
+      // a node in the original source/target neighborhood.
+      if (!link.structural && neighborhoods.get(link.id)?.nodes.some(node => node.id === link.id && node.isRelationship))
+        queue.push(link.id);
+    }
   }
-  const adjacent = new Map();
-  for (const link of nextLinks.values()) {
-    if (!adjacent.has(link.source)) adjacent.set(link.source, []);
-    if (!adjacent.has(link.target)) adjacent.set(link.target, []);
-    adjacent.get(link.source).push(link.target);
-    adjacent.get(link.target).push(link.source);
-  }
-  const reachable = new Set(rootId === null ? [] : [rootId]);
-  for (const id of reachable) {
-    for (const neighbor of adjacent.get(id) || []) reachable.add(neighbor);
-  }
-  for (const id of nextNodes.keys()) if (!reachable.has(id)) nextNodes.delete(id);
-  for (const id of neighborhoods.keys()) if (!reachable.has(id)) neighborhoods.delete(id);
+  for (const id of neighborhoods.keys()) if (!active.has(id)) neighborhoods.delete(id);
   for (const [id, link] of nextLinks) {
-    if (!reachable.has(link.source) || !reachable.has(link.target)) nextLinks.delete(id);
+    if ((!link.structural && active.has(id) && nextNodes.get(id)?.isRelationship) ||
+        !nextNodes.has(link.source) || !nextNodes.has(link.target)) nextLinks.delete(id);
   }
   const nextSignature = JSON.stringify({
     nodes: Array.from(nextNodes.values()).sort((a, b) => a.id - b.id).map(node => ({ ...node, expanded: neighborhoods.has(node.id) })),
-    links: Array.from(nextLinks.values()).sort((a, b) => a.id - b.id)
+    links: Array.from(nextLinks.values()).sort((a, b) => String(a.id).localeCompare(String(b.id)))
   });
   if (signature === nextSignature) return false;
   signature = nextSignature;
@@ -193,14 +203,23 @@ async function loadRoot(event) {
 
 async function expand(node) {
   if (pending.has(node.id) || loadButton.disabled) return;
-  const version = generation;
   ++revision; // Discard any refresh started before this user action.
+  if (neighborhoods.has(node.id)) {
+    neighborhoods.delete(node.id);
+    fitAfterLayout = false;
+    reconcile(node);
+    summary();
+    return;
+  }
+  const version = generation;
   const user = userSelect.value;
   pending.add(node.id);
   message(`Expanding ${node.label}…`);
   try {
     const data = await retrieve(new URLSearchParams({ id: node.id, expand: 'true' }), user);
     if (version !== generation) return;
+    if (node.promotedFromEdge && !data.links.some(link => link.structural))
+      throw new Error('Restart the web service to enable relationship-node expansion.');
     ++revision;
     neighborhoods.set(node.id, data);
     fitAfterLayout = true;
@@ -211,6 +230,19 @@ async function expand(node) {
   } finally {
     if (version === generation) pending.delete(node.id);
   }
+}
+
+async function expandEdge(link) {
+  // These connectors describe an existing Link; they are not UKS Links themselves.
+  if (link.structural) return;
+  const source = nodes.get(endpoint(link.source));
+  const target = nodes.get(endpoint(link.target));
+  await expand({
+    id: link.id, label: link.type, isRelationship: true, promotedFromEdge: true,
+    x: ((source?.x || 0) + (target?.x || 0)) / 2,
+    y: ((source?.y || 0) + (target?.y || 0)) / 2,
+    z: ((source?.z || 0) + (target?.z || 0)) / 2
+  });
 }
 
 async function refreshGraph({ automatic = false } = {}) {
@@ -298,21 +330,23 @@ try {
   };
   graph = new ForceGraph3D(container, { controlType: 'orbit' })
     .backgroundColor('#0b1220')
-    .nodeLabel(node => tooltip(`${node.label} · ${node.expanded ? 'expanded; click to refresh' : 'click to expand'}`))
-    .nodeColor(node => node.id === rootId ? '#f6c66d' : node.expanded ? '#4ad4b2' : '#72b7ff')
+    .nodeLabel(node => tooltip(`${node.label} · ${node.expanded ? 'click to collapse' : 'click to expand'}`))
+    .nodeColor(node => node.id === rootId ? '#f6c66d' : node.isRelationship ? '#c19bff' : node.expanded ? '#4ad4b2' : '#72b7ff')
     .nodeThreeObject(node => makeNodeLabel(node))
     .nodeThreeObjectExtend(true)
     .nodeRelSize(5)
     .nodeOpacity(1)
     .linkLabel(link => tooltip(describeEdge(link)))
-    .linkColor(() => '#9caec7')
+    .linkColor(link => link.structural ? '#c19bff' : '#9caec7')
     .linkOpacity(.65)
-    .linkWidth(1)
+    .linkWidth(link => link.structural ? .8 : 1.8)
     .linkCurvature('curvature')
     .linkDirectionalArrowLength(4)
     .linkDirectionalArrowRelPos(.85)
     .linkHoverPrecision(6)
     .onNodeClick(expand)
+    .onLinkClick(expandEdge)
+    .showPointerCursor(object => Boolean(object) && !object.structural)
     .onLinkHover(link => { edgeDetail.textContent = link ? describeEdge(link) : ''; })
     .warmupTicks(30)
     .cooldownTicks(90)
