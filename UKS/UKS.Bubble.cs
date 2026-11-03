@@ -56,6 +56,8 @@ public partial class UKS
     {
         ArgumentNullException.ThrowIfNull(redundantThought);
         ArgumentNullException.ThrowIfNull(canonicalThought);
+        if (!ReferenceEquals(redundantThought.Store, this) || !ReferenceEquals(canonicalThought.Store, this))
+            throw new ArgumentException("Cannot merge Thoughts from another UKS.");
         if (ReferenceEquals(redundantThought, canonicalThought)) return 0;
 
         // Links are stored on their source Thoughts. Scanning the atomic nodes
@@ -71,7 +73,7 @@ public partial class UKS
             if (newSource is null || newType is null) continue;
 
             // Merging a parent with its child can otherwise manufacture A is-a A.
-            bool selfInheritance = newType == Thought.IsA && newSource == newTarget;
+            bool selfInheritance = newType == Labeled("is-a") && newSource == newTarget;
             if (!selfInheritance)
             {
                 Link? replacement = newSource.AddLink(newType, newTarget);
@@ -175,7 +177,7 @@ public partial class UKS
         {
             foreach (Link link in child.LinksTo)
             {
-                if (link.LinkType is null || link.To is null || link.LinkType == Thought.IsA)
+                if (link.LinkType is null || link.To is null || link.LinkType == Labeled("is-a"))
                     continue;
                 if (link.LinkType.Label.Equals("hasProperty", StringComparison.OrdinalIgnoreCase))
                     continue;

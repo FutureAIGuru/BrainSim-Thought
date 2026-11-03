@@ -127,7 +127,7 @@ public partial class UKS
 
             foreach (Link r in t.LinksTo)
             {
-                Thought? inheritable = "inheritable";
+                Thought? inheritable = Labeled("inheritable");
                 if (inheritable is null || r.LinkType?.HasProperty(inheritable) != true || r.To is null)
                     continue;
 
@@ -173,7 +173,7 @@ public partial class UKS
             Thought? querySource = thoughtsToExamine[i].querySource ?? t;
             foreach (Link r in t.LinksTo)
             {
-                if (r.LinkType == Thought.IsA) continue;
+                if (r.LinkType == Labeled("is-a")) continue;
                 bool conditional = r.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true);
                 // A possible Relationship supplies no evidence unless a conditional
                 // supports it as a conclusion. Premises cannot assert their own truth.
@@ -187,7 +187,7 @@ public partial class UKS
 
                 //this is a fun hack which allows us to say that mary has 10 fingers because mary has 2 hands and
                 //each hand has 5 fingers.  The "has" link type is special-cased here to allow this kind of transitive counting.
-                Thought? hasAncestor = "has";
+                Thought? hasAncestor = Labeled("has");
                 if (haveCount > 1 && hasAncestor is not null && r.LinkType?.HasAncestor(hasAncestor) == true)
                 {
                     if (r.From is null || r.LinkType is null || r.To is null) continue;
@@ -650,7 +650,7 @@ public partial class UKS
         Thought? linkType = l.LinkType?.HasProperty("isWildcard") is true ? null : l.LinkType;
         Thought? to = l.To?.HasProperty("isWildcard") is true ? null : l.To;
         Thought? filterTarget = l.GetTargetOfFirstLinkOfType("filterBy");
-        Link? filter = filterTarget is null ? null : new Link { To = filterTarget };
+        Link? filter = filterTarget is null ? null : new Link(this) { To = filterTarget };
         if (from is null && to is null && linkType is null) return results;
 
         // hack to handle is-a searches
@@ -659,7 +659,7 @@ public partial class UKS
             foreach (Thought child in from.Parents)
             {
                 if (filterTarget is not null && !child.HasAncestor(filterTarget)) continue;
-                results.Add(new Link { From = from, LinkType = linkType, To = child });
+                results.Add(new Link(this) { From = from, LinkType = linkType, To = child });
             }
             return results;
         }
@@ -673,7 +673,7 @@ public partial class UKS
                     (to is null || link.To == to))
                 {
 //                    results.Add(link);
-                    results.Add(new Link
+                    results.Add(new Link(this)
                     {
                         From = from,
                         LinkType = link.LinkType,

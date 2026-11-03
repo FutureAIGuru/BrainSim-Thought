@@ -43,6 +43,10 @@ public partial class UKS
     public Link? AddStatement(Thought source, Thought linkType, Thought? target, string label = "")
     {
         if (source is null || linkType is null) return null;
+        if (!ReferenceEquals(source.Store, this) || !ReferenceEquals(linkType.Store, this) ||
+            (target is not null && !ReferenceEquals(target.Store, this)))
+            throw new ArgumentException("Cannot create a statement using Thoughts from another UKS.");
+        theUKS = this;
 
         Link? wired = GetLink(source, linkType, target);
         Link? labeledLink = string.IsNullOrEmpty(label) ? null : Labeled(label) as Link;
@@ -101,7 +105,7 @@ public partial class UKS
             linkType = inverseType1;
         }
 
-        Link r = new()
+        Link r = new(this)
         { From = source, LinkType = linkType, To = target };
         return r;
     }
@@ -149,7 +153,7 @@ public partial class UKS
         if (t is null) return;
 
         bool reconnectNeeded = t.HasAncestor("Thought");
-        Thought? unknown = ThoughtLabels.GetThought("Unknown");
+        Thought? unknown = Labeled("Unknown");
         if (t.Parents.Count > 1 && unknown is not null)
             t.RemoveParent(unknown);
         if (t.Parents.Count > 1 && !t.Parents.Contains("ActiveThought") || t.Parents.Count > 2)
@@ -200,7 +204,7 @@ public partial class UKS
         Thought retVal = AddThought(newLabel, t);
         foreach (Thought t1 in attributes)
         {
-            Link r1 = new() { From = retVal, LinkType = ThoughtLabels.GetThought("is"), To = t1 };
+            Link r1 = new(this) { From = retVal, LinkType = Labeled("is"), To = t1 };
             WriteTheLink(r1);
         }
         return retVal;

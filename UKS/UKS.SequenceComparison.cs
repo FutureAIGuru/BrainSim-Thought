@@ -16,8 +16,8 @@ public partial class UKS
     {
         Dictionary<Thought, Thought> bindings = new();
 
-        List<Thought> template = theUKS.FlattenSequence(templateSequence);
-        List<Thought> concrete = theUKS.FlattenSequence(concreteSequence);
+        List<Thought> template = FlattenSequence(templateSequence);
+        List<Thought> concrete = FlattenSequence(concreteSequence);
 
         if (template.Count != concrete.Count)
             return null;

@@ -22,7 +22,7 @@ public class SeqElement : Thought
     /// <summary>
     /// Default constructor for sequence element placeholder.
     /// </summary>
-    public SeqElement() { }
+    public SeqElement(UKS? store = null) : base(store) { }
     public SeqElement FRST
     {
         get
@@ -32,11 +32,13 @@ public class SeqElement : Thought
         }
         set
         {
+            if (value is not null && !ReferenceEquals(value.Store, Store))
+                throw new ArgumentException("Sequence values must belong to the same UKS.", nameof(value));
             // Remove existing links
-            RemoveLinks("FRST");
+            RemoveLinks(Store.Labeled("FRST")!);
             if (value is null) return;
 
-            Thought nxtType = theUKS.GetOrAddThought("FRST", "LinkType");
+            Thought nxtType = Store.GetOrAddThought("FRST", "LinkType");
             AddLink(nxtType, value);
         }
     }
@@ -49,11 +51,13 @@ public class SeqElement : Thought
         }
         set
         {
+            if (value is not null && !ReferenceEquals(value.Store, Store))
+                throw new ArgumentException("Sequence values must belong to the same UKS.", nameof(value));
             // Remove existing links
-            RemoveLinks("NXT");
+            RemoveLinks(Store.Labeled("NXT")!);
             if (value is null) return;
 
-            Thought nxtType = theUKS.GetOrAddThought("NXT", "LinkType");
+            Thought nxtType = Store.GetOrAddThought("NXT", "LinkType");
             AddLink(nxtType, value);
         }
     }
@@ -66,18 +70,20 @@ public class SeqElement : Thought
         }
         set
         {
+            if (value is not null && !ReferenceEquals(value.Store, Store))
+                throw new ArgumentException("Sequence values must belong to the same UKS.", nameof(value));
             // Remove existing links ??
-            RemoveLinks("VLU");  //Removing this would allow for multiple values per element , but would require changes to the search and flattening functions
+            RemoveLinks(Store.Labeled("VLU")!);  //Removing this would allow for multiple values per element , but would require changes to the search and flattening functions
             if (value is null) return;
 
-            Thought nxtType = theUKS.GetOrAddThought("VLU", "LinkType");
+            Thought nxtType = Store.GetOrAddThought("VLU", "LinkType");
             AddLink(nxtType, value);
         }
     }
     public override string ToString()
     {
         string retVal = "";
-        var valuList = theUKS.FlattenSequence(this);
+        var valuList = Store.FlattenSequence(this);
         retVal = "^" + string.Join(" ", valuList);
         return retVal;
     }
@@ -186,13 +192,15 @@ public partial class UKS
     /// <returns>The (updated) first element of the sequence.</returns>
     public SeqElement InsertElement(SeqElement prevElementIn, Thought value)
     {
+        if (!ReferenceEquals(prevElementIn.Store, this) || (value is not null && !ReferenceEquals(value.Store, this)))
+            throw new ArgumentException("Sequence values must belong to this UKS.");
         SeqElement first = prevElementIn;
         if (IsSequenceFirstElement(prevElementIn))
         {
             //this is a bit tricky...
             //it actually adds a 2nd element but then copies old 1st element values to the 2nd element and puts the new value on the old first
             //why? all the FRST links and external pointers to the sequence will still be correct without modification
-            SeqElement newNode = new()
+            SeqElement newNode = new(this)
             {
                 Label = prevElementIn.Label + "*", //the label will auto-increment.
                 FRST = first,
@@ -212,7 +220,7 @@ public partial class UKS
             if (predecessor is null || predecessor.NXT != prevElementIn)
                 throw new ArgumentException("prevElementIn is not in its FRST chain", nameof(prevElementIn));
 
-            SeqElement newNode = new()
+            SeqElement newNode = new(this)
             {
                 Label = prevElementIn.Label + "*",
                 FRST = prevElementIn.FRST,
@@ -228,7 +236,9 @@ public partial class UKS
     //Adds a new element after prevElementIn) and links its value. Returns the new element.
     public SeqElement AddElement(SeqElement prevElement, Thought value)
     {
-        SeqElement newNode = new()
+        if (!ReferenceEquals(prevElement.Store, this) || (value is not null && !ReferenceEquals(value.Store, this)))
+            throw new ArgumentException("Sequence values must belong to this UKS.");
+        SeqElement newNode = new(this)
         {
             Label = prevElement.Label + "*",
             FRST = prevElement.FRST,
@@ -243,7 +253,9 @@ public partial class UKS
     /// </summary>
     public SeqElement CreateFirstElement(string labelBase, Thought value)
     {
-        SeqElement firstNode = new()
+        if (value is not null && !ReferenceEquals(value.Store, this))
+            throw new ArgumentException("Sequence value belongs to another UKS.", nameof(value));
+        SeqElement firstNode = new(this)
         {
             Label = labelBase + "-seq0",
         };
@@ -254,6 +266,8 @@ public partial class UKS
     /// <summary>Pops a streaming queue head (FRST is null), returning its successor.</summary>
     public SeqElement RemoveFirstSequenceElement(SeqElement first)
     {
+        if (first is not null && !ReferenceEquals(first.Store, this))
+            throw new ArgumentException("Sequence belongs to another UKS.", nameof(first));
         if (first.FRST is not null) throw new ArgumentException("Expected a streaming queue element.", nameof(first));
         SeqElement next = first.NXT;
         foreach (Link link in first.LinksTo) first.RemoveLink(link);
@@ -282,6 +296,8 @@ public partial class UKS
     /// </summary>
     public SeqElement RemoveLastSequenceElement(SeqElement first)
     {
+        if (first is not null && !ReferenceEquals(first.Store, this))
+            throw new ArgumentException("Sequence belongs to another UKS.", nameof(first));
         SeqElement result = null;
         if (first is null) return result;
         if (!IsSequenceFirstElement(first))
@@ -298,7 +314,7 @@ public partial class UKS
         // Detach FRST before Delete: otherwise its root reference could delete
         // the whole sequence through Thought.Delete's sequence-owner handling.
         result.FRST = null;
-        result.RemoveLinks("VLU");
+        result.RemoveLinks(Labeled("VLU")!);
         result.Delete();
         if (wasCached)
         {
@@ -310,6 +326,8 @@ public partial class UKS
 
     public void DeleteSequence(SeqElement s)
     {
+        if (s is not null && !ReferenceEquals(s.Store, this))
+            throw new ArgumentException("Sequence belongs to another UKS.", nameof(s));
         //make sure there's only one reference to this sequence
         if (!IsSequenceFirstElement(s)) return;
         if (s.LinksFrom.Count(x => x.LinkType.Label != "FRST") > 1) return;
@@ -330,7 +348,7 @@ public partial class UKS
                 DeleteSequence(s1);
             foreach (Link lnk in current.LinksTo)
                 current.RemoveLink(lnk);
-            ThoughtLabels.RemoveThoughtLabel(current.Label);
+            ThoughtLabels.RemoveThoughtLabel(current.Label, this);
             lock (AtomicThoughts)
                 AtomicThoughts.Remove(current);
             current = next;
@@ -425,6 +443,8 @@ public partial class UKS
     }
     public SeqElement AddSequence(string label, List<Thought> targets, bool allowCompression = true)
     {
+        if (targets is not null && targets.Any(value => value is not null && !ReferenceEquals(value.Store, this)))
+            throw new ArgumentException("Sequence values must belong to this UKS.", nameof(targets));
         if (targets is null || targets.Count == 0) return null;
 
         List<Thought> resolvedTargets = new(targets);
@@ -488,6 +508,10 @@ public partial class UKS
         bool allowCompression = true)
     {
         if (targets is null || targets.Count == 0) return null;
+
+        if (!ReferenceEquals(source.Store, this) || (linkType is not null && !ReferenceEquals(linkType.Store, this)) ||
+            targets.Any(value => value is not null && !ReferenceEquals(value.Store, this)))
+            throw new ArgumentException("Sequence and its links must belong to this UKS.");
 
         //clear out any existing sequence links of this type
         source.RemoveLinks(linkType);  //TODO delete the sequence
@@ -855,10 +879,12 @@ public partial class UKS
     public SeqElement PromoteToSeqElement(Thought t)
     {
         if (t is null) return null;
+        if (!ReferenceEquals(t.Store, this))
+            throw new ArgumentException("Cannot promote a Thought from another UKS.", nameof(t));
         if (t is SeqElement sExisting) return sExisting;
-        ThoughtLabels.RemoveThoughtLabel(t.Label);
+        ThoughtLabels.RemoveThoughtLabel(t.Label, this);
 
-        var seq = new SeqElement
+        var seq = new SeqElement(this)
         {
             Label = t.Label,   // keeps label mapping
             V = t.V,
@@ -1087,9 +1113,9 @@ public partial class UKS
             .Where(ancestor => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(ancestor.HasProperty))
             .SelectMany(ancestor => ancestor.Parents)
             .Where(parent => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(parent.HasProperty) &&
-                !ReferenceEquals(parent, ThoughtLabels.GetThought("Property")) &&
-                !ReferenceEquals(parent, ThoughtLabels.GetThought("Thought")) &&
-                !ReferenceEquals(parent, ThoughtLabels.GetThought("Unknown")))
+                !ReferenceEquals(parent, wildcard.Store.Labeled("Property")) &&
+                !ReferenceEquals(parent, wildcard.Store.Labeled("Thought")) &&
+                !ReferenceEquals(parent, wildcard.Store.Labeled("Unknown")))
             .ToList();
         return constraints.Count == 0 || constraints.Any(value.HasAncestor);
     }
@@ -1303,9 +1329,9 @@ public partial class UKS
                 .Where(ancestor => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(ancestor.HasProperty))
                 .SelectMany(ancestor => ancestor.Parents)
                 .Any(parent => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(parent.HasProperty) &&
-                    !ReferenceEquals(parent, ThoughtLabels.GetThought("Property")) &&
-                    !ReferenceEquals(parent, ThoughtLabels.GetThought("Thought")) &&
-                    !ReferenceEquals(parent, ThoughtLabels.GetThought("Unknown")));
+                    !ReferenceEquals(parent, wildcard.Store.Labeled("Property")) &&
+                    !ReferenceEquals(parent, wildcard.Store.Labeled("Thought")) &&
+                    !ReferenceEquals(parent, wildcard.Store.Labeled("Unknown")));
     }
 
     private bool IsWildcardPatternElement(Thought patternElement, Thought searchOptions)
