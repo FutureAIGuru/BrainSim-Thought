@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "UKSWeb": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:5080"
+    }
+  }
+}

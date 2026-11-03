@@ -18,9 +18,12 @@ public partial class UKS
 {
     public void CreateMinimumStructureForTests()
     {
+        theUKS = this;
         AtomicThoughts.Clear();
         ClearSequenceCache();
         ThoughtLabels.ClearLabelList();
+        Thought.ClearRecentlyFiredQueue();
+        Thought.ClearRecentlyCreatedQueue();
         AddThought("Thought", null);
         Thought isA = AddThought("is-a", null);
         Thought linkType = AddThought("LinkType", "Thought");
@@ -34,6 +37,7 @@ public partial class UKS
 
     public void CreateInitialStructure()
     {
+        theUKS = this;
         //this hack is needed to preserve the info relating to module layout
         foreach (Thought t in AtomicThoughts.ToList())
         {
@@ -50,6 +54,7 @@ public partial class UKS
 
         ThoughtLabels.ClearLabelList();
         Thought.ClearRecentlyFiredQueue();
+        Thought.ClearRecentlyCreatedQueue();
         foreach (Thought t in AtomicThoughts)
             ThoughtLabels.AddThoughtLabel(t.Label, t);
         ClearSequenceCache();

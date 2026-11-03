@@ -331,7 +331,7 @@ public partial class UKS
         int childCount = parent.Children.Count;
         bool changed = false;
         var groups = GetSequenceViews(parent.Children)
-            .Where(view => view.LinkType is not null && view.LinkType != Thought.IsA)
+            .Where(view => view.LinkType is not null && view.LinkType != Labeled("is-a"))
             .GroupBy(view => view.LinkType!);
 
         foreach (var group in groups)

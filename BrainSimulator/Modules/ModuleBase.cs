@@ -57,6 +57,7 @@ abstract public class ModuleBase
     {
         foreach (ModuleBase module in MainWindow.theWindow.activeModules)
         {
+            module.theUKS = MainWindow.theUKS;
             if (module.isEnabled)
                 module.UKSInitializedNotification();
         }
@@ -70,6 +71,7 @@ abstract public class ModuleBase
     {
         foreach (ModuleBase module in MainWindow.theWindow.activeModules)
         {
+            module.theUKS = MainWindow.theUKS;
             if (module.isEnabled)
                 module.UKSReloadedNotification();
         }
@@ -77,7 +79,8 @@ abstract public class ModuleBase
 
     public void GetUKS()
     {
-        theUKS = MainWindow.theUKS;
+        theUKS ??= MainWindow.theUKS;
+        UKS.UKS.theUKS = theUKS;
     }
 
     protected void Init(bool forceInit = false)

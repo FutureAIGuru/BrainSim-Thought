@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.8.12021.73 stable
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UKSWeb", "UKSWeb.csproj", "{AB954ABE-5D47-4B97-BDED-BBDB9F52D61D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UKS", "..\UKS\UKS.csproj", "{7C22FBB6-FE12-43D3-9F6F-479E830C94F6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AB954ABE-5D47-4B97-BDED-BBDB9F52D61D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB954ABE-5D47-4B97-BDED-BBDB9F52D61D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB954ABE-5D47-4B97-BDED-BBDB9F52D61D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB954ABE-5D47-4B97-BDED-BBDB9F52D61D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7C22FBB6-FE12-43D3-9F6F-479E830C94F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C22FBB6-FE12-43D3-9F6F-479E830C94F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C22FBB6-FE12-43D3-9F6F-479E830C94F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C22FBB6-FE12-43D3-9F6F-479E830C94F6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BEB26420-996D-4BF7-93E9-AFD74A1A9A27}
+	EndGlobalSection
+EndGlobal

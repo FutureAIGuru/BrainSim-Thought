@@ -44,6 +44,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private int totalItemCount;
     private bool mouseInWindow; //prevent auto-update while the mouse is in the tree
     private bool busy;
+    private bool contextMenuOpen;
+    private bool refreshQueued;
+    private bool refreshAfterMenu;
     private List<string> expandedItems = new();
     private bool updateFailed;
     private DispatcherTimer dt;
@@ -65,11 +68,30 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     }
     public override bool Draw(bool checkDrawTimer)
     {
-        //this has a timer so that no matter how often you might call draw, the dialog
-        //only updates 10x per second
         if (!base.Draw(checkDrawTimer)) return false;
         if (busy) return false;
         if (checkBoxAuto.IsChecked != true) return false;
+        if (contextMenuOpen)
+        {
+            if (!checkDrawTimer) refreshAfterMenu = true;
+            return false;
+        }
+        if (checkDrawTimer)
+        {
+            if (mouseInWindow || theTreeView.IsMouseOver || refreshQueued) return false;
+            // Module-driven Draw calls can arrive above input priority. Defer and
+            // coalesce rebuilding so pending mouse/menu events are handled first.
+            refreshQueued = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                refreshQueued = false;
+                if (!IsVisible || checkBoxAuto.IsChecked != true || contextMenuOpen ||
+                    mouseInWindow || theTreeView.IsMouseOver)
+                    return;
+                Refresh();
+            }));
+            return true;
+        }
         Refresh();
         return true;
     }
@@ -88,7 +110,6 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         int.TryParse(sizeString, out int fontSize);
         if (fontSize != 0)
             theTreeView.FontSize = fontSize;
-
         //if the root is null, display the roots instead of the contetn
         if (!string.IsNullOrEmpty(root?.Trim()))
         {
@@ -595,11 +616,29 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void Menu_Closed(object sender, RoutedEventArgs e)
     {
-        Draw(true);
+        contextMenuOpen = false;
+        mouseInWindow = theTreeView.IsMouseOver;
+        theTreeView.Background = mouseInWindow ? Brushes.LightSteelBlue : Brushes.LightGray;
+        SetStatus(mouseInWindow ? "Paused" : "OK");
+        if (refreshAfterMenu)
+        {
+            refreshAfterMenu = false;
+            // A menu command may change the graph. Apply its deferred refresh
+            // after the popup and its input handlers have finished closing.
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                if (IsVisible) Refresh();
+            }));
+        }
+        else
+            Draw(true);
     }
 
     private void Menu_Opened(object sender, RoutedEventArgs e)
     {
+        contextMenuOpen = true;
+        theTreeView.Background = Brushes.LightSteelBlue;
+        SetStatus("Paused");
         //when the context menu opens, focus on the label and position text cursor to end
         if (sender is ContextMenu cm)
         {
@@ -630,6 +669,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             if (e.Key == Key.Enter)
             {
                 t.Label = tb.Text;
+                refreshAfterMenu = true;
                 //clear any time-to-live on this new image
                 if (t.LinksFrom.FindFirst(x => x.LinkType.Label == "is-a") is Link isALink)
                     isALink.TimeToLive = TimeSpan.MaxValue;
@@ -691,6 +731,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         mi.SetValue(ThoughtObjectProperty, r.To);
         menu.Items.Add(mi);
 
+        menu.Opened += Menu_Opened;
+        menu.Closed += Menu_Closed;
         ApplyContextMenuTheme(menu);   // honor OS theme
         return menu;
     }
@@ -908,6 +950,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private void Dt_Tick(object sender, EventArgs e)
     {
         if (checkBoxAuto.IsChecked != true || !IsVisible) return;
+        if (contextMenuOpen) return;
         if (!mouseInWindow)
             Draw(true);
         else if (weightBarsCB?.IsChecked == true)
@@ -955,6 +998,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private void TheTreeView_MouseLeave(object sender, MouseEventArgs e)
     {
         mouseInWindow = false;
+        if (contextMenuOpen) return;
         theTreeView.Background = new SolidColorBrush(Colors.LightGray);
         SetStatus("OK");
     }
@@ -966,6 +1010,13 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void Refresh()
     {
+        if (busy) return;
+        if (contextMenuOpen)
+        {
+            refreshAfterMenu = true;
+            return;
+        }
+        busy = true;
         try
         {
             if (!updateFailed)
@@ -985,7 +1036,10 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         {
             updateFailed = true;
         }
-        busy = false;
+        finally
+        {
+            busy = false;
+        }
     }
 
     private void InitializeButton_Click(object sender, RoutedEventArgs e)

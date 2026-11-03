@@ -29,7 +29,7 @@ public partial class UKS
     public void ExportTextFile(string root, string path, int maxDepth = 12)
     {
         if (string.IsNullOrWhiteSpace(root)) throw new ArgumentException("Start label is required.", nameof(root));
-        Thought? Root = theUKS.Labeled(root);
+        Thought? Root = Labeled(root);
         if (Root is null) return;
 
         HashSet<string> alreadyWritten = new();
@@ -196,7 +196,7 @@ public partial class UKS
                     if (existing is not null)
                         continue;
 
-                    Link placeholder = new Link();
+                    Link placeholder = new Link(this);
                     placeholder.Label = label;
                     AtomicThoughts.Add(placeholder);
                 }
@@ -429,7 +429,7 @@ public partial class UKS
             to = ProcessThoughtOrLink(linkParts[2], asPattern || structural);
             if (to is null && linkParts[2].StartsWith("unl_"))
             {
-                to = new Link();
+                to = new Link(this);
                 to.Label = linkParts[2];
             }
             if (to is null) to = CreateThoughtFromMultipleAttributes(linkParts[2], false);
@@ -451,7 +451,7 @@ public partial class UKS
             }
             // Reuse preallocated named links so forward references retain their identity.
             r = !string.IsNullOrEmpty(label) && Labeled(label) is Link placeholder && placeholder.From is null
-                ? placeholder : new Link();
+                ? placeholder : new Link(this);
             r.From = from;
             r.LinkType = linkType;
             r.To = to;
