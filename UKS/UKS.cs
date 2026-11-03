@@ -23,6 +23,31 @@ public partial class UKS
 {
     private static readonly AsyncLocal<int> currentUser = new();
     internal static int CurrentUser => currentUser.Value;
+    internal static readonly object OwnershipLock = new();
+    internal static readonly Dictionary<int, HashSet<Thought>> StoredThoughtsByOwner = new();
+    private static int thoughtLimitPerUser = 1000;
+
+    /// <summary>Maximum stored Thoughts (including Links) per nonzero owner.</summary>
+    public static int ThoughtLimitPerUser
+    {
+        get { lock (OwnershipLock) return thoughtLimitPerUser; }
+        set
+        {
+            if (value < 1) throw new ArgumentOutOfRangeException(nameof(value));
+            lock (OwnershipLock) thoughtLimitPerUser = value;
+        }
+    }
+
+    /// <summary>Snapshot of the current user's stored Thoughts, including unlabeled Links.</summary>
+    public IReadOnlyList<Thought> OwnedThoughts
+    {
+        get
+        {
+            lock (OwnershipLock)
+                return StoredThoughtsByOwner.TryGetValue(CurrentUser, out var thoughts)
+                    ? thoughts.ToArray() : Array.Empty<Thought>();
+        }
+    }
 
     /// <summary>Sets the owner for the current execution context; zero owns shared content.</summary>
     public void SetUser(int user)
@@ -56,6 +81,7 @@ public partial class UKS
         {
             AtomicThoughts.Clear();
             ThoughtLabels.ClearLabelList();
+            lock (OwnershipLock) StoredThoughtsByOwner.Clear();
         }
         UKSTemp.Clear();
     }
@@ -74,6 +100,7 @@ public partial class UKS
         if (label == "WRITE.EQ")
         { }
         Thought newThought = new();
+        newThought.IsStored = true;
         newThought.Label = label;
         if (parent is not null)
         {

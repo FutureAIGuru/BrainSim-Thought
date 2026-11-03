@@ -72,17 +72,24 @@ public partial class UKS
 		if (!string.IsNullOrEmpty(label))
 			lnk.Label = label.Trim();
 
+		// Reserve all new relationship slots before changing existing assertions.
+		lnk.IsStored = true;
+		Link? reverse = null;
+		if (lnk.To is not null && lnk.LinkType is not null && HasProperty(lnk.LinkType, "isCommutative"))
+		{
+			reverse = new Link(lnk.To, lnk.LinkType, lnk.From!);
+			reverse.IsStored = true;
+		}
 		WeakenConflictingLinks(source, lnk);
 
 		WriteTheLink(lnk);
 		lnk.Fire();
 		ApplyDefaultTimeToLive(lnk);
 		RaiseLinkAdded(lnk);
-		if (lnk.LinkType is not null && HasProperty(lnk.LinkType, "isCommutative"))
+		if (reverse is not null)
 		{
-			Link rReverse = new Link(lnk.To!, lnk.LinkType!, lnk.From!);
-			WriteTheLink(rReverse);
-			RaiseLinkAdded(rReverse);
+			WriteTheLink(reverse);
+			RaiseLinkAdded(reverse);
 		}
 
 		//if this is adding a child link, remove any Unknown parent
@@ -234,6 +241,7 @@ public partial class UKS
 	{
 		if (lnk.From is null) return;
 		if (lnk.LinkType is null) return;
+		lnk.IsStored = true;
 		if (lnk.To is null)
 		{
 			lock (lnk.From.LinksToWriteable)

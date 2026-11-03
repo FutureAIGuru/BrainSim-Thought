@@ -43,6 +43,7 @@
   <header>
     <h1>BrainSim Thought</h1>
     <p>A small window into the Universal Knowledge Store.</p>
+    <a id="graph-link" href="/graph.html">Explore UKS in 3D</a>
     <label class="user-selector">User
       <select id="user-select" aria-label="User number">
         <option value="0">0 (shared)</option>
@@ -80,6 +81,12 @@
   <footer>Content stays in memory while this service is running. Stopping it discards your changes.</footer>
   <script>
     const userSelect = document.querySelector('#user-select');
+    const pageParameters = new URLSearchParams(location.search);
+    if (/^[0-4]$/.test(pageParameters.get('user') || '')) userSelect.value = pageParameters.get('user');
+    document.querySelector('#graph-link').addEventListener('click', event => {
+      const root = document.querySelector('#children-form').elements.label.value.trim() || 'Thought';
+      event.currentTarget.href = '/graph.html?user=' + userSelect.value + '&root=' + encodeURIComponent(root);
+    });
     async function request(url, options) {
       const response = await fetch(url + (url.includes('?') ? '&' : '?') + 'user=' + userSelect.value, options);
       const data = await response.json();
@@ -97,6 +104,7 @@
     }
 
     const childrenForm = document.querySelector('#children-form');
+    if (pageParameters.get('root')) childrenForm.elements.label.value = pageParameters.get('root');
     let watchedLabel = null;
     let renderedKey = '';
     let renderedContent = '';

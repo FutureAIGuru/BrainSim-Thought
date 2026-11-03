@@ -1,6 +1,6 @@
 # UKS web proof of concept
 
-One ASP.NET Core application serves a single HTML page and three JSON operations. It references `../UKS/UKS.csproj` directly. UKS now supplies the ownership support used by these operations. No desktop application, Python installation, frontend build, or test project is needed.
+One ASP.NET Core application serves a relationship editor, a 3D graph page, and four JSON operations. It references `../UKS/UKS.csproj` directly. UKS supplies the ownership support used by these operations. No desktop application, Python installation, frontend build, or test project is needed.
 
 ## Build and run in Visual Studio
 
@@ -58,6 +58,23 @@ After a lookup, the displayed Thought's content refreshes every two seconds, inc
 
 UKS initializes its normal fundamental content at startup. All browser tabs use the same in-memory UKS in this service process. It is separate from any running desktop BrainSim process. There is no save/load, account handling, or persistence; restarting the service loses additions. This prototype is intended to run locally.
 
+## 3D graph explorer
+
+Click **Explore UKS in 3D** on the editor, or open `/graph.html`. The link carries the selected user and root label. The graph page uses [3d-force-graph](https://github.com/vasturiano/3d-force-graph), pinned to version 1.80.1 and loaded from jsDelivr, plus three-spritetext 1.10.0 from esm.sh for visible labels. It requires internet access to those CDNs and a WebGL-capable browser; no Node.js or frontend build is needed.
+
+- Enter a root label and press **Load root**. Initially only that Thought appears.
+- **Single-click a node** to load its immediate incoming and outgoing relationships. Neighbors do not expand until clicked. Reclicking a node checks for new connections; loading a root again resets the explored view.
+- Node labels are shown by default. Uncheck **Labels** to hide them; hovering still shows the full label. Hover over an edge for its relationship type and endpoints; arrows indicate direction.
+- Already-expanded neighborhoods refresh automatically every two seconds; **Refresh now** performs an immediate check and fits the graph. New nodes are also fitted into view automatically so they cannot be added off-screen unnoticed. Unchanged graphs keep their view and are not rebuilt. Disconnected branches disappear. Unexpanded neighbors stay unexpanded. Refresh pauses while the page is hidden and checks immediately when it becomes visible again.
+- Drag the background to rotate, scroll to zoom, and right-drag to pan. **Fit graph** frames all revealed nodes; expansion also fits after the layout settles.
+- Gold denotes the root, blue denotes unexpanded nodes, and green denotes expanded nodes. The selected user's normal visibility restrictions apply. No inherited relationships are computed.
+
+`GET /api/graph?label=dog&user=1` returns the root alone. `GET /api/graph?id=<handle>&expand=true&user=1` returns one neighborhood. Returned `nodes` carry labels; `links` carry source/target handles and a `type` label. Opaque graph handles are temporary server-process references, not persistent Thought identities or changes to UKS labels. They also allow unnamed Thoughts and nested Relationships to be explored. Cross-user private handles return HTTP 404. This is a read-only view; expanding nodes does not consume the Thought allowance.
+
+`GET /api/graph?ids=<handle>,<handle>&user=1` refreshes up to 256 expanded neighborhoods in one request and returns `snapshots` plus `missingIds` for deleted or inaccessible nodes. Larger revealed graphs are refreshed in batches. No descendants are fetched unless their nodes were explicitly expanded.
+
+The graph falls back to individual node-expansion requests when an older running service does not support batching. HTML and JavaScript responses require cache revalidation, and the graph script URL includes a revision. After changing the web project, restart the running service and reload the page; seeing a new HTML control alone does not establish that an older tab has loaded the latest script.
+
 ## User selection
 
 The dropdown selects user 0–4. Every service request includes `user=<number>`; omitting it selects user 0. This is a demonstration selector, not authentication.
@@ -72,6 +89,19 @@ The dropdown selects user 0–4. Every service request includes `user=<number>`;
 Try adding `SharedDog is-a Object` as user 0, then `Rover is-a SharedDog` as user 1. User 2 cannot see that Rover, but can add a separate Rover under SharedDog. Deleting user 1's Rover leaves user 2's intact.
 
 Ownership is implemented for the current add, direct-children, and delete operations and their supporting UKS paths. Other UKS operations, raw collection access, persistence, background processing, and the desktop application have not been adapted or audited for multi-user use.
+
+## Per-user Thought limit
+
+Users other than user 0 are limited to **1,000 stored Thoughts each** by default. Links are Thoughts and count too, including unnamed relationships and automatically created parent links. Shared user-0 content does not consume a private user's allowance. Temporary lookup prototypes do not count, and deleting content releases its slots.
+
+Set the service configuration/environment variable **`ThoughtLimitPerUser`** to another positive integer to change the limit. For example, add `ThoughtLimitPerUser=2000` in Render's environment settings and redeploy. For a local run:
+
+```powershell
+$env:ThoughtLimitPerUser = '2000'
+dotnet run --project UKSWeb/UKSWeb.csproj
+```
+
+User 0 is always exempt. An addition exceeding the allowance returns HTTP 409 with a readable message shown on the page; newly created Thoughts from that rejected request are removed. Existing lookups, deletion, and repeating an existing relationship remain available at the limit. This is an in-memory stored-content limit, not a lifetime creation counter.
 
 ## Service interface
 

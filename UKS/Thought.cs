@@ -69,6 +69,37 @@ public partial class Thought
     /// <summary>Immutable creator; inherited by Links. Zero denotes shared content.</summary>
     public readonly int Owner = UKS.CurrentUser;
     internal bool IsVisible => Owner == 0 || Owner == UKS.CurrentUser;
+    private bool isStored;
+
+    // Temporary link prototypes are not stored and must not consume a user's quota.
+    internal bool IsStored
+    {
+        get { lock (UKS.OwnershipLock) return isStored; }
+        set
+        {
+            lock (UKS.OwnershipLock)
+            {
+                if (value == isStored) return;
+                if (!UKS.StoredThoughtsByOwner.TryGetValue(Owner, out var thoughts))
+                {
+                    thoughts = new HashSet<Thought>(ReferenceEqualityComparer.Instance);
+                    UKS.StoredThoughtsByOwner[Owner] = thoughts;
+                }
+                if (value)
+                {
+                    if (Owner != 0 && thoughts.Count >= UKS.ThoughtLimitPerUser)
+                    {
+                        var error = new InvalidOperationException($"User {Owner} has reached the limit of {UKS.ThoughtLimitPerUser} Thoughts, including relationships. Delete some Thoughts before adding more.");
+                        error.Data["ThoughtLimitPerUser"] = UKS.ThoughtLimitPerUser;
+                        throw error;
+                    }
+                    thoughts.Add(this);
+                }
+                else thoughts.Remove(this);
+                isStored = value;
+            }
+        }
+    }
 
     private static readonly Queue<Thought> recentlyFired = new();
     private static readonly object recentlyFiredLock = new();
@@ -106,6 +137,7 @@ public partial class Thought
         set
         {
             if (value == _label) return;
+            if (!string.IsNullOrEmpty(value)) IsStored = true;
             ThoughtLabels.RemoveThoughtLabel(_label, Owner);
             _label = ThoughtLabels.AddThoughtLabel(value, this);
         }
@@ -159,6 +191,7 @@ public partial class Thought
         ThoughtLabels.RemoveThoughtLabel(Label, Owner);
         lock (UKS.theUKS.AtomicThoughts)
             UKS.theUKS.AtomicThoughts.Remove(this);
+        IsStored = false;
     }
 
     private bool CheckExpiredAndMaybeDelete()
@@ -533,6 +566,7 @@ public partial class Thought
             To = to,
             LastFiredTime = DateTime.Now,
         };
+        r.IsStored = true;
         if (to is not null && linkType is not null)
         {
             lock (_linksTo)
