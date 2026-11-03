@@ -286,8 +286,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought a1 = uks.Labeled("A");
-        Thought a2 = uks.Labeled("A");
+        Thought a1 = uks.GetOrAddCharacter('A');
+        Thought a2 = uks.GetOrAddCharacter('A');
         
         Assert.Equal(a1, module.LastLinkWritten.From);
         Assert.Equal("eq", module.LastLinkWritten.LinkType?.Label.ToLower());
@@ -305,8 +305,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought b = uks.Labeled("B");
-        Thought a = uks.Labeled("A");
+        Thought b = uks.GetOrAddCharacter('B');
+        Thought a = uks.GetOrAddCharacter('A');
         
         Assert.Equal(b, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
@@ -324,8 +324,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought a = uks.Labeled("A");
-        Thought b = uks.Labeled("B");
+        Thought a = uks.GetOrAddCharacter('A');
+        Thought b = uks.GetOrAddCharacter('B');
         
         // Result is reversed: B GT A (not A LT B)
         Assert.Equal(b, module.LastLinkWritten.From);
@@ -344,8 +344,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought z = uks.Labeled("Z");
-        Thought a = uks.Labeled("A");
+        Thought z = uks.GetOrAddCharacter('Z');
+        Thought a = uks.GetOrAddCharacter('A');
         
         Assert.Equal(z, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
@@ -363,8 +363,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought m = uks.Labeled("M");
-        Thought c = uks.Labeled("C");
+        Thought m = uks.GetOrAddCharacter('M');
+        Thought c = uks.GetOrAddCharacter('C');
         
         Assert.Equal(m, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
@@ -382,8 +382,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         Assert.True(success, "CompareLetters task execution should succeed");
         Assert.NotNull(module.LastLinkWritten);
         
-        Thought c = uks.Labeled("C");
-        Thought m = uks.Labeled("M");
+        Thought c = uks.GetOrAddCharacter('C');
+        Thought m = uks.GetOrAddCharacter('M');
         
         // Result is reversed: M GT C (not C LT M)
         Assert.Equal(m, module.LastLinkWritten.From);
@@ -397,8 +397,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         // Execute comparison and verify link exists in UKS
         module.ExecuteTask("CompareLetters", "B", "A");
         
-        Thought b = uks.Labeled("B");
-        Thought a = uks.Labeled("A");
+        Thought b = uks.GetOrAddCharacter('B');
+        Thought a = uks.GetOrAddCharacter('A');
         
         // Verify the GT link exists
         Thought gtType = uks.Labeled("GT");
@@ -417,13 +417,13 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         
         // GT case
         module.ExecuteTask("CompareLetters", "X", "Y");
-        Thought y = uks.Labeled("Y");
+        Thought y = uks.GetOrAddCharacter('Y');
         Assert.Equal(y, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
         
         // Another GT case (reversed)
         module.ExecuteTask("CompareLetters", "F", "Z");
-        Thought z = uks.Labeled("Z");
+        Thought z = uks.GetOrAddCharacter('Z');
         Assert.Equal(z, module.LastLinkWritten.From);
         Assert.Equal("gt", module.LastLinkWritten.LinkType?.Label.ToLower());
     }

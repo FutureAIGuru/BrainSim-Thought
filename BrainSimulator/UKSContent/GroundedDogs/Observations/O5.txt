@@ -1,0 +1,9 @@
+# subject: O5
+# Anonymous demo-scene observation; no spoken name is stored here.
+
+[Tree.png->is-a->Image] 1.00
+[O5->hasImage->Tree.png] 1.00
+[O5->has->trunk] 1.00
+[O5->has->branch] 1.00
+[O5->has->leaf] 1.00
+[O5->is->young] 1.00

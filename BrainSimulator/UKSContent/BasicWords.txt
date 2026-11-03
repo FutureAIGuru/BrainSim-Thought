@@ -1,10 +1,10 @@
 [Unknown->is-a->Thought] 1.00
 
-[word->is-a->Unknown] 1.00
-[phrase->is-a->Unknown] 1.00
-[sentence->is-a->Unknown] 1.00
+[languageElement->is-a->Thought] 1.00
+[word->is-a->languageElement] 1.00
+[phrase->is-a->languageElement] 1.00
 
-[wordType->is-a->Unknown] 1.00
+[wordType->is-a->word] 1.00
 [noun->is-a->wordType] 1.00
 [verb->is-a->wordType] 1.00
 [adjective->is-a->wordType] 1.00

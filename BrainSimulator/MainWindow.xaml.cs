@@ -34,7 +34,15 @@ namespace BrainSimulator
         public static string currentFileName = "";
         public static string pythonPath = "";
         public static ModuleHandler moduleHandler = new();
-        public static UKS.UKS theUKS = moduleHandler.theUKS;
+        public static UKS.UKS theUKS
+        {
+            get => moduleHandler.theUKS;
+            set
+            {
+                moduleHandler.theUKS = value;
+                UKS.UKS.theUKS = value;
+            }
+        }
         public static MainWindow theWindow = null;
 
         public MainWindow()
@@ -295,7 +303,6 @@ namespace BrainSimulator
         //THIS IS THE MAIN ENGINE LOOP
         private void Dt_Tick(object sender, EventArgs e)
         {
-            theUKS.BeginTraversalCycle();
             Thought activeModuleParent = theUKS.Labeled("ActiveModule");
             if (activeModuleParent is null) return;
             foreach (Thought module in activeModuleParent.Children)

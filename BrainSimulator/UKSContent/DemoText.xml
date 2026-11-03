@@ -1322,25 +1322,25 @@
   </sThought>
   <sThought>
     <index>233</index>
-    <label>Sentence</label>
+    <label>StatementTemplate</label>
   </sThought>
   <sThought>
     <index>234</index>
     <label>unl_bc5d929b</label>
     <source>233</source>
     <linkType>2</linkType>
-    <target>144</target>
+    <target>229</target>
   </sThought>
   <sThought>
     <index>235</index>
-    <label>Template</label>
+    <label>QueryTemplate</label>
   </sThought>
   <sThought>
     <index>236</index>
     <label>unl_55526a12</label>
     <source>235</source>
     <linkType>2</linkType>
-    <target>144</target>
+    <target>229</target>
   </sThought>
   <sThought>
     <index>237</index>
@@ -2801,7 +2801,7 @@
     <label>unl_9b8ba97e</label>
     <source>496</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>498</index>
@@ -2812,7 +2812,7 @@
     <label>unl_ed64b5aa</label>
     <source>498</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>500</index>
@@ -2823,7 +2823,7 @@
     <label>unl_f63918a7</label>
     <source>500</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>502</index>
@@ -2834,7 +2834,7 @@
     <label>unl_b6066971</label>
     <source>502</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>504</index>
@@ -2845,7 +2845,7 @@
     <label>unl_2ee9000c</label>
     <source>504</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>506</index>
@@ -2856,7 +2856,7 @@
     <label>unl_1d0d29e4</label>
     <source>506</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>508</index>
@@ -2867,7 +2867,7 @@
     <label>unl_a98ac19f</label>
     <source>508</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>510</index>
@@ -2878,7 +2878,7 @@
     <label>unl_6f3df8c9</label>
     <source>510</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>512</index>
@@ -2889,7 +2889,7 @@
     <label>unl_e6bec167</label>
     <source>512</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>514</index>
@@ -2900,7 +2900,7 @@
     <label>unl_d83c577d</label>
     <source>514</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>516</index>
@@ -2911,7 +2911,7 @@
     <label>unl_7f5993ae</label>
     <source>516</source>
     <linkType>2</linkType>
-    <target>235</target>
+    <target>233</target>
   </sThought>
   <sThought>
     <index>518</index>

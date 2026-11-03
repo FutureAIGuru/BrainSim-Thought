@@ -1,0 +1,9 @@
+# subject: O4
+# Anonymous demo-scene observation; no spoken name is stored here.
+
+[Tree.png->is-a->Image] 1.00
+[O4->hasImage->Tree.png] 1.00
+[O4->has->trunk] 1.00
+[O4->has->branch] 1.00
+[O4->has->leaf] 1.00
+[O4->is->tall] 1.00

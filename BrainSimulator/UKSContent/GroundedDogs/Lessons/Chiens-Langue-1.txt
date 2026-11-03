@@ -1,0 +1,25 @@
+# Version francaise de la lecon des chiens.
+# Les observations restent anonymes; les noms ne figurent que dans les phrases.
+
+language French
+
+clear
+attention horiz -15 vert 0
+show O1.txt distance 1 horiz -15 vert 0
+hear Voici Fido.
+hear Bon chien.
+hear Fido veut sortir.
+
+clear
+attention horiz 0 vert 0
+show O2.txt distance 1 horiz 0 vert 0
+hear Voici Rover.
+hear Rover est un bon chien.
+hear Regarde le chien.
+
+clear
+attention horiz 15 vert 0
+show O3.txt distance 1 horiz 15 vert 0
+hear Voici Spot.
+hear Spot est notre chien.
+hear Bon chien.

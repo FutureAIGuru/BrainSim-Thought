@@ -1,0 +1,58 @@
+<local:ModuleBaseDlg x:Class="BrainSimulator.Modules.ModuleTextNEWDlg"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BrainSimulator.Modules"
+        mc:Ignorable="d"
+        Title="Text NEW" Height="427" Width="640" MinHeight="330" MinWidth="500"
+        Background="Gray" ShowInTaskbar="False" FontSize="14">
+    <Grid Margin="8,0,8,23" SizeChanged="TheGrid_SizeChanged">
+        <Label Content="Text Input:" Margin="0,0,0,0"
+               HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <TextBox x:Name="InputBox" Height="28" Margin="0,24,98,0"
+                 VerticalAlignment="Top" VerticalContentAlignment="Center"
+                 Foreground="White" Background="Black" TextWrapping="NoWrap"
+                 AcceptsReturn="False" PreviewKeyDown="InputBox_PreviewKeyDown" />
+        <Button x:Name="btnSubmit" Content="Submit" Width="88" Height="26"
+                Margin="0,25,0,0" HorizontalAlignment="Right"
+                VerticalAlignment="Top" Click="BtnSubmit_Click" />
+
+        <Label Content="Answer / Status:" Margin="0,50,0,0"
+               HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <TextBox x:Name="OutputBox" Height="28" Margin="0,76,0,0"
+                 VerticalAlignment="Top" VerticalContentAlignment="Center"
+                 Foreground="White" Background="Black" TextWrapping="NoWrap"
+                 AcceptsReturn="False" IsReadOnly="True" />
+
+        <Label Content="Interpretations:" Margin="0,103,0,0"
+               HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <ListBox x:Name="ParsedInputBox" Margin="0,127,320,55"
+                 Foreground="White" Background="Black"
+                 SelectionChanged="ParsedInputBox_SelectionChanged" Grid.RowSpan="2" />
+
+        <Label Content="Thought:" Margin="0,116,205,0"
+               HorizontalAlignment="Right" VerticalAlignment="Top" />
+        <TextBox x:Name="AttributesOfBoxInputBox" Height="28" Width="190"
+                 Margin="0,116,0,0" HorizontalAlignment="Right"
+                 VerticalAlignment="Top" VerticalContentAlignment="Center"
+                 Foreground="White" Background="Black" TextWrapping="NoWrap"
+                 AcceptsReturn="False" PreviewKeyDown="AttributeBox_PreviewKeyDown" />
+        <Label Content="Known attributes:" Margin="0,137,180,0"
+               HorizontalAlignment="Right" VerticalAlignment="Top" />
+        <ListBox x:Name="AttributesOutputBox" Margin="0,161,2,55"
+                 Foreground="White" Background="Black" Grid.RowSpan="2" HorizontalAlignment="Right" Width="306" />
+
+        <Label Content="Corpus:" Margin="0,0,0,20"
+               HorizontalAlignment="Left" VerticalAlignment="Bottom" Grid.Row="1" />
+        <TextBox x:Name="txtFilePath" Height="26" Margin="55,0,137,20"
+                 IsReadOnly="True" VerticalAlignment="Bottom"
+                 Foreground="White" Background="Black" Grid.Row="1" />
+        <Button x:Name="btnBrowse" Content="Browse" Width="66" Height="25"
+                Margin="0,0,66,20" HorizontalAlignment="Right"
+                VerticalAlignment="Bottom" Click="btnBrowse_Click" Grid.Row="1" />
+        <Button x:Name="btnLoad" Content="Load" Width="50" Height="25"
+                Margin="0,0,10,20" HorizontalAlignment="Right"
+                VerticalAlignment="Bottom" Click="btnLoad_Click" Grid.Row="1" />
+    </Grid>
+</local:ModuleBaseDlg>

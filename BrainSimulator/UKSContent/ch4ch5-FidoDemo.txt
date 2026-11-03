@@ -1,0 +1,56 @@
+# Ch.4 + Ch.5 Fido demo network — import via UKS text file or load in BrainSim Thought
+# Human script: BrainSimulator/UKSContent/Ch4Ch5-FidoDemo.md
+
+[dog->is-a->Object] 1.00
+[pet->is-a->Object] 1.00
+[fur->is-a->Object] 1.00
+[owner->is-a->Object] 1.00
+[legs->is-a->Object] 1.00
+[has.4->is-a->has] 1.00
+[has.3->is-a->has] 1.00
+
+[dog->has->fur] 1.00
+[dog->has.4->legs] 1.00
+[pet->has->owner] 1.00
+
+[Fido->is-a->dog] 1.00
+[Fido->is-a->pet] 1.00
+[Tripper->is-a->dog] 1.00
+[Tripper->has.3->legs] 1.00
+
+# Conditional demo facts
+[weather->is-a->Object] 1.00
+[wet->is-a->Object] 1.00
+[alert->is-a->Object] 1.00
+[dry->is-a->Object] 1.00
+[outside->is-a->Object] 1.00
+[raining->is-a->Object] 1.00
+
+# These are assertions. With both present, the wet rule below succeeds.
+[Fido->is->outside] 1.00
+[weather->is->raining] 1.00
+
+# English: Fido is wet if Fido is outside and the weather is raining.
+wetResult [Fido->is.?->wet] 1.00
+wetOutside [Fido->is.?->outside] 1.00
+wetRaining [weather->is.?->raining] 1.00
+wetConditions [wetOutside->AND->wetRaining] 1.00
+wetFullStatement [wetResult->IF->wetConditions] 1.00
+
+# English: Fido is alert if Fido is outside.
+# This demonstrates a single condition without an AND relationship.
+alertResult [Fido->is.?->alert] 1.00
+alertOutside [Fido->is.?->outside] 1.00
+alertFullStatement [alertResult->IF->alertOutside] 1.00
+
+# English: Fido is dry if the weather is explicitly not raining.
+# This rule is currently false: ordinary raining does not satisfy is.not.?.
+# Change the assertion above to [weather->is.not->raining] to make this rule true.
+dryResult [Fido->is.?->dry] 1.00
+dryNotRaining [weather->is.not.?->raining] 1.00
+dryFullStatement [dryResult->IF->dryNotRaining] 1.00
+
+# UKSQuery dialog examples after importing this file:
+#   Source Fido, Type is, Target wet   -> returns the conditional wet result.
+#   Source Fido, Type is, Target alert -> returns the conditional alert result.
+#   Source Fido, Type is, Target dry   -> no result while raining is asserted.

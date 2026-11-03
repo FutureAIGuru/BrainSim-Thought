@@ -21,6 +21,12 @@
     button { background: #1b6382; color: white; cursor: pointer; white-space: nowrap; }
     button:disabled { opacity: .5; cursor: wait; }
     :focus-visible { outline: 3px solid #f6c66d; outline-offset: 3px; }
+    .top-line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .demo-picker { flex: 0 1 auto; display: flex; flex-direction: row; align-items: center; gap: .4rem; margin: 0; font-size: .85rem; }
+    .demo-picker select { max-width: 220px; }
+    #sandbox-status:empty { display: none; }
+    #sandbox-status { margin: .2rem 0 0; }
+    #sandbox-status.error { color: #ffaaa6; }
     .help { margin: .5rem 0 0; color: #afbed1; font-size: .85rem; }
     #status { margin: .45rem 0 0; min-height: 1.4em; }
     #status.error { color: #ffaaa6; }
@@ -35,9 +41,12 @@
 </head>
 <body>
   <header>
-    <div class="title"><h1>BrainSim Thought · 3D UKS</h1><a id="editor-link" href="/">Relationship editor</a></div>
+    <div class="top-line">
+      <h1>BrainSim Thought · 3D UKS</h1>
+      <label class="demo-picker">XML<select id="demo-select" aria-label="XML demo" disabled><option value="__choose" disabled>Choose XML file</option><option value="">Standard UKS</option></select></label>
+    </div>
+    <div class="title"><a id="editor-link" href="/">Relationship editor</a></div>
     <form id="root-form">
-      <label>User<select id="user-select"><option value="0">0 (shared)</option><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
       <label class="root-field">Root Thought<input id="root" value="Thought" required></label>
       <button id="load" type="submit">Load root</button>
       <button id="fit" type="button">Fit graph</button>
@@ -51,8 +60,12 @@
     <div id="graph" aria-label="Interactive 3D UKS graph"></div>
     <div id="edge-detail" role="status"></div>
   </main>
-  <footer><span class="dot gold"></span>Root <span class="dot blue"></span>Unexpanded <span class="dot green"></span>Expanded <span class="dot purple"></span>Relationship · Direct relationships only · Powered by <a href="https://github.com/vasturiano/3d-force-graph" target="_blank" rel="noopener">3d-force-graph</a></footer>
+  <footer>
+    <div><span class="dot gold"></span>Root <span class="dot blue"></span>Unexpanded <span class="dot green"></span>Expanded <span class="dot purple"></span>Relationship · Direct relationships only · Powered by <a href="https://github.com/vasturiano/3d-force-graph" target="_blank" rel="noopener">3d-force-graph</a></div>
+    <div id="inactivity-note">Edits are deleted after inactivity or a server restart.</div>
+    <p id="sandbox-status" role="status" aria-live="polite"></p>
+  </footer>
   <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js"></script>
-  <script type="module" src="graph.js?v=20261103-3"></script>
+  <script type="module" src="graph.js?v=20261103-simple"></script>
 </body>
 </html>

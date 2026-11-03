@@ -6,6 +6,7 @@ COPY UKSWeb/UKSWeb.csproj UKSWeb/
 RUN dotnet restore UKSWeb/UKSWeb.csproj
 COPY UKS/ UKS/
 COPY UKSWeb/ UKSWeb/
+COPY BrainSimulator/UKSContent/*.xml BrainSimulator/UKSContent/
 RUN dotnet publish UKSWeb/UKSWeb.csproj -c Release --no-restore -o /publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime

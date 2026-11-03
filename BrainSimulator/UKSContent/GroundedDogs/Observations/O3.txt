@@ -1,0 +1,9 @@
+# subject: O3
+# Anonymous visual observation; the spoken name is not stored here.
+
+[Spot.png->is-a->Image] 1.00
+[O3->hasImage->Spot.png] 1.00
+[O3->has->fur] 1.00
+[O3->has.4->leg] 1.00
+[O3->can->bark] 1.00
+[O3->is->spotted] 1.00

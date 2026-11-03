@@ -13,6 +13,7 @@
 
 using System;
 using System.IO;
+using System.Text.RegularExpressions;
 using UKS;
 using Xunit;
 
@@ -422,6 +423,11 @@ public class UKSTextFileTests : IDisposable
         
         Link link = dog.AddLink(hasType, tail);
         link.Weight = 2.5f;
+        link.maxWeight = 3.5f;
+        link.isPlastic = true;
+        dog.Weight = 0.42f;
+        dog.maxWeight = 0.8f;
+        dog.isPlastic = true;
         
         // Export and reimport
         uks.ExportTextFile("Thought", testFilePath);
@@ -433,6 +439,11 @@ public class UKSTextFileTests : IDisposable
         Link reimportedLink = reimportedDog.HasLink(uks.Labeled("has"), uks.Labeled("tail"));
         Assert.NotNull(reimportedLink);
         Assert.Equal(2.5f, reimportedLink.Weight, 2);
+        Assert.Equal(3.5f, reimportedLink.maxWeight, 2);
+        Assert.True(reimportedLink.isPlastic);
+        Assert.Equal(0.42f, reimportedDog.Weight, 2);
+        Assert.Equal(0.8f, reimportedDog.maxWeight, 2);
+        Assert.True(reimportedDog.isPlastic);
     }
 
     [Fact]
@@ -564,5 +575,43 @@ public class UKSTextFileTests : IDisposable
         Link reimportedLink3 = reimportedDog.HasLink(uks.Labeled("has"), uks.Labeled("ears"));
         Assert.NotNull(reimportedLink3);
         Assert.Equal(3.14159f, reimportedLink3.Weight, 2);
+    }
+
+    [Fact]
+    public void Test15_AnonymousSequenceLinkValueIsDefinedAndRestored()
+    {
+        Thought owner = uks.GetOrAddThought("owner", "Thing");
+        Thought from = uks.GetOrAddThought("param1", "Thing");
+        Thought linkType = uks.GetOrAddThought("SET.ref", "LinkType");
+        Thought to = uks.GetOrAddThought("true", "Thing");
+        Thought stepsType = uks.GetOrAddThought("steps", "LinkType");
+
+        // The first anonymous link is reachable before the sequence value and
+        // is structurally equal to it. Persistence must still emit both objects.
+        var firstAnonymousLink = new Link(from, linkType, to);
+        owner.AddLink("contains", firstAnonymousLink);
+        var sequenceValue = new Link(from, linkType, to);
+        SeqElement sequence = uks.AddSequence("owner", new List<Thought> { sequenceValue });
+        owner.AddLink(stepsType, sequence);
+
+        uks.ExportTextFile("Thing", testFilePath);
+        string exported = File.ReadAllText(testFilePath);
+
+        Match vluMatch = Regex.Match(exported,
+            @"\[[^\]]+->VLU->(?<target>unl_[A-Za-z0-9]+)\]");
+        Assert.True(vluMatch.Success, exported);
+        string targetLabel = vluMatch.Groups["target"].Value;
+        Assert.Matches($@"(?m)^{Regex.Escape(targetLabel)}\s+\[", exported);
+
+        ClearUKS();
+        uks.ImportTextFile(testFilePath);
+
+        Thought restoredOwner = uks.Labeled("owner");
+        Link steps = restoredOwner.LinksTo.Single(link => link.LinkType?.Label == "steps");
+        SeqElement restoredSequence = Assert.IsType<SeqElement>(steps.To);
+        Link restoredValue = Assert.IsType<Link>(restoredSequence.VLU);
+        Assert.Equal("param1", restoredValue.From?.Label);
+        Assert.Equal("SET.ref", restoredValue.LinkType?.Label);
+        Assert.Equal("true", restoredValue.To?.Label);
     }
 }

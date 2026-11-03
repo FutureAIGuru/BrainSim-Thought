@@ -35,7 +35,7 @@ public class InheritanceCh5RegressionTests
         uks.AddStatement("dog", "has", "fur");
         uks.AddStatement("Fido", "is-a", "dog");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("Fido") });
+        var links = uks.GetAttributes(uks.Labeled("Fido"));
 
         Assert.True(HasLink(links, "has", "fur", uks));
     }
@@ -50,7 +50,7 @@ public class InheritanceCh5RegressionTests
         uks.AddStatement("dog", "has.4", "legs");
         uks.AddStatement("Fido", "is-a", "dog");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("Fido") });
+        var links = uks.GetAttributes(uks.Labeled("Fido"));
 
         Assert.True(HasLink(links, "has.4", "legs", uks));
     }
@@ -67,7 +67,7 @@ public class InheritanceCh5RegressionTests
         uks.AddStatement("Tripper", "is-a", "dog");
         uks.AddStatement("Tripper", "has.3", "legs");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("Tripper") });
+        var links = uks.GetAttributes(uks.Labeled("Tripper"));
 
         Assert.True(HasLink(links, "has.3", "legs", uks));
         Assert.False(HasLink(links, "has.4", "legs", uks));
@@ -85,7 +85,7 @@ public class InheritanceCh5RegressionTests
         uks.AddStatement("dog", "has.4", "legs");
         uks.AddStatement("Tripper", "has.3", "legs");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("Tripper") });
+        var links = uks.GetAttributes(uks.Labeled("Tripper"));
 
         Assert.True(HasLink(links, "has.3", "legs", uks));
         Assert.False(HasLink(links, "has.4", "legs", uks));
@@ -102,7 +102,7 @@ public class InheritanceCh5RegressionTests
         uks.AddStatement("living", "has", "alive");
         uks.AddStatement("Fido", "is-a", "dog");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("Fido") });
+        var links = uks.GetAttributes(uks.Labeled("Fido"));
 
         Assert.True(HasLink(links, "has", "alive", uks));
     }
@@ -122,7 +122,7 @@ public class InheritanceCh5RegressionTests
         uks.AddStatement("deepFact", "is-a", "Object");
         uks.AddStatement(prev.Label, "has", "deepFact");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("chain0") });
+        var links = uks.GetAttributes(uks.Labeled("chain0"));
 
         Assert.False(HasLink(links, "has", "deepFact", uks));
     }
@@ -136,7 +136,7 @@ public class InheritanceCh5RegressionTests
         uks.AddStatement("dog", "has", "fur");
         uks.AddStatement("Fido", "is-a", "dog");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("Fido") });
+        var links = uks.GetAttributes(uks.Labeled("Fido"));
         Link inherited = links.First(l => l.LinkType?.Label == "has" && l.To == uks.Labeled("fur"));
 
         Assert.True(inherited.InheritanceDepth > 0);
@@ -152,7 +152,7 @@ public class InheritanceCh5RegressionTests
         uks.AddStatement("Tripper", "is-a", "dog");
         uks.AddStatement("Tripper", "has.3", "legs");
 
-        var links = uks.GetAllLinks(new List<Thought> { uks.Labeled("Tripper") });
+        var links = uks.GetAttributes(uks.Labeled("Tripper"));
         Link local = links.First(l => l.LinkType?.Label == "has.3");
 
         Assert.Equal(0, local.InheritanceDepth);

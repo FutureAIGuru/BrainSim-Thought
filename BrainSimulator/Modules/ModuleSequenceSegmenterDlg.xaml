@@ -1,0 +1,72 @@
+<local:ModuleBaseDlg x:Class="BrainSimulator.Modules.ModuleSequenceSegmenterDlg"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BrainSimulator.Modules"
+        mc:Ignorable="d"
+        Title="Sequence Segmenter" Height="430" Width="850"
+        MinHeight="165" MinWidth="500" Background="Gray"
+        ShowInTaskbar="False" FontSize="16">
+    <Grid Margin="10,10,10,28">
+        <TextBox x:Name="InputBox"
+                 Height="32"
+                 VerticalAlignment="Top"
+                 VerticalContentAlignment="Center"
+                 Foreground="White"
+                 Background="Black"
+                 AcceptsReturn="False"
+                 ToolTip="Submit one phrase at a time. Spaces are ignored. Add ! for emphasis. Enter exp to run the combined-word experiment."
+                 PreviewKeyDown="InputBox_PreviewKeyDown" />
+
+        <Label Content="File:" Margin="0,42,0,0"
+               HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <TextBox x:Name="txtFilePath" Height="27" Margin="65,46,135,0"
+                 IsReadOnly="True" VerticalAlignment="Top"
+                 Foreground="White" Background="Black" />
+        <Button x:Name="btnBrowse" Content="Browse" Width="66" Height="26"
+                Margin="0,46,64,0" HorizontalAlignment="Right"
+                VerticalAlignment="Top" Click="btnBrowse_Click" />
+        <Button x:Name="btnLoad" Content="Load" Width="56" Height="26"
+                Margin="0,46,2,0" HorizontalAlignment="Right"
+                VerticalAlignment="Top" Click="btnLoad_Click" />
+
+        <WrapPanel Margin="0,80,0,0" VerticalAlignment="Top">
+            <TextBlock Text="Top N words:" VerticalAlignment="Center" />
+            <TextBox x:Name="TopNWordsBox" Text="14" Width="65" Margin="8,0,18,0"
+                     ToolTip="Use 0 for all words. Applies to Preload vocabulary, exp and word-list Load; ignored for phrase files." />
+            <TextBlock Text="Cycles:" VerticalAlignment="Center" />
+            <TextBox x:Name="CycleCountBox" Text="100" Width="65" Margin="8,0,18,0" />
+            <TextBlock Text="Random seed:" VerticalAlignment="Center" />
+            <TextBox x:Name="RandomSeedBox" Text="42" Width="60" Margin="8,0,18,0"
+                     ToolTip="Use the same seed to replay the same randomized phrases in exp or word-list Load. Phrase files remain in file order. Learning also depends on starting UKS, settings, and elapsed-time decay." />
+            <CheckBox x:Name="PhrasesFromFileBox" Content="One phrase per line" Margin="0,0,12,0"
+                      VerticalAlignment="Center"
+                      ToolTip="Load all phrases in file order. Removes punctuation; spaces are ignored. Top N applies only to word lists and exp." />
+        </WrapPanel>
+
+        <WrapPanel Margin="0,112,0,0" VerticalAlignment="Top">
+            <CheckBox x:Name="SeedWordsBox" Content="Seed all words before reading phrases" Margin="0,0,18,0"
+                      VerticalAlignment="Center"
+                      ToolTip="With One phrase per line: first read the entire file synchronously and create non-plastic words. Then report source and recognition counts and new candidates." />
+            <TextBlock Text="Frequency bias:" VerticalAlignment="Center" />
+            <TextBox x:Name="FrequencyBiasBox" Text="0.5" Width="50" Margin="8,0,0,0"
+                     ToolTip="Word-list Load only: 1 uses file probabilities, 0 gives equal probabilities, 0.5 reduces the bias toward common words. Top N still uses original file weights." />
+        </WrapPanel>
+
+        <WrapPanel Margin="0,144,0,0" VerticalAlignment="Top">
+            <CheckBox x:Name="ExplainLearningBox" Content="Explain learning" Margin="0,0,18,0"
+                      VerticalAlignment="Center"
+                      ToolTip="Show why matches were reinforced or suppressed and why candidates were created. Diagnostic only; does not change learning." />
+            <Button x:Name="btnPreload" Content="Preload vocabulary" Height="26" Padding="10,0" Click="btnPreload_Click"
+                    ToolTip="Read the selected word/probability file, take Top N by original usage, and establish those words without training phrases. Adds to existing knowledge. Then select a phrase file and Load with One phrase per line checked." />
+        </WrapPanel>
+
+        <TextBox x:Name="SegmentationBox" Margin="0,174,0,0"
+                 IsReadOnly="True" AcceptsReturn="True"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 FontFamily="Consolas" FontSize="13"
+                 Foreground="White" Background="Black" />
+    </Grid>
+</local:ModuleBaseDlg>

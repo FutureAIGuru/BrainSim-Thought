@@ -20,7 +20,7 @@ public class Link : Thought
     /// <summary>
     /// Default constructor for a link thought.
     /// </summary>
-    public Link() { }
+    public Link(UKS? store = null) : base(store) { }
 
     /// <summary>
     /// Creates a link with the specified source, link type, and target.
@@ -28,16 +28,62 @@ public class Link : Thought
     /// <param name="from">Source thought.</param>
     /// <param name="linkType">Relationship type thought.</param>
     /// <param name="to">Target thought.</param>
-    public Link(Thought from, Thought linkType, Thought to)
+    public Link(Thought from, Thought linkType, Thought to) : base((from ?? linkType ?? to)?.Store)
     {
         From = from;
         LinkType = linkType;
         To = to;
     }
+    public Link(Link l) : base(l.Store)
+    {
+        if (l.From is Link l1)
+            From = new(l1);
+        else
+            From = l.From;
+        if (l.LinkType is Link l2)
+            LinkType = new(l2);
+        else
+            LinkType = l.LinkType;
+        if (l.To is Link l3)    
+            To = new(l3);   
+        else
+            To = l.To;
+    }
 
-    public Thought? From { get; set; }
-    public Thought? LinkType { get; set; }
-    public Thought? To { get; set; }
+
+    private Thought? from;
+    private Thought? linkType;
+    private Thought? to;
+    public Thought? From
+    {
+        get => from;
+        set
+        {
+            if (value is not null && !ReferenceEquals(value.Store, Store))
+                throw new ArgumentException("A Link's source belongs to another UKS.", nameof(value));
+            from = value;
+        }
+    }
+    public Thought? LinkType
+    {
+        get => linkType;
+        set
+        {
+            if (value is not null && !ReferenceEquals(value.Store, Store))
+                throw new ArgumentException("A Link's type belongs to another UKS.", nameof(value));
+            linkType = value;
+        }
+    }
+    public Thought? To
+    {
+        get => to;
+        set
+        {
+            if (value is not null && !ReferenceEquals(value.Store, Store))
+                throw new ArgumentException("A Link's target belongs to another UKS.", nameof(value));
+            to = value;
+        }
+    }
 
     /// <summary>Query-time metadata: 0 = asserted on the query source; N = inherited via N is-a hops.</summary>
     public int InheritanceDepth { get; set; }
@@ -66,52 +112,23 @@ public class Link : Thought
 /// </summary>
 public partial class Thought
 {
-    /// <summary>Immutable creator; inherited by Links. Zero denotes shared content.</summary>
-    public readonly int Owner = UKS.CurrentUser;
-    internal bool IsVisible => Owner == 0 || Owner == UKS.CurrentUser;
-    private bool isStored;
+    /// <summary>The independent UKS containing this Thought; never changes after construction.</summary>
+    public UKS Store { get; }
+    private static Queue<Thought> recentlyFired => UKS.theUKS.RecentlyFired;
+    private static object recentlyFiredLock => UKS.theUKS.RecentlyFiredLock;
+    private static Queue<Thought> recentlyCreated => UKS.theUKS.RecentlyCreated;
+    private static object recentlyCreatedLock => UKS.theUKS.RecentlyCreatedLock;
 
-    // Temporary link prototypes are not stored and must not consume a user's quota.
-    internal bool IsStored
-    {
-        get { lock (UKS.OwnershipLock) return isStored; }
-        set
-        {
-            lock (UKS.OwnershipLock)
-            {
-                if (value == isStored) return;
-                if (!UKS.StoredThoughtsByOwner.TryGetValue(Owner, out var thoughts))
-                {
-                    thoughts = new HashSet<Thought>(ReferenceEqualityComparer.Instance);
-                    UKS.StoredThoughtsByOwner[Owner] = thoughts;
-                }
-                if (value)
-                {
-                    if (Owner != 0 && thoughts.Count >= UKS.ThoughtLimitPerUser)
-                    {
-                        var error = new InvalidOperationException($"User {Owner} has reached the limit of {UKS.ThoughtLimitPerUser} Thoughts, including relationships. Delete some Thoughts before adding more.");
-                        error.Data["ThoughtLimitPerUser"] = UKS.ThoughtLimitPerUser;
-                        throw error;
-                    }
-                    thoughts.Add(this);
-                }
-                else thoughts.Remove(this);
-                isStored = value;
-            }
-        }
-    }
-
-    private static readonly Queue<Thought> recentlyFired = new();
-    private static readonly object recentlyFiredLock = new();
-
-    public static Thought IsA => ThoughtLabels.GetThought("is-a")!;  //this is a cache value shortcut for (Thought)"is-a"
+    public static Thought IsA => ThoughtLabels.GetThought("is-a")!;  // Shortcut in the currently selected UKS; instance operations use Store.Labeled.
     private readonly List<Link> _linksTo = new();   // links to "has", "is", is-a, many others
     private readonly List<Link> _linksFrom = new(); // links from
+    private readonly List<Link> _linksAsType = new(); // links which use this Thought as their LinkType
 
     /// <summary>Unsafe writeable list of outgoing links.</summary>
     public List<Link> LinksToWriteable { get => _linksTo; }
     /// <summary>Unsafe writeable list of incoming links.</summary>
     public List<Link> LinksFromWriteable { get => _linksFrom; }
+    internal List<Link> LinksAsTypeWriteable { get => _linksAsType; }
     /// <summary>Safe snapshot of outgoing links.</summary>
     //public IReadOnlyList<Link> LinksTo { get { lock (_linksTo) { return new List<Link>(_linksTo.AsReadOnly()); } } }
     public IReadOnlyList<Link> LinksTo
@@ -119,16 +136,16 @@ public partial class Thought
         get
         { 
             if (CheckExpiredAndMaybeDelete()) return Array.Empty<Link>();
-            lock (_linksTo) { return _linksTo.Where(x => x.IsVisible && (x.To?.IsVisible ?? true) && (x.LinkType?.IsVisible ?? true)).ToList(); }
+            lock (_linksTo) { return new List<Link>(_linksTo.AsReadOnly()); }
         }
     }
     /// <summary>Safe snapshot of incoming links.</summary>
     /// 
-    public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return _linksFrom.Where(x => x.IsVisible && (x.From?.IsVisible ?? true) && (x.LinkType?.IsVisible ?? true)).ToList(); } } }
+    public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return new List<Link>(_linksFrom.AsReadOnly()); } } }
     /// <summary>Direct parents (targets of outgoing is-a links).</summary>
-    public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.IsVisible && x.LinkType == IsA && x.To?.IsVisible == true).Select(x => x.To).OfType<Thought>().ToList(); } }
+    public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).OfType<Thought>().ToList(); } }
     /// <summary>Direct children (sources of incoming is-a links).</summary>
-    public IReadOnlyList<Thought> Children { get { lock (_linksFrom) return _linksFrom.Where(x => x.IsVisible && x.LinkType == IsA && x.From?.IsVisible == true).Select(x => x.From).OfType<Thought>().ToList(); } }
+    public IReadOnlyList<Thought> Children { get { lock (_linksFrom) return _linksFrom.Where(x => x.LinkType?.Label == "is-a").Select(x => x.From).OfType<Thought>().ToList(); } }
 
     private string _label = "";
     public string Label
@@ -137,8 +154,7 @@ public partial class Thought
         set
         {
             if (value == _label) return;
-            if (!string.IsNullOrEmpty(value)) IsStored = true;
-            ThoughtLabels.RemoveThoughtLabel(_label, Owner);
+            ThoughtLabels.RemoveThoughtLabel(_label, Store);
             _label = ThoughtLabels.AddThoughtLabel(value, this);
         }
     }
@@ -146,52 +162,65 @@ public partial class Thought
 
     public void Delete()
     {
-        // Physical deletion removes references from every workspace. Authorization
-        // belongs to the caller; the web endpoint permits only the Thought's owner.
-        if (this is Link link)
+        // A Link is also a Thought. If it is still installed in the graph, detach
+        // it first; RemoveLink calls back here after the detachment is complete.
+        if (this is Link link && link.From is not null)
         {
-            if (link.From is not null)
-                lock (link.From._linksTo)
-                    link.From._linksTo.RemoveAll(x => ReferenceEquals(x, link));
-            if (link.To is not null)
-                lock (link.To._linksFrom)
-                    link.To._linksFrom.RemoveAll(x => ReferenceEquals(x, link));
-        }
-
-        foreach (Link r in _linksTo.ToArray())
-        {
-            if (r.To is SeqElement seq && seq.FRST == seq)
-                UKS.theUKS.DeleteSequence(seq);
-            RemoveLink(r);
-        }
-        foreach (Link r in _linksFrom.ToArray())
-        {
-            if (r.From is not null) r.From.RemoveLink(r);
-            else
+            bool isAttached;
+            lock (link.From._linksTo)
+                isAttached = link.From._linksTo.Any(candidate => ReferenceEquals(candidate, link));
+            if (isAttached)
             {
-                lock (_linksFrom) _linksFrom.Remove(r);
-                r.Delete();
+                link.From.RemoveLink(link);
+                return;
             }
         }
 
-        // This implementation has no separate list of links using a Thought as type.
-        // Inspect the actual stored links, including private links to shared Thoughts.
-        Thought[] sources;
-        lock (UKS.theUKS.AtomicThoughts)
-            sources = UKS.theUKS.AtomicThoughts.Concat(ThoughtLabels.LabelList.Values)
-                .Distinct(ReferenceEqualityComparer.Instance).Cast<Thought>().ToArray();
-        foreach (Thought source in sources)
+        List<Thought> replacementParents = this is Link ? new() : Parents.ToList();
+        List<Thought> childrenToReparent = this is Link ? new() : Children.ToList();
+
+        if (this is not Link) Store.ReplaceDeletedSequenceValues(this);
+        foreach (Link typedLink in _linksAsType.ToList())
+            typedLink.From?.RemoveLink(typedLink);
+
+        foreach (Link r in _linksTo
+            .Where(candidate => candidate.To is SeqElement seq && ReferenceEquals(seq.FRST, seq))
+            .ToList())
         {
-            Link[] typedLinks;
-            lock (source._linksTo)
-                typedLinks = source._linksTo.Where(x => ReferenceEquals(x.LinkType, this)).ToArray();
-            foreach (Link typedLink in typedLinks) source.RemoveLink(typedLink);
+            if (r.To is SeqElement sequence)
+                Store.DeleteSequence(sequence);
         }
 
-        ThoughtLabels.RemoveThoughtLabel(Label, Owner);
-        lock (UKS.theUKS.AtomicThoughts)
-            UKS.theUKS.AtomicThoughts.Remove(this);
-        IsStored = false;
+        foreach (Link r in _linksTo.ToList())
+            RemoveLink(r);
+
+        foreach (Link r in _linksFrom.ToList())
+            (r.From ?? this).RemoveLink(r);
+
+        foreach (Thought child in childrenToReparent)
+        {
+            // A class-specific wildcard has no meaning after its class is
+            // deleted. Promoting it to the class's parent turns an internal
+            // matcher into an ordinary sibling, so remove it instead.
+            if (child.HasProperty("isWildcard"))
+            {
+                child.Delete();
+                continue;
+            }
+
+            foreach (Thought parent in replacementParents)
+                if (!ReferenceEquals(child, parent) && !ReferenceEquals(parent, this))
+                    child.AddParent(parent);
+
+            if (child.Parents.Count == 0 && Store.Labeled("Unknown") is Thought unknown)
+                child.AddParent(unknown);
+        }
+
+        DeleteFromRecentlyFired(this);
+        DeleteFromRecentlyCreated(this);
+        ThoughtLabels.RemoveThoughtLabel(Label, Store);
+        lock (Store.AtomicThoughts)
+            Store.AtomicThoughts.Remove(this);
     }
 
     private bool CheckExpiredAndMaybeDelete()
@@ -218,8 +247,8 @@ public partial class Thought
         return true;
     }
 
-    public int UseCount = 0;
     public DateTime LastFiredTime = DateTime.MinValue;
+    public DateTime CreatedTime { get; } = DateTime.Now;
 
     private TimeSpan _timeToLive = TimeSpan.MaxValue;
     /// <summary>Makes a Thought transient when set to a finite time.</summary>
@@ -256,22 +285,35 @@ public partial class Thought
     }
 
     /// <summary>
+    /// True when ordinary learning and forgetting are allowed to change this
+    /// Thought's persistent weight. Structural Thoughts and Links are not
+    /// plastic by default.
+    /// </summary>
+    public bool isPlastic { get; set; }
+
+    /// <summary>
     /// Default constructor.
     /// </summary>
-    public Thought() { }
+    public Thought(UKS? store = null)
+    {
+        Store = store ?? UKS.theUKS;
+        AddToRecentlyCreated();
+    }
 
     /// <summary>
     /// Copy constructor. For link thoughts, construct a Link instead.
     /// </summary>
     /// <param name="r">Thought to copy.</param>
-    public Thought(Thought r)
+    public Thought(Thought r) : this(r.Store)
     {
-        // Copy only common fields; link-specific fields handled via Link subclass.
         if (r is Link)
             return;
         Weight = r.Weight;
+        maxWeight = r.maxWeight;
+        isPlastic = r.isPlastic;
         V = r.V;
         Label = r.Label;
+        
     }
 
     /// <summary>
@@ -298,7 +340,7 @@ public partial class Thought
     {
         if (obj is Thought t)
         {
-            if (Owner != t.Owner || Label != t.Label) return false;
+            if (!ReferenceEquals(Store, t.Store) || Label != t.Label) return false;
             if (this is Link l1 && t is Link l2)
             {
                 return l1.From == l2.From && l1.LinkType == l2.LinkType && l1.To == l2.To;
@@ -312,15 +354,15 @@ public partial class Thought
     public override int GetHashCode()
     {
         if (this is Link link)
-            return HashCode.Combine(Owner, Label, link.From, link.LinkType, link.To);
-        return HashCode.Combine(Owner, Label.GetHashCode(StringComparison.Ordinal));
+            return HashCode.Combine(Store, Label, link.From, link.LinkType, link.To);
+        return HashCode.Combine(Store, Label.GetHashCode(StringComparison.Ordinal));
     }
 
     public static bool operator ==(Thought? a, Thought? b)
     {
         if (ReferenceEquals(a, b)) return true;
         if (a is null || b is null) return false;
-        if (a.Owner != b.Owner) return false;
+        if (!ReferenceEquals(a.Store, b.Store)) return false;
         if (a.Label != "" && a.Label == b.Label) return true;
         if (a is Link la && b is Link lb)
             return la.From == lb.From && la.To == lb.To && la.LinkType == lb.LinkType;
@@ -337,29 +379,6 @@ public partial class Thought
         if (string.IsNullOrEmpty(Label))
             Label = "R*";
         return this;
-    }
-
-    /// <summary>
-    /// Returns direct children plus any subclass children.
-    /// </summary>
-    public IReadOnlyList<Thought> ChildrenWithSubclasses
-    {
-        get
-        {
-            List<Thought> retVal = new();
-            HashSet<Thought> seen = new();
-            foreach (Thought child in Children)
-            {
-                if (seen.Add(child))
-                    retVal.Add(child);
-                foreach (Thought descendant in child.Descendants)
-                {
-                    if (seen.Add(descendant))
-                        retVal.Add(descendant);
-                }
-            }
-            return retVal;
-        }
     }
 
     /// <summary>
@@ -427,7 +446,7 @@ public partial class Thought
     /// <param name="t">Ancestor to test.</param>
     public bool HasAncestor(string label)
     {
-        Thought? t = ThoughtLabels.GetThought(label);
+        Thought? t = Store.Labeled(label);
         return t is not null && HasAncestor(t);
     }
 
@@ -444,11 +463,10 @@ public partial class Thought
     /// </summary>
     public void Fire()
     {
-        if (UKS.theUKS?.SuppressFiring == true)
+        if (Store.SuppressFiring)
             return;
             
         LastFiredTime = DateTime.Now;
-        UseCount++;
         AddToRecentlyFired();
         UpdateTimeToLive();
     }
@@ -456,20 +474,20 @@ public partial class Thought
     private void AddToRecentlyFired()
     {
         int maxCount = 100;
-        lock (recentlyFiredLock)
+        lock (Store.RecentlyFiredLock)
         {
-            recentlyFired.Enqueue(this);
-            while (recentlyFired.Count > maxCount) _ = recentlyFired.Dequeue();
+            Store.RecentlyFired.Enqueue(this);
+            while (Store.RecentlyFired.Count > maxCount) _ = Store.RecentlyFired.Dequeue();
         }
     }
     public static void DeleteFromRecentlyFired(Thought t)
     {
-        lock (recentlyFiredLock)
+        lock (t.Store.RecentlyFiredLock)
         {
-            var tempList = recentlyFired.Where(x => x != t).ToList();
-            recentlyFired.Clear();
+            var tempList = t.Store.RecentlyFired.Where(x => x != t).ToList();
+            t.Store.RecentlyFired.Clear();
             foreach (var item in tempList)
-                recentlyFired.Enqueue(item);
+                t.Store.RecentlyFired.Enqueue(item);
         }
     }
     public static IReadOnlyList<Thought> GetRecentlyFiredThoughts(TimeSpan recency)
@@ -521,12 +539,49 @@ public partial class Thought
             recentlyFired.Clear();
     }
 
+    private void AddToRecentlyCreated()
+    {
+        const int maxCount = 100;
+        lock (Store.RecentlyCreatedLock)
+        {
+            Store.RecentlyCreated.Enqueue(this);
+            while (Store.RecentlyCreated.Count > maxCount) _ = Store.RecentlyCreated.Dequeue();
+        }
+    }
+
+    public static void DeleteFromRecentlyCreated(Thought thought)
+    {
+        lock (thought.Store.RecentlyCreatedLock)
+        {
+            List<Thought> remaining = thought.Store.RecentlyCreated
+                .Where(item => !ReferenceEquals(item, thought)).ToList();
+            thought.Store.RecentlyCreated.Clear();
+            foreach (Thought item in remaining) thought.Store.RecentlyCreated.Enqueue(item);
+        }
+    }
+
+    public static IReadOnlyList<Thought> GetRecentlyCreatedThoughts(TimeSpan recency)
+    {
+        DateTime cutoff = DateTime.MinValue;
+        if (recency < DateTime.Now - DateTime.MinValue) cutoff = DateTime.Now - recency;
+        Thought[] retVal;
+        lock (recentlyCreatedLock)
+            retVal = recentlyCreated.Where(thought => thought.CreatedTime > cutoff).ToArray();
+        return retVal;
+    }
+
+    public static void ClearRecentlyCreatedQueue()
+    {
+        lock (recentlyCreatedLock)
+            recentlyCreated.Clear();
+    }
+
     private void UpdateTimeToLive()
     {
         float baseSeconds = 10;
         float growthFactor = 2;
         float maxSeconds = 60 * 60 * 24; //1 day
-        double ttlSeconds = baseSeconds * Math.Pow(growthFactor, UseCount);
+        double ttlSeconds = baseSeconds * Math.Pow(growthFactor, 1);
         ttlSeconds = Math.Min(ttlSeconds, maxSeconds);
         // Prevent overflow of TimeSpan when extending
         var increment = TimeSpan.FromSeconds(ttlSeconds);
@@ -546,7 +601,7 @@ public partial class Thought
     /// <returns>The new or existing link.</returns>
     public Link? AddLink(string linkTypeLabel, Thought? to)
     {
-        Thought? linkType = ThoughtLabels.GetThought(linkTypeLabel);
+        Thought? linkType = Store.Labeled(linkTypeLabel);
         if (linkType is null) return null;
         return AddLink(linkType, to);
     }
@@ -554,33 +609,38 @@ public partial class Thought
     public Link? AddLink(Thought linkType, Thought? to)
     {
         if (linkType is null) return null;
+        if (!ReferenceEquals(linkType.Store, Store) || (to is not null && !ReferenceEquals(to.Store, Store)))
+            throw new ArgumentException("Cannot connect Thoughts from different UKS instances.");
 
-        Link? existing = LinksTo.FirstOrDefault(x => x.Owner == UKS.CurrentUser && x.LinkType == linkType && x.To == to);
+        Link? existing = HasLink(linkType, to);
         if (existing is not null)
             return existing;
 
-        var r = new Link
+        var r = new Link(Store)
         {
             LinkType = linkType,
             From = this,
             To = to,
             LastFiredTime = DateTime.Now,
         };
-        r.IsStored = true;
-        if (to is not null && linkType is not null)
+        if (to is not null)
         {
             lock (_linksTo)
+                lock (linkType._linksAsType)
                 lock (to._linksFrom)
                 {
                     LinksToWriteable.Add(r);
+                    linkType._linksAsType.Add(r);
                     to.LinksFromWriteable.Add(r);
                 }
         }
         else
         {
             lock (_linksTo)
+            lock (linkType._linksAsType)
             {
                 LinksToWriteable.Add(r);
+                linkType._linksAsType.Add(r);
             }
         }
         return r;
@@ -593,7 +653,7 @@ public partial class Thought
     /// <param name="to">Target thought.</param>
     public Link RemoveLink(Thought linkType, Thought to)
     {
-        Link r = new() { From = this, LinkType = linkType, To = to };
+        Link r = new(Store) { From = this, LinkType = linkType, To = to };
         RemoveLink(r);
         return r;
     }
@@ -621,22 +681,30 @@ public partial class Thought
     public void RemoveLink(Link r)
     {
         if (r is null) return;
-        Link? stored = r;
+        if (r.LinkType is null) return;
+
+        Link? storedLink = r;
         if (r.From is not null)
         {
             lock (r.From._linksTo)
-            {
-                stored = r.From._linksTo.FirstOrDefault(x => ReferenceEquals(x, r))
-                    ?? r.From._linksTo.FirstOrDefault(x => x.Owner == r.Owner &&
-                        x.From == r.From && x.LinkType == r.LinkType && x.To == r.To);
-                if (stored is null) return;
-                r.From._linksTo.RemoveAll(x => ReferenceEquals(x, stored));
-            }
+                storedLink = r.From._linksTo.Find(candidate =>
+                    ReferenceEquals(candidate, r) ||
+                    (ReferenceEquals(candidate.From, r.From) &&
+                     ReferenceEquals(candidate.LinkType, r.LinkType) &&
+                     ReferenceEquals(candidate.To, r.To)));
         }
-        if (stored.To is not null)
-            lock (stored.To._linksFrom)
-                stored.To._linksFrom.RemoveAll(x => ReferenceEquals(x, stored));
-        stored.Delete();
+        if (storedLink is null) return;
+
+        if (storedLink.From is not null)
+            lock (storedLink.From._linksTo)
+                storedLink.From._linksTo.Remove(storedLink);
+        lock (storedLink.LinkType!._linksAsType)
+            storedLink.LinkType._linksAsType.Remove(storedLink);
+        if (storedLink.To is not null)
+            lock (storedLink.To._linksFrom)
+                storedLink.To._linksFrom.Remove(storedLink);
+
+        storedLink.Delete();
     }
 
     public Thought? GetTargetOfFirstLinkOfType(Thought linkType)
@@ -649,10 +717,21 @@ public partial class Thought
         return LinksTo.FindFirst(x =>
             string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.To;
     }
+    public Thought? GetSourceOfFirstLinkOfType(string linkTypeLabel)
+    {
+        return LinksFrom.FindFirst(x =>
+            string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.From;
+    }
+    public Thought? GetTargetOfHighestWeightLinkOfType(string linkTypeLabel)
+    {
+        return LinksTo.OrderByDescending(x => x.Weight).ToList().FindFirst(x =>
+            string.Equals(x.LinkType?.Label, linkTypeLabel, StringComparison.OrdinalIgnoreCase))?.To;
+    }
     private static bool LinkTypesMatch(Thought? a, Thought? b)
     {
         if (ReferenceEquals(a, b)) return true;
         if (a is null || b is null) return false;
+        if (!ReferenceEquals(a.Store, b.Store)) return false;
         return string.Equals(a.Label, b.Label, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -690,7 +769,7 @@ public partial class Thought
         if (newParent is null) return null;
         if (!Parents.Contains(newParent))
             return AddLink("is-a", newParent);
-        return LinksTo.FindFirst(x => x.To == newParent && x.LinkType == IsA);
+        return LinksTo.FindFirst(x => x.To == newParent && x.LinkType == Store.Labeled("is-a"));
     }
 
     /// <summary>
@@ -699,14 +778,14 @@ public partial class Thought
     /// <param name="t">Parent thought to remove.</param>
     public void RemoveParent(string parentLabel)
     {
-        Thought? t = ThoughtLabels.GetThought(parentLabel);
+        Thought? t = Store.Labeled(parentLabel);
         if (t is not null) RemoveParent(t);
     }
 
     public void RemoveParent(Thought? t)
     {
         if (t is null) return;
-        Link r = new() { From = this, LinkType = IsA, To = t };
+        Link r = new(Store) { From = this, LinkType = Store.Labeled("is-a"), To = t };
         t.RemoveLink(r);
     }
 
@@ -716,7 +795,7 @@ public partial class Thought
     /// <param name="t">Child thought to remove.</param>
     public void RemoveChild(Thought t)
     {
-        Link r = new() { From = t, LinkType = IsA, To = this };
+        Link r = new(Store) { From = t, LinkType = Store.Labeled("is-a"), To = this };
         RemoveLink(r);
     }
 
@@ -741,8 +820,16 @@ public partial class Thought
     /// <param name="t">Property thought to test.</param>
     public bool HasProperty(string label)
     {
-        Thought? t = ThoughtLabels.GetThought(label);
+        Thought? t = Store.Labeled(label);
         return t is not null && HasProperty(t);
+    }
+    public Thought AddProperty(Thought t)
+    {
+        if (t is not null && !HasProperty(t))
+        {
+            AddLink("hasProperty", t);
+        }
+        return t;
     }
 
     public bool HasProperty(Thought? t)  //with inheritance
@@ -760,7 +847,11 @@ public partial class Thought
     /// </summary>
     public IEnumerable<Thought> EnumerateSubThoughts()
     {
-        var visited = new HashSet<Thought>();
+        // This is graph traversal, so distinct objects must remain distinct even
+        // when Thought.Equals considers them structurally equivalent. In
+        // particular, anonymous sequence values may be equal links that still
+        // require separate persistence entries.
+        var visited = new HashSet<Thought>(ReferenceEqualityComparer.Instance);
         var q = new Queue<Thought>();
 
         void EnqueueIfNew(Thought? t)

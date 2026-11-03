@@ -21,15 +21,14 @@ namespace UKS;
 
 public class ThoughtLabels
 {
-    static ConcurrentDictionary<string, Thought> labelList = new ConcurrentDictionary<string, Thought>();
+    private static ConcurrentDictionary<string, Thought> labelList => UKS.theUKS.Labels;
 
     public static ConcurrentDictionary<string, Thought> LabelList { get => labelList;}
 
     public static Thought? GetThought(string label)
     {
         if (label is null || label == "") return null;
-        if (labelList.TryGetValue($"{UKS.CurrentUser}:{label}".ToLowerInvariant(), out Thought? retVal)) return retVal;
-        labelList.TryGetValue($"0:{label}".ToLowerInvariant(), out retVal);
+        labelList.TryGetValue(label.ToLowerInvariant(), out Thought? retVal);
         return retVal;
     }
     public static int GetLabelCount()
@@ -53,9 +52,11 @@ public class ThoughtLabels
 
     public static string AddThoughtLabel(string newLabel, Thought t)
     {
+        var labels = t.Store.Labels;
         //sets a label and appends/increments trailing digits in the event of collisions
         if (newLabel == "") return newLabel; //don't index empty lables
-        labelList.TryRemove($"{t.Owner}:{t.Label}".ToLowerInvariant(), out Thought? _);
+        if (labels.TryGetValue(t.Label.ToLowerInvariant(), out var previous) && ReferenceEquals(previous, t))
+            labels.TryRemove(t.Label.ToLowerInvariant(), out _);
         int curDigits = -1;
         string baseString = newLabel;
         //This code allows you to put a * at the end of a label and it will auto-increment
@@ -68,7 +69,7 @@ public class ThoughtLabels
         }
 
         //autoincrement in the event of name collisions
-        while (!labelList.TryAdd($"{t.Owner}:{newLabel}".ToLowerInvariant(), t))
+        while (!labels.TryAdd(newLabel.ToLowerInvariant(), t))
         {
             curDigits++;
             newLabel = baseString + curDigits;
@@ -85,10 +86,10 @@ public class ThoughtLabels
         foreach (Thought thought in labelList.Values) { retVal.Add(thought); }
         return retVal;
     }
-    public static void RemoveThoughtLabel(string existingLabel, int? owner = null)
+    public static void RemoveThoughtLabel(string existingLabel, UKS? store = null)
     {
         if (string.IsNullOrEmpty(existingLabel)) return;
-        labelList.Remove($"{owner ?? UKS.CurrentUser}:{existingLabel}".ToLowerInvariant(), out Thought? _);
+        (store ?? UKS.theUKS).Labels.Remove(existingLabel.ToLowerInvariant(), out Thought? _);
     }
 
 }

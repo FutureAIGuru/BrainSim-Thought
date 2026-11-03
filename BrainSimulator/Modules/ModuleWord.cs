@@ -21,9 +21,15 @@ namespace BrainSimulator.Modules;
 
 public class ModuleWord : ModuleBase
 {
+    private const float ObservationWeightIncrease = 1f;
+    private const float ObservationDecayFactor = 0.9999f;
+    private const float ConsolidationWeight = 10f;
+    private const int PlasticWordCapacity =50;
+
     //to put letters one by one into the mental Model
     DateTime lastLetterTime = DateTime.Now;
     readonly Queue<Thought> letterQueue = new();
+
     public ModuleWord()
     {
         Label = "Word";
@@ -57,24 +63,23 @@ public class ModuleWord : ModuleBase
     }
     public override void UKSInitializedNotification()
     {
-        theUKS.GetOrAddThought("letter", "Object");
+        theUKS.GetOrAddThought("character", "Abstract");
+        EnsureWordRoot();
     }
 
 
     public string GetWordSuggestion(string word)
     {
-        List<Thought> letters = new List<Thought>();
+        List<Thought> characters = new List<Thought>();
         foreach (char c in word.ToUpper())
         {
-            string letterLabel = c.ToString();
-            Thought letter = theUKS.GetOrAddThought("c:"+letterLabel, "letter");
-            letters.Add(letter);
+            characters.Add(theUKS.GetOrAddCharacter(c));
         }
         string retVal = word;
 
         // Use FindSequencesByActivation instead of HasSequence
         Thought searchOptions = theUKS.CreateSearchOptions(mustMatchFirst: true);
-        var suggestions = theUKS.FindSequencesByActivation(letters, searchOptions);
+        var suggestions = theUKS.FindSequencesByActivation(characters, searchOptions);
         // Filter by linkType "spelled"
         suggestions = suggestions
             .Where(r => r.seqNode.LinksFrom.Any(l => l.LinkType?.Label == "spelled"))
@@ -83,7 +88,8 @@ public class ModuleWord : ModuleBase
         if (suggestions.Count > 0)
         {
             var suggestionList = theUKS.FlattenSequence(suggestions[0].seqNode);
-            string suggestionString = string.Join("", suggestionList.Select(x => x.Label[2..]));
+            string suggestionString = string.Join("", suggestionList.Select(
+                x => x.Label[UKS.UKS.CharacterPrefix.Length..]));
             retVal = suggestionString;
         }
         return retVal;
@@ -102,29 +108,84 @@ public class ModuleWord : ModuleBase
         if (streamOnly)
             return null;
 
-        // Get or create the word thought
-        Thought wordThought = theUKS.GetOrAddThought("w:" + word, "Word");
+        // Get or create the word thought. Words are observations, so their
+        // persistent weights are plastic. Letters and spelling sequences are
+        // structural and retain their fixed weights.
+        Thought wordRoot = EnsureWordRoot();
+        Thought existingWord = theUKS.Labeled("w:" + word);
+        bool isNewWord = existingWord is null;
+        Thought wordThought = existingWord ?? theUKS.GetOrAddThought("w:" + word, wordRoot);
+        bool wordWasRetained = ObserveWord(wordThought, isNewWord);
+        Thought retVal = wordThought;
+        if (!wordWasRetained)
+        {
+            retVal = null;
+            return retVal;
+        }
         if (wordThought.LinksTo.FindFirst(x => x.LinkType.Label == "spelled") is not null)
         {
-            wordThought.Fire();
-            return wordThought; // Spelling already exists, no need to add again
+            return retVal; // Spelling already exists, no need to add again
         }
-        // Create list of letter thoughts
-        List<Thought> letters = new();
-        foreach (char c in word.ToUpper())
-        {
-            Thought letter = theUKS.GetOrAddThought("c:" + c, "letter");
-            letters.Add(letter);
-        }
-
-        // Get or create the "spelled" Linktype
-        Thought spelledLinkType = theUKS.GetOrAddThought("spelled", "LinkType");
-
-        // Add the sequence
-        var t = theUKS.AddSequenceAndLink(wordThought, spelledLinkType, letters);
+        theUKS.CreateSpellingSequence(word, wordThought);
         //wordThought.TimeToLive = TimeSpan.FromSeconds(10);
 
-        return wordThought;
+        return retVal;
+    }
+
+    /// <summary>
+    /// Treats each word observation as one time step. All word evidence decays
+    /// exponentially, the observed word gains one unit of evidence, and only
+    /// the strongest ten unconsolidated words are retained.
+    /// </summary>
+    private bool ObserveWord(Thought observedWord, bool isNewWord)
+    {
+        Thought wordRoot = EnsureWordRoot();
+        DecayWordWeights(wordRoot);
+
+        if (isNewWord)
+        {
+            observedWord.isPlastic = true;
+            observedWord.Weight = ObservationWeightIncrease;
+        }
+        else
+        {
+            observedWord.Weight += ObservationWeightIncrease;
+        }
+
+        observedWord.Fire();
+        if (observedWord.isPlastic && observedWord.Weight >= ConsolidationWeight)
+            observedWord.isPlastic = false;
+
+        int plasticChildCount = wordRoot.Children.Count(child => child.isPlastic);
+        bool observedWordWasPruned = false;
+        while (plasticChildCount > PlasticWordCapacity)
+        {
+            Thought prunedChild = theUKS.PruneLowestScoringChild(wordRoot);
+            if (prunedChild is null) break;
+
+            if (prunedChild == observedWord)
+                observedWordWasPruned = true;
+            plasticChildCount--;
+        }
+
+        bool retVal = !observedWordWasPruned;
+        return retVal;
+    }
+
+    private static void DecayWordWeights(Thought wordRoot)
+    {
+        foreach (Thought word in wordRoot.Children)
+            word.Weight *= ObservationDecayFactor;
+    }
+
+    private Thought EnsureWordRoot()
+    {
+        theUKS.GetOrAddThought("LanguageElement", "Thought");
+        Thought wordRoot = theUKS.GetOrAddThought("Word", "LanguageElement");
+        wordRoot.RemoveParent("Thought");
+        wordRoot.RemoveParent("Object");
+        Thought retVal = wordRoot;
+        return retVal;
     }
 
     public int LoadWordsFromFile(string filePath)
@@ -133,16 +194,30 @@ public class ModuleWord : ModuleBase
             return 0;
 
         int count = 0;
+        char[] trimChars = { '.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}' };
         try
         {
             string[] lines = File.ReadAllLines(filePath);
+            Random.Shared.Shuffle(lines);
             foreach (string line in lines)
             {
-                string word = line.Trim();
-                var splits = word.Split("\t");
-                word = splits[0];
-                if (!string.IsNullOrWhiteSpace(word))
+                string text = line.Trim();
+                if (string.IsNullOrWhiteSpace(text) || text.StartsWith("#")) continue;
+
+                // Existing dictionary files use a tab after the word. Corpus
+                // files may instead contain ordinary phrases to provide a
+                // realistic stream of scattered word observations.
+                string[] words = text.Contains('\t')
+                    ? new[] { text.Split('\t')[0] }
+                    : text.Split(new[] { ' ', '\t', '\r', '\n' },
+                        StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (string rawWord in words)
                 {
+                    string word = rawWord.Trim(trimChars).ToLowerInvariant();
+                    if (string.IsNullOrWhiteSpace(word)) continue;
+                    if (word.Any(ch => !char.IsLetterOrDigit(ch))) continue;
+
                     AddWordSpelling(word);
                     count++;
                 }
@@ -168,7 +243,7 @@ public class ModuleWord : ModuleBase
     {
         foreach (char c in added)
         {
-            letterQueue.Enqueue(theUKS.GetOrAddThought("c:" + char.ToUpper(c), "letter"));
+            letterQueue.Enqueue(theUKS.GetOrAddCharacter(c));
         }
     }
     public void RebuildQueueFromCurrentText(string current)
@@ -176,7 +251,7 @@ public class ModuleWord : ModuleBase
         letterQueue.Clear();
         foreach (char c in current.ToUpper())
         {
-            letterQueue.Enqueue(theUKS.GetOrAddThought("c:" + c, "letter"));
+            letterQueue.Enqueue(theUKS.GetOrAddCharacter(c));
         }
     }
 }

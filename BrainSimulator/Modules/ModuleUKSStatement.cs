@@ -86,8 +86,8 @@ public class ModuleUKSStatement : ModuleBase
         for ( int i = 0; i < tempStringArray.Length; i++)
         {
             if (tempStringArray[i] == "") continue;
-            //old hack for spelling
-            //if (tempStringArray[i].Length == 1) tempStringArray[i] = "c:"+tempStringArray[i];
+            if (tempStringArray[i].Length == 1)
+                tempStringArray[i] = UKS.UKS.GetCharacterLabel(tempStringArray[i][0]);
             if (!char.IsUpper(tempStringArray[i][0]) && tempStringArray[i].Length > 2)
                 tempStringArray[i] = pluralizer.Singularize(tempStringArray[i]);
             Thought t = ThoughtLabels.GetThought(tempStringArray[i]);
@@ -96,6 +96,15 @@ public class ModuleUKSStatement : ModuleBase
         }
 
         return retVal;
+    }
+
+    public static string ConditionalLinkType(string outerLinkType, string nestedLinkType)
+    {
+        if (!string.Equals(outerLinkType, "IF", StringComparison.OrdinalIgnoreCase))
+            return nestedLinkType;
+        if (Array.IndexOf(nestedLinkType.Split('.'), "?") >= 0)
+            return nestedLinkType;
+        return nestedLinkType + ".?";
     }
 }
 

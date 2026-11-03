@@ -21,67 +21,47 @@ using Pluralize.NET;
 /// </summary>
 public partial class UKS
 {
-    private static readonly AsyncLocal<int> currentUser = new();
-    internal static int CurrentUser => currentUser.Value;
-    internal static readonly object OwnershipLock = new();
-    internal static readonly Dictionary<int, HashSet<Thought>> StoredThoughtsByOwner = new();
-    private static int thoughtLimitPerUser = 1000;
-
-    /// <summary>Maximum stored Thoughts (including Links) per nonzero owner.</summary>
-    public static int ThoughtLimitPerUser
-    {
-        get { lock (OwnershipLock) return thoughtLimitPerUser; }
-        set
-        {
-            if (value < 1) throw new ArgumentOutOfRangeException(nameof(value));
-            lock (OwnershipLock) thoughtLimitPerUser = value;
-        }
-    }
-
-    /// <summary>Snapshot of the current user's stored Thoughts, including unlabeled Links.</summary>
-    public IReadOnlyList<Thought> OwnedThoughts
-    {
-        get
-        {
-            lock (OwnershipLock)
-                return StoredThoughtsByOwner.TryGetValue(CurrentUser, out var thoughts)
-                    ? thoughts.ToArray() : Array.Empty<Thought>();
-        }
-    }
-
-    /// <summary>Sets the owner for the current execution context; zero owns shared content.</summary>
-    public void SetUser(int user)
-    {
-        if (user < 0) throw new ArgumentOutOfRangeException(nameof(user));
-        currentUser.Value = user;
-    }
-
     //This is the actual internal Universal Knowledge Store
-    static private List<Thought> uKSList = new();// { Capacity = 1000000, };
+    private readonly HashSet<Thought> uKSList = new(ReferenceEqualityComparer.Instance);
+    internal readonly System.Collections.Concurrent.ConcurrentDictionary<string, Thought> Labels = new();
+    internal readonly Queue<Thought> RecentlyFired = new();
+    internal readonly object RecentlyFiredLock = new();
+    internal readonly Queue<Thought> RecentlyCreated = new();
+    internal readonly object RecentlyCreatedLock = new();
+    private static readonly AsyncLocal<UKS?> currentUKS = new();
 
     //This is a reformatted temporary copy of the UKS which used internally during the save and restore process to 
     //break circular links by storing index values instead of actual links Note the use of SThought instead of Thought
     private List<sThought> UKSTemp = new();
 
     /// <summary>
-    /// Occasionally a list of all the Thoughts in the UKS is needed. This is READ ONLY.
-    /// There is only one (shared) list for the App.
+    /// Occasionally a set of all the atomic Thoughts in the UKS is needed.
+    /// Membership uses object identity so changing a label cannot invalidate an entry.
     /// </summary>
-    public List<Thought> AtomicThoughts { get => uKSList; }
-
-    public static UKS theUKS = new UKS();
+    public HashSet<Thought> AtomicThoughts { get => uKSList; }
 
     /// <summary>
-    /// Creates a new reference to the UKS and initializes it if it is the first reference.
+    /// Current UKS for implicit string conversion and legacy static helpers.
+    /// Content belongs to instances; this selection follows the execution context.
+    /// Set it before request/background work and restore the previous value afterward.
     /// </summary>
-    /// <param name="clear">When true, clears existing thoughts and label cache before initialization.</param>
+    public static UKS theUKS
+    {
+        get => currentUKS.Value ??= new UKS();
+        set => currentUKS.Value = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    /// <summary>
+    /// Creates an independent UKS and selects it for this execution context.
+    /// </summary>
+    /// <param name="clear">Retained for source compatibility; every new instance starts with empty content.</param>
     public UKS(bool clear = false)
     {
+        theUKS = this;
         if (AtomicThoughts.Count == 0 || clear)
         {
             AtomicThoughts.Clear();
-            ThoughtLabels.ClearLabelList();
-            lock (OwnershipLock) StoredThoughtsByOwner.Clear();
+            Labels.Clear();
         }
         UKSTemp.Clear();
     }
@@ -97,10 +77,12 @@ public partial class UKS
     /// <returns>The newly created thought.</returns>
     public virtual Thought AddThought(string label, Thought? parent)
     {
-        if (label == "WRITE.EQ")
+        if (parent is not null && !ReferenceEquals(parent.Store, this))
+            throw new ArgumentException("Parent belongs to another UKS.", nameof(parent));
+        theUKS = this;
+        if (label == "SET.EQ")
         { }
-        Thought newThought = new();
-        newThought.IsStored = true;
+        Thought newThought = new(this);
         newThought.Label = label;
         if (parent is not null)
         {
@@ -119,7 +101,12 @@ public partial class UKS
     /// </summary>
     /// <param name="label">Label to look up.</param>
     /// <returns>The Thought or null.</returns>
-    public Thought? Labeled(string label) => ThoughtLabels.GetThought(label);
+    public Thought? Labeled(string label)
+    {
+        if (string.IsNullOrEmpty(label)) return null;
+        Labels.TryGetValue(label.ToLowerInvariant(), out Thought? thought);
+        return thought;
+    }
 
 
     private bool HasProperty(Thought t, string propertyName)
@@ -161,7 +148,7 @@ public partial class UKS
     {
         if (from is null) return null;
         //create a temporary link
-        Link r = new() { From = from, LinkType = linkType, To = to };
+        Link r = new(this) { From = from, LinkType = linkType, To = to };
         //see if it already exists
         return GetLink(r);
     }
@@ -176,7 +163,7 @@ public partial class UKS
         if (r.From is null) return null;
         foreach (Link r1 in r.From.LinksTo)
         {
-            if (r1.Owner == CurrentUser && LinksAreEqual(r, r1)) return r1;
+            if (LinksAreEqual(r, r1)) return r1;
         }
         return null;
     }
@@ -206,6 +193,8 @@ public partial class UKS
     /// <param name="t">The thought to remove the children from.</param>
     public void DeleteAllChildrenAndLinks(Thought t)
     {
+        if (t is not null && !ReferenceEquals(t.Store, this))
+            throw new ArgumentException("Thought belongs to another UKS.", nameof(t));
         if (t is not null)
         {
             //List<Thought> subThoughts = t.EnumerateSubThoughts().ToList();
@@ -232,21 +221,24 @@ public partial class UKS
     /// <returns>The existing or newly created Thought.</returns>
     public Thought? GetOrAddThought(string label, object? parent = null, Thought? source = null)
     {
+        if (parent is Thought parentThought && !ReferenceEquals(parentThought.Store, this))
+            throw new ArgumentException("Parent belongs to another UKS.", nameof(parent));
+        if (source is not null && !ReferenceEquals(source.Store, this))
+            throw new ArgumentException("Source belongs to another UKS.", nameof(source));
+        theUKS = this;
         if (string.IsNullOrEmpty(label)) return null;
 
-        Thought? thoughtToReturn = ThoughtLabels.GetThought(label);
+        Thought? thoughtToReturn = Labeled(label);
         Thought? correctParent = null;
         if (parent is string s)
-            correctParent = ThoughtLabels.GetThought(s);
+            correctParent = Labeled(s);
         if (parent is Thought t)
             correctParent = t;
         if (correctParent is null)
-            correctParent = ThoughtLabels.GetThought("Unknown");
+            correctParent = Labeled("Unknown");
 
         if (thoughtToReturn is not null)
         {
-            // Looking up shared content must not reparent it in a private workspace.
-            if (thoughtToReturn.Owner != CurrentUser) return thoughtToReturn;
             if (thoughtToReturn.Parents.Count == 0 &&
                 thoughtToReturn.Label.ToLower() != "brainsim" &&
                 thoughtToReturn.Label.ToLower() != "thought" &&
@@ -257,6 +249,8 @@ public partial class UKS
                 thoughtToReturn.RemoveParent("Unknown");
                 thoughtToReturn.AddParent(correctParent);
             }
+            if (label.Split('.').Contains("?") && Labeled("?") is Thought conditionalType)
+                thoughtToReturn.AddParent(conditionalType);
 
             return thoughtToReturn;
         }
@@ -288,7 +282,8 @@ public partial class UKS
             return sequence;
         }
         //. are used to indicate attributes to be added
-        if (label.Contains(".") && label != "." && !label.Contains(".py"))
+        if (label.Contains(".") && label != "." && !label.Contains(".py") &&
+            !new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" }.Contains(Path.GetExtension(label), StringComparer.OrdinalIgnoreCase))
         {
             string[] attribs = label.Split(".");
             // Materialize the ordinary compound before adding execution capabilities.
@@ -317,16 +312,13 @@ public partial class UKS
                     Thought? attrib = Labeled(attribs[i]) ?? AddThought(attribs[i], "Unknown");
                     if (attrib is not null)
                     {
-                        // Keep the existing attribute links for saved structures and
-                        // conflict processing, while also inheriting each component's properties.
+                        // Compound components contribute through ordinary inheritance.
                         instanceThought.AddParent(attrib);
-                        instanceThought.AddLink("is", attrib);
                     }
                 }
                 if (ordinaryCompound is not null)
                 {
                     instanceThought.AddParent(ordinaryCompound);
-                    instanceThought.AddLink("is", ordinaryCompound);
                 }
             }
             return instanceThought;
@@ -344,7 +336,7 @@ public partial class UKS
             {
                 int digit = 0;
                 while (source.LinksTo.FindFirst(x => x.LinkType?.Label == baseLabel + digit) is not null) digit++;
-                Thought? labeled = ThoughtLabels.GetThought(baseLabel + digit);
+                Thought? labeled = Labeled(baseLabel + digit);
                 if (labeled is not null)
                     return labeled;
             }
@@ -354,7 +346,6 @@ public partial class UKS
         thoughtToReturn.Fire();
         return thoughtToReturn;
     }
-
 
     /// <summary>
     /// Finds or creates a subclass from a phrase, attaching attributes as dotted parts.
@@ -374,20 +365,19 @@ public partial class UKS
             {
                 if (label1.Length == 1)
                 {
-                    Thought? letterParent = theUKS.GetOrAddThought("letter", "Object");
-                    Thought? t1 = theUKS.GetOrAddThought(label1.ToUpper(), letterParent!);
+                    Thought? t1 = GetOrAddCharacter(label1[0]);
                     if (t1 is not null) targets.Add(t1);
                 }
                 else
                 {
                     Thought? t1 = label1.StartsWith("w:")
-                        ? theUKS.GetOrAddThought(label1, "word")
-                        : theUKS.GetOrAddThought(label1);
+                        ? GetOrAddThought(label1, "word")
+                        : GetOrAddThought(label1);
                     if (t1 is not null) targets.Add(t1);
                 }
             }
             string seqLabel = string.Join("", targetParts);
-            Thought r1 = (Thought)theUKS.AddSequence(seqLabel, targets, false);
+            Thought r1 = (Thought)AddSequence(seqLabel, targets, false);
             return r1;
 
         }

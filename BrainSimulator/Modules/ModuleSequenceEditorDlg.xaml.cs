@@ -30,6 +30,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
     private UKS.UKS theUKS; // Store reference to UKS
     private bool isHighlightedByCode = false; // Track if selection was made by our code
     private string lastHighlightedText = null; // Track the last highlighted text
+    private SeqElement lastHighlightedStep;
     private bool _isTaskNameChangingInternally = false; // Track internal changes for autocomplete
     private int _previousTaskNameLength = 0; // Track previous length for autocomplete
 
@@ -158,7 +159,9 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
                 // Get the label from the VLU (could be Link or Thought)
                 if (algorithmModule.LastExecutedStep.VLU is Link link)
                 {
-                    currentLabel = link.ToString();
+                    string from = link.From?.HasProperty("followPath") == true ? link.From.Label : link.From?.ToString();
+                    string to = link.To?.HasProperty("followPath") == true ? link.To.Label : link.To?.ToString();
+                    currentLabel = $"[{from}→{link.LinkType}→{to}]";
                 }
                 else if (algorithmModule.LastExecutedStep.VLU is Thought thought)
                 {
@@ -166,10 +169,12 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
                 }
 
                 // Only highlight if the text has changed
-                if (!string.IsNullOrEmpty(currentLabel) && currentLabel != lastHighlightedText)
+                if (!string.IsNullOrEmpty(currentLabel) && (currentLabel != lastHighlightedText ||
+                    !ReferenceEquals(lastHighlightedStep, algorithmModule.LastExecutedStep)))
                 {
-                    HighlightTextInSequence(currentLabel);
+                    HighlightTextInSequence(currentLabel, algorithmModule.LastExecutedStep);
                     lastHighlightedText = currentLabel;
+                    lastHighlightedStep = algorithmModule.LastExecutedStep;
                 }
             }
             else
@@ -208,7 +213,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         }
     }
 
-    private void HighlightTextInSequence(string textToHighlight)
+    private void HighlightTextInSequence(string textToHighlight, SeqElement executedStep = null)
     {
         string content = sequenceContentInput.Text;
         if (string.IsNullOrEmpty(content))
@@ -216,6 +221,29 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
 
         // Find the text in the content
         int index = content.IndexOf(textToHighlight, StringComparison.OrdinalIgnoreCase);
+        if (executedStep is not null)
+        {
+            SeqElement first = executedStep.FRST ?? executedStep;
+            Thought owner = first.LinksFrom.FirstOrDefault(link =>
+                ReferenceEquals(link.LinkType, theUKS.Labeled("steps")))?.From;
+            int header = owner is null ? -1 : content.IndexOf(owner.Label + "^", StringComparison.Ordinal);
+            int lineStart = header < 0 ? -1 : content.IndexOf('\n', header);
+            SeqElement element = first;
+            HashSet<SeqElement> visited = new();
+            while (lineStart >= 0 && element is not null && !ReferenceEquals(element, executedStep) && visited.Add(element))
+            {
+                lineStart = content.IndexOf('\n', lineStart + 1);
+                element = element.NXT;
+            }
+            index = -1;
+            if (lineStart >= 0 && ReferenceEquals(element, executedStep))
+            {
+                lineStart++;
+                int lineEnd = content.IndexOf('\n', lineStart);
+                if (lineEnd < 0) lineEnd = content.Length;
+                index = content.IndexOf(textToHighlight, lineStart, lineEnd - lineStart, StringComparison.OrdinalIgnoreCase);
+            }
+        }
 
         if (index >= 0)
         {
@@ -352,6 +380,8 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         }
 
         sequenceContentInput.Text = sb.ToString();
+        lastHighlightedText = null;
+        lastHighlightedStep = null;
         SetStatus($"Loaded task '{task.Label}' with {itemCount} items");
     }
 

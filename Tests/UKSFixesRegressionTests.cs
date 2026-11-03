@@ -32,7 +32,7 @@ public class UKSFixesRegressionTests
     }
 
     [Fact]
-    public void ChildrenWithSubclasses_UsesIsA_NotLabelPrefix()
+    public void Descendants_UsesIsA_NotLabelPrefix()
     {
         var uks = CreateUks();
         uks.AddStatement("dog", "is-a", "Object");
@@ -42,7 +42,7 @@ public class UKSFixesRegressionTests
         var dog = uks.Labeled("dog");
         var doghouse = uks.Labeled("doghouse");
         var puppy = uks.Labeled("puppy");
-        var children = dog.ChildrenWithSubclasses;
+        var children = dog.Descendants;
 
         Assert.Contains(puppy, children);
         Assert.DoesNotContain(doghouse, children);
@@ -70,7 +70,10 @@ public class UKSFixesRegressionTests
     {
         var uks = CreateUks();
         uks.AddStatement("dog", "is-a", "Object");
-        uks.AddStatement("Fido", "is-a", "dog");
+        Link original = uks.AddStatement("Fido", "is-a", "dog");
+        original.Weight = 0.42f;
+        original.maxWeight = 0.8f;
+        original.isPlastic = true;
 
         string path = Path.Combine(Path.GetTempPath(), $"uks_roundtrip_{Guid.NewGuid():N}.xml");
         try
@@ -81,7 +84,50 @@ public class UKSFixesRegressionTests
             Assert.True(uks2.LoadUKSfromXMLFile(path));
 
             Assert.NotNull(uks2.Labeled("Fido"));
-            Assert.NotNull(uks2.GetLink(uks2.Labeled("Fido"), uks2.Labeled("is-a"), uks2.Labeled("dog")));
+            Link restored = uks2.GetLink(
+                uks2.Labeled("Fido"), uks2.Labeled("is-a"), uks2.Labeled("dog"));
+            Assert.NotNull(restored);
+            Assert.Equal(0.42f, restored.Weight, 2);
+            Assert.Equal(0.8f, restored.maxWeight, 2);
+            Assert.True(restored.isPlastic);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void XmlRoundTrip_DoesNotPromoteSequenceNodesToAtomicThoughts()
+    {
+        var uks = CreateUks();
+        Thought word = uks.GetOrAddThought("roundTripWord", "Word");
+        Thought spelled = uks.GetOrAddThought("spelled", "LinkType");
+        List<Thought> letters = new[] { "R", "O", "U", "N", "D" }
+            .Select(label => uks.GetOrAddThought(label, "letter"))
+            .ToList();
+        SeqElement originalSequence = uks.AddSequenceAndLink(word, spelled, letters);
+
+        Assert.DoesNotContain(originalSequence, uks.AtomicThoughts);
+
+        string path = Path.Combine(
+            Path.GetTempPath(), $"uks_sequence_roundtrip_{Guid.NewGuid():N}.xml");
+        try
+        {
+            Assert.True(uks.SaveUKStoXMLFile(path));
+
+            var restored = new UKS(clear: true);
+            Assert.True(restored.LoadUKSfromXMLFile(path));
+
+            Thought restoredWord = restored.Labeled("roundTripWord");
+            SeqElement restoredSequence = Assert.IsType<SeqElement>(
+                restoredWord.GetTargetOfFirstLinkOfType("spelled"));
+            Assert.Equal(
+                new[] { "R", "O", "U", "N", "D" },
+                restored.FlattenSequence(restoredSequence)
+                    .Select(element => element.Label));
+            Assert.DoesNotContain(
+                restored.AtomicThoughts, thought => thought is SeqElement);
         }
         finally
         {

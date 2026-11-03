@@ -21,7 +21,7 @@ public class ModuleAttributeBubbleTests
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks, isEnabled = true };
+        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var animal = uks.GetOrAddThought("Animal", "Object");
         var dog = uks.GetOrAddThought("Dog", animal);
@@ -46,11 +46,28 @@ public class ModuleAttributeBubbleTests
     }
 
     [Fact]
+    public void BubbleChildAttributes_SingleChild_DoesNotBubble()
+    {
+        var uks = CreateUKS();
+        var parent = uks.GetOrAddThought("SingleChildParent", "Object");
+        var fido = uks.GetOrAddThought("Fido", parent);
+        var has = uks.GetOrAddThought("has", "LinkType");
+        var fur = uks.GetOrAddThought("fur", "Object");
+        fido.AddLink(has, fur).Weight = 1.0f;
+
+        bool changed = uks.BubbleSharedAttributes(parent);
+
+        Assert.False(changed);
+        Assert.Null(parent.HasLink(has, fur));
+        Assert.NotNull(fido.HasLink(has, fur));
+    }
+
+    [Fact]
     public void BubbleChildAttributes_MajorityHaveAttribute_BubblesUp()
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks, isEnabled = true };
+        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var vehicle = uks.GetOrAddThought("Vehicle", "Object");
         var car = uks.GetOrAddThought("Car", vehicle);
@@ -79,7 +96,7 @@ public class ModuleAttributeBubbleTests
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks, isEnabled = true };
+        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var shape = uks.GetOrAddThought("Shape", "Object");
         var circle = uks.GetOrAddThought("Circle", shape);
@@ -104,11 +121,11 @@ public class ModuleAttributeBubbleTests
     }
 
     [Fact]
-    public void BubbleChildAttributes_RemovesFromChildren()
+    public void BubbleChildAttributes_RemovesRedundantDirectChildAttributes()
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks, isEnabled = true };
+        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var animal = uks.GetOrAddThought("Animal", "Object");
         var dog = uks.GetOrAddThought("Dog", animal);
@@ -126,35 +143,31 @@ public class ModuleAttributeBubbleTests
         // Assert
         Assert.DoesNotContain(dog.LinksTo, l => l.LinkType == breathes && l.To == air);
         Assert.DoesNotContain(cat.LinksTo, l => l.LinkType == breathes && l.To == air);
+        Assert.NotNull(animal.HasLink(breathes, air));
+        Assert.Contains(uks.GetAttributes(dog), l => l.LinkType == breathes && l.To == air);
+        Assert.Contains(uks.GetAttributes(cat), l => l.LinkType == breathes && l.To == air);
     }
 
     [Fact]
-    public void GetInstanceType_NumberedInstance_ReturnsBaseType()
+    public void BubbleChildAttributes_ExistingParentAttributeStillRemovesChildCopies()
     {
-        // Arrange
         var uks = CreateUKS();
-        var color = uks.GetOrAddThought("color", "Object");
-        var blue = uks.GetOrAddThought("blue", color);
-        var blue5 = uks.GetOrAddThought("blue5", blue);
+        var module = new ModuleAttributeBubble { theUKS = uks };
+        var animal = uks.GetOrAddThought("Animal", "Object");
+        var dog = uks.GetOrAddThought("Dog", animal);
+        var cat = uks.GetOrAddThought("Cat", animal);
+        var breathes = uks.GetOrAddThought("breathes", "LinkType");
+        var air = uks.GetOrAddThought("air", "Object");
 
-        // Act
-        var result = ModuleAttributeBubble.GetInstanceType(blue5);
+        animal.AddLink(breathes, air).Weight = 0.99f;
+        dog.AddLink(breathes, air).Weight = 1.0f;
+        cat.AddLink(breathes, air).Weight = 1.0f;
 
-        // Assert
-        Assert.Equal(blue, result);
+        module.DoTheWork();
+
+        Assert.NotNull(animal.HasLink(breathes, air));
+        Assert.Null(dog.HasLink(breathes, air));
+        Assert.Null(cat.HasLink(breathes, air));
     }
 
-    [Fact]
-    public void GetInstanceType_NonNumbered_ReturnsSelf()
-    {
-        // Arrange
-        var uks = CreateUKS();
-        var red = uks.GetOrAddThought("red", "color");
-
-        // Act
-        var result = ModuleAttributeBubble.GetInstanceType(red);
-
-        // Assert
-        Assert.Equal(red, result);
-    }
 }
