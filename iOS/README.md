@@ -38,6 +38,9 @@ the two are split. C# keeps only the logic, and every bit of UI is SwiftUI:
 - `UKSNative/Host/ModuleBase.cs`, `MainWindow.cs`: headless stand-ins for the WPF base class and main
   window (active module list, engine tick, file load/save hooks, ModuleUKS's
   UKS-initialized broadcast).
+- `SequenceSegmenterInput.cs`: how typed text and corpus lines become the Sequence
+  Segmenter's input. On the desktop this is in the WPF dialog, so the platform-neutral
+  parts are copied here.
 - `ModuleRegistry.cs`: the list of module types the app can add. The desktop finds them by
   reflection, which NativeAOT can't do, so they are spelled out.
 - `ModuleApi.cs`, `ModuleApis.cs`, `MentalModelApi.cs`, `VisionApi.cs`,
@@ -121,6 +124,13 @@ module state queries) use `PollGuard`, which waits at most 15 ms and otherwise a
 so the screen keeps its last state rather than freezing while a module works. Long module
 work started from a dialog (Vision's "100", file loaders) runs through `Exports.RunLocked`,
 which takes the lock for each step and pauses between steps.
+
+The app has one UKS. The UKS sources keep the "current" UKS (`UKS.theUKS`, which labels,
+`Thought.Delete()` and the modules use) per execution context, and the app calls in from
+several native threads (main, engine, background saves), each of which would otherwise get a
+new, empty UKS. So whatever takes the lock (`Guard`, `PollGuard`, `RunLocked`, the engine)
+first selects the shared instance (`Exports.UseShared`). Clearing the UKS replaces that
+instance and rebuilds the modules on the new one.
 
 ## Layout
 

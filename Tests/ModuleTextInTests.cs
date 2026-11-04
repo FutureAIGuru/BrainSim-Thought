@@ -31,7 +31,7 @@ public class ModuleTextInteractionTests
         uks.AddStatement(dogWord, means, dogClass);
         uks.AddStatement(fidoWord, means, fidoObject);
 
-        Thought exemplar = ModuleText.AddActionExemplar("Fido is a dog", "[fido->SET.is-a->dog]");
+        Thought exemplar = ModuleText.AddActionExemplar("Fido is a dog", "[fido->!.is-a->dog]");
 
         Link action = Assert.IsType<Link>(exemplar.GetTargetOfFirstLinkOfType("demonstrates"));
         Assert.Same(fidoObject, action.From);
@@ -47,13 +47,13 @@ public class ModuleTextInteractionTests
         Thought color = uks.GetOrAddThought("Color", "Object");
 
         Thought wildcardExemplar = ModuleText.AddActionExemplar(
-            "What is a sheep like", "[sheep->TEST.??->??]");
+            "What is a sheep like", "[sheep->?.??->??]");
         Thought filteredExemplar = ModuleText.AddActionExemplar(
-            "What color is Fido", "[[Fido->TEST.is->??]->filterBy->Color]");
+            "What color is Fido", "[[Fido->?.is->??]->filterBy->Color]");
 
         Link wildcardAction = Assert.IsType<Link>(wildcardExemplar.GetTargetOfFirstLinkOfType("demonstrates"));
         Link filteredAction = Assert.IsType<Link>(filteredExemplar.GetTargetOfFirstLinkOfType("demonstrates"));
-        Assert.Equal("TEST.??", wildcardAction.LinkType.Label, ignoreCase: true);
+        Assert.Equal("?.??", wildcardAction.LinkType.Label, ignoreCase: true);
         Assert.Same(color, filteredAction.GetTargetOfFirstLinkOfType("filterBy"));
         Assert.True(uks.Labeled("filterBy").HasAncestor("LinkType"));
     }
@@ -78,7 +78,7 @@ public class ModuleTextInteractionTests
     {
         UKS.UKS uks = CreateUKS();
         Thought exemplar = ModuleText.AddActionExemplar(
-            "What color is Rover", "[[Rover->TEST.is->??]->filterBy->Color]");
+            "What color is Rover", "[[Rover->?.is->??]->filterBy->Color]");
         Link demonstrates = Assert.Single(exemplar.LinksTo.Where(link => link.LinkType.Label == "demonstrates"));
 
         string display = ModuleUKSDlg.FormatLinkForDisplay(demonstrates);
@@ -96,7 +96,7 @@ public class ModuleTextInteractionTests
         mary.isPlastic = true;
         john.isPlastic = true;
         Thought exemplar = ModuleText.AddActionExemplar(
-            "How is Mary related to John", "[Mary->TEST.??->John]");
+            "How is Mary related to John", "[Mary->?.??->John]");
         var wordModule = new ModuleWord { theUKS = uks };
 
         List<SequenceView> initialSequences = uks.GetSequenceViews(exemplar)
@@ -127,13 +127,13 @@ public class ModuleTextInteractionTests
     public void CorpusActionAnnotationMayBeSeparatedBySpaces()
     {
         ModuleText.ParseInputLine(
-            "Mary loves John.    [Mary->SET.loves->John] // example",
+            "Mary loves John.    [Mary->!.loves->John] // example",
             out string phrase,
             out string action,
             out string comment);
 
         Assert.Equal("Mary loves John.", phrase);
-        Assert.Equal("[Mary->SET.loves->John]", action);
+        Assert.Equal("[Mary->!.loves->John]", action);
         Assert.Equal("example", comment);
     }
 

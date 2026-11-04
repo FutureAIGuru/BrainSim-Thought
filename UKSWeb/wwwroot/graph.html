@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BrainSim Thought · 3D UKS</title>
+  <style>
+    :root { font: 16px/1.4 system-ui, sans-serif; color: #e7eef7; background: #0b1220; }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100dvh; min-height: 420px; display: flex; flex-direction: column; }
+    header { padding: .8rem 1rem; background: #142034; border-bottom: 1px solid #30425c; }
+    .title { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .6rem; }
+    h1 { font-size: 1.3rem; margin: 0; }
+    a { color: #86d4ff; }
+    form { display: flex; align-items: end; gap: .65rem; flex-wrap: wrap; }
+    label { display: flex; flex-direction: column; gap: .2rem; }
+    .label-toggle { flex-direction: row; align-items: center; align-self: center; gap: .35rem; }
+    .root-field { flex: 1; min-width: 140px; }
+    input, select, button { font: inherit; border: 1px solid #5a708c; border-radius: 6px; padding: .4rem .6rem; }
+    input, select { background: #0b1627; color: #e7eef7; min-width: 0; }
+    button { background: #1b6382; color: white; cursor: pointer; white-space: nowrap; }
+    button:disabled { opacity: .5; cursor: wait; }
+    :focus-visible { outline: 3px solid #f6c66d; outline-offset: 3px; }
+    .top-line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .demo-picker { flex: 0 1 auto; display: flex; flex-direction: row; align-items: center; gap: .4rem; margin: 0; font-size: .85rem; }
+    .demo-picker select { max-width: 220px; }
+    #sandbox-status:empty { display: none; }
+    #sandbox-status { margin: .2rem 0 0; }
+    #sandbox-status.error { color: #ffaaa6; }
+    .help { margin: .5rem 0 0; color: #afbed1; font-size: .85rem; }
+    #status { margin: .45rem 0 0; min-height: 1.4em; }
+    #status.error { color: #ffaaa6; }
+    main { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+    #graph { width: 100%; height: 100%; }
+    #edge-detail { position: absolute; left: .75rem; bottom: .75rem; max-width: calc(100% - 1.5rem); padding: .4rem .7rem; background: #142034ed; border-radius: 6px; pointer-events: none; overflow-wrap: anywhere; }
+    #edge-detail:empty { display: none; }
+    footer { padding: .35rem 1rem; font-size: .8rem; color: #afbed1; border-top: 1px solid #30425c; }
+    .dot { display: inline-block; width: .65rem; height: .65rem; border-radius: 50%; margin: 0 .3rem 0 .6rem; }
+    .gold { background: #f6c66d; } .blue { background: #72b7ff; } .green { background: #4ad4b2; } .purple { background: #c19bff; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="top-line">
+      <h1>BrainSim Thought · 3D UKS</h1>
+      <label class="demo-picker">XML<select id="demo-select" aria-label="XML demo" disabled><option value="__choose" disabled>Choose XML file</option><option value="">Standard UKS</option></select></label>
+    </div>
+    <div class="title"><a id="editor-link" href="/">Relationship editor</a></div>
+    <form id="root-form">
+      <label class="root-field">Root Thought<input id="root" value="Thought" required></label>
+      <button id="load" type="submit">Load root</button>
+      <button id="fit" type="button">Fit graph</button>
+      <button id="refresh" type="button">Refresh now</button>
+      <label class="label-toggle"><input id="show-labels" type="checkbox" checked>Labels</label>
+    </form>
+    <p class="help">Click nodes to expand or collapse. Click an edge to reveal its relationship node; its source/type/target connectors cannot expand. Expanded nodes refresh every 2 seconds. Drag to rotate; scroll to zoom; right-drag to pan.</p>
+    <p id="status" role="status" aria-live="polite">Loading 3D renderer…</p>
+  </header>
+  <main>
+    <div id="graph" aria-label="Interactive 3D UKS graph"></div>
+    <div id="edge-detail" role="status"></div>
+  </main>
+  <footer>
+    <div><span class="dot gold"></span>Root <span class="dot blue"></span>Unexpanded <span class="dot green"></span>Expanded <span class="dot purple"></span>Relationship · Direct relationships only · Powered by <a href="https://github.com/vasturiano/3d-force-graph" target="_blank" rel="noopener">3d-force-graph</a></div>
+    <div id="inactivity-note">Edits are deleted after inactivity or a server restart.</div>
+    <p id="sandbox-status" role="status" aria-live="polite"></p>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js"></script>
+  <script type="module" src="graph.js?v=20261103-simple"></script>
+</body>
+</html>

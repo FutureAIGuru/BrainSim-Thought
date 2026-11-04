@@ -135,7 +135,7 @@ public class UKSExclusivityTests
         var conditionalClause = new Link(fido, conditionalIs, wet);
         var negativeAssertion = new Link(fido, negativeIs, wet);
 
-        Assert.True(conditionalIs.HasProperty("isConditional"));
+        Assert.True(conditionalIs.HasProperty("isPossible"));
         Assert.False(uks.LinksAreExclusive_ForTests(conditionalClause, negativeAssertion));
     }
 }

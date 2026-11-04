@@ -29,7 +29,7 @@ public partial class UKS
     public void ExportTextFile(string root, string path, int maxDepth = 12)
     {
         if (string.IsNullOrWhiteSpace(root)) throw new ArgumentException("Start label is required.", nameof(root));
-        Thought? Root = theUKS.Labeled(root);
+        Thought? Root = Labeled(root);
         if (Root is null) return;
 
         HashSet<string> alreadyWritten = new();
@@ -58,6 +58,17 @@ public partial class UKS
                         Collect(link.To);
                     }
                 }
+
+                // Include the complete outgoing structure of referenced Thoughts, including
+                // source-only paths whose values are not reached by the root's child traversal.
+                for (int i = 0; i < thoughtsToWrite.Count; i++)
+                    foreach (Link dependency in thoughtsToWrite[i].LinksTo)
+                    {
+                        Collect(dependency);
+                        Collect(dependency.From);
+                        Collect(dependency.LinkType);
+                        Collect(dependency.To);
+                    }
 
                 foreach (Thought t in thoughtsToWrite)
                 {
@@ -91,17 +102,19 @@ public partial class UKS
         }
     }
 
-    void EnsureLabel(Thought t)
+    string EnsureLabel(Thought t)
     {
         if (string.IsNullOrWhiteSpace(t.Label))
             // Put the GUID into the label only when it's unlabeled
             t.Label = $"unl_{Guid.NewGuid().ToString("N")[..8]}";
+        return t.Label.Any(char.IsWhiteSpace) || t.Label.IndexOfAny(new[] { '[', ']', '"' }) >= 0 ||
+            t.Label.Contains("->") || t.Label.Contains('→')
+            ? System.Text.Json.JsonSerializer.Serialize(t.Label) : t.Label;
     }
 
     string FormatThought(Thought t)
     {
-        EnsureLabel(t);
-        string retVal = t.Label.PadRight(15);
+        string retVal = EnsureLabel(t).PadRight(15);
         if (t.V is not null)
             retVal += " V: " + t.V.ToString();
         if (t is Link r)
@@ -110,11 +123,11 @@ public partial class UKS
             if (r.To is Link r2) EnsureLabel(r2);
             retVal += "[";
             if (r.From is not null)
-                retVal += r.From?.Label.Trim();
+                retVal += EnsureLabel(r.From);
             if (r.LinkType is not null)
-                retVal += ((retVal == "") ? "" : "->") + r.LinkType?.Label.Trim();
+                retVal += ((retVal == "") ? "" : "->") + EnsureLabel(r.LinkType);
             if (r.To is not null)
-                retVal += ((retVal == "") ? "" : "->") + ((r.To.Label == "") ? r.To.ToString() : r.To.Label.Trim());
+                retVal += ((retVal == "") ? "" : "->") + EnsureLabel(r.To);
             retVal += "]";
         }
         return retVal;
@@ -132,70 +145,97 @@ public partial class UKS
         if (filePath is null) throw new ArgumentNullException(nameof(filePath));
         var lines = File.ReadAllLines(filePath);
 
-        // The 3-pass is needed to handle forward label references
-        // FIRST PASS: Find labels which define links. Standalone Thought metadata
-        // lines must remain ordinary Thoughts rather than unwired Link placeholders.
-        List<string> definedLinkLabels = new();
-        foreach (var line in lines)
+        lock (this)
         {
-            string code = StripEolComment(line);
-            if (string.IsNullOrWhiteSpace(code)) continue;
-            var tokens = TokenizeTopLevel(code);
-            if (tokens.Count < 2 || !tokens[1].TrimStart().StartsWith("[")) continue;
-            string label = tokens[0].Trim();
-            if (!string.IsNullOrEmpty(label))
-                definedLinkLabels.Add(label);
-        }
-
-        // SECOND PASS: Find all referenced labels (in bracket parts)
-        HashSet<string> referencedLabels = new();
-        foreach (var line in lines)
-        {
-            string code = StripEolComment(line);
-            if (string.IsNullOrWhiteSpace(code)) continue;
-            var tokens = TokenizeTopLevel(code);
-            if (tokens.Count < 2 || !tokens[1].TrimStart().StartsWith("[")) continue;
-            
-            var stmt = ParseBracketStmt(tokens[1], 0);
-            foreach (var part in stmt)
+            bool wasSuppressingFiring = SuppressFiring;
+            SuppressFiring = true;
+            try
             {
-                string trimmed = part.Trim();
-                if (!string.IsNullOrEmpty(trimmed))
-                    referencedLabels.Add(trimmed);
+                // The 3-pass is needed to handle forward label references
+                // FIRST PASS: Find labels which define links. Standalone Thought metadata
+                // lines must remain ordinary Thoughts rather than unwired Link placeholders.
+                List<string> definedLinkLabels = new();
+                foreach (var line in lines)
+                {
+                    string code = StripEolComment(line);
+                    if (string.IsNullOrWhiteSpace(code)) continue;
+                    var tokens = TokenizeTopLevel(code);
+                    if (tokens.Count < 2 || !tokens[1].TrimStart().StartsWith("[")) continue;
+                    string label = tokens[0].Trim();
+                    if (!string.IsNullOrEmpty(label))
+                        definedLinkLabels.Add(label);
+                }
+
+                // SECOND PASS: Find all referenced labels (in bracket parts)
+                HashSet<string> referencedLabels = new();
+                foreach (var line in lines)
+                {
+                    string code = StripEolComment(line);
+                    if (string.IsNullOrWhiteSpace(code)) continue;
+                    var tokens = TokenizeTopLevel(code);
+                    if (tokens.Count < 2 || !tokens[1].TrimStart().StartsWith("[")) continue;
+
+                    var stmt = ParseBracketStmt(tokens[1], 0);
+                    foreach (var part in stmt)
+                    {
+                        string trimmed = part.Trim();
+                        if (!string.IsNullOrEmpty(trimmed))
+                            referencedLabels.Add(trimmed);
+                    }
+                }
+
+                // Keep only labels that are referenced
+                List<string> labelsToPreAllocate = definedLinkLabels
+                    .Where(label => referencedLabels.Contains(label))
+                    .ToList();
+
+                // Pre-allocate unwired Link placeholders only for forward references (label not yet defined)
+                foreach (var label in labelsToPreAllocate)
+                {
+                    Thought? existing = Labeled(label);
+                    if (existing is not null)
+                        continue;
+
+                    Link placeholder = new Link(this);
+                    placeholder.Label = label;
+                    AtomicThoughts.Add(placeholder);
+                }
+
+                // THIRD PASS: Actually process the lines
+                foreach (var line in lines)
+                {
+                    ProcessSingleLine(line);  //without the possibility of compound or sequence statements, this is straightforward
+                }
+
+                // Corpus instructions remain exemplar data when a saved network is imported.
+                foreach (Link operation in AtomicThoughts.SelectMany(thought => thought.LinksTo)
+                    .Where(link => ReferenceEquals(link.LinkType, Labeled("demonstrates")))
+                    .Select(link => link.To).OfType<Link>().ToList())
+                {
+                    if (operation.From is null || operation.To is null || operation.LinkType is null ||
+                        (!operation.LinkType.HasProperty("setRelationship") && !operation.LinkType.HasProperty("isPossible"))) continue;
+                    lock (operation.From.LinksToWriteable)
+                        operation.From.LinksToWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+                    lock (operation.To.LinksFromWriteable)
+                        operation.To.LinksFromWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+                    lock (operation.LinkType.LinksAsTypeWriteable)
+                        operation.LinkType.LinksAsTypeWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+                }
+
+                // Remove unnecessary "unl_..." labels
+                Thought? thoughtRoot = Labeled("Thought");
+                if (thoughtRoot is not null)
+                {
+                    foreach (var t in thoughtRoot.EnumerateSubThoughts())
+                    {
+                        if (t.Label.StartsWith("unl_"))
+                            t.Label = "";
+                    }
+                }
             }
-        }
-
-        // Keep only labels that are referenced
-        List<string> labelsToPreAllocate = definedLinkLabels
-            .Where(label => referencedLabels.Contains(label))
-            .ToList();
-
-        // Pre-allocate unwired Link placeholders only for forward references (label not yet defined)
-        foreach (var label in labelsToPreAllocate)
-        {
-            Thought? existing = Labeled(label);
-            if (existing is not null)
-                continue;
-
-            Link placeholder = new Link();
-            placeholder.Label = label;
-            AtomicThoughts.Add(placeholder);
-        }
-
-        // THIRD PASS: Actually process the lines
-        foreach (var line in lines)
-        {
-            ProcessSingleLine(line);  //without the possibility of compound or sequence statements, this is straightforward
-        }
-
-        // Remove unnecessary "unl_..." labels
-        Thought? thoughtRoot = Labeled("Thought");
-        if (thoughtRoot is not null)
-        {
-            foreach (var t in thoughtRoot.EnumerateSubThoughts())
+            finally
             {
-                if (t.Label.StartsWith("unl_"))
-                    t.Label = "";
+                SuppressFiring = wasSuppressingFiring;
             }
         }
     }
@@ -207,7 +247,7 @@ public partial class UKS
         string code = StripEolComment(line);
         if (string.IsNullOrWhiteSpace(code)) return null;
 
-        code = code.Trim();
+        code = code.Trim().Replace("→", "->");
 
         var tokens = TokenizeTopLevel(code);
         if (tokens.Count < 2) return null;
@@ -223,6 +263,17 @@ public partial class UKS
         var stmt = ParseBracketStmt(tokens[1], 0);
         if (stmt.Count < 2) return null;
 
+        if (stmt.Any(part => part.TrimStart().StartsWith("[")) ||
+            Labeled(stmt[1])?.HasProperty("isConditional") == true ||
+            Labeled(stmt[1])?.HasProperty("isConjunction") == true)
+        {
+            return AddLinkStmtWithNesting(
+                tokens[0], stmt,
+                tokens.Count > 2 ? tokens[2] : null,
+                tokens.Count > 3 ? tokens[3] : null,
+                tokens.Count > 4 ? tokens[4] : null);
+        }
+        //return AddLinkStmt(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
         Thought? linkRetVal = AddLinkStmt(
             tokens[0], stmt,
             tokens.Count > 2 ? tokens[2] : null,
@@ -252,15 +303,15 @@ public partial class UKS
         }
 
         // Process 'from'
-        Thought? from = GetOrAddThought(linkParts[0]);
+        Thought? from = ProcessThoughtOrLink(linkParts[0]) ?? GetOrAddThought(linkParts[0]);
 
-        // Process 'linkType' 
-        Thought? linkType = GetOrAddThought(linkParts[1]);
+        // Process 'linkType'
+        Thought? linkType = ProcessThoughtOrLink(linkParts[1]) ?? GetOrAddThought(linkParts[1]);
 
         // Process 'to'
         //this might be a sequence
-        Thought? to = CreateThoughtFromMultipleAttributes(linkParts[2], false, false);
-        //Thought to = GetOrAddThought(linkParts[2]);       
+        Thought? to = ProcessThoughtOrLink(linkParts[2]) ?? CreateThoughtFromMultipleAttributes(linkParts[2], false, false);
+        //Thought to = GetOrAddThought(linkParts[2]);
 
         if (from is null || linkType is null) return null;
 
@@ -294,14 +345,16 @@ public partial class UKS
     /// </summary>
     /// <param name="line">The line to process in UKS text format (e.g., "label[from->linkType->to] weight")</param>
     /// <returns>The created Thought/Link, or null if parsing failed.</returns>
-    public Thought? ProcessSingleLineWithNesting(string line)
+    public Thought? ProcessSingleLineWithNesting(string line, bool asPattern = false, bool asActionPrototype = false)
     {
         if (string.IsNullOrWhiteSpace(line)) return null;
 
         string code = StripEolComment(line);
         if (string.IsNullOrWhiteSpace(code)) return null;
 
-        code = code.Trim();
+        code = code.Trim().Replace("→", "->");
+
+        if (asPattern) return ProcessThoughtOrLink(code, true);
 
         var tokens = TokenizeTopLevel(code);
         if (tokens.Count < 2) return null;
@@ -322,6 +375,20 @@ public partial class UKS
             tokens.Count > 2 ? tokens[2] : null,
             tokens.Count > 3 ? tokens[3] : null,
             tokens.Count > 4 ? tokens[4] : null);
+        if (asActionPrototype && linkRetVal is Link parsed)
+        {
+            Link? operation = parsed.LinkType?.HasProperty("setRelationship") == true ||
+                parsed.LinkType?.HasProperty("isPossible") == true ? parsed : parsed.From as Link;
+            if (operation?.From is not null && operation.To is not null && operation.LinkType is not null)
+            {
+                lock (operation.From.LinksToWriteable)
+                    operation.From.LinksToWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+                lock (operation.To.LinksFromWriteable)
+                    operation.To.LinksFromWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+                lock (operation.LinkType.LinksAsTypeWriteable)
+                    operation.LinkType.LinksAsTypeWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+            }
+        }
         return linkRetVal;
     }
 
@@ -331,7 +398,7 @@ public partial class UKS
         List<string> linkParts,
         string? sWeight,
         string? sMaxWeight,
-        string? sIsPlastic)
+        string? sIsPlastic, bool asPattern = false)
     {
         if (linkParts.Count < 2) return null;
 
@@ -346,31 +413,52 @@ public partial class UKS
             t1?.Delete();
         }
 
-        // Process 'from' - may be a nested link
-        Thought? from = ProcessThoughtOrLink(linkParts[0]);
-        if (from is null) from = GetOrAddThought(linkParts[0]);
-
-        // Process 'linkType' - may be a nested link
         Thought? linkType = ProcessThoughtOrLink(linkParts[1]);
-        if (linkType is null) linkType = GetOrAddThought(linkParts[1]);
+        if (linkType is null) linkType = CreateThoughtFromMultipleAttributes(linkParts[1], true, false);
+        if (linkType is null) return null;
+        bool structural = linkType.HasProperty("isConditional") || linkType.HasProperty("isConjunction");
+
+        // Conditional and conjunction operands are patterns, never new assertions.
+        Thought? from = ProcessThoughtOrLink(linkParts[0], asPattern || structural);
+        if (from is null) from = CreateThoughtFromMultipleAttributes(linkParts[0], false);
 
         // Process 'to' - may be a nested link
         Thought? to = null;
         if (linkParts.Count > 2)
         {
-            to = ProcessThoughtOrLink(linkParts[2]);
-            if (to is null && linkParts[2].StartsWith("unl_")) 
-            { 
-                to = new Link(); 
-                to.Label = linkParts[2]; 
+            to = ProcessThoughtOrLink(linkParts[2], asPattern || structural);
+            if (to is null && linkParts[2].StartsWith("unl_"))
+            {
+                to = new Link(this);
+                to.Label = linkParts[2];
             }
-            if (to is null) to = GetOrAddThought(linkParts[2]);
+            if (to is null) to = CreateThoughtFromMultipleAttributes(linkParts[2], false);
         }
 
         if (from is null || linkType is null) return null;
+        if (structural && (from is not Link || to is not Link)) return null;
 
         //        Link r = AddStatement(from, linkType, to, label);
-        Link? r = from.AddLink(linkType, to);
+        Link? r;
+        if (asPattern || structural)
+        {
+            if (asPattern && !structural && !linkType.HasProperty("isPossible"))
+            {
+                Thought ordinaryType = linkType;
+                linkType = GetOrAddThought(ordinaryType.Label + ".?");
+                linkType.AddParent(ordinaryType);
+                linkType.AddParent(GetOrAddThought("?", "Property"));
+            }
+            // Reuse preallocated named links so forward references retain their identity.
+            r = !string.IsNullOrEmpty(label) && Labeled(label) is Link placeholder && placeholder.From is null
+                ? placeholder : new Link(this);
+            r.From = from;
+            r.LinkType = linkType;
+            r.To = to;
+            if (string.IsNullOrEmpty(label)) r.AddDefaultLabel();
+            WriteTheLink(r);
+        }
+        else r = from.AddLink(linkType, to);
         if (r is null) return null;
         if (!string.IsNullOrEmpty(label))
             r.Label = label;
@@ -397,31 +485,80 @@ public partial class UKS
     /// </summary>
     /// <param name="part">The string to process</param>
     /// <returns>Thought if found/created, Link if nested, null if not found</returns>
-    private Thought? ProcessThoughtOrLink(string part)
+    private Thought? ProcessThoughtOrLink(string part, bool asPattern = false)
     {
         if (string.IsNullOrWhiteSpace(part)) return null;
 
 
-        var tokens = TokenizeTopLevel(part);
-        if (tokens.Count < 2) return null;
-        string trimmed = tokens[1].Trim();
+        string trimmed = part.Trim().Replace("→", "->");
+        if (trimmed.StartsWith('"') && trimmed.EndsWith('"'))
+        {
+            string? label = System.Text.Json.JsonSerializer.Deserialize<string>(trimmed);
+            return label is null ? null : Labeled(label) ?? GetOrAddThought(label);
+        }
 
         // Check if this is a nested link (starts with '[')
         if (trimmed.StartsWith("[") && trimmed.EndsWith("]"))
         {
+            int depth = 0;
+            for (int i = 0; i < trimmed.Length; i++)
+            {
+                if (trimmed[i] == '[') depth++;
+                if (trimmed[i] == ']') depth--;
+                if (depth == 0 && i < trimmed.Length - 1)
+                {
+                    trimmed = "[" + trimmed + "]";
+                    break;
+                }
+            }
             // Parse the nested link
             var nestedStmt = ParseBracketStmt(trimmed, 0);
             if (nestedStmt.Count >= 2)
             {
                 // Recursively create the nested link (with empty label)
-                Thought? retVal = AddLinkStmtWithNesting("", nestedStmt, null, null, null);
+                Thought? retVal = AddLinkStmtWithNesting("", nestedStmt, null, null, null, asPattern);
                 return retVal;
             }
+            if (asPattern && nestedStmt.Count == 1)
+                return ProcessThoughtOrLink(nestedStmt[0], true);
             return null;
         }
 
         // Not a nested link, try to find existing thought
-        return Labeled(trimmed);
+        Thought? existing = Labeled(trimmed);
+        if (asPattern && existing is Link relationship && relationship.LinkType is not null &&
+            !relationship.LinkType.HasProperty("isConditional") && !relationship.LinkType.HasProperty("isConjunction"))
+        {
+            Thought patternType = relationship.LinkType;
+            if (!patternType.HasProperty("isPossible"))
+            {
+                patternType = GetOrAddThought(relationship.LinkType.Label + ".?");
+                patternType.AddParent(relationship.LinkType);
+                patternType.AddParent(GetOrAddThought("?", "Property"));
+            }
+            Link pattern = new(relationship.From, patternType, relationship.To);
+            pattern.AddDefaultLabel();
+            WriteTheLink(pattern);
+            return pattern;
+        }
+        if (existing is not null) return existing;
+        if (asPattern)
+        {
+            if (trimmed.Contains("->"))
+            {
+                var nestedStmt = ParseBracketStmt("[" + trimmed + "]", 0);
+                if (nestedStmt.Count == 3)
+                    return AddLinkStmtWithNesting("", nestedStmt, null, null, null, true);
+            }
+            else
+            {
+                var words = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (words.Length >= 3 && !trimmed.StartsWith("^"))
+                    return AddLinkStmtWithNesting("", new List<string> {
+                        words[0], string.Join(" ", words.Skip(1).Take(words.Length - 2)), words[^1] }, null, null, null, true);
+            }
+        }
+        return null;
     }
 
     private static void ApplyPersistenceMetadata(
@@ -475,9 +612,18 @@ public partial class UKS
         s = s.Substring(1, s.Length - 2); // drop initialFinal [ ]
         var sb = new StringBuilder();
         int bracketDepth = 0;
+        bool quoted = false;
 
         for (int i = 0; i < s.Length; i++)
         {
+            if (s[i] == '\\' && quoted && i + 1 < s.Length)
+            {
+                sb.Append(s[i]);
+                sb.Append(s[++i]);
+                continue;
+            }
+            if (s[i] == '"') quoted = !quoted;
+            if (quoted || s[i] == '"') { sb.Append(s[i]); continue; }
             if (s[i] == '[') bracketDepth++;
             if (s[i] == ']') bracketDepth--;
 
@@ -496,6 +642,22 @@ public partial class UKS
         }
 
         result.Add(sb.ToString().Trim());
+        // Accept [condition] AND [condition] as readable input for a nested triple.
+        if (result.Count == 1 && s.TrimStart().StartsWith("["))
+        {
+            int depth = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] == '[') depth++;
+                if (s[i] != ']') continue;
+                if (--depth != 0) continue;
+                string remainder = s[(i + 1)..].Trim();
+                int separator = remainder.IndexOf(' ');
+                if (separator > 0 && remainder[(separator + 1)..].TrimStart().StartsWith("["))
+                    return new List<string> { s[..(i + 1)].Trim(), remainder[..separator], remainder[(separator + 1)..].Trim() };
+                break;
+            }
+        }
         return result;
     }
 
@@ -543,9 +705,25 @@ public partial class UKS
         var tokens = new List<string>();
         if (string.IsNullOrWhiteSpace(code)) return tokens;
 
-        int leftBracketPos = code.IndexOf("[");
+        int leftBracketPos = -1;
+        bool quoted = false;
+        for (int i = 0; i < code.Length; i++)
+        {
+            if (code[i] == '\\' && quoted) { i++; continue; }
+            if (code[i] == '"') quoted = !quoted;
+            if (!quoted && code[i] == '[') { leftBracketPos = i; break; }
+        }
         if (leftBracketPos == -1)
         {
+            var metadataMatch = Regex.Match(code, @"^(.*?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(True|False)$", RegexOptions.IgnoreCase);
+            if (metadataMatch.Success)
+            {
+                string thoughtLabel = metadataMatch.Groups[1].Value.Trim();
+                if (thoughtLabel.StartsWith('"')) thoughtLabel = System.Text.Json.JsonSerializer.Deserialize<string>(thoughtLabel) ?? "";
+                tokens.Add(thoughtLabel);
+                for (int i = 2; i <= 4; i++) tokens.Add(metadataMatch.Groups[i].Value);
+                return tokens;
+            }
             tokens.AddRange(code.Split(
                 new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries));
             return tokens;
@@ -555,6 +733,7 @@ public partial class UKS
         if (rightBrackedPos <= 0) return tokens;
 
         string label = code[..leftBracketPos].Trim();
+        if (label.StartsWith('"')) label = System.Text.Json.JsonSerializer.Deserialize<string>(label) ?? "";
         string metadata = code[rightBrackedPos..].Trim();
         string body = code[leftBracketPos..rightBrackedPos].Trim();
 

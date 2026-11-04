@@ -109,9 +109,15 @@ public static partial class Exports
     static readonly object gate = new();
     static readonly Pluralizer pluralizer = new();
 
-    // The UKS keeps its content in statics and Thought.Delete() talks to UKS.theUKS,
-    // so that instance is the one to use.
+    // The app has one UKS. UKS.theUKS (which Thought.Delete(), labels and the modules use) is
+    // per execution context, and the app calls in from several native threads (main, engine,
+    // background saves), each of which would otherwise get a new, empty UKS. So every entry
+    // point selects the shared instance when it takes the lock (UseShared).
+    static UKS.UKS shared;
     static UKS.UKS Store => UKS.UKS.theUKS;
+
+    /// <summary>Makes the app's UKS the current one on this thread (call with the lock held).</summary>
+    internal static void UseShared() => UKS.UKS.theUKS = shared ??= new UKS.UKS();
 
     // ---------- marshalling helpers ----------
 
@@ -128,7 +134,7 @@ public static partial class Exports
     {
         lock (gate)
         {
-            try { return body(); }
+            try { UseShared(); return body(); }
             catch (Exception e) { return Error(e); }
         }
     }
@@ -146,7 +152,7 @@ public static partial class Exports
     {
         if (!Monitor.TryEnter(gate, waitMs))
             return Json(new ResultDto { Ok = false, Error = BusyError }, JsonCtx.Default.ResultDto);
-        try { return body(); }
+        try { UseShared(); return body(); }
         catch (Exception e) { return Error(e); }
         finally { Monitor.Exit(gate); }
     }
@@ -160,10 +166,22 @@ public static partial class Exports
     {
         for (int i = 0; i < count; i++)
         {
-            lock (gate) step();
+            lock (gate) { UseShared(); step(); }
             // Monitor isn't fair: without a pause this thread takes the lock straight back
             // and the engine and the app's polls rarely get it.
             if (i < count - 1) Thread.Sleep(2);
+        }
+    });
+
+    /// <summary>Like <see cref="RunLocked"/>, for work of unknown length: repeats `step` until it returns false.</summary>
+    internal static Task RunLockedWhile(Func<bool> step) => Task.Run(() =>
+    {
+        while (true)
+        {
+            bool more;
+            lock (gate) { UseShared(); more = step(); }
+            if (!more) break;
+            Thread.Sleep(2);
         }
     });
 
@@ -265,13 +283,14 @@ public static partial class Exports
         {
             try
             {
-                var uks = Store;
-                if (clear != 0 || uks.Labeled("Thought") == null)
+                UseShared();
+                if (clear != 0 || Store.Labeled("Thought") == null)
                 {
-                    if (clear != 0) _ = new UKS.UKS(true);
+                    // a fresh, empty UKS replaces the shared one; CreateEmptyUKS rebuilds the modules on it
+                    if (clear != 0) shared = new UKS.UKS(true);
                     CreateEmptyUKS();
                 }
-                return uks.AtomicThoughts.Count;
+                return Store.AtomicThoughts.Count;
             }
             catch { return -1; }
         }
@@ -281,7 +300,7 @@ public static partial class Exports
     public static int ThoughtCount()
     {
         // Lock-free: reading a count is safe, and the app asks for it from the main thread.
-        return Store.AtomicThoughts.Count;
+        return (shared ?? Store).AtomicThoughts.Count;
     }
 
     // ---------- statements ----------

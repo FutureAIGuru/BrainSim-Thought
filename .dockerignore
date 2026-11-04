@@ -1,0 +1,12 @@
+# The build context needs the web/UKS projects and packaged XML demos.
+**
+!UKS/
+!UKS/**
+!UKSWeb/
+!UKSWeb/**
+!BrainSimulator/
+!BrainSimulator/UKSContent/
+!BrainSimulator/UKSContent/*.xml
+**/bin/
+**/obj/
+UKS/Documentation/

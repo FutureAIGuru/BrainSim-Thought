@@ -1,10 +1,10 @@
-A dog is an animal.	[dog->SET.is-a->animal]
+A dog is an animal.	[dog->!.is-a->animal]
 The dog is an animal.
-Dogs are animals.	[dog->SET.is-a->animal]
+Dogs are animals.	[dog->!.is-a->animal]
 The dogs are animals.
-a dog has a tail.	[dog->SET.has->tail]
+a dog has a tail.	[dog->!.has->tail]
 The dog has a tail.
-Dogs have tails.	[dog->SET.has->tail]
+Dogs have tails.	[dog->!.has->tail]
 The dogs have tails.
 A dog has four legs.
 The dog has four legs.
@@ -14,99 +14,99 @@ A dog is large.
 The dog is large.
 Dogs are large.
 The dogs are large.
-A dog can bark.	[dog->SET.can->bark]
+A dog can bark.	[dog->!.can->bark]
 The dog can bark.
-Dogs can bark.	[dog->SET.can->bark]
+Dogs can bark.	[dog->!.can->bark]
 The dogs can bark.
-What is a dog?	[dog->TEST.is-a->??]
-What is Fido?	[fido->TEST.is-a->??]
-What is Rover?	[rover->TEST.is-a->??]
-What is Spot?	[spot->TEST.is-a->??]
+What is a dog?	[dog->?.is-a->??]
+What is Fido?	[fido->?.is-a->??]
+What is Rover?	[rover->?.is-a->??]
+What is Spot?	[spot->?.is-a->??]
 What is the dog?
-What are dogs?	[dog->TEST.is-a->??]
-What does a dog have?	[dog->TEST.has->??]
+What are dogs?	[dog->?.is-a->??]
+What does a dog have?	[dog->?.has->??]
 What does the dog have?
-What do dogs have?	[dog->TEST.has->??]
-What can a dog do?	[dog->TEST.can->??]
+What do dogs have?	[dog->?.has->??]
+What can a dog do?	[dog->?.can->??]
 What can the dog do?
-What can dogs do?	[dog->TEST.can->??]
-What is a dog like?	[dog->TEST.??->??]
-What is a sheep like?	[sheep->TEST.??->??]
-How is Mary related to John?	[Mary->TEST.??->John]
-How is Alice related to Bob?	[Alice->TEST.??->Bob]
-Mary loves John.	[Mary->SET.loves->John]
-Alice loves Bob.	[Alice->SET.loves->Bob]
+What can dogs do?	[dog->?.can->??]
+What is a dog like?	[dog->?.??->??]
+What is a sheep like?	[sheep->?.??->??]
+How is Mary related to John?	[Mary->?.??->John]
+How is Alice related to Bob?	[Alice->?.??->Bob]
+Mary loves John.	[Mary->!.loves->John]
+Alice loves Bob.	[Alice->!.loves->Bob]
 bob likes Mary.
 Alice likes john.
-What color is Fido?	[[Fido->TEST.is->??]->filterBy->Color]
-What color is Rover?	[[Rover->TEST.is->??]->filterBy->Color]
-What color is Spot?	[[Spot->TEST.is->??]->filterBy->Color]
-How many legs does a dog have?	[[dog->TEST.has->??]->filterBy->leg]
-How many legs does a cat have?	[[cat->TEST.has->??]->filterBy->leg]
+What color is Fido?	[[Fido->?.is->??]->filterBy->Color]
+What color is Rover?	[[Rover->?.is->??]->filterBy->Color]
+What color is Spot?	[[Spot->?.is->??]->filterBy->Color]
+How many legs does a dog have?	[[dog->?.has->??]->filterBy->leg]
+How many legs does a cat have?	[[cat->?.has->??]->filterBy->leg]
 What color is the dog?
 What size is the dog?
-An animal is an object.	[animal->SET.is-a->Object]
-An eagle is an animal.	[eagle->SET.is-a->animal]
-What is an animal?	[animal->TEST.is-a->??]
-What is an eagle?	[eagle->TEST.is-a->??]
-A cat is an animal.	[cat->SET.is-a->animal]
+An animal is an object.	[animal->!.is-a->Object]
+An eagle is an animal.	[eagle->!.is-a->animal]
+What is an animal?	[animal->?.is-a->??]
+What is an eagle?	[eagle->?.is-a->??]
+A cat is an animal.	[cat->!.is-a->animal]
 The cat is an animal.
-Cats are animals.	[cat->SET.is-a->animal]
+Cats are animals.	[cat->!.is-a->animal]
 The cats are animals.
-a cat has a tail.	[cat->SET.has->tail]
+a cat has a tail.	[cat->!.has->tail]
 The cat has a tail.
-Cats have tails.	[cat->SET.has->tail]
+Cats have tails.	[cat->!.has->tail]
 The cats have tails.
 A cat has four legs.
 The cat has four legs.
 Cats have four legs.
 The cats have four legs.
-A cat is black.	[cat->SET.is->black]
+A cat is black.	[cat->!.is->black]
 The cat is black.
-Cats are black.	[cat->SET.is->black]
+Cats are black.	[cat->!.is->black]
 The cats are black.
 A cat is small.
 The cat is small.
 Cats are small.
 The cats are small.
-A cat can meow.	[cat->SET.can->meow]
+A cat can meow.	[cat->!.can->meow]
 The cat can meow.
-Cats can meow.	[cat->SET.can->meow]
+Cats can meow.	[cat->!.can->meow]
 The cats can meow.
 What is a cat?
 What is the cat?
-What are cats?	[cat->TEST.is-a->??]
+What are cats?	[cat->?.is-a->??]
 What does a cat have?
 What does the cat have?
-What do cats have?	[cat->TEST.has->??]
+What do cats have?	[cat->?.has->??]
 What can a cat do?
 What can the cat do?
-What can cats do?	[cat->TEST.can->??]
+What can cats do?	[cat->?.can->??]
 What color is the cat?
 What size is the cat?
-A bird is an animal.	[bird->SET.is-a->animal]
+A bird is an animal.	[bird->!.is-a->animal]
 The bird is an animal.
-Birds are animals.	[bird->SET.is-a->animal]
+Birds are animals.	[bird->!.is-a->animal]
 The birds are animals.
-a bird has a wing.	[bird->SET.has->wing]
+a bird has a wing.	[bird->!.has->wing]
 The bird has a wing.
-Birds have wings.	[bird->SET.has->wing]
+Birds have wings.	[bird->!.has->wing]
 The birds have wings.
 A bird has two wings.
 The bird has two wings.
 Birds have two wings.
 The birds have two wings.
-A bird is blue.	[bird->SET.is->blue]
+A bird is blue.	[bird->!.is->blue]
 The bird is blue.
-Birds are blue.	[bird->SET.is->blue]
+Birds are blue.	[bird->!.is->blue]
 The birds are blue.
 A bird is small.
 The bird is small.
 Birds are small.
 The birds are small.
-A bird can fly.	[bird->SET.can->fly]
+A bird can fly.	[bird->!.can->fly]
 The bird can fly.
-Birds can fly.	[bird->SET.can->fly]
+Birds can fly.	[bird->!.can->fly]
 The birds can fly.
 What is a bird?
 What is the bird?
@@ -119,38 +119,38 @@ What can the bird do?
 What can birds do?
 What color is the bird?
 What size is the bird?
-A fish is an animal.	[fish->SET.is-a->animal]
+A fish is an animal.	[fish->!.is-a->animal]
 The fish is an animal.
-Fish are animals.	[fish->SET.is-a->animal]
+Fish are animals.	[fish->!.is-a->animal]
 The fish are animals.
-a fish has a fin.	[fish->SET.has->fin]
+a fish has a fin.	[fish->!.has->fin]
 The fish has a fin.
-Fish have fins.	[fish->SET.has->fin]
+Fish have fins.	[fish->!.has->fin]
 The fish have fins.
 A fish has two fins.
 The fish has two fins.
 Fish have two fins.
 The fish have two fins.
-A fish is silver.	[fish->SET.is->silver]
+A fish is silver.	[fish->!.is->silver]
 The fish is silver.
-Fish are silver.	[fish->SET.is->silver]
+Fish are silver.	[fish->!.is->silver]
 The fish are silver.
 A fish is small.
 The fish is small.
 Fish are small.
 The fish are small.
-A fish can swim.	[fish->SET.can->swim]
+A fish can swim.	[fish->!.can->swim]
 The fish can swim.
-Fish can swim.	[fish->SET.can->swim]
-What is a fish?	[fish->TEST.is-a->??]
+Fish can swim.	[fish->!.can->swim]
+What is a fish?	[fish->?.is-a->??]
 What is the fish?
-What are fish?	[fish->TEST.is-a->??]
-What does a fish have?	[fish->TEST.has->??]
+What are fish?	[fish->?.is-a->??]
+What does a fish have?	[fish->?.has->??]
 What does the fish have?
-What do fish have?	[fish->TEST.has->??]
-What can a fish do?	[fish->TEST.can->??]
+What do fish have?	[fish->?.has->??]
+What can a fish do?	[fish->?.can->??]
 What can the fish do?
-What can fish do?	[fish->TEST.can->??]
+What can fish do?	[fish->?.can->??]
 What color is the fish?
 What size is the fish?
 A rabbit is an animal.
@@ -857,8 +857,8 @@ A duck plays frisbee.
 The duck plays frisbee.
 Ducks play frisbee.
 The ducks play frisbee.
-A terrier is a dog.	[terrier->SET.is-a->dog]
-Terriers are dogs.	[terrier->SET.is-a->dog]
+A terrier is a dog.	[terrier->!.is-a->dog]
+Terriers are dogs.	[terrier->!.is-a->dog]
 A beagle is a dog.
 Beagles are dogs.
 A poodle is a dog.
@@ -873,8 +873,8 @@ A lion is a cat.
 Lions are cats.
 A tiger is a cat.
 Tigers are cats.
-A robin is a bird.	[robin->SET.is-a->bird]
-Robins are birds.	[robin->SET.is-a->bird]
+A robin is a bird.	[robin->!.is-a->bird]
+Robins are birds.	[robin->!.is-a->bird]
 A sparrow is a bird.
 Sparrows are birds.
 An eagle is a bird.
@@ -887,12 +887,12 @@ A shark is a fish.
 Sharks are fish.
 An oak is a tree.
 Oaks are trees.
-A pine is a tree.	[pine->SET.is-a->tree]
-Pines are trees.	[pine->SET.is-a->tree]
+A pine is a tree.	[pine->!.is-a->tree]
+Pines are trees.	[pine->!.is-a->tree]
 A maple is a tree.
 Maples are trees.
-A rose is a flower.	[rose->SET.is-a->flower]
-Roses are flowers.	[rose->SET.is-a->flower]
+A rose is a flower.	[rose->!.is-a->flower]
+Roses are flowers.	[rose->!.is-a->flower]
 A tulip is a flower.
 Tulips are flowers.
 A daisy is a flower.

@@ -232,10 +232,36 @@ public sealed class JobState
 
 sealed class SequenceSegmenterApi : ModuleApi
 {
+    // the dialog's output box (SegmentationBox): the latest results, newest last
+    readonly object traceLock = new();
+    string trace = "";
+    volatile bool cancel;
+
     public override string State(ModuleBase m)
     {
         var s = (ModuleSequenceSegmenter)m;
-        return Json(new JobState { Status = status ?? s.LastStatus, Busy = busy, Trace = s.LastTrace }, ApiJson.Default.JobState);
+        string text;
+        lock (traceLock) text = trace;
+        return Json(new JobState { Status = status ?? s.LastStatus, Busy = busy, Trace = text }, ApiJson.Default.JobState);
+    }
+
+    void Append(string text)
+    {
+        lock (traceLock)
+        {
+            trace = trace.Length == 0 ? text : trace + Environment.NewLine + text;
+            // keep the box (and every poll's JSON) small
+            if (trace.Length > 20_000) trace = trace[^16_000..];
+        }
+    }
+
+    /// <summary>One phrase into the learner, and its result (with the learning details) into the box.</summary>
+    string Submit(ModuleSequenceSegmenter s, string phrase, bool showPhrase)
+    {
+        string result = SequenceSegmenterInput.SubmitLine(s, phrase);
+        Append(showPhrase ? $"{phrase}: {result}" : s.LastStatus);
+        if (s.ExplainLearning && !string.IsNullOrEmpty(s.LastLearningDetails)) Append(s.LastLearningDetails);
+        return result;
     }
 
     public override string Call(ModuleBase m, string op, ApiArgs args)
@@ -244,22 +270,75 @@ sealed class SequenceSegmenterApi : ModuleApi
         switch (op)
         {
             case "submit":
-                status = s.SubmitLine(args.Str("line"));
+                // typed lines show how they were learned, like checking the dialog's "Explain learning"
+                s.ExplainLearning = true;
+                status = Submit(s, args.Str("line"), showPhrase: false);
                 return Message(status);
             case "experiment":
+                // the desktop's "exp" with its default settings: the first 14 words, 100 phrases
+                // of 10 words, seed 42
+                if (busy) throw new InvalidOperationException("The segmenter is busy.");
                 string[] words = { "dog", "has", "fur", "cat", "hat", "car", "a", "an", "the", "cam", "can", "cap", "cart", "camp" };
-                for (int sequence = 0; sequence < 10; sequence++)
-                    s.SubmitLine(string.Concat(Enumerable.Range(0, 6).Select(_ => words[Random.Shared.Next(words.Length)])));
-                status = s.LastStatus;
-                return Message(status);
-            case "cancelLoad": s.CancelIncrementalLoad(); return Done();
+                var vocabulary = words.Select(w => new KeyValuePair<string, double>(w, 1)).ToList();
+                var random = new Random(42);
+                s.ExplainLearning = false;
+                Append("Random seed: 42. Same starting UKS and settings required for comparison.");
+                Run(100, i =>
+                {
+                    Submit(s, SequenceSegmenterInput.BuildRandomPhrase(vocabulary, 10, random), showPhrase: true);
+                    int missing = words.Count(w => s.theUKS.Labeled("w:" + w) is not { isPlastic: false });
+                    status = $"Experiment {i + 1}/100, {words.Length} words, {missing} missing";
+                    return true;
+                });
+                return Done();
+            case "cancelLoad":
+                cancel = true;
+                return Done();
             case "load":
+                if (busy) throw new InvalidOperationException("The segmenter is busy.");
                 string path = args.Str("path").Trim();
                 if (!File.Exists(path)) throw new FileNotFoundException("Select an existing corpus file first.", path);
-                Background(() => $"Loaded and processed {s.LoadTextFromFile(path, 1000)} sequence(s) from the file.");
+                // CorpusReader: one phrase per nonempty line, read a phrase at a time
+                var lines = File.ReadLines(path).GetEnumerator();
+                int loaded = 0;
+                s.ExplainLearning = false;
+                status = "Reading phrases...";
+                Run(int.MaxValue, _ =>
+                {
+                    while (lines.MoveNext())
+                    {
+                        string phrase = SequenceSegmenterInput.CorpusPhrase(lines.Current);
+                        if (phrase is null) continue;
+                        Submit(s, phrase, showPhrase: true);
+                        loaded++;
+                        status = $"Phrase {loaded}...";
+                        return true;
+                    }
+                    lines.Dispose();
+                    status = $"Loaded and processed {loaded} sequence(s) from the file.";
+                    return false;
+                });
                 return Done();
             default: return Unknown(op);
         }
+    }
+
+    /// <summary>Runs `step` up to `count` times on a background thread, a step per lock, until it returns false or is cancelled.</summary>
+    void Run(int count, Func<int, bool> step)
+    {
+        busy = true;
+        cancel = false;
+        int i = 0;
+        Watch(UKSNative.Exports.RunLockedWhile(() =>
+        {
+            try
+            {
+                if (cancel) { status = "Cancelled."; busy = false; return false; }
+                if (i >= count || !step(i++)) { busy = false; return false; }
+                return true;
+            }
+            catch (Exception e) { status = "Error: " + e.Message; busy = false; return false; }
+        }), e => { status = e; busy = false; });
     }
 }
 

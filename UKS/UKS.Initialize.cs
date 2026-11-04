@@ -18,9 +18,12 @@ public partial class UKS
 {
     public void CreateMinimumStructureForTests()
     {
+        theUKS = this;
         AtomicThoughts.Clear();
         ClearSequenceCache();
         ThoughtLabels.ClearLabelList();
+        Thought.ClearRecentlyFiredQueue();
+        Thought.ClearRecentlyCreatedQueue();
         AddThought("Thought", null);
         Thought isA = AddThought("is-a", null);
         Thought linkType = AddThought("LinkType", "Thought");
@@ -34,6 +37,7 @@ public partial class UKS
 
     public void CreateInitialStructure()
     {
+        theUKS = this;
         //this hack is needed to preserve the info relating to module layout
         foreach (Thought t in AtomicThoughts.ToList())
         {
@@ -50,6 +54,7 @@ public partial class UKS
 
         ThoughtLabels.ClearLabelList();
         Thought.ClearRecentlyFiredQueue();
+        Thought.ClearRecentlyCreatedQueue();
         foreach (Thought t in AtomicThoughts)
             ThoughtLabels.AddThoughtLabel(t.Label, t);
         ClearSequenceCache();
@@ -73,6 +78,7 @@ public partial class UKS
         GetOrAddThought("inverseOf", "LinkType");
         GetOrAddThought("hasProperty", "LinkType");
         GetOrAddThought("is", "LinkType");
+        GetOrAddThought("REF", "LinkType");
 
         AddStatement("has-child", "inverseOf", "is-a");
         AddStatement("hasAttribute", "is-a", "LinkType");
@@ -97,12 +103,27 @@ public partial class UKS
         AddStatement("inheritable", "is-a", "Property");
         AddStatement("isEphemeral", "is-a", "Property");
         AddStatement("isConditional", "is-a", "Property");
-        AddStatement("isGrounding", "is-a", "Property");
+        AddStatement("isConjunction", "is-a", "Property");
+        AddStatement("followPath", "is-a", "Property");
+        AddStatement("isPossible", "is-a", "Property");
+        AddStatement("setRelationship", "is-a", "Property");
+        AddStatement("isEqual", "is-a", "Property");
+        AddStatement("isNegative", "is-a", "Property");
         AddStatement("isAnonymousClass", "is-a", "Property");
-        AddStatement("?", "is-a", "LinkType");
-        AddStatement("?", "hasProperty", "isConditional");
+        AddStatement("@", "is-a", "Property");
+        AddStatement("?", "is-a", "Property");
+        AddStatement("!", "is-a", "Property");
+        AddStatement("Comparison", "is-a", "LinkType");
+        AddStatement("same", "is-a", "Comparison");
+        AddStatement("@", "hasProperty", "followPath");
+        AddStatement("?", "hasProperty", "isPossible");
+        AddStatement("!", "hasProperty", "setRelationship");
+        AddStatement("same", "hasProperty", "isEqual");
+        AddStatement("REF", "hasProperty", "isExclusive");
 
         //sequence search options
+        AddStatement("??", "is-a", "Property");
+        AddStatement("??", "hasProperty", "isWildcard");
         EnsureSequenceSearchDefinitions();
 
         //colors
@@ -153,6 +174,7 @@ public partial class UKS
         //Clauses
         AddStatement("ClauseType", "is-a", "LinkType");
         AddStatement("IF", "is-a", "ClauseType");
+        AddStatement("IF", "hasProperty", "isConditional");
         AddStatement("BECAUSE", "is-a", "ClauseType");
         AddStatement("AFTER", "is-a", "ClauseType");
         AddStatement("BEFORE", "is-a", "ClauseType");
@@ -160,14 +182,16 @@ public partial class UKS
         AddStatement("NXT", "is-a", "ClauseType");
         AddStatement("VLU", "is-a", "ClauseType");
         AddStatement("AND", "is-a", "ClauseType");
+        AddStatement("AND", "hasProperty", "isConjunction");
         AddStatement("OR", "is-a", "ClauseType");
         AddStatement("NOT", "is-a", "ClauseType");
         AddStatement("NO", "is-a", "ClauseType");
+        AddStatement("NOT", "hasProperty", "isNegative");
+        AddStatement("NO", "hasProperty", "isNegative");
         AddStatement("FRST", "is-a", "ClauseType");
 
         //Numbers
         GetOrAddThought("number", "abstract");
-        AddStatement("Comparison", "is-a", "LinkType");
         AddStatement("order", "is-a", "Comparison");
         AddStatement("greaterThan", "is-a", "Comparison");
         AddStatement("greaterThan", "hasProperty", "isTransitive");
@@ -243,24 +267,22 @@ public partial class UKS
 
     private void EnsureSequenceSearchDefinitions()
     {
-        AddStatement("Wildcard", "is-a", "abstract");
         CreateWildcard("??", new List<Thought>());
         AddStatement("SearchOption", "is-a", "Property");
-        AddStatement("SequenceSearchOption", "is-a", "SearchOption");
-        AddStatement("mustMatchFirst", "is-a", "SequenceSearchOption");
-        AddStatement("mustMatchLast", "is-a", "SequenceSearchOption");
-        AddStatement("allowWildcards", "is-a", "SequenceSearchOption");
-        AddStatement("allowNestedSequences", "is-a", "SequenceSearchOption");
-        AddStatement("allowCircularSearch", "is-a", "SequenceSearchOption");
-        AddStatement("allowOutOfOrder", "is-a", "SequenceSearchOption");
-        AddStatement("preferFirstLast", "is-a", "SequenceSearchOption");
-        AddStatement("allowPartialMatch", "is-a", "SequenceSearchOption");
-        AddStatement("allowNewClassMembers", "is-a", "SequenceSearchOption");
-        AddStatement("ExactSequenceSearch", "is-a", "SequenceSearchOption");
+        AddStatement("mustMatchFirst", "is-a", "SearchOption");
+        AddStatement("mustMatchLast", "is-a", "SearchOption");
+        AddStatement("allowWildcards", "is-a", "SearchOption");
+        AddStatement("allowNestedSequences", "is-a", "SearchOption");
+        AddStatement("allowCircularSearch", "is-a", "SearchOption");
+        AddStatement("allowOutOfOrder", "is-a", "SearchOption");
+        AddStatement("preferFirstLast", "is-a", "SearchOption");
+        AddStatement("allowPartialMatch", "is-a", "SearchOption");
+        AddStatement("allowNewClassMembers", "is-a", "SearchOption");
+        AddStatement("ExactSequenceSearch", "is-a", "SearchOption");
         AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
         AddStatement("TemplateLearningSearch", "is-a", "TemplateSequenceSearch");
-        AddStatement("MelodySearchOptions", "is-a", "SequenceSearchOption");
-        AddStatement("OrderSearchOptions", "is-a", "SequenceSearchOption");
+        AddStatement("MelodySearchOptions", "is-a", "SearchOption");
+        AddStatement("OrderSearchOptions", "is-a", "SearchOption");
         AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchFirst");
         AddStatement("ExactSequenceSearch", "hasProperty", "mustMatchLast");
         AddStatement("ExactSequenceSearch", "hasProperty", "allowNestedSequences");

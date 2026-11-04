@@ -14,6 +14,8 @@
                   MouseEnter="TheTreeView_MouseEnter" 
                   MouseLeave="TheTreeView_MouseLeave"
                   PreviewMouseWheel="theTreeView_MouseWheel"
+                  VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.VirtualizationMode="Recycling"
                   >
         </TreeView>
         <CheckBox x:Name="detailsCB" Content="Details" HorizontalAlignment="Left" Margin="117,2,0,0" Width="120" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" FontSize="16" Height="19" VerticalAlignment="Top"/>

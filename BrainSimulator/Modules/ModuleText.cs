@@ -134,8 +134,6 @@ public class ModuleText : ModuleBase
             ("Query", "LearnedTemplate"),
             ("ActionExemplar", "LanguageElement"),
             ("SpellingPattern", "LanguageElement"),
-            ("TEST", "LinkType"),
-            ("SET", "LinkType"),
             ("hasWords", "LinkType"),
             ("means", "LinkType"),
             ("usedInLanguage", "LinkType"),
@@ -201,7 +199,7 @@ public class ModuleText : ModuleBase
         //create a full template
         Link relationship = ApplyTemplate(matchedTemplate, phrase);
 
-        //perform the query or SET action
+        //perform the query or write action
         string retVal = HandleMatchedInput(phrase, matchedTemplate, relationship, answerQueries);
         return retVal;
     }
@@ -283,7 +281,7 @@ public class ModuleText : ModuleBase
         Link demonstratedAction = template?.GetTargetOfFirstLinkOfType("demonstrates") as Link;
         if (demonstratedAction is not null)
         {
-            bool demonstratedQuery = demonstratedAction.LinkType?.HasAncestor("TEST") == true;
+            bool demonstratedQuery = demonstratedAction.LinkType?.HasProperty("isPossible") == true;
             Link demonstratedRelationship = demonstratedQuery
                 ? new Link(demonstratedAction.From,
                     MainWindow.theUKS.GetActionRelationshipType(demonstratedAction.LinkType),
@@ -303,7 +301,7 @@ public class ModuleText : ModuleBase
         if (template is null) return false;
         Link operation = GetParameterizedTemplateOperation(template) ??
             template.GetTargetOfFirstLinkOfType("demonstrates") as Link;
-        if (operation?.LinkType?.HasAncestor("TEST") == true) return true;
+        if (operation?.LinkType?.HasProperty("isPossible") == true) return true;
 
         bool retVal = template.HasAncestor("QueryTemplate");
         return retVal;
@@ -382,7 +380,8 @@ public class ModuleText : ModuleBase
             {
                 string line = _phraseReader.ReadLine();
                 if (line == null) break; // EOF
-                if (string.IsNullOrEmpty(line)) continue;
+                if (string.IsNullOrEmpty(line) || line.StartsWith("#", StringComparison.Ordinal) ||
+                    line.StartsWith("//", StringComparison.Ordinal)) continue;
 
                 SubmitText(line, answerQueries: false);
                 if (LastStatus.StartsWith("Error:", StringComparison.Ordinal))
@@ -627,7 +626,7 @@ public class ModuleText : ModuleBase
         Link operation = GetParameterizedTemplateOperation(template) ??
             template?.GetTargetOfFirstLinkOfType("demonstrates") as Link;
         List<Link> results;
-        if (operation?.LinkType?.HasAncestor("TEST") == true)
+        if (operation?.LinkType?.HasProperty("isPossible") == true)
         {
             Link testAction = new(query.From, operation.LinkType, query.To);
             Thought filterTarget = query.GetTargetOfFirstLinkOfType("filterBy");
@@ -702,7 +701,7 @@ public class ModuleText : ModuleBase
             : MainWindow.theUKS.GetSequenceViews(queryTemplate)
                 .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
         HashSet<Thought> queryFixedWords = querySequence?.Elements
-            .Where(element => !element.HasAncestor("Wildcard"))
+            .Where(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty))
             .ToHashSet() ?? new HashSet<Thought>();
 
         var candidates = assertionRoot.Children
@@ -724,7 +723,7 @@ public class ModuleText : ModuleBase
                 bool sourceCompatible = SurfaceWordMatchesTemplateElement(
                     sourceSurfaceWord, sequence.Elements[sourcePosition]);
                 int sharedFixedWords = sequence.Elements.Count(element =>
-                    !element.HasAncestor("Wildcard") &&
+                    !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty) &&
                     queryFixedWords.Contains(element));
                 int evidence = template.LinksTo.Count(link => link.LinkType?.Label == "evidence");
                 Thought targetWord = GetSurfaceWordForTemplateElement(
@@ -773,7 +772,7 @@ public class ModuleText : ModuleBase
             .Skip(selected.SourcePosition + 1)
             .Take(selected.TargetPosition - selected.SourcePosition - 1))
         {
-            if (connector.HasAncestor("Wildcard")) continue;
+            if (new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(connector.HasProperty)) continue;
             string connectorText = GetSurfaceText(connector);
             if (connectorText.Equals("a", StringComparison.OrdinalIgnoreCase) ||
                 connectorText.Equals("an", StringComparison.OrdinalIgnoreCase))
@@ -878,7 +877,7 @@ public class ModuleText : ModuleBase
     private static bool SurfaceWordMatchesTemplateElement(Thought surfaceWord, Thought templateElement)
     {
         if (surfaceWord is null || templateElement is null) return false;
-        if (!templateElement.HasAncestor("Wildcard")) return surfaceWord == templateElement;
+        if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(templateElement.HasProperty)) return surfaceWord == templateElement;
 
         Thought learnedClassRoot = MainWindow.theUKS?.Labeled("LearnedClass");
         List<Thought> constraints = learnedClassRoot is null
@@ -1215,7 +1214,7 @@ public class ModuleText : ModuleBase
     {
         List<Thought> retVal = learnedClass.Children
             .Where(member => member is not SeqElement &&
-                !member.HasAncestor("Wildcard") &&
+                !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(member.HasProperty) &&
                 (member.HasAncestor("Word") ||
                     member.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase)))
             .ToList();
@@ -1312,12 +1311,12 @@ public class ModuleText : ModuleBase
                 int classifiedMatches = sequence is null ? 0 : sequence.Elements
                     .Select((element, position) => (element, position))
                     .Count(item => item.position < phraseSequence.Elements.Count &&
-                        item.element.HasAncestor("Wildcard") &&
+                        new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(item.element.HasProperty) &&
                         item.element.Parents.Any(parent =>
-                            parent != theUKS.Labeled("Wildcard") &&
+                            parent != theUKS.Labeled("Property") &&
                             phraseSequence.Elements[item.position].HasAncestor(parent)));
                 int fixedElements = sequence?.Elements.Count(element =>
-                    !element.HasAncestor("Wildcard")) ?? 0;
+                    !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) ?? 0;
                 int evidence = candidate.Key.LinksTo.Count(link =>
                     link.LinkType?.Label == "evidence");
                 bool hasAction = GetParameterizedTemplateOperation(candidate.Key) is not null;
@@ -1460,7 +1459,7 @@ public class ModuleText : ModuleBase
             if (firstSlot > 0)
             {
                 Thought boundary = sequence.Elements[firstSlot - 1];
-                if (!boundary.HasAncestor("Wildcard"))
+                if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(boundary.HasProperty))
                 {
                     boundaryMembers.Add(boundary);
                     boundaryEvidence.Add(template);
@@ -1476,7 +1475,7 @@ public class ModuleText : ModuleBase
                 List<Thought> fixedSegment = sequence.Elements
                     .Skip(segmentStart)
                     .Take(segmentEnd - segmentStart)
-                    .Where(element => !element.HasAncestor("Wildcard"))
+                    .Where(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty))
                     .ToList();
                 if (fixedSegment.Count == 0) continue;
 
@@ -1533,7 +1532,7 @@ public class ModuleText : ModuleBase
     /// <summary>Returns the learned class constraining a wildcard template element.</summary>
     private static Thought GetWildcardClass(Thought value, Thought learnedClassRoot)
     {
-        if (value is null || learnedClassRoot is null || !value.HasAncestor("Wildcard")) return null;
+        if (value is null || learnedClassRoot is null || !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(value.HasProperty)) return null;
         Thought retVal = value.Parents.FirstOrDefault(learnedClassRoot.Children.Contains);
         return retVal;
     }
@@ -1546,7 +1545,7 @@ public class ModuleText : ModuleBase
     /// Records a supervised example which pairs an observed phrase with the
     /// concrete SET relationship or TEST query it should produce. The action
     /// text uses the ordinary algorithm notation, for example
-    /// [dog-&gt;SET.can-&gt;bark] or [dog-&gt;TEST.is-a-&gt;??].
+    /// [dog-&gt;!.can-&gt;bark] or [dog-&gt;?.is-a-&gt;??].
     /// </summary>
     public static Thought AddActionExemplar(string phrase, string actionText)
     {
@@ -1564,9 +1563,16 @@ public class ModuleText : ModuleBase
         if (string.IsNullOrWhiteSpace(actionText)) throw new ArgumentException("An action exemplar requires an action.", nameof(actionText));
         var theUKS = MainWindow.theUKS;
 
-        //Inconveniently, ProcessSingleLineWithNesting creates a Link which is not added to the UKS.  
-        //But, all its component parts ARE added to the UKS.
-        Link action = (Link)theUKS.ProcessSingleLineWithNesting(actionText.Trim());
+        // Parse the demonstrated instruction, then retain it as exemplar data rather
+        // than an asserted executable relationship on its subject.
+        Link action = theUKS.ProcessSingleLineWithNesting(actionText.Trim(), asActionPrototype: true) as Link;
+        if (action?.From is null || action.LinkType is null || action.To is null)
+            throw new FormatException("An action exemplar requires a valid Relationship.");
+        Link operation = action.LinkType.HasProperty("setRelationship") || action.LinkType.HasProperty("isPossible")
+            ? action : action.From as Link ?? action;
+        if (operation.LinkType?.HasProperty("setRelationship") != true &&
+            operation.LinkType?.HasProperty("isPossible") != true)
+            throw new FormatException("An action exemplar requires setRelationship or isPossible on its operation type.");
         
         ReplaceThoughtMeaningsInRelationship(action);
         Thought exemplar = theUKS.GetOrAddThought("actionExemplar*", "ActionExemplar");
@@ -1578,11 +1584,8 @@ public class ModuleText : ModuleBase
         foreach (Thought word in words) word.isPlastic = false;
         theUKS.AddSequenceAndLink(exemplar, "hasWords", words.ToList());
 
-        if (action.From is Link l)  //  the UKS stores just part of a compound query.  WEi'll fix that someday
-            theUKS.AddStatement(exemplar, theUKS.Labeled("demonstrates"), action.From);
-        else
-            theUKS.AddStatement(exemplar, theUKS.Labeled("demonstrates"), action);
-        if (action.LinkType.HasAncestor("SET")) theUKS.ApplyTestOrSetAction(action);
+        theUKS.AddStatement(exemplar, theUKS.Labeled("demonstrates"), operation);
+        if (operation.LinkType.HasProperty("setRelationship")) theUKS.ApplyTestOrSetAction(operation);
         //action.From.RemoveLink(action); //likely does nothing
         return exemplar;
     }
@@ -1595,16 +1598,26 @@ public class ModuleText : ModuleBase
         else
         {
             Thought newMeaning = GetNewMeaning(action.From);
-            if (newMeaning is not null) // there is already a meaning, we don't need to do anything.
-            { Thought old = action.From; action.From = newMeaning; if (old.LinksFrom.Count == 0) old.Delete(); }
+            if (newMeaning is not null && !ReferenceEquals(action.From, newMeaning))
+            {
+                Thought old = action.From;
+                action.From = newMeaning;
+                if (old.LinksFrom.Count == 0 && old.LinksTo.All(link =>
+                    ReferenceEquals(link.LinkType, Thought.IsA) && ReferenceEquals(link.To, MainWindow.theUKS.Labeled("Unknown")))) old.Delete();
+            }
         }
         if (action.To is Link l1)
             ReplaceThoughtMeaningsInRelationship(l1);
         else
         {
             Thought newMeaning = GetNewMeaning(action.To);
-            if (newMeaning is not null) // there is already a meaning, we don't need to do anything.
-            { Thought old = action.To; action.To = newMeaning; if (old.LinksFrom.Count == 1) old.Delete(); } ; 
+            if (newMeaning is not null && !ReferenceEquals(action.To, newMeaning))
+            {
+                Thought old = action.To;
+                action.To = newMeaning;
+                if (old.LinksFrom.Count == 0 && old.LinksTo.All(link =>
+                    ReferenceEquals(link.LinkType, Thought.IsA) && ReferenceEquals(link.To, MainWindow.theUKS.Labeled("Unknown")))) old.Delete();
+            }
         }
     }
     static Thought GetNewMeaning(Thought t)
@@ -1622,7 +1635,7 @@ public class ModuleText : ModuleBase
 
     /// <summary>
     /// Learns phrase-to-action mappings from ActionExemplar observations.
-    /// Exemplars are separated by SET type before sequence discovery so that
+    /// Exemplars are separated by write type before sequence discovery so that
     /// the same surface connector can acquire different syntactic meanings.
     /// </summary>
     /// <returns>The number of learned templates which now produce an action.</returns>
@@ -1645,8 +1658,8 @@ public class ModuleText : ModuleBase
                 exemplar,
                 action: exemplar.GetTargetOfFirstLinkOfType("demonstrates") as Link))
             .Where(item =>
-                item.action?.LinkType?.HasAncestor("SET") == true ||
-                item.action?.LinkType?.HasAncestor("TEST") == true)
+                item.action?.LinkType?.HasProperty("setRelationship") == true ||
+                item.action?.LinkType?.HasProperty("isPossible") == true)
             .Select(item =>
             {
                 Thought modifier = GetNumericActionModifier(item.action.LinkType);
@@ -1677,7 +1690,7 @@ public class ModuleText : ModuleBase
 
         foreach (var actionGroup in actionGroups)
         {
-            bool isQuestionAction = actionGroup.Key.actionType.HasAncestor("TEST");
+            bool isQuestionAction = actionGroup.Key.actionType.HasProperty("isPossible");
             Thought templateRoot = GetLearnedTemplateCategory(isQuestionAction);
             // Questions and statements may share lexical populations even
             // though their templates must never compete.
@@ -1813,7 +1826,7 @@ public class ModuleText : ModuleBase
     }
 
     /// <summary>
-    /// Instantiates the SET action or TEST query learned for a matched template.
+    /// Instantiates the write action or TEST query learned for a matched template.
     /// </summary>
     /// <returns>The asserted ordinary relationship, or null if the template has no action.</returns>
     public static Link ApplyLearnedTemplateAction(Thought template, Thought phrase)
@@ -1856,17 +1869,23 @@ public class ModuleText : ModuleBase
             Thought modifier = GetOrCreateMeaning(
                 phraseSequence.Elements[modifierPosition]);
             if (modifier is null) return null;
-            actionType = theUKS.GetOrAddThought(
-                parameterizedAction.LinkType.Label + "." + modifier.Label,
-                "LinkType");
+            Thought ordinaryType = theUKS.GetActionRelationshipType(actionType);
+            if (ordinaryType is null) return null;
+            Thought specializedType = theUKS.GetOrAddThought(ordinaryType.Label + "." + modifier.Label, "LinkType");
+            Thought specializedAction = specializedType.Children.FirstOrDefault(child =>
+                child.HasProperty("setRelationship") && theUKS.GetActionRelationshipType(child) == specializedType)
+                ?? theUKS.GetOrAddThought("action*", "LinkType");
+            specializedAction.AddParent(specializedType);
+            specializedAction.AddProperty(theUKS.Labeled("setRelationship"));
+            actionType = specializedAction;
         }
 
         Link action = new(source, actionType, target);
-        Link retVal = actionType.HasAncestor("TEST")
+        Link retVal = actionType.HasProperty("isPossible")
             ? new Link(source, theUKS.GetActionRelationshipType(actionType), target)
             : theUKS.ApplyTestOrSetAction(action).FirstOrDefault();
         Thought filterTarget = parameterizedAction.GetTargetOfFirstLinkOfType("filterBy");
-        if (retVal is not null && actionType.HasAncestor("TEST") && filterTarget is not null)
+        if (retVal is not null && actionType.HasProperty("isPossible") && filterTarget is not null)
             retVal.AddLink(GetFilterByRelationship(), filterTarget);
         return retVal;
     }
@@ -2361,7 +2380,7 @@ public class ModuleText : ModuleBase
         }
     }
 
-    /// <summary>Returns the SET or TEST operation attached as the meaning of a learned template.</summary>
+    /// <summary>Returns the write or query operation attached as the meaning of a learned template.</summary>
     private static Link GetParameterizedTemplateOperation(Thought template)
     {
         if (template is null) return null;
@@ -2370,29 +2389,20 @@ public class ModuleText : ModuleBase
             .Select(link => link.To)
             .OfType<Link>()
             .FirstOrDefault(operation =>
-                operation.LinkType?.HasAncestor("SET") == true ||
-                operation.LinkType?.HasAncestor("TEST") == true);
+                operation.LinkType?.HasProperty("setRelationship") == true ||
+                operation.LinkType?.HasProperty("isPossible") == true);
         return retVal;
     }
 
-    /// <summary>Returns the numeric suffix represented by a specialized action type such as SET.has.4.</summary>
+    /// <summary>Returns the numeric suffix represented by a specialized action type such as !.has.4.</summary>
     private static Thought GetNumericActionModifier(Thought actionType)
     {
-        Thought retVal = null;
-        if (actionType is null) return retVal;
-
-        string[] parts = actionType.Label.Split('.');
-        if (parts.Length != 3 ||
-            !parts[0].Equals("SET", StringComparison.OrdinalIgnoreCase))
-            return retVal;
-
-        var theUKS = MainWindow.theUKS;
-        Thought candidate = theUKS.Labeled(parts[2]);
-        if (candidate is null && int.TryParse(parts[2], out int numericValue))
-            candidate = theUKS.GetOrAddThought(numericValue.ToString(), "number");
-        if (candidate?.HasAncestor("number") == true)
-            retVal = candidate;
-        return retVal;
+        if (actionType?.HasProperty("setRelationship") != true) return null;
+        Thought number = MainWindow.theUKS.Labeled("number");
+        Thought digit = MainWindow.theUKS.Labeled("digit");
+        return actionType.AncestorsWithSelf.FirstOrDefault(candidate =>
+            candidate != number && candidate != digit && candidate.Parents.Any(parent =>
+                ReferenceEquals(parent, number) || ReferenceEquals(parent, digit)));
     }
 
     /// <summary>Returns the unspecialized action type for a numerically modified action.</summary>
@@ -2402,9 +2412,17 @@ public class ModuleText : ModuleBase
         Thought modifier = GetNumericActionModifier(actionType);
         if (modifier is null) return retVal;
 
-        string[] parts = actionType.Label.Split('.');
-        string baseLabel = parts[0] + "." + parts[1];
-        retVal = MainWindow.theUKS.GetOrAddThought(baseLabel, "LinkType");
+        var uks = MainWindow.theUKS;
+        Thought ordinaryType = uks.GetActionRelationshipType(actionType);
+        Thought linkType = uks.Labeled("LinkType");
+        Thought baseType = ordinaryType?.Ancestors.FirstOrDefault(parent =>
+            parent != linkType && parent.HasAncestor(linkType) && !parent.HasAncestor("number"));
+        if (baseType is null) return retVal;
+        retVal = baseType.Children.FirstOrDefault(child => child.HasProperty("setRelationship") &&
+            GetNumericActionModifier(child) is null && uks.GetActionRelationshipType(child) == baseType)
+            ?? uks.GetOrAddThought("action*", "LinkType");
+        retVal.AddParent(baseType);
+        retVal.AddProperty(uks.Labeled("setRelationship"));
         return retVal;
     }
 
@@ -2438,7 +2456,7 @@ public class ModuleText : ModuleBase
 
         // A written numeral anchors the parameter position. The supervised
         // actions then teach other surface forms at that position: if "4" and
-        // "four" both accompany SET.has.4, both words acquire means -> 4.
+        // "four" both accompany !.has.4, both words acquire means -> 4.
         Thought meansType = MainWindow.theUKS.Labeled("means");
         foreach (Thought exemplar in exemplars)
         {

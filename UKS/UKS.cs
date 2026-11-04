@@ -22,7 +22,13 @@ using Pluralize.NET;
 public partial class UKS
 {
     //This is the actual internal Universal Knowledge Store
-    static private HashSet<Thought> uKSList = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<Thought> uKSList = new(ReferenceEqualityComparer.Instance);
+    internal readonly System.Collections.Concurrent.ConcurrentDictionary<string, Thought> Labels = new();
+    internal readonly Queue<Thought> RecentlyFired = new();
+    internal readonly object RecentlyFiredLock = new();
+    internal readonly Queue<Thought> RecentlyCreated = new();
+    internal readonly object RecentlyCreatedLock = new();
+    private static readonly AsyncLocal<UKS?> currentUKS = new();
 
     //This is a reformatted temporary copy of the UKS which used internally during the save and restore process to 
     //break circular links by storing index values instead of actual links Note the use of SThought instead of Thought
@@ -34,18 +40,28 @@ public partial class UKS
     /// </summary>
     public HashSet<Thought> AtomicThoughts { get => uKSList; }
 
-    public static UKS theUKS = new UKS();
+    /// <summary>
+    /// Current UKS for implicit string conversion and legacy static helpers.
+    /// Content belongs to instances; this selection follows the execution context.
+    /// Set it before request/background work and restore the previous value afterward.
+    /// </summary>
+    public static UKS theUKS
+    {
+        get => currentUKS.Value ??= new UKS();
+        set => currentUKS.Value = value ?? throw new ArgumentNullException(nameof(value));
+    }
 
     /// <summary>
-    /// Creates a new reference to the UKS and initializes it if it is the first reference.
+    /// Creates an independent UKS and selects it for this execution context.
     /// </summary>
-    /// <param name="clear">When true, clears existing thoughts and label cache before initialization.</param>
+    /// <param name="clear">Retained for source compatibility; every new instance starts with empty content.</param>
     public UKS(bool clear = false)
     {
+        theUKS = this;
         if (AtomicThoughts.Count == 0 || clear)
         {
             AtomicThoughts.Clear();
-            ThoughtLabels.ClearLabelList();
+            Labels.Clear();
         }
         UKSTemp.Clear();
     }
@@ -61,9 +77,12 @@ public partial class UKS
     /// <returns>The newly created thought.</returns>
     public virtual Thought AddThought(string label, Thought? parent)
     {
+        if (parent is not null && !ReferenceEquals(parent.Store, this))
+            throw new ArgumentException("Parent belongs to another UKS.", nameof(parent));
+        theUKS = this;
         if (label == "SET.EQ")
         { }
-        Thought newThought = new();
+        Thought newThought = new(this);
         newThought.Label = label;
         if (parent is not null)
         {
@@ -82,7 +101,12 @@ public partial class UKS
     /// </summary>
     /// <param name="label">Label to look up.</param>
     /// <returns>The Thought or null.</returns>
-    public Thought? Labeled(string label) => ThoughtLabels.GetThought(label);
+    public Thought? Labeled(string label)
+    {
+        if (string.IsNullOrEmpty(label)) return null;
+        Labels.TryGetValue(label.ToLowerInvariant(), out Thought? thought);
+        return thought;
+    }
 
 
     private bool HasProperty(Thought t, string propertyName)
@@ -124,7 +148,7 @@ public partial class UKS
     {
         if (from is null) return null;
         //create a temporary link
-        Link r = new() { From = from, LinkType = linkType, To = to };
+        Link r = new(this) { From = from, LinkType = linkType, To = to };
         //see if it already exists
         return GetLink(r);
     }
@@ -169,6 +193,8 @@ public partial class UKS
     /// <param name="t">The thought to remove the children from.</param>
     public void DeleteAllChildrenAndLinks(Thought t)
     {
+        if (t is not null && !ReferenceEquals(t.Store, this))
+            throw new ArgumentException("Thought belongs to another UKS.", nameof(t));
         if (t is not null)
         {
             //List<Thought> subThoughts = t.EnumerateSubThoughts().ToList();
@@ -195,16 +221,21 @@ public partial class UKS
     /// <returns>The existing or newly created Thought.</returns>
     public Thought? GetOrAddThought(string label, object? parent = null, Thought? source = null)
     {
+        if (parent is Thought parentThought && !ReferenceEquals(parentThought.Store, this))
+            throw new ArgumentException("Parent belongs to another UKS.", nameof(parent));
+        if (source is not null && !ReferenceEquals(source.Store, this))
+            throw new ArgumentException("Source belongs to another UKS.", nameof(source));
+        theUKS = this;
         if (string.IsNullOrEmpty(label)) return null;
 
-        Thought? thoughtToReturn = ThoughtLabels.GetThought(label);
+        Thought? thoughtToReturn = Labeled(label);
         Thought? correctParent = null;
         if (parent is string s)
-            correctParent = ThoughtLabels.GetThought(s);
+            correctParent = Labeled(s);
         if (parent is Thought t)
             correctParent = t;
         if (correctParent is null)
-            correctParent = ThoughtLabels.GetThought("Unknown");
+            correctParent = Labeled("Unknown");
 
         if (thoughtToReturn is not null)
         {
@@ -220,47 +251,75 @@ public partial class UKS
             }
             if (label.Split('.').Contains("?") && Labeled("?") is Thought conditionalType)
                 thoughtToReturn.AddParent(conditionalType);
-            AddActionTypeInheritance(thoughtToReturn, label);
 
             return thoughtToReturn;
         }
-        //. are used to indicate attributes to be added. Common image-file
-        //extensions are kept atomic so a hasImage target can use the actual
-        //portable filename as its Thought label.
-        string extension = Path.GetExtension(label);
-        bool isImageFileName = extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".gif", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".webp", StringComparison.OrdinalIgnoreCase);
-        if (label.Contains(".") && label != "." && !label.Contains(".py") && !isImageFileName)
+        // Readable input notation is expanded once, when creating the Thought.
+        // The resulting Path is an ordinary, uncompressed sequence with inherited properties.
+        int sequenceMarker = label.IndexOf(".^", StringComparison.Ordinal);
+        if (sequenceMarker > 0)
+        {
+            Thought? capability = GetOrAddThought(label[..sequenceMarker]);
+            string[] elements = label[(sequenceMarker + 2)..]
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (capability is null || elements.Length == 0) return null;
+            List<Thought> values = new();
+            foreach (string element in elements)
+            {
+                Thought? value = GetOrAddThought(element);
+                if (value is null) return null;
+                values.Add(value);
+            }
+
+            SeqElement sequence = CreateFirstElement("path*", values[0]);
+            SeqElement last = sequence;
+            foreach (Thought value in values.Skip(1))
+                last = AddElement(last, value);
+            sequence.Label = label;
+            sequence.AddParent(capability);
+            if (correctParent is not null && correctParent != Labeled("Unknown"))
+                sequence.AddParent(correctParent);
+            return sequence;
+        }
+        //. are used to indicate attributes to be added
+        if (label.Contains(".") && label != "." && !label.Contains(".py") &&
+            !new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" }.Contains(Path.GetExtension(label), StringComparer.OrdinalIgnoreCase))
         {
             string[] attribs = label.Split(".");
+            // Materialize the ordinary compound before adding execution capabilities.
+            // Thus is.not.? retains is.not as an identifiable Relationship type; execution
+            // never has to strip punctuation or reconstruct a type from label text.
+            List<Thought> components = new();
+            foreach (string componentLabel in attribs)
+            {
+                Thought? component = Labeled(componentLabel) ?? AddThought(componentLabel, "Unknown");
+                if (component is not null) components.Add(component);
+            }
+            Thought? ordinaryCompound = null;
+            if (components.Any(component => component.HasProperty("isPossible") || component.HasProperty("setRelationship")))
+            {
+                List<Thought> ordinaryComponents = components.Where(component =>
+                    !component.HasProperty("isPossible") && !component.HasProperty("setRelationship")).ToList();
+                if (ordinaryComponents.Count > 1)
+                    ordinaryCompound = GetOrAddThought(string.Join(".", ordinaryComponents.Select(component => component.Label)));
+            }
             Thought? baseThought = Labeled(attribs[0]) ?? AddThought(attribs[0], "Unknown");
             Thought? instanceThought = Labeled(label) ?? AddThought(label, baseThought);
-            if (instanceThought is not null && baseThought?.Label.ToLower() == "not")
-            {
-                Thought? parentAttrib = ThoughtLabels.GetThought(attribs[1]);
-                if (parentAttrib is not null)
-                    instanceThought.AddParent(parentAttrib);
-            }
             if (instanceThought is not null)
             {
                 for (int i = 1; i < attribs.Length; i++)
                 {
-                    if (attribs[i] == "?")
-                    {
-                        Thought? conditionalType = Labeled("?") ?? AddThought("?", Labeled("LinkType"));
-                        if (conditionalType is not null)
-                            instanceThought.AddParent(conditionalType);
-                        continue;
-                    }
                     Thought? attrib = Labeled(attribs[i]) ?? AddThought(attribs[i], "Unknown");
                     if (attrib is not null)
-                        instanceThought.AddLink("is", attrib);
+                    {
+                        // Compound components contribute through ordinary inheritance.
+                        instanceThought.AddParent(attrib);
+                    }
                 }
-                AddActionTypeInheritance(instanceThought, label);
+                if (ordinaryCompound is not null)
+                {
+                    instanceThought.AddParent(ordinaryCompound);
+                }
             }
             return instanceThought;
         }
@@ -277,7 +336,7 @@ public partial class UKS
             {
                 int digit = 0;
                 while (source.LinksTo.FindFirst(x => x.LinkType?.Label == baseLabel + digit) is not null) digit++;
-                Thought? labeled = ThoughtLabels.GetThought(baseLabel + digit);
+                Thought? labeled = Labeled(baseLabel + digit);
                 if (labeled is not null)
                     return labeled;
             }
@@ -287,34 +346,6 @@ public partial class UKS
         thoughtToReturn.Fire();
         return thoughtToReturn;
     }
-
-    /// <summary>
-    /// SET and TEST action types inherit from both the operation and the
-    /// relationship they operate on. For example, SET.ref inherits from SET
-    /// and ref. The dotted "is" metadata remains descriptive and is not needed
-    /// when an action is applied.
-    /// </summary>
-    private void AddActionTypeInheritance(Thought actionType, string label)
-    {
-        string[] parts = label.Split('.');
-        if (parts.Length < 2) return;
-        if (!parts[0].Equals("SET", StringComparison.OrdinalIgnoreCase) &&
-            !parts[0].Equals("TEST", StringComparison.OrdinalIgnoreCase))
-            return;
-
-        Thought? linkTypeRoot = Labeled("LinkType");
-        if (linkTypeRoot is null) return;
-
-        string relationshipLabel = string.Join(".", parts.Skip(1));
-        Thought? relationshipType = Labeled(relationshipLabel);
-        if (relationshipType is null)
-            relationshipType = GetOrAddThought(relationshipLabel, linkTypeRoot);
-        else if (!relationshipType.HasAncestor(linkTypeRoot))
-            relationshipType.AddParent(linkTypeRoot);
-
-        actionType.AddParent(relationshipType);
-    }
-
 
     /// <summary>
     /// Finds or creates a subclass from a phrase, attaching attributes as dotted parts.
@@ -334,19 +365,19 @@ public partial class UKS
             {
                 if (label1.Length == 1)
                 {
-                    Thought? t1 = theUKS.GetOrAddCharacter(label1[0]);
+                    Thought? t1 = GetOrAddCharacter(label1[0]);
                     if (t1 is not null) targets.Add(t1);
                 }
                 else
                 {
                     Thought? t1 = label1.StartsWith("w:")
-                        ? theUKS.GetOrAddThought(label1, "word")
-                        : theUKS.GetOrAddThought(label1);
+                        ? GetOrAddThought(label1, "word")
+                        : GetOrAddThought(label1);
                     if (t1 is not null) targets.Add(t1);
                 }
             }
             string seqLabel = string.Join("", targetParts);
-            Thought r1 = (Thought)theUKS.AddSequence(seqLabel, targets, false);
+            Thought r1 = (Thought)AddSequence(seqLabel, targets, false);
             return r1;
 
         }

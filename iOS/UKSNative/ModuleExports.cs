@@ -133,7 +133,7 @@ public static partial class Exports
             {
                 lock (gate)
                 {
-                    try { Host.Tick(); }
+                    try { UseShared(); Host.Tick(); }
                     catch (Exception e) { HostNotices.Post("Engine", e.Message); }
                 }
                 Interlocked.Increment(ref engineTicks);

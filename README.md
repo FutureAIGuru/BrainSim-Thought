@@ -154,6 +154,28 @@ The **Universal Knowledge Store** is the underlying data structure that supports
 
 Rather than storing facts, the UKS enables **meaning to emerge** from interaction. The UKS is a .dll which easily incorporates into projects on manny languages and platforms.
 
+### Independent UKS instances
+
+Each `UKS.UKS` instance has its own Thoughts, label dictionary, sequences, activity queues, and XML filename. Initialize each instance with `CreateInitialStructure()` or load its content with `LoadUKSfromXMLFile(path)`. Loading, clearing, or deleting content in one instance does not change another instance. A Thought's read-only `Store` identifies its containing UKS; relationships cannot connect Thoughts from different instances. Thoughts with the same label in different instances compare unequal.
+
+Instance calls such as `sandbox.Labeled("dog")` look only in that sandbox. The implicit string-to-Thought conversion and existing static helpers use `UKS.UKS.theUKS`, which now selects a UKS for the current execution context and flows across `await`. Construction, initialization, loading, and the main Thought/statement factories select their receiving instance. At a request or background-task boundary, select the intended sandbox explicitly and restore the previous selection afterward:
+
+```csharp
+UKS.UKS previous = UKS.UKS.theUKS;
+try
+{
+    UKS.UKS.theUKS = sandbox;
+    Thought dog = "dog"; // resolved within sandbox
+    sandbox.AddStatement("Fido", "is-a", "dog");
+}
+finally
+{
+    UKS.UKS.theUKS = previous;
+}
+```
+
+When constructing objects directly, `new Thought(sandbox)`, `new Link(sandbox)`, and `new SeqElement(sandbox)` bind them explicitly; parameterless calls use the selected instance. Separate execution contexts can select different UKSs concurrently. This selection does not serialize access to a single UKS or make compound operations on that UKS atomic; callers must still coordinate concurrent mutations of the same sandbox.
+
 ---
 
 ## Get Involved

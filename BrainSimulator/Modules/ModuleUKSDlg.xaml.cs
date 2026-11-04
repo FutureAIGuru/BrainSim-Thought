@@ -44,6 +44,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private int totalItemCount;
     private bool mouseInWindow; //prevent auto-update while the mouse is in the tree
     private bool busy;
+    private bool contextMenuOpen;
+    private bool refreshQueued;
+    private bool refreshAfterMenu;
     private List<string> expandedItems = new();
     private bool updateFailed;
     private DispatcherTimer dt;
@@ -52,7 +55,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private readonly Dictionary<Thought, List<(ProgressBar Bar, TextBlock Value)>>
         _weightDisplays = new();
 
-    public double DefaultPlasticThoughtWeightMaximum { get; set; } = 10;
+    public double DefaultThoughtWeightMaximum { get; set; } = 3;
     public double WeightBarWidth { get; set; } = 64;
     public double WeightBarHeight { get; set; } = 12;
 
@@ -61,14 +64,34 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         InitializeComponent();
         theUKS = MainWindow.theUKS;
+        Closed += (_, _) => dt?.Stop();
     }
     public override bool Draw(bool checkDrawTimer)
     {
-        //this has a timer so that no matter how often you might call draw, the dialog
-        //only updates 10x per second
         if (!base.Draw(checkDrawTimer)) return false;
         if (busy) return false;
-        if (!checkBoxAuto.IsChecked == true) { return false; }
+        if (checkBoxAuto.IsChecked != true) return false;
+        if (contextMenuOpen)
+        {
+            if (!checkDrawTimer) refreshAfterMenu = true;
+            return false;
+        }
+        if (checkDrawTimer)
+        {
+            if (mouseInWindow || theTreeView.IsMouseOver || refreshQueued) return false;
+            // Module-driven Draw calls can arrive above input priority. Defer and
+            // coalesce rebuilding so pending mouse/menu events are handled first.
+            refreshQueued = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                refreshQueued = false;
+                if (!IsVisible || checkBoxAuto.IsChecked != true || contextMenuOpen ||
+                    mouseInWindow || theTreeView.IsMouseOver)
+                    return;
+                Refresh();
+            }));
+            return true;
+        }
         Refresh();
         return true;
     }
@@ -87,7 +110,6 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         int.TryParse(sizeString, out int fontSize);
         if (fontSize != 0)
             theTreeView.FontSize = fontSize;
-
         //if the root is null, display the roots instead of the contetn
         if (!string.IsNullOrEmpty(root?.Trim()))
         {
@@ -135,9 +157,6 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             if (l.LinksTo.Count > 0)  //there is provenance on this is-a link
                 AddLinks(l, tviChild, 1, parentLabel);
 
-            int childCount = child.Children.Count;
-            int linkCount = child.LinksTo.Count(x => x.LinkType.Label != "is-a");
-            int linkFromCount = child.LinksFrom.Count;
             if (tviChild.IsExpanded)
             {
                 // load children and links
@@ -151,7 +170,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (t.LinksTo.Count == 0 && t is not Link lnk) return;
 
         //build the entry for the tabel of expanded items
-        string currentLabel = "|" + parentLabel + "|" + t.Label;
+        string currentLabel = "|" + parentLabel + "|" + (string.IsNullOrEmpty(t.Label) ? t.ToString() : t.Label);
         if (theUKS.IsSequenceElement(t)) //this skips over the level of the sequence element itself and only shows the links
             currentLabel = "|" + parentLabel;
         currentLabel = currentLabel.Replace("||", "|"); //needed to make top level work
@@ -167,9 +186,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             //if (l.LinkType.Label != "means") continue;
             if (showConditionals.IsChecked != true && l.LinkType.Label == "evidence") continue;
             if (showConditionals.IsChecked != true)
-                if (UKS.UKS.IsConditionalLinkType(l.LinkType)) continue;
-            var x = expandedItems;
-
+                if (l.LinkType?.HasProperty("isPossible") == true || l.LinkType?.HasProperty("isConditional") == true ||
+                    l.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true)) continue;
             TreeViewItem tviLink = GetTreeChildFormatted(currentLabel, l);
             tviLink.ContextMenu = GetLinkContextMenu(l);
             tvi.Items.Add(tviLink);
@@ -187,7 +205,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (t.LinksFrom.Count == 0 && t is not Link lnk) return;
 
         //add the entry to the entry of expanded items
-        parentLabel = "|" + parentLabel + "|" + t.ToString();
+        parentLabel = "|" + parentLabel + "|" + (string.IsNullOrEmpty(t.Label) ? t.ToString() : t.Label);
         parentLabel = parentLabel.Replace("||", "|"); //needed to make top level work
 
         //add each of the links as a "child" of the parent entry
@@ -196,7 +214,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         foreach (Link r in sortedLinks)
         {
             if (showConditionals.IsChecked != true)
-                if (UKS.UKS.IsConditionalLinkType(r.LinkType)) continue;
+                if (r.LinkType?.HasProperty("isPossible") == true || r.LinkType?.HasProperty("isConditional") == true ||
+                    r.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true)) continue;
 
             TreeViewItem tviLink = GetTreeChildFormatted(parentLabel, r);
             tviLink.ContextMenu = GetLinkContextMenu(r);
@@ -291,6 +310,18 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (child.AncestorsWithSelf.Contains(expandAll) &&
             (child.Label == "" || !parentLabel.Contains("|" + child.Label)))
             tviChild.IsExpanded = true;
+        // A collapsed item needs a placeholder child for WPF to show its expansion handle.
+        if (!tviChild.IsExpanded &&
+            (child.Children.Count > 0 ||
+             child.LinksTo.Any(link =>
+                 (detailsCB.IsChecked != false || link.LinkType?.Label != "is-a") &&
+                 (showConditionals.IsChecked == true ||
+                  (link.LinkType?.HasProperty("isPossible") != true &&
+                   link.LinkType?.HasProperty("isConditional") != true &&
+                   !link.LinksTo.Any(condition => condition.LinkType?.HasProperty("isConditional") == true)))) ||
+             (reverseCB.IsChecked == true && child.LinksFrom.Count > 0) ||
+             (child is Link relationship && theUKS.IsSequenceElement(relationship.To))))
+            tviChild.Items.Add(new TreeViewItem());
         tviChild.Expanded += EmptyChild_Expanded;
 
         //WPF displays an expansion handle only when the item already has content.
@@ -385,19 +416,20 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         TextBlock weightValue)
     {
         double maximum = Math.Max(0.01, thought.maxWeight);
-        if (thought is not Link && thought.isPlastic && maximum <= 1)
-            maximum = Math.Max(maximum, DefaultPlasticThoughtWeightMaximum);
+        if (thought is not Link && maximum <= 1)
+            maximum = Math.Max(maximum, DefaultThoughtWeightMaximum);
         double value = Math.Clamp(thought.Weight, 0, maximum);
-        double fraction = value / maximum;
-
         thermometer.Maximum = maximum;
         thermometer.Value = value;
-        thermometer.Foreground = fraction >= 0.7
-            ? Brushes.SeaGreen
-            : fraction >= 0.3
-                ? Brushes.DodgerBlue
-                : Brushes.DarkOrange;
-        thermometer.ToolTip = $"Weight {thought.Weight:0.00} / {maximum:0.00}";
+        double fraction = value / maximum;
+        if (fraction >= 0.7)
+            thermometer.Foreground = thought.isPlastic ? Brushes.LimeGreen : Brushes.SeaGreen;
+        else if (fraction >= 0.3)
+            thermometer.Foreground = Brushes.DodgerBlue;
+        else
+            thermometer.Foreground = Brushes.DarkOrange;
+        string state = thought.isPlastic ? "Plastic" : "Non-plastic";
+        thermometer.ToolTip = $"{state}; weight {thought.Weight:0.00} / {maximum:0.00}";
         weightValue.Text = thought.Weight.ToString("0.00");
     }
 
@@ -468,9 +500,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         // what tree view item is this
         if (sender is TreeViewItem tvi)
         {
-            string name = tvi.Header.ToString(); // to help debug
             Thought t = (Thought)tvi.GetValue(ThoughtObjectProperty);
-            string parentLabel = "|" + t.ToString();
+            string parentLabel = "";
             TreeViewItem tvi1 = tvi;
             int depth = 0;
             //work your way up the tree to find all ancestors of this leaf
@@ -481,18 +512,20 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 parentLabel = "|" + (string.IsNullOrEmpty(t1?.Label) ? t1?.ToString() : t1?.Label) + parentLabel;
                 depth++;
             }
-            if (!expandedItems.Contains(parentLabel))
-                expandedItems.Add(parentLabel);
+            string currentLabel = (parentLabel + "|" + (string.IsNullOrEmpty(t.Label) ? t.ToString() : t.Label))
+                .Replace("||", "|");
+            if (!expandedItems.Contains(currentLabel))
+                expandedItems.Add(currentLabel);
 
             tvi.Items.Clear(); // delete empty child
             if (t.Children.Count > 0)
-                AddChildren(t, tvi, depth, parentLabel);
+                AddChildren(t, tvi, depth, currentLabel);
             if (t.LinksTo.Count > 0)
                 AddLinks(t, tvi, 1, parentLabel);
-            if (reverseCB.IsChecked == true && t.LinksFrom.Count > 0)
+            else if (reverseCB.IsChecked == true && t.LinksFrom.Count > 0)
                 AddLinksFrom(t, tvi, parentLabel);
             if (theUKS.IsSequenceElement((t as Link)?.To))
-                AddLinks((t as Link)?.To, tvi, 1, parentLabel);
+                AddLinks((t as Link)?.To, tvi, 1, currentLabel);
             e.Handled = true;
         }
     }
@@ -502,10 +535,11 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         foreach (TreeViewItem tvi1 in items)
         {
-            var t = tvi1.GetValue(ThoughtObjectProperty);
-            if (t is null) continue;
-            if (tvi1.IsExpanded) expandedItems.Add(parentLabel + "|" + t.ToString());
-            FindExpandedItems(tvi1.Items, parentLabel + "|" + t.ToString());
+            if (tvi1.GetValue(ThoughtObjectProperty) is not Thought t) continue;
+            string currentLabel = (parentLabel + "|" + (string.IsNullOrEmpty(t.Label) ? t.ToString() : t.Label))
+                .Replace("||", "|");
+            if (tvi1.IsExpanded) expandedItems.Add(currentLabel);
+            FindExpandedItems(tvi1.Items, currentLabel);
         }
     }
 
@@ -582,11 +616,29 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void Menu_Closed(object sender, RoutedEventArgs e)
     {
-        Draw(true);
+        contextMenuOpen = false;
+        mouseInWindow = theTreeView.IsMouseOver;
+        theTreeView.Background = mouseInWindow ? Brushes.LightSteelBlue : Brushes.LightGray;
+        SetStatus(mouseInWindow ? "Paused" : "OK");
+        if (refreshAfterMenu)
+        {
+            refreshAfterMenu = false;
+            // A menu command may change the graph. Apply its deferred refresh
+            // after the popup and its input handlers have finished closing.
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                if (IsVisible) Refresh();
+            }));
+        }
+        else
+            Draw(true);
     }
 
     private void Menu_Opened(object sender, RoutedEventArgs e)
     {
+        contextMenuOpen = true;
+        theTreeView.Background = Brushes.LightSteelBlue;
+        SetStatus("Paused");
         //when the context menu opens, focus on the label and position text cursor to end
         if (sender is ContextMenu cm)
         {
@@ -617,6 +669,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             if (e.Key == Key.Enter)
             {
                 t.Label = tb.Text;
+                refreshAfterMenu = true;
                 //clear any time-to-live on this new image
                 if (t.LinksFrom.FindFirst(x => x.LinkType.Label == "is-a") is Link isALink)
                     isALink.TimeToLive = TimeSpan.MaxValue;
@@ -678,6 +731,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         mi.SetValue(ThoughtObjectProperty, r.To);
         menu.Items.Add(mi);
 
+        menu.Opened += Menu_Opened;
+        menu.Closed += Menu_Closed;
         ApplyContextMenuTheme(menu);   // honor OS theme
         return menu;
     }
@@ -882,16 +937,20 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private void CheckBoxAuto_Checked(object sender, RoutedEventArgs e)
     {
         if (dt is null)
+        {
             dt = new DispatcherTimer
             {
                 Interval = new TimeSpan(0, 0, 0, 0, 200)
             };
-        dt.Tick += Dt_Tick;
+            dt.Tick += Dt_Tick;
+        }
         dt.Start();
     }
 
     private void Dt_Tick(object sender, EventArgs e)
     {
+        if (checkBoxAuto.IsChecked != true || !IsVisible) return;
+        if (contextMenuOpen) return;
         if (!mouseInWindow)
             Draw(true);
         else if (weightBarsCB?.IsChecked == true)
@@ -902,8 +961,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void CheckBoxAuto_Unchecked(object sender, RoutedEventArgs e)
     {
-        dt.Stop();
-        RefreshButton.Visibility = Visibility.Visible;
+        dt?.Stop();
+        if (RefreshButton is not null) RefreshButton.Visibility = Visibility.Visible;
     }
 
     private void CheckBox_Checked(object sender, RoutedEventArgs e)
@@ -939,6 +998,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private void TheTreeView_MouseLeave(object sender, MouseEventArgs e)
     {
         mouseInWindow = false;
+        if (contextMenuOpen) return;
         theTreeView.Background = new SolidColorBrush(Colors.LightGray);
         SetStatus("OK");
     }
@@ -950,6 +1010,13 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void Refresh()
     {
+        if (busy) return;
+        if (contextMenuOpen)
+        {
+            refreshAfterMenu = true;
+            return;
+        }
+        busy = true;
         try
         {
             if (!updateFailed)
@@ -969,7 +1036,10 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         {
             updateFailed = true;
         }
-        busy = false;
+        finally
+        {
+            busy = false;
+        }
     }
 
     private void InitializeButton_Click(object sender, RoutedEventArgs e)

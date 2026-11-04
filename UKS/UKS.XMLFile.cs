@@ -19,7 +19,7 @@ namespace UKS;
 
 public partial class UKS
 {
-    static string fileName = "";
+    private string fileName = "";
 
     public string FileName { get => fileName; }
 
@@ -56,6 +56,7 @@ public partial class UKS
     /// <returns><see langword="true"/> if the save succeeded; otherwise <see langword="false"/>.</returns>
     public bool SaveUKStoXMLFile(string filenameIn = "")
     {
+        theUKS = this;
         //if you don't pass in a file name, it uses the previous name
         if (!String.IsNullOrEmpty(filenameIn)) { fileName = filenameIn; }
         return WriteSaveSnapshot(CaptureSaveSnapshot(), fileName);
@@ -203,6 +204,7 @@ public partial class UKS
     /// <returns><see langword="true"/> if the load succeeded; otherwise <see langword="false"/>.</returns>
     public bool LoadUKSfromXMLFile(string filenameIn = "")
     {
+        theUKS = this;
         //stash the current BrainSim configuration
         var contentToRestore = ExtractPortionOfUKS(Labeled("BrainSim"));
 
@@ -253,6 +255,7 @@ public partial class UKS
     /// </summary>
     internal void RestoreFromUkTempSnapshot(List<sThought> snapshot)
     {
+        theUKS = this;
         UKSTemp = snapshot;
         DeFormatContentAfterLoading();
         ApplyPostXmlLoadCompatibility();
@@ -272,14 +275,17 @@ public partial class UKS
         //more hacks for compatibility old file formatting
         //this does nothought on updated file content
         AddStatement("inheritable", "is-a", "Property");
-        EnsureSequenceSearchDefinitions();
+        // Supply the negation capability to marker Thoughts in older saved knowledge.
+        Thought? isNegative = GetOrAddThought("isNegative", "Property");
+        foreach (string markerLabel in new[] { "NOT", "NO" })
+            Labeled(markerLabel)?.AddLink("hasProperty", isNegative);
         if (Labeled("has-child") is Thought hasChild)
         {
-            Thought? inverseOf = "inverseOf";
-            Thought? isAChild = "is-a";
-            Thought? hasProperty = "hasProperty";
-            Thought? isTransitive = "isTransitive";
-            Thought? inheritable = "inheritable";
+            Thought? inverseOf = Labeled("inverseOf");
+            Thought? isAChild = Labeled("is-a");
+            Thought? hasProperty = Labeled("hasProperty");
+            Thought? isTransitive = Labeled("isTransitive");
+            Thought? inheritable = Labeled("inheritable");
             if (inverseOf is not null && isAChild is not null)
                 hasChild.AddLink(inverseOf, isAChild);
             if (hasProperty is not null && isTransitive is not null)
@@ -289,11 +295,11 @@ public partial class UKS
         }
         if (Labeled("is-a") is Thought isA)
         {
-            Thought? hasProperty = "hasProperty";
-            Thought? inheritable = "inheritable";
-            Thought? isTransitive = "isTransitive";
-            Thought? inverseOf = "inverseOf";
-            Thought? hasChildLink = "has-child";
+            Thought? hasProperty = Labeled("hasProperty");
+            Thought? inheritable = Labeled("inheritable");
+            Thought? isTransitive = Labeled("isTransitive");
+            Thought? inverseOf = Labeled("inverseOf");
+            Thought? hasChildLink = Labeled("has-child");
             if (hasProperty is not null && inheritable is not null)
                 isA.AddLink(hasProperty, inheritable);
             if (hasProperty is not null && isTransitive is not null)
@@ -305,8 +311,8 @@ public partial class UKS
         }
         if (Labeled("has") is Thought has)
         {
-            Thought? hasProperty = "hasProperty";
-            Thought? inheritable = "inheritable";
+            Thought? hasProperty = Labeled("hasProperty");
+            Thought? inheritable = Labeled("inheritable");
             if (hasProperty is not null && inheritable is not null)
                 has.AddLink(hasProperty, inheritable);
         }
@@ -338,15 +344,19 @@ public partial class UKS
 
     private void DeFormatContentAfterLoading()
     {
+        theUKS = this;
         AtomicThoughts.Clear();
         ThoughtLabels.ClearLabelList();
+        ClearSequenceCache();
+        Thought.ClearRecentlyFiredQueue();
+        Thought.ClearRecentlyCreatedQueue();
         //3 passes:  1) find all the labels and allocate thoughts 2) fill in links by label  3) remove temp labels from unlabeled thoughts
         //allocate all the thoughts
         foreach (sThought st in UKSTemp)
         {
             if (st.source == -1 || st.linkType == -1)
             {
-                Thought t = new()
+                Thought t = new(this)
                 {
                     Label = st.label,
                     Weight = st.weight,
@@ -359,7 +369,7 @@ public partial class UKS
             }
             else //this must be a link
             {
-                Link l = new()
+                Link l = new(this)
                 {
                     Label = st.label,
                     Weight = st.weight,
@@ -394,19 +404,33 @@ public partial class UKS
                 theLink.TimeToLive = TimeSpan.MaxValue;
                 if (theLink.From is null || theLink.LinkType is null)
                     continue;
-                Link? newLink = theLink.From.AddLink(theLink.LinkType, theLink.To);
-                if (newLink is null)
-                    continue;
-                newLink.Weight = st.weight;
-                newLink.maxWeight = st.maxWeight;
-                newLink.isPlastic = st.isPlastic;
-                if (!AtomicThoughts.Contains(newLink))
-                    AtomicThoughts.Add(newLink);
+                // Wire the deserialized Relationship itself. Creating another Link here
+                // separates its endpoints from the IF/property metadata attached by label,
+                // and can turn a saved condition into an unconditional assertion.
+                WriteTheLink(theLink);
+                if (!AtomicThoughts.Any(thought => ReferenceEquals(thought, theLink)))
+                    AtomicThoughts.Add(theLink);
                 if (linkType?.Label == "VLU")
                     PromoteToSeqElement(theLink.From);
             }
         }
  
+        // Demonstrated operations are retained by their exemplars, not asserted
+        // on their subjects. Restore that distinction after every link is wired.
+        foreach (Link operation in AtomicThoughts.SelectMany(thought => thought.LinksTo)
+            .Where(link => ReferenceEquals(link.LinkType, Labeled("demonstrates")))
+            .Select(link => link.To).OfType<Link>().ToList())
+        {
+            if (operation.From is null || operation.To is null || operation.LinkType is null ||
+                (!operation.LinkType.HasProperty("setRelationship") && !operation.LinkType.HasProperty("isPossible"))) continue;
+            lock (operation.From.LinksToWriteable)
+                operation.From.LinksToWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+            lock (operation.To.LinksFromWriteable)
+                operation.To.LinksFromWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+            lock (operation.LinkType.LinksAsTypeWriteable)
+                operation.LinkType.LinksAsTypeWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+        }
+
         //remove temporary labels
         foreach (sThought st in UKSTemp)
         {

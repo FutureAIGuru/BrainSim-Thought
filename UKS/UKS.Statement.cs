@@ -19,7 +19,7 @@ public partial class UKS
     /// Creates a Thought. <br/>
     /// Parameters are strings. If the Thoughts with those labels
     /// do not exist, they will be created. <br/>
-    /// If the LinkType has an inverse, the inverse will be used and the Thought will be reversed so that 
+    /// If the LinkType has an inverse, the inverse will be used and the Thought will be reversed so that
     /// Fido Is-a Dog become Dog Has-child Fido.<br/>
     /// </summary>
     /// <param name="sSource">string or Thought for the source.</param>
@@ -43,6 +43,10 @@ public partial class UKS
     public Link? AddStatement(Thought source, Thought linkType, Thought? target, string label = "")
     {
         if (source is null || linkType is null) return null;
+        if (!ReferenceEquals(source.Store, this) || !ReferenceEquals(linkType.Store, this) ||
+            (target is not null && !ReferenceEquals(target.Store, this)))
+            throw new ArgumentException("Cannot create a statement using Thoughts from another UKS.");
+        theUKS = this;
 
         Link? wired = GetLink(source, linkType, target);
         Link? labeledLink = string.IsNullOrEmpty(label) ? null : Labeled(label) as Link;
@@ -101,7 +105,7 @@ public partial class UKS
             linkType = inverseType1;
         }
 
-        Link r = new()
+        Link r = new(this)
         { From = source, LinkType = linkType, To = target };
         return r;
     }
@@ -121,11 +125,12 @@ public partial class UKS
             }
             else if (LinksAreExclusive(newLink, existingLink))
             {
-                if (existingLink.LinkType is not null && newLink.LinkType?.Children.Contains(existingLink.LinkType) == true && HasAttribute(existingLink.LinkType, "not"))
+                if (existingLink.LinkType is not null &&
+                    newLink.LinkType?.Children.Contains(existingLink.LinkType) == true && existingLink.LinkType.HasProperty("isNegative"))
                 {
                     existingLink.From?.RemoveLink(existingLink);
                 }
-                else if (newLink.LinkType is not null && existingLink.LinkType?.Children.Contains(newLink.LinkType) == true && HasAttribute(newLink.LinkType, "not"))
+                else if (newLink.LinkType is not null && existingLink.LinkType?.Children.Contains(newLink.LinkType) == true && newLink.LinkType.HasProperty("isNegative"))
                 {
                     existingLink.From?.RemoveLink(existingLink);
                 }
@@ -148,7 +153,7 @@ public partial class UKS
         if (t is null) return;
 
         bool reconnectNeeded = t.HasAncestor("Thought");
-        Thought? unknown = ThoughtLabels.GetThought("Unknown");
+        Thought? unknown = Labeled("Unknown");
         if (t.Parents.Count > 1 && unknown is not null)
             t.RemoveParent(unknown);
         if (t.Parents.Count > 1 && !t.Parents.Contains("ActiveThought") || t.Parents.Count > 2)
@@ -199,7 +204,7 @@ public partial class UKS
         Thought retVal = AddThought(newLabel, t);
         foreach (Thought t1 in attributes)
         {
-            Link r1 = new() { From = retVal, LinkType = ThoughtLabels.GetThought("is"), To = t1 };
+            Link r1 = new(this) { From = retVal, LinkType = Labeled("is"), To = t1 };
             WriteTheLink(r1);
         }
         return retVal;

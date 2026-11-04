@@ -7,6 +7,77 @@ namespace UKS.Tests;
 
 public class UKSSequenceTests
 {
+    [Fact]
+    public void SequenceSearch_LastElementBoundsTheInputSpan()
+    {
+        var uks = CreateUKS();
+        var stored = uks.AddSequence("bounded", new List<Thought> { uks.Labeled("A"), uks.Labeled("B") }, allowCompression: false);
+        SeqElement input = new() { Label = "input*", VLU = uks.Labeled("A") };
+        SeqElement last = uks.AddElement(input, uks.Labeled("B"));
+        uks.AddElement(last, uks.Labeled("C"));
+        var bounded = uks.FindSequencesByActivation(input, last: last);
+        Assert.Contains(bounded, match => ReferenceEquals(match.seqNode, stored));
+        Assert.DoesNotContain(uks.FindSequencesByActivation(input), match => ReferenceEquals(match.seqNode, stored));
+    }
+
+    [Fact]
+    public void StreamingQueue_SearchReturnsEachPositionWithoutFirstPointers()
+    {
+        var uks = CreateUKS();
+        Thought a = uks.Labeled("A");
+        SeqElement first = new() { Label = "stream*", VLU = a };
+        SeqElement second = uks.AddElement(first, a);
+        Assert.Null(first.FRST);
+        Assert.Null(second.FRST);
+        var matches = uks.FindSequencesByActivation(new List<Thought> { a }, uks.CreateSearchOptions());
+        Assert.Equal(2, matches.Count);
+        Assert.Contains(matches, match => ReferenceEquals(match.seqNode, first));
+        Assert.Contains(matches, match => ReferenceEquals(match.seqNode, second));
+    }
+
+    [Fact]
+    public void StreamingQueue_PopDeletesOnlyTheHeadAndPreservesSequenceValues()
+    {
+        var uks = CreateUKS();
+        SeqElement value = uks.CreateFirstElement("value", uks.Labeled("A"));
+        SeqElement first = new() { Label = "stream*", VLU = value };
+        first.AddLink(uks.GetOrAddThought("usedBy", "LinkType"), value);
+        SeqElement next = uks.AddElement(first, uks.Labeled("B"));
+        Assert.Same(next, uks.RemoveFirstSequenceElement(first));
+        Assert.Null(uks.Labeled(first.Label));
+        Assert.Same(next, uks.Labeled(next.Label));
+        Assert.Same(value, uks.Labeled(value.Label));
+        Assert.Same(uks.Labeled("A"), value.VLU);
+        Assert.Null(uks.RemoveFirstSequenceElement(next));
+        Assert.Null(uks.Labeled(next.Label));
+        Assert.Throws<System.ArgumentException>(() => uks.RemoveFirstSequenceElement(value));
+    }
+
+    [Fact]
+    public void ActivationSearch_CanReturnRootsOrIndividualMatchPositions()
+    {
+        var uks = CreateUKS();
+        Thought a = uks.Labeled("A"), b = uks.Labeled("B");
+        SeqElement sequence = uks.AddSequence("repeated", new List<Thought> { a, b, a, b }, allowCompression: false);
+        Thought options = uks.CreateSearchOptions();
+        var roots = uks.FindSequencesByActivation(new List<Thought> { a, b }, options);
+        Assert.Same(sequence, Assert.Single(roots).seqNode);
+        var positions = uks.FindSequencesByActivation(new List<Thought> { a, b }, options, getFirstElements: false);
+        Assert.Equal(2, positions.Count);
+        Assert.Contains(positions, match => ReferenceEquals(match.seqNode, sequence));
+        Assert.Contains(positions, match => ReferenceEquals(match.seqNode, sequence.NXT.NXT));
+    }
+
+    [Fact]
+    public void ActivationSearch_IndividualPositionsRequireLiteralFlatSearch()
+    {
+        var uks = CreateUKS();
+        Thought options = uks.CreateSearchOptions();
+        options.AddProperty("allowNestedSequences");
+        Assert.Throws<System.ArgumentException>(() =>
+            uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("A") }, options, getFirstElements: false));
+    }
+
     private UKS CreateUKS()
     {
         var uks = new UKS(clear: true);
@@ -35,7 +106,7 @@ public class UKSSequenceTests
 
     private static Thought CreatePartialSequenceSearchOptions(UKS uks)
     {
-        var searchOptions = uks.GetOrAddThought("PartialSequenceSearch", "SequenceSearchOptions");
+        var searchOptions = uks.GetOrAddThought("PartialSequenceSearch", "SearchOption");
         searchOptions.AddLink("hasProperty", "allowNestedSequences");
         searchOptions.AddLink("hasProperty", "allowPartialMatch");
         return searchOptions;
@@ -134,7 +205,7 @@ public class UKSSequenceTests
             new List<Thought> { uks.Labeled("Letter") },
             wildcardProperty);
 
-        Assert.True(wildcard.HasAncestor("Wildcard"));
+        Assert.True(wildcard.HasAncestor("Property"));
         Assert.True(wildcard.HasProperty(wildcardProperty));
     }
 
@@ -356,7 +427,6 @@ public class UKSSequenceTests
         var searchOptions = uks.Labeled("TemplateSequenceSearch");
         var wildcard = uks.Labeled("??");
         wildcard.AddLink("hasProperty", "isWildcard");
-        wildcard.AddParent("Thought");
 
         var cat = uks.AddSequenceAndLink(uks.GetOrAddThought("CAT"), "spelled", new List<Thought> { "C", "A", "T" });
         var cot = uks.AddSequenceAndLink(uks.GetOrAddThought("COT"), "spelled", new List<Thought> { "C", "O", "T" });
@@ -486,7 +556,7 @@ public class UKSSequenceTests
     public void FindSequencesByActivation_MatchesClassBasedWildcards()
     {
         var uks = CreateUKS();
-        var searchOptions = uks.GetOrAddThought("ClassWildcardSearch", "SequenceSearchOptions");
+        var searchOptions = uks.GetOrAddThought("ClassWildcardSearch", "SearchOption");
         searchOptions.AddLink("hasProperty", "allowWildcards");
 
         // Create word classes
@@ -507,11 +577,11 @@ public class UKSSequenceTests
         cat.AddParent(noun);
 
         // Create class-based wildcards with isWildcard property
-        var verbWildcard = uks.GetOrAddThought("??verb", "Wildcard");
+        var verbWildcard = uks.GetOrAddThought("??verb", "Property");
         verbWildcard.AddLink("hasProperty", "isWildcard");
         verbWildcard.AddParent(verb);
 
-        var nounWildcard = uks.GetOrAddThought("??noun", "Wildcard");
+        var nounWildcard = uks.GetOrAddThought("??noun", "Property");
         nounWildcard.AddLink("hasProperty", "isWildcard");
         nounWildcard.AddParent(noun);
 
