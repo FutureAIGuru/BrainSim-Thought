@@ -41,17 +41,28 @@ public abstract class ModuleBase
     public void UKSInitialized()
     {
         foreach (ModuleBase module in MainWindow.theWindow.activeModules)
+        {
+            module.theUKS = MainWindow.theUKS;
             if (module.isEnabled) module.UKSInitializedNotification();
+        }
     }
 
     public virtual void UKSReloadedNotification() { }
     public void UKSReloaded()
     {
         foreach (ModuleBase module in MainWindow.theWindow.activeModules)
+        {
+            module.theUKS = MainWindow.theUKS;
             if (module.isEnabled) module.UKSReloadedNotification();
+        }
     }
 
-    public void GetUKS() => theUKS = MainWindow.theUKS;
+    // As on the desktop: a module keeps the UKS it was given, and makes it the current one.
+    public void GetUKS()
+    {
+        theUKS ??= MainWindow.theUKS;
+        UKS.UKS.theUKS = theUKS;
+    }
 
     protected void Init(bool forceInit = false)
     {

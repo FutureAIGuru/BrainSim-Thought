@@ -117,7 +117,7 @@ public static partial class Exports
     static UKS.UKS Store => UKS.UKS.theUKS;
 
     /// <summary>Makes the app's UKS the current one on this thread (call with the lock held).</summary>
-    internal static void UseShared() => UKS.UKS.theUKS = shared ??= new UKS.UKS();
+    internal static void UseShared() => BrainSimulator.MainWindow.theUKS = shared ??= new UKS.UKS();
 
     // ---------- marshalling helpers ----------
 

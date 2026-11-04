@@ -8,11 +8,17 @@ namespace BrainSimulator;
 public partial class MainWindow
 {
     public List<ModuleBase> activeModules = new();
-    // like the desktop's: setting it selects that UKS as the current one
+    // Like the desktop's: holds the app's UKS, and setting it also selects that UKS as the
+    // current one. Creating another UKS elsewhere doesn't change it.
+    static UKS.UKS current;
     public static UKS.UKS theUKS
     {
-        get => UKS.UKS.theUKS;
-        set => UKS.UKS.theUKS = value;
+        get => current ??= UKS.UKS.theUKS;
+        set
+        {
+            current = value;
+            UKS.UKS.theUKS = value;
+        }
     }
     public static MainWindow theWindow = new();
     public static string currentFileName = "";

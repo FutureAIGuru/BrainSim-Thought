@@ -261,6 +261,34 @@ public partial class UKS
         ApplyPostXmlLoadCompatibility();
     }
 
+    /// <summary>
+    /// Same result as WriteTheLink, but fast for big files: WriteTheLink scans the whole
+    /// link-type and target lists (e.g. every is-a link), which made loading quadratic.
+    /// A link already wired by this load is skipped; one its source doesn't have yet is
+    /// appended directly; anything else takes the full WriteTheLink path.
+    /// </summary>
+    private static void WireLoadedLink(Link lnk, HashSet<Link> wired)
+    {
+        if (!wired.Add(lnk))
+            return;
+        Thought from = lnk.From!, linkType = lnk.LinkType!;
+        // Same locks, in the same order, as WriteTheLink.
+        lock (from.LinksToWriteable)
+            lock (linkType.LinksAsTypeWriteable)
+            {
+                if (from.LinksToWriteable.Contains(lnk))
+                {
+                    WriteTheLink(lnk);
+                    return;
+                }
+                from.LinksToWriteable.Add(lnk);
+                linkType.LinksAsTypeWriteable.Add(lnk);
+                if (lnk.To is Thought to)
+                    lock (to.LinksFromWriteable)
+                        to.LinksFromWriteable.Add(lnk);
+            }
+    }
+
     private void ApplyPostXmlLoadCompatibility(List<string>? brainSimContentToRestore = null)
     {
         //EVERYTHING below is for compatibility with older xml files.
@@ -382,6 +410,8 @@ public partial class UKS
             }
         }
         //add contents of links
+        // Links wired so far, compared like the Contains checks in WriteTheLink.
+        HashSet<Link> wired = new();
         foreach (sThought st in UKSTemp)
         {
             if (st.source == -1 || st.linkType == -1)
@@ -407,9 +437,10 @@ public partial class UKS
                 // Wire the deserialized Relationship itself. Creating another Link here
                 // separates its endpoints from the IF/property metadata attached by label,
                 // and can turn a saved condition into an unconditional assertion.
-                WriteTheLink(theLink);
-                if (!AtomicThoughts.Any(thought => ReferenceEquals(thought, theLink)))
-                    AtomicThoughts.Add(theLink);
+                WireLoadedLink(theLink, wired);
+                // AtomicThoughts compares by reference, so Add skips a link already present
+                // (a linear Any() scan here made loading quadratic in the file size).
+                AtomicThoughts.Add(theLink);
                 if (linkType?.Label == "VLU")
                     PromoteToSeqElement(theLink.From);
             }
