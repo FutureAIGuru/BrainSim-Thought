@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thoughts & Relationships · BrainSim Thought</title>
+  <link rel="stylesheet" href="experiments.css">
+</head>
+<body>
+  <header><strong>BrainSim Thought <span>/ Experiments</span></strong><span class="draft">First demo · working draft</span></header>
+  <main>
+    <aside>
+      <div class="chapter">Chapter 2 / The Atomic Thought</div>
+      <div class="progress" aria-label="Experiment progress"></div>
+      <p id="step-number" class="eyebrow"></p>
+      <h1 id="prompt-title"></h1>
+      <p id="prompt-copy"></p>
+      <div id="choices" role="region" aria-label="Preset relationships" tabindex="0"></div>
+      <div class="invitation"><span>Try this</span><p id="try-this"></p></div>
+      <p id="feedback" role="status" aria-live="polite">Connecting to the UKS…</p>
+      <nav aria-label="Experiments"><button id="back">← Back</button><button id="next" class="primary">Next →</button></nav>
+      <details><summary>Other demos in this progression</summary><p><b>02 · Inheritance & traversal</b><br>Follow connections and inspect query results.</p><p><b>03 · Music & recognition</b><br>Build, play, and recognize a melody.</p><small>These two demos are planned; this draft explores the first.</small></details>
+    </aside>
+    <section class="workspace" aria-label="Knowledge graph">
+      <div class="graph-toolbar"><span><i></i> Live UKS <small id="counts"></small></span><div><button id="fit">Fit view</button><button id="reset">Reset experiment</button></div></div>
+      <div class="canvas"><div id="graph"></div><div id="selection" role="status">Choose a relationship on the left to begin.</div><div id="empty">A fact is a connection.<br><span>Choose one to see its structure.</span></div></div>
+      <div class="graph-help">Tap an edge to reveal its Thought · Tap a purple Thought to fold it back · Drag to rotate · Pinch or scroll to zoom</div>
+    </section>
+  </main>
+  <footer><span>Explore freely. Next changes the prompt; your graph stays.</span><span id="inactivity-note"></span><span id="sandbox-status" role="status"></span></footer>
+  <!-- Existing session management is shared with the editor; XML selection is not part of this guided demo. -->
+  <select id="demo-select" hidden><option value="__choose">Choose</option><option value="">Standard UKS</option></select>
+  <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js"></script>
+  <script type="module" src="experiments.js"></script>
+</body>
+</html>

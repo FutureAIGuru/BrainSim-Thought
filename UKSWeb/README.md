@@ -1,5 +1,26 @@
 # UKS web proof of concept
 
+## Guided experiment draft
+
+Open `/experiments.html` for the selection-only Chapter 2 demo: Fido's attributes,
+Relationship types, Relationships as Thoughts, and attributes of Relationships.
+Presets follow Chapter 2 of *Current Manuscript*: color, tail, barking, yard,
+chasing a ball, and Figure 2.3's fetch/frisbee/personal-experience structure.
+Graph labels use `[source → type → target]`, including nested brackets; English
+descriptions stay in the choice buttons. Preset buttons
+write to the real UKS through the existing API. Next/Back change the prompt and
+preserve the accumulated graph; tapping an edge reveals its relationship Thought.
+The graph measures its own pane rather than the browser. On narrow screens the
+prompt and graph stack, with the prompt scrolling independently.
+
+Reset removes the preset relationships added by this page, including their
+prerequisites; it leaves unconnected Thoughts and other exploratory content in
+the session. The first draft keeps prompts in JavaScript pending agreement on
+their UKS representation. Inheritance/query output and music are listed as planned
+follow-on demos, not implemented controls. Existing editor and graph pages remain
+available at their original addresses. Embed this page using
+`https://Brainsim-Thought.onrender.com/experiments.html` after deployment.
+
 One ASP.NET Core application serves a relationship editor, a 3D graph page, and JSON operations. It references `../UKS/UKS.csproj` directly. Each sandbox gets an independent UKS instance. Demo selection, shared URL access, and limits live entirely in this web host; it uses the current CJS UKS library without importing the MultiUser branch's UKS changes. No desktop application, Python installation, frontend build, or test project is needed.
 
 ## Build and run in Visual Studio
