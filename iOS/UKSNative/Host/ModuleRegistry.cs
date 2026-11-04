@@ -42,6 +42,9 @@ public static class ModuleRegistry
     };
 
     public static IReadOnlyCollection<string> Names => factories.Keys;
+    /// <summary>The module classes (each made once to learn its type).</summary>
+    public static IReadOnlyList<Type> Types => types ??= factories.Values.Select(f => f().GetType()).ToList();
+    static List<Type> types;
     public static string TypeOf(ModuleBase module) => module.GetType().Name;
     public static ModuleBase Create(string type) => factories.TryGetValue(type, out var f) ? f() : null;
 }

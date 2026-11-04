@@ -1,5 +1,5 @@
-// The geometry helpers from BrainSimulator/Utils.cs that PointPlus uses.
-// The rest of Utils.cs (colors, WPF control lookup, P/Invoke timing) is desktop-only.
+// The parts of BrainSimulator/Utils.cs the module sources use: geometry for PointPlus and the
+// module type list. The rest (colors, WPF control lookup, P/Invoke timing) is desktop-only.
 using System.Windows;
 using BrainSimulator.Modules;
 using static System.Math;
@@ -8,6 +8,13 @@ namespace BrainSimulator;
 
 public static class Utils
 {
+    /// <summary>
+    /// The module types that can be added, like the desktop's (which finds them by reflection;
+    /// NativeAOT can't, so they come from <see cref="ModuleRegistry"/>). Manual agents are left out.
+    /// </summary>
+    public static List<Type> GetListOfExistingCSharpModuleTypes() =>
+        ModuleRegistry.Types.Where(t => !typeof(IManualAgent).IsAssignableFrom(t)).OrderBy(t => t.Name).ToList();
+
     public static int ColorToInt(System.Windows.Media.Color c) => c.A << 24 | c.R << 16 | c.G << 8 | c.B;
     public static System.Windows.Media.Color IntToColor(int i) =>
         System.Windows.Media.Color.FromArgb((byte)(i >> 24), (byte)(i >> 16), (byte)(i >> 8), (byte)i);
