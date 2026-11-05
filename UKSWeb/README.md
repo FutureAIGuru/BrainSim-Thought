@@ -2,24 +2,71 @@
 
 ## Guided experiment draft
 
-Open `/experiments.html` for the selection-only Chapter 2 demo: Fido's attributes,
+Open `/experiment1.html` for the Chapter 2 demo: Fido's attributes,
 Relationship types, Relationships as Thoughts, and attributes of Relationships.
 Presets follow Chapter 2 of *Current Manuscript*: color, tail, barking, yard,
 chasing a ball, and Figure 2.3's fetch/frisbee/personal-experience structure.
 Graph labels use `[source → type → target]`, including nested brackets; English
-descriptions stay in the choice buttons. Preset buttons
-write to the real UKS through the existing API. Next/Back change the prompt and
-preserve the accumulated graph; tapping an edge reveals its relationship Thought.
+descriptions stay in the choice buttons. A choice toggles between adding its
+Relationship (+) and deleting it (−). Choices accumulate across steps,
+starting with Fido is a dog. Next requires a successful add, delete, root change,
+node drag, or expansion in that experiment; Back preserves the graph.
+Buttons reflect actual UKS membership after reload and changes from another tab.
+Tapping an edge reveals its Relationship Thought, with labels excluded from hit
+testing so they cannot intercept edge clicks. Hover details appear at lower left.
 The graph measures its own pane rather than the browser. On narrow screens the
 prompt and graph stack, with the prompt scrolling independently.
 
-Reset removes the preset relationships added by this page, including their
-prerequisites; it leaves unconnected Thoughts and other exploratory content in
-the session. The first draft keeps prompts in JavaScript pending agreement on
-their UKS representation. Inheritance/query output and music are listed as planned
-follow-on demos, not implemented controls. Existing editor and graph pages remain
+The root field offers suggestions and also accepts an existing Thought label.
+Help contains the graph instructions and inactivity note. The color key remains
+visible below the graph; the embedded page has no separate site header or footer.
+Deleting a Relationship also deletes its dependent attributes through the UKS;
+unconnected ordinary Thoughts remain. Reload preserves the session's knowledge.
+The draft keeps prompts in JavaScript pending agreement on their UKS representation.
+Existing editor and graph pages remain
 available at their original addresses. Embed this page using
-`https://Brainsim-Thought.onrender.com/experiments.html` after deployment.
+`https://Brainsim-Thought.onrender.com/experiment1.html` after deployment.
+The previous `/experiments.html` address redirects to it, preserving session and root.
+
+Open `/demo-frame.html` to preview the demo inside an iframe with a local
+approximation of the WordPress header, footer, colors, and typography. The width
+selector tests available width, an 820px tablet, and a 390px phone without
+reloading the embedded demo or losing its session. This is a development preview,
+not a replacement for WordPress or a synchronized copy of its menus.
+
+### Adding another experiment
+
+| File | Responsibility |
+| --- | --- |
+| `wwwroot/experiment1.html` | Chapter 2 layout, facts, steps, title, and default root. |
+| `wwwroot/experiments.js` | Common guided-demo engine: choices, add/remove, prerequisites, membership checks, prompts, progress, and Help. No chapter-specific content or graph implementation. |
+| `wwwroot/demo-components.js` | Mounts selectors, editors, sequence controls, and results from each step's choices. |
+| `wwwroot/uks-query.js`, `wwwroot/uks-sequences.js` | Shared query/editor and sequence component behavior. |
+| `wwwroot/experiments.css` | Common responsive layout, typography, colors, buttons, and panels. |
+| `wwwroot/uks-graph.js` | Shared UKS graph component: snapshots, root loading, expansion/collapse, refresh, reachable graph composition, component-role descriptions, labels, rendering, camera, and resizing. |
+| `wwwroot/graph.js` | Small adapter connecting the standalone `graph.html` controls to the same graph component. It is not a second graph implementation. |
+
+To add a demo, copy `experiment1.html` to a new page such as `experiment2.html`.
+Change its layout, chapter/title, initial root, `facts`, and `steps`. Keep the
+common CSS import and `startExperiment({ facts, steps })` call. Do not copy or
+modify the common JavaScript for each chapter. Help is populated by the engine.
+The existing element IDs are the engine's UI hooks; they can be rearranged.
+The prompt column width can be adjusted with `--prompt-width` on that page's
+`main` element. More substantial layout differences can be supplied in the page.
+
+Each fact supplies `source`, `relationshipType`, `target`, and an English
+`caption`. A quoted multiword target stays one Thought. `sourceFact` names another
+fact's array index when the source is itself a Relationship; the engine builds
+the bracketed input and adds that prerequisite automatically. `requires` can
+name additional prerequisite indices. Each step supplies `title`, `copy`, `try`,
+and `choices` (fact indices and component entries). Earlier choices carry forward automatically.
+See “Composing a step's content” below for selectors, editors, and result components.
+
+`uks-graph.js` exports `createUKSGraph` for demo engines or independent pages.
+Pages use `loadRoot`, `setPresets`, `refresh`, `fit`, and `setLabels`; graph state
+and drawing stay inside the component. Hovering expanded components or their
+connectors identifies Source, Type, and Target in the lower-left display.
+Changes to the common engine, component, or CSS apply to every importing demo.
 
 One ASP.NET Core application serves a relationship editor, a 3D graph page, and JSON operations. It references `../UKS/UKS.csproj` directly. Each sandbox gets an independent UKS instance. Demo selection, shared URL access, and limits live entirely in this web host; it uses the current CJS UKS library without importing the MultiUser branch's UKS changes. No desktop application, Python installation, frontend build, or test project is needed.
 
@@ -116,7 +163,7 @@ Click **Explore UKS in 3D** on the editor, or open `/graph.html`. The link prese
 
 `GET /api/graph?ids=<handle>,<handle>&session=<key>` refreshes up to 256 expanded neighborhoods in one request and returns `snapshots` plus `missingIds` for deleted or inaccessible nodes. Larger revealed graphs are refreshed in batches. No descendants are fetched unless their nodes were explicitly expanded.
 
-The graph falls back to individual node-expansion requests when an older running service does not support batching. HTML and JavaScript responses require cache revalidation, and the graph script URL includes a revision. After changing the web project, restart the running service and reload the page; seeing a new HTML control alone does not establish that an older tab has loaded the latest script.
+Expanded neighborhoods refresh through the shared graph component's batch API. HTML and JavaScript responses require cache revalidation. Reload the page after changing static files; restart the service after changing server code. An already-open tab continues using the scripts it loaded until reloaded.
 
 ## Demo links and shared addresses
 
@@ -138,11 +185,9 @@ The page automatically preserves its current content with a short opaque `sessio
 
 ## Warnings when leaving changes
 
-Selecting another XML file after editing asks for confirmation. Cancelling restores the previous selection and leaves the current content intact. Moving between the editor and graph for the same session preserves edits and does not prompt. Reloading the current session retains its content.
+Selecting another XML file opens it immediately. Leaving, closing, reloading, and switching demos never prompt about edits. Moving between the editor and graph for the same session preserves its content; reloading the session does too.
 
-A browser departure warning also protects edits when leaving through other navigation, such as entering a different demo URL or closing the tab. Browsers display their own standard warning text. Changes are tracked on the server, so reopening a shared address or moving to another page retains the warning behavior; normal refresh responses also identify changes made by another visitor. A write still in progress is protected too.
-
-Switching demos does not immediately erase the previous one. Its original address continues to work until inactivity expiration or a server restart. The warning helps avoid losing track of that address. The footer explains when edits are deleted.
+Switching demos does not immediately erase the previous one. Its original address continues to work until inactivity expiration or a server restart. The footer explains when edits are deleted.
 
 ## Inactivity expiration
 
@@ -186,7 +231,7 @@ The host previews writes in an isolated in-memory copy before applying them to t
 
 `GET /api/sandbox?session=<key>` returns `id`, `demo`, `thoughtLimit`, `idleTimeoutMinutes`, and `hasChanges`. Unknown or expired keys return HTTP 404 with `code: "sandbox_unavailable"`. `GET /api/demos` returns the public XML catalog.
 
-All content operations below require `session=<key>`. The key grants full access; no separate credentials or editing headers are used. Successful additions and deletions mark the session changed. Content responses include `X-Demo-Changed: 1` once it has been edited, allowing other pages to protect those changes when navigating away.
+All content operations below require `session=<key>`. The key grants full access; no separate credentials or editing headers are used. Successful additions and deletions mark the session changed. Content responses include `X-Demo-Changed: 1` once it has been edited, reporting whether the session has been edited.
 
 `POST /api/statements`, with `Content-Type: application/json`:
 
@@ -203,6 +248,12 @@ Calls `StatementInputParser.Add`, which resolves labels and attribute phrases, p
 ```
 
 Looks up the existing Thought and returns its direct children plus its directly stored outgoing relationships, from the selected sandbox. Children are sorted alphabetically; relationships are sorted by type and target. Missing Thoughts return HTTP 404; blank fields return HTTP 400. Only explicit response data is serialized, never the graph objects. Requests to these operations are serialized within each sandbox.
+
+`GET /api/graph?label=Fido` (or `id=<handle>`) returns a graph packet. Add `expand=true` for direct connections. `labels=Fido&labels=weather` or `roots=<handle>,<handle>` returns a single combined packet for multiple starting Thoughts (maximum 256). The packet includes `roots`, deduplicated `nodes` and `links`, and `sequences`. Missing members are reported in `missingIds` / `missingLabels`; an empty `roots=` returns an empty graph. The existing `ids=` query remains a batch of individual expanded snapshots for refresh.
+
+Sequence detection uses direct `VLU` link identity, then follows `NXT` until the end or a repeated Thought. It never checks for `SeqElement`. Each sequence describes its ordered cell handles and optional cycle endpoint; each cell supplies its `sequenceValue` separately, preserving repeated values as distinct positions. Structural Relationship endpoints are checked too. The underlying UKS is unchanged.
+
+Both graph pages use `uks-graph.js` for sequence composition, compact rigid rows, whole-row dragging, camera fitting, and graph-command Help. The controller's `loadThoughts([handle, ...])` or `loadThoughts([label, ...])` displays multiple starting Thoughts; `loadThoughts([])` clears the view. This supplies the graph interface for future search results, without implementing search itself.
 
 `DELETE /api/relationships?id=<handle>&session=<key>` removes exactly the stored relationship identified by a row's `id`. It uses the existing UKS link cleanup and preserves the endpoint Thoughts. The server checks the containing UKS and that the relationship is still attached; stale, deleted, or foreign-session handles return HTTP 404. Successful deletion marks the demo changed and releases its stored-content allowance. Row IDs are stable across ordinary refreshes.
 
@@ -223,3 +274,119 @@ The web project and Docker images target .NET 8, whose support ends November 10,
 Use HTTPS for shared demo addresses. The 3D page currently executes scripts loaded from external CDNs; self-hosting the complete graph dependency bundle would remove that external script trust from pages whose URLs grant access to demo content.
 
 Run a single application process/replica with the current in-memory design. Multiple processes have different session registries; requests routed to another process cannot find existing content. A restart intentionally loses its sandboxes. Plan memory/error monitoring and deployment restarts accordingly.
+
+
+## Search, inheritance, and exceptions demo
+
+Open `/experiment2.html` for the second guided demo, or `/demo-frame.html?experiment=2` to test it inside the WordPress-style frame. Its three steps show effective attributes (with direct/inherited provenance), candidate search from selected attributes, and the dog/Tripper leg-count exception. The attribute dialog uses dropdowns throughout. Candidate scores are the existing UKS ranking, not probabilities; displayed match counts are checked against effective attributes.
+
+`experiment2.html` contains the sample facts, steps, and selectable vocabulary. `experiments.js` manages the common progression and optional initial facts; `uks-query.js` manages reusable query controls and results; `uks-graph.js` remains the only graph implementation. On a fresh sandbox the page seeds a small animal hierarchy; reloads preserve edits while the sample Thought Tweety remains present. The third step's Tripper exception starts absent and can be added or removed. The comparison highlights differing relationship types for the same target.
+
+`GET /api/attributes?label=Fido&session=<key>` calls `GetAttributes` and returns effective relationships with inheritance depth/category. These are query values, not stored Relationship handles. `GET /api/candidates?root=animal&types=has&targets=fur&types=is&targets=brown&session=<key>` accepts up to 16 attribute pairs, calls `SearchByAttributes`, and returns up to 100 positive-score candidates with graph handles and effective match counts. The graph displays the first 32 together; individual candidates can be inspected. Query patterns are temporary unlabeled Thoughts, detached in a `finally` block. All query calls use the sandbox lock; no underlying UKS changes are required.
+
+
+Query-demo results now live in the wider left column. Thought selection loads attributes immediately; it needs no submit button. Manage attributes lists direct relationships using the existing children endpoint and deletes the chosen stored handle through the relationship endpoint. Inherited results are managed at their originating Thought.
+
+Attribute responses include `evidenceLinkIds` and `evidenceThoughtIds`. The web host reconstructs one stored inheritance route to `InheritedFromCategory` and appends the matching stored attribute. `depth` is the UKS's `InheritanceDepth`, not a browser estimate and not a candidate search score. If a computed result has no matching stored support, its evidence arrays are empty. This route is supporting evidence, not an internal search execution trace. Candidate responses include the effective attributes matching their search criteria with the same evidence metadata. The shared graph controller's `setEvidence(attributes, {fit, automatic})` displays and highlights those stored links in orange, including structural connectors if a highlighted Relationship is expanded. Clicking an attribute focuses its support; polling refreshes the selected explanation without refitting the camera.
+
+
+Background refresh pauses while a select/input is focused or any dialog is open; polling no longer disables controls. The attribute dialog opens beside the left edge of the graph and is clamped to the viewport. Experiment instructions follow query results immediately above navigation. Supporting relationships change color to orange without changing line/arrow size. Emphasis expires after eight seconds; automatic polling updates evidence without renewing the timeout. The supporting graph remains visible after its colors return to normal.
+
+
+The query demo opens with no selected Thought or results. The exception step uses the same selector as attribute lookup and shows only the selected Thought's effective attributes. Its suggested add/remove relationships are filtered to that Thought: Tripper's leg count/barking exceptions and robot-dog's food/fur exceptions. `robot-dog is-a dog` is a baseline fact; explicit negative properties are optional. Adding an exception removes the inherited default from effective results; removing it restores the default. Existing sandboxes missing robot-dog receive only its baseline membership via the configurable `seedGroups` bootstrap, without resetting prior edits. Manage attributes places Add and Delete to the right of their dropdown rows.
+
+
+## Sequences demo
+
+Open `/experiment3.html` or `/demo-frame.html?experiment=3`. The four steps cover spelling, matching letter fragments, recording order on a 3-by-3 digit pad, and recognizing/completing melodies. Words can be chosen or typed; every other input can be selected. Tune examples are short public-domain melody phrases with fixed-duration note playback through Web Audio. Matching compares ordered values, not timing intervals or rhythm. A partial match is an exact contiguous fragment of a stored sequence, rather than approximate spelling/pitch matching.
+
+The page supplies words, fragments, digit-order examples, tunes and step text. Shared `experiments.js` handles progression; `uks-sequences.js` handles sequence input/results; all graph behavior remains in `uks-graph.js`. The optional `sequenceValues=true` graph query includes all VLU targets and links alongside the NXT chain. Sequence cells remain a rigid row; exposed distinct value Thoughts occupy a separate row and repeated values share their canonical Thought. Graph discovery continues to follow VLU/NXT identities, without requiring SeqElement classification.
+
+`POST /api/sequences` accepts `{kind:"word"|"digits"|"music",label,values:[...]}` within the selected session. It calls the existing UKS `AddSequenceAndLink` with compression disabled to keep the introductory representation flat. Writes are previewed in a separate in-memory UKS for the existing Thought allowance. A repeated identical addition reuses its sequence; an occupied name with different content returns 409. `GET /api/sequences?kind=...` lists that sandbox's demo sequences. `GET /api/sequence-matches?kind=...&values=<JSON array>` uses `FindSequencesByActivation` to return complete matches and occurrences within stored sequences, including offset, matched length and the following values. This remainder supplies music completion. Search uses a temporary, unlabelled options Thought that is deleted afterward; it creates no stored query sequence.
+
+
+The shared graph temporarily disables its global centering force when fixed sequence rows are visible. Otherwise that force can push free referrer nodes far away while trying to balance an immovable row. Links into a sequence start use a shorter, stronger spring (including expanded Relationship target connectors); owners remain free to drag. Ordinary centering resumes when no sequence rows remain.
+
+
+All three guided demos use the shared `guided-demo` layout: a 411px left pane, a bounded explanation above a persistent scrollable `action-zone`, optional independently scrollable results, and a bottom Try This region above Back/Next. Choices, query controls, keyboards, digit pads and tune controls all live inside the action zone. Its size is independent of the number of controls; step changes reset its scroll position and ordinary updates preserve it. Feedback space is reserved so messages do not resize the actions. Try This reserves approximately two extra text lines (7.5 line heights total), scales with its font, and scrolls on overflow; responsive height caps keep navigation reachable in smaller viewports.
+
+
+The author-written step fields `title`, `copy`, and `try` accept trusted HTML, including `<strong>`, `<b>`, `<em>`, `<br>`, `<p>`, `<ol>`, `<ul>`, and `<li>`. Use JavaScript template literals (backticks) for multiline content, for example:
+
+```javascript
+try: `<strong>Try these steps:</strong>
+  <ol>
+    <li>Add <b>Fido is a dog</b>.</li>
+    <li>Click the Relationship to explore it.</li>
+  </ol>`
+```
+
+These HTML fields are supplied only by the experiment author. UKS labels, visitor input, query results, and status messages still render as plain text. Try This and explanation containers support block elements such as lists and remain scrollable.
+
+
+Refreshing a guided demo resumes its current step and completed-step gates, input selections, entered sequence buffers, displayed query/match results, scroll positions, graph roots/expansions, node positions and camera view. Each tab stores its UI state in sessionStorage, keyed by the UKS session and experiment path. Results and graph handles are revalidated against the live UKS on restoration; the browser does not restore an old copy of the knowledge store. A different session/demo has separate progress, shared URLs do not transfer a visitor's UI state, and expiry/server restarts still discard UKS content. Browser storage failures leave the demo usable with ordinary initial UI state. No exit warnings are installed.
+
+
+For embedded demos, the shared session client also remembers the active sandbox ID/root for each demo path/XML selection in that tab. When WordPress reloads an iframe's original URL without a `session` parameter, the iframe recovers that sandbox and its UI progress. An expired remembered sandbox starts a fresh demo; an explicitly supplied expired/shared session still reports unavailable. Choosing an XML file explicitly clears that destination's remembered session so it continues to create fresh content. All of this uses tab-scoped browser storage and does not extend server lifetime or introduce exit warnings.
+
+
+Relationship annotations retain their source/type/target components in the graph even if the base Relationship was previously displayed only as an edge. The server projects those components from the actual UKS Link fields, recursively handling nested Relationship endpoints. The shared selection helper keeps that structure when trimming a snapshot to a selected fact, and composition replaces the ordinary edge with its represented Relationship node to avoid duplicate representations. These component connectors are display metadata, not newly asserted UKS relationships. Genuinely disconnected stored content remains separate; the renderer does not invent a connection to the current root.
+
+
+Clicking a represented Relationship now collapses it even when its components were revealed automatically for an annotation. The view restores its ordinary edge and hides dependent annotation branches, leaving their stored UKS links and added-choice state untouched. Clicking that edge reopens the Relationship. Explicit collapsed IDs are tab-state data, survive refresh, and are respected by automatic polling. Adding a newly selected annotation reveals the relevant source components again. Disconnected explicit roots are preserved; collapse filters a dependency branch rather than inventing connections or deleting content.
+
+
+Reset Content beside Fit View starts a fresh sandbox for the same demo/XML baseline and returns to its first step. Guided demo baseline facts are seeded normally; progress, inputs and graph view start fresh under the new session ID. The old shared address is not modified. This action also works when the previous sandbox has expired and needs no departure confirmation.
+
+Choices accumulate by default. To start a new set of action buttons at a particular step, set `inheritChoices: false` alongside that step's `choices` array. Subsequent steps accumulate from that boundary until the next such reset. For example:
+
+```javascript
+{ title: 'A fresh set of choices', inheritChoices: false, choices: [5, 6, 7],
+  copy: '...', try: '...' }
+```
+
+This changes which choices are offered, not the stored UKS content. Use Reset Content when the knowledge store itself should start fresh.
+
+
+To remove only selected preset choices while retaining others, use `removeChoices: [0, 1]` on a step. These numbers index the page's facts array, like `choices`. Removal is applied after that step's additions and carries forward; a later step can offer a removed choice again by listing it in `choices`. Neither `removeChoices` nor `inheritChoices` deletes a stored relationship.
+
+### Composing a step's content
+
+A step's `choices` array accepts fact indices and reusable component entries in display order. All controls and results live in the scrollable action area; Try This remains below it. Experiment 1's fifth step now includes a Thought selector, attribute editor, and attribute results. Experiments 2 and 3 use the same component mechanism.
+
+```js
+{
+  title: 'Advanced topics',
+  inheritChoices: false,
+  choices: [
+    14, 15,
+    { component: 'thought-selector', id: 'subject' },
+    { component: 'attribute-editor', label: 'Manage attributes…' },
+    { component: 'attribute-results', source: 'subject', height: '12rem' }
+  ]
+}
+```
+
+`demo-components.js` mounts the components; `uks-query.js` and `uks-sequences.js` own their behavior and state. The experiment HTML supplies facts, steps, selectable vocabulary (`query`), words, and tunes (`sequence`). For an attribute editor without a `query` configuration, vocabulary defaults to the page's facts. Supply `query.subjects`, `query.types`, and `query.targets` to offer additional selections.
+
+| Component | Purpose / step mode |
+| --- | --- |
+| `thought-selector` | Choose the subject in attributes/exceptions mode. |
+| `attribute-editor` | Open the existing Add/Delete attribute dialog. |
+| `attribute-search` | Attribute checkboxes and Find candidates, in candidates mode. |
+| `attribute-choices`, `candidate-search` | The two search controls, if separate placement is wanted. |
+| `attribute-results`, `candidate-results` | Output of the current query; optional `source` names the selector/search `id`. |
+| `word-input` | Word selection/input and Add, in spelling mode. |
+| `letter-keyboard`, `digit-pad`, `note-keyboard` | Input controls for letters, digits, or music respectively. |
+| `sequence-input` | Current input buffer with Undo/Clear. |
+| `sequence-match` | Match the current letter, digit, or note buffer. |
+| `sequence-examples`, `order-examples` | Letter fragments or remembered digit examples. |
+| `remember-sequence` | Store the current digit order. |
+| `tune-selector`, `playback` | Select/learn a tune or play entered notes, in music mode. |
+| `sequence-values`, `sequence-library` | VLU display toggle or stored-sequence list. |
+| `sequence-results` | Sequence display, matches, or melody completion output. |
+| `html` | Trusted author HTML, for example `{component:'html', id:'note', html:'<b>Try this</b>'}`. |
+
+Use the step's existing `query: 'attributes' | 'candidates' | 'exceptions'` or `sequence: 'spelling' | 'letters' | 'digits' | 'music'` to choose its mode. There is one shared query stream and one shared sequence stream per page, with at most one instance of each control/result component per step. The optional result `source` binds to that stream's selector/search ID; it does not create additional independent queries. Place the producer and its results in the same step. `height` optionally bounds the result box; results scroll when longer.
+
+Components carry forward like fact choices. An `id` identifies a component across steps; otherwise its component name does. Repeating its ID/name updates it in place. Use `inheritChoices: false` to start fresh, or `removeChoices: [14, 'attribute-editor', 'subject']` to remove selected fact indices, component names, or explicit IDs. These settings affect the offered UI only, never delete UKS data.

@@ -2,8 +2,6 @@
 export const sandbox = {
   id: null,
   available: false,
-  changed: false,
-  pendingWrites: 0,
   idleTimeoutMs: 30 * 60 * 1000,
   demo: null,
   error: null,
@@ -16,15 +14,18 @@ export const sandbox = {
     return url.href;
   },
   updateRoot(root) {
-    if (this.id) history.replaceState(null, '', this.pageUrl(location.pathname, root));
+    if (this.id) {
+      history.replaceState(null, '', this.pageUrl(location.pathname, root));
+      try { sessionStorage.setItem(activeSessionKey,JSON.stringify({id:this.id,root})); } catch {}
+    }
   }
 };
 
+const activeKey=(demo)=>`uks-active-demo:${location.pathname}:${demo || ''}`;
+const activeSessionKey=activeKey(new URLSearchParams(location.search).get('demo'));
 const status = document.querySelector('#sandbox-status');
 const demoSelect = document.querySelector('#demo-select');
 const inactivityNote = document.querySelector('#inactivity-note');
-let approvedDeparture = false;
-let sameSessionNavigation = false;
 
 function currentRoot() {
   return (document.querySelector('#root') || document.querySelector('#children-form [name="label"]'))?.value.trim() || 'Thought';
@@ -40,46 +41,8 @@ function updateControls() {
     control.disabled = !sandbox.available;
 }
 
-function hasChanges() {
-  return sandbox.available && (sandbox.changed || sandbox.pendingWrites > 0);
-}
-
-function warnBeforeLeaving(event) {
-  if (!hasChanges() || approvedDeparture || sameSessionNavigation) return;
-  event.preventDefault();
-  event.returnValue = '';
-}
-
-function updateLeaveGuard() {
-  if (hasChanges()) window.addEventListener('beforeunload', warnBeforeLeaving);
-  else window.removeEventListener('beforeunload', warnBeforeLeaving);
-}
-
-function sameSession(url) {
-  return sandbox.id && url.origin === location.origin && url.searchParams.get('session') === sandbox.id;
-}
-
-// Following our editor/graph links keeps every edit. Do not warn on that move.
-document.addEventListener('click', event => {
-  const link = event.target.closest?.('a[href]');
-  if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target === '_blank') return;
-  const url = new URL(link.href, location.href);
-  if (sameSession(url) && (url.pathname !== location.pathname || url.search !== location.search)) sameSessionNavigation = true;
-});
-// Modern browsers also identify reloads/back-forward navigation to the same
-// session. Other browsers retain their standard beforeunload warning.
-window.navigation?.addEventListener('navigate', event => {
-  if (!event.destination.sameDocument) sameSessionNavigation = Boolean(sameSession(new URL(event.destination.url)));
-});
-window.navigation?.addEventListener('navigateerror', () => { approvedDeparture = false; sameSessionNavigation = false; });
-
 async function jsonRequest(url, options = {}) {
   const response = await fetch(url, { cache: 'no-store', ...options });
-  // Shared tabs learn about changes made by another visitor through normal reads.
-  if (response.headers.get('X-Demo-Changed') === '1' && sameSession(new URL(url, location.origin))) {
-    sandbox.changed = true;
-    updateLeaveGuard();
-  }
   const data = await response.json();
   if (!response.ok) {
     const error = new Error(data.error || data.detail || data.title || 'The request failed.');
@@ -94,33 +57,21 @@ export async function request(path, options = {}) {
   if (!await sandbox.ready) throw sandbox.error;
   if (!sandbox.available) throw sandbox.error;
   const { automatic = false, ...fetchOptions } = options;
-  const method = (fetchOptions.method || 'GET').toUpperCase();
-  const writing = method !== 'GET' && method !== 'HEAD';
   const url = new URL(path, location.origin);
   url.searchParams.set('session', sandbox.id);
   const headers = new Headers(fetchOptions.headers);
   if (automatic) headers.set('X-Sandbox-Poll', '1');
-  if (writing) {
-    sandbox.pendingWrites++;
-    updateLeaveGuard();
-  }
   try {
-    const data = await jsonRequest(url, { ...fetchOptions, headers });
-    if (writing) sandbox.changed = true;
-    return data;
+    return await jsonRequest(url, { ...fetchOptions, headers });
   } catch (error) {
     if (error.code === 'sandbox_unavailable') {
       sandbox.available = false;
       sandbox.error = error;
       demoSelect.value = '__choose';
       updateControls();
-      updateLeaveGuard();
       message(error.message, true);
     }
     throw error;
-  } finally {
-    if (writing) sandbox.pendingWrites--;
-    updateLeaveGuard();
   }
 }
 
@@ -136,24 +87,29 @@ async function initialize() {
     demoSelect.append(option);
   }
   demoSelect.disabled = false;
-  let data;
+  let data, remembered;
+  if (!parameters.has('session')) {
+    try { remembered=JSON.parse(sessionStorage.getItem(activeSessionKey)||'null'); } catch {}
+    if(typeof remembered?.id==='string') {
+      try { data=await jsonRequest('/api/sandbox?session='+encodeURIComponent(remembered.id)); }
+      catch(error) {if(error.code!=='sandbox_unavailable')throw error;remembered=null;}
+    }
+  }
   if (parameters.has('session')) {
     sandbox.id = parameters.get('session');
     data = await jsonRequest('/api/sandbox?session=' + encodeURIComponent(sandbox.id));
-  } else {
+  } else if (!data) {
     const query = new URLSearchParams();
     if (parameters.get('demo')) query.set('demo', parameters.get('demo'));
     data = await jsonRequest('/api/sandboxes?' + query, { method: 'POST' });
   }
   sandbox.id = data.id;
   sandbox.demo = data.demo;
-  sandbox.changed = data.hasChanges;
   sandbox.idleTimeoutMs = data.idleTimeoutMinutes * 60 * 1000;
   sandbox.available = true;
   demoSelect.value = sandbox.demo || '';
-  sandbox.updateRoot(parameters.get('root') || currentRoot());
+  sandbox.updateRoot(parameters.get('root') || (typeof remembered?.root==='string'?remembered.root:null) || currentRoot());
   updateControls();
-  updateLeaveGuard();
   inactivityNote.textContent = `Edits are deleted after ${data.idleTimeoutMinutes} minutes of inactivity or a server restart.`;
   message('');
   return true;
@@ -161,12 +117,9 @@ async function initialize() {
 
 demoSelect.addEventListener('change', () => {
   if (demoSelect.value === '__choose') return;
-  if (hasChanges() && !window.confirm('You have changes in this demo. Open another demo?')) {
-    demoSelect.value = sandbox.demo || '';
-    return;
-  }
-  approvedDeparture = true; // The explicit confirmation replaces a second browser warning.
   demoSelect.disabled = true;
+  // An explicit XML selection always creates a fresh sandbox.
+  try { sessionStorage.removeItem(activeKey(demoSelect.value)); } catch {}
   const url = new URL(location.pathname, location.origin);
   if (demoSelect.value) url.searchParams.set('demo', demoSelect.value);
   url.searchParams.set('root', 'Thought');
@@ -179,7 +132,6 @@ sandbox.ready = initialize().catch(error => {
   sandbox.error = error;
   demoSelect.value = '__choose';
   updateControls();
-  updateLeaveGuard();
   message(error.message, true);
   return false;
 });

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sequences · BrainSim Thought</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="experiments.css?v=20261105-navigation">
+</head>
+<body class="guided-demo query-demo sequence-demo">
+  <main>
+    <aside>
+      <div class="chapter">Sequences / Spelling / Time / Music</div>
+      <div class="progress" aria-label="Experiment progress"></div>
+      <p id="step-number" class="eyebrow"></p>
+      <div class="prompt-content"><h1 id="prompt-title"></h1><div id="prompt-copy"></div></div>
+      <div class="action-zone" role="region" aria-label="Experiment actions" tabindex="0">
+        <div id="query-controls" aria-label="Query controls"></div>
+        <div id="choices" role="region" aria-label="Experiment content" tabindex="0"></div>
+      </div>
+      <div id="query-results" role="region" aria-label="Query results" tabindex="0"><p>Choose a word to begin.</p></div>
+      <p id="feedback" role="status" aria-live="polite">Connecting to the UKS…</p>
+      <div class="invitation" role="region" aria-label="Try this" tabindex="0"><span>Try this</span><div id="try-this"></div></div>
+      <nav aria-label="Experiments"><button id="back">← Back</button><button id="next" class="primary">Next →</button></nav>
+    </aside>
+    <section class="workspace" aria-label="Knowledge graph">
+      <div class="graph-toolbar">
+        <form id="root-form"><label for="root">Root</label><input id="root" value="Thought" list="root-options" aria-label="Graph root"><datalist id="root-options"></datalist><button id="load-root">Show</button></form>
+        <button id="fit" type="button">Fit view</button><button id="reset-content" type="button" title="Reset demo content and return to the first step">Reset Content</button><button id="help" type="button" aria-haspopup="dialog">Help</button>
+      </div>
+      <div class="canvas"><div id="graph" aria-label="Interactive knowledge graph"></div><div id="selection" role="status" aria-live="polite"></div></div>
+      <div class="graph-key" aria-label="Node color key"><span><i class="gold"></i>Root</span><span><i class="blue"></i>Thought</span><span><i class="green"></i>Expanded</span><span><i class="purple"></i>Relationship</span><span><i class="orange"></i>Supporting relationship</span><small id="counts"></small></div>
+    </section>
+  </main>
+  <dialog id="attribute-box" aria-label="Manage attributes"></dialog>
+  <dialog id="help-box" aria-labelledby="help-title"><p id="inactivity-note"></p></dialog>
+  <p id="sandbox-status" role="status"></p>
+  <!-- Existing session management is shared with the editor; XML selection is not part of this guided demo. -->
+  <select id="demo-select" hidden><option value="__choose">Choose</option><option value="">Standard UKS</option></select>
+  <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js" crossorigin="anonymous"></script>
+  <script type="module">
+    import { startExperiment } from './experiments.js?v=20261105-navigation';
+    const steps = [
+      {title:'Spelling is a sequence.',sequence:'spelling',inheritChoices:false,choices:[{component:'word-input'}, {component:'sequence-values'}, {component:'sequence-library'}, {component:'sequence-results'}],
+        copy:'Choose a word or enter your own. Each position is a Thought with a VLU link to its letter and a NXT link to the following position.',
+        try:'Add cat, car and cart. Inspect VLU and NXT links in the graph. A repeated letter can be the same value Thought at different positions.'},
+      {title:'Find a sequence from a fragment.',sequence:'letters',inheritChoices:false,choices:[{component:'letter-keyboard'}, {component:'sequence-input'}, {component:'sequence-match'}, {component:'sequence-examples'}, {component:'sequence-values'}, {component:'sequence-library'}, {component:'sequence-results'}],
+        copy:'Select letters in order. The UKS searches the spellings you stored and distinguishes complete spellings from fragments.',
+        try:'Try ca, then cat. A fragment may appear at the beginning, middle or end of a stored sequence.'},
+      {title:'Remember the order of events.',sequence:'digits',inheritChoices:false,choices:[{component:'digit-pad'}, {component:'sequence-input'}, {component:'remember-sequence'}, {component:'sequence-match'}, {component:'order-examples'}, {component:'sequence-values'}, {component:'sequence-library'}, {component:'sequence-results'}],
+        copy:'Click the nine-digit pad to record an order. Remember it, clear the input, then enter an order to match against it.',
+        try:'Remember 1 → 5 → 9. Try that order again, then try 1 → 9 → 5. The same values in a different order make a different sequence.'},
+      {title:'A fragment can recall a melody.',sequence:'music',inheritChoices:false,choices:[{component:'tune-selector'}, {component:'note-keyboard'}, {component:'sequence-input'}, {component:'sequence-match'}, {component:'playback'}, {component:'sequence-values'}, {component:'sequence-library'}, {component:'sequence-results'}],
+        copy:'Select and learn a few tunes. Enter some notes, or use a tune’s opening, to find stored melodies and reveal what follows.',
+        try:'Learn Twinkle, Twinkle and Mary Had a Little Lamb. Use an opening and find its tune, then play the completed tune or just the remainder.'}
+    ];
+    await startExperiment({facts:[],steps,sequence:{
+      words:['cat','car','cart','cater','dog','door','letter','banana'],fragments:['ca','cat','at','ar'],
+      orders:[{label:'Row order',values:['1','2','3','4','5','6','7','8','9']},{label:'Diagonal',values:['1','5','9']},{label:'Around the edge',values:['1','2','3','6','9','8','7','4']}],
+      notes:['C4','D4','E4','F4','G4','A4','B4','C5'],
+      tunes:[
+        {label:'Twinkle, Twinkle',values:['C4','C4','G4','G4','A4','A4','G4','F4','F4','E4','E4','D4','D4','C4']},
+        {label:'Mary Had a Little Lamb',values:['E4','D4','C4','D4','E4','E4','E4','D4','D4','D4','E4','G4','G4']},
+        {label:'Ode to Joy',values:['E4','E4','F4','G4','G4','F4','E4','D4','C4','C4','D4','E4','E4','D4','D4']}
+      ]
+    }});
+  </script>
+</body>
+</html>

@@ -67,60 +67,110 @@ Func<UKS.UKS, UKS.Thought, bool> graphRegistered = (store, thought) =>
     thought.LinksTo.Any(link => ReferenceEquals(link.From, thought)) ||
     thought.LinksFrom.Any(link => link.From?.LinksTo.Any(stored => ReferenceEquals(stored, link)) == true) ||
     (thought is UKS.Link storedLink && storedLink.From?.LinksTo.Any(l => ReferenceEquals(l, storedLink)) == true));
-Func<UKS.Thought, bool, object> graphSnapshot = (thought, expand) =>
+// One packet can describe several starting Thoughts. A VLU link, not a CLR
+// subclass or label notation, identifies the start of a sequence to display.
+Func<IReadOnlyList<UKS.Thought>, bool, bool, object> graphSnapshot = (starts, expand, sequenceValues) =>
 {
-    var links = expand
-        ? thought.LinksTo.Concat(thought.LinksFrom)
-            .Where(link => link.From is not null && link.To is not null && link.LinkType is not null)
-            .Distinct(ReferenceEqualityComparer.Instance).Cast<UKS.Link>().ToArray()
-        : Array.Empty<UKS.Link>();
-    var nodes = new HashSet<UKS.Thought>(ReferenceEqualityComparer.Instance) { thought };
-    foreach (var link in links)
+    var roots = starts.Distinct(ReferenceEqualityComparer.Instance).Cast<UKS.Thought>().ToArray();
+    var nodes = new HashSet<UKS.Thought>(roots, ReferenceEqualityComparer.Instance);
+    var links = new HashSet<UKS.Link>(ReferenceEqualityComparer.Instance);
+    foreach (var thought in roots)
+        if (expand)
+            foreach (var link in thought.LinksTo.Concat(thought.LinksFrom))
+                if (link.From is not null && link.To is not null && link.LinkType is not null)
+                    links.Add(link);
+    foreach (var link in links) { nodes.Add(link.From!); nodes.Add(link.To!); }
+
+    // A Relationship used as an endpoint is a visible Thought. Include its
+    // actual components even when it was not manually expanded; otherwise an
+    // annotation of a collapsed edge appears disconnected from that edge.
+    var relationshipParts = new HashSet<UKS.Link>(ReferenceEqualityComparer.Instance);
+    var pendingRelationships = new Queue<UKS.Link>(links.SelectMany(link => new[] { link.From, link.To }).OfType<UKS.Link>());
+    if (expand) foreach (var relationship in roots.OfType<UKS.Link>()) pendingRelationships.Enqueue(relationship);
+    while (pendingRelationships.TryDequeue(out var relationship))
     {
-        nodes.Add(link.From!);
-        nodes.Add(link.To!);
+        if (!relationshipParts.Add(relationship)) continue;
+        nodes.Add(relationship);
+        foreach (var part in new[] { relationship.From, relationship.LinkType, relationship.To })
+        {
+            if (part is null) continue;
+            nodes.Add(part);
+            if (part is UKS.Link nested) pendingRelationships.Enqueue(nested);
+        }
     }
+
+    Func<UKS.Thought, string> labelOf = thought => !string.IsNullOrEmpty(thought.Label) ? thought.Label
+        : thought is UKS.Link link ? $"[{link.From?.Label} → {link.LinkType?.Label} → {link.To?.Label}]" : "(unnamed Thought)";
+    Func<UKS.Thought, UKS.Link?> valueLink = thought => thought.LinksTo.FirstOrDefault(link =>
+        link.LinkType is not null && link.To is not null && ReferenceEquals(link.LinkType, thought.Store.Labeled("VLU")));
+    var sequenceLinks = new HashSet<UKS.Link>(ReferenceEqualityComparer.Instance);
+    var chains = new List<(List<UKS.Thought> Elements, UKS.Thought? CycleTo)>();
+    foreach (var start in nodes.ToArray())
+    {
+        if (valueLink(start) is null) continue;
+        var chain = new List<UKS.Thought>();
+        var visited = new HashSet<UKS.Thought>(ReferenceEqualityComparer.Instance);
+        UKS.Thought? current = start;
+        while (current is not null && visited.Add(current))
+        {
+            chain.Add(current); nodes.Add(current);
+            var next = current.LinksTo.FirstOrDefault(link => link.LinkType is not null && link.To is not null &&
+                ReferenceEquals(link.LinkType, current.Store.Labeled("NXT")));
+            if (next is null) { current = null; break; }
+            links.Add(next); sequenceLinks.Add(next);
+            current = next.To;
+        }
+        chains.Add((chain, current)); // A repeated Thought closes a cycle; never loop indefinitely.
+    }
+    // Several requested Thoughts may expose the same row or one of its suffixes.
+    var occupied = new HashSet<UKS.Thought>(ReferenceEqualityComparer.Instance);
+    chains = chains.OrderByDescending(chain => chain.Elements.Count).Where(chain =>
+    {
+        if (chain.Elements.Any(occupied.Contains)) return false;
+        foreach (var cell in chain.Elements) occupied.Add(cell);
+        return true;
+    }).ToList();
+    if (sequenceValues)
+        foreach (var cell in chains.SelectMany(chain => chain.Elements))
+            if (valueLink(cell) is UKS.Link value) { links.Add(value); nodes.Add(value.To!); }
     var displayedLinks = links.Select(link => new
     {
         id = (object)graphId(link), source = graphId(link.From!), target = graphId(link.To!),
-        type = link.LinkType!.Label, structural = false
+        type = link.LinkType!.Label, structural = false, sequence = sequenceLinks.Contains(link)
     }).ToList();
-    if (expand && thought is UKS.Link relationship)
+    foreach (var relationship in relationshipParts)
     {
         var relationshipId = graphId(relationship);
-        if (relationship.From is not null)
+        foreach (var part in new[] { (Thought: relationship.From, Role: "source"),
+            (Thought: relationship.LinkType, Role: "relationship type"), (Thought: relationship.To, Role: "target") })
         {
-            nodes.Add(relationship.From);
-            displayedLinks.Add(new { id = (object)$"part:{relationshipId}:source", source = graphId(relationship.From), target = relationshipId,
-                type = "source", structural = true });
-        }
-        if (relationship.LinkType is not null)
-        {
-            nodes.Add(relationship.LinkType);
-            displayedLinks.Add(new { id = (object)$"part:{relationshipId}:type", source = graphId(relationship.LinkType), target = relationshipId,
-                type = "relationship type", structural = true });
-        }
-        if (relationship.To is not null)
-        {
-            nodes.Add(relationship.To);
-            displayedLinks.Add(new { id = (object)$"part:{relationshipId}:target", source = relationshipId, target = graphId(relationship.To),
-                type = "target", structural = true });
+            if (part.Thought is null) continue;
+            nodes.Add(part.Thought);
+            displayedLinks.Add(new { id = (object)$"part:{relationshipId}:{part.Role}",
+                source = part.Role == "target" ? relationshipId : graphId(part.Thought),
+                target = part.Role == "target" ? graphId(part.Thought) : relationshipId,
+                type = part.Role, structural = true, sequence = false });
         }
     }
-    return new
+    return new Dictionary<string, object?>
     {
-        root = graphId(thought),
-        nodes = nodes.Select(t => new
+        ["root"] = roots.Length == 0 ? null : graphId(roots[0]),
+        ["roots"] = roots.Select(graphId).ToArray(),
+        ["nodes"] = nodes.Select(thought => new
         {
-            id = graphId(t),
-            label = !string.IsNullOrEmpty(t.Label) ? t.Label : t is UKS.Link l
-                ? $"[{l.From?.Label} → {l.LinkType?.Label} → {l.To?.Label}]" : "(unnamed Thought)",
-            isRelationship = t is UKS.Link
+            id = graphId(thought), label = labelOf(thought), isRelationship = thought is UKS.Link,
+            showSequenceCellLabel = sequenceValues && valueLink(thought) is not null,
+            sequenceValue = valueLink(thought)?.To is UKS.Thought value
+                ? new { id = graphId(value), label = labelOf(value), isRelationship = value is UKS.Link } : null
         }).ToArray(),
-        links = displayedLinks.ToArray()
+        ["links"] = displayedLinks.ToArray(),
+        ["sequences"] = chains.Select(chain => new
+        {
+            id = graphId(chain.Elements[0]), elements = chain.Elements.Select(graphId).ToArray(),
+            cycleTo = chain.CycleTo is null ? (long?)null : graphId(chain.CycleTo)
+        }).ToArray()
     };
 };
-
 // Expire idle stores without waiting behind a busy sandbox. Active request leases
 // cover response delivery as well as graph work. The monotonic clock is unaffected
 // by wall-clock adjustments; polling never moves LastActivity.
@@ -270,6 +320,157 @@ app.MapGet("/api/sandbox", (HttpContext context) =>
     return Results.Ok(new { id, demo = sandbox.Demo, thoughtLimit, idleTimeoutMinutes = idleMinutes, hasChanges = Volatile.Read(ref sandbox.HasChanges.Value) });
 });
 
+Func<UKS.UKS, UKS.UKS> sequencePreview = store =>
+{
+    var preview = new UKS.UKS();
+    var copies = new Dictionary<UKS.Thought, UKS.Thought>(ReferenceEqualityComparer.Instance);
+    foreach (var thought in storedThoughts(store))
+    {
+        UKS.Thought copy = thought is UKS.SeqElement ? new UKS.SeqElement(preview)
+            : thought is UKS.Link ? new UKS.Link(preview) : new UKS.Thought(preview);
+        copies.Add(thought, copy);
+        copy.Label = thought.Label;
+        copy.Weight = thought.Weight;
+        copy.maxWeight = thought.maxWeight;
+        copy.isPlastic = thought.isPlastic;
+        copy.V = thought.V;
+        copy.LastFiredTime = thought.LastFiredTime;
+        copy.TimeToLive = thought.TimeToLive;
+    }
+    foreach (var storedRelationship in copies.Keys.OfType<UKS.Link>())
+    {
+        var copy = (UKS.Link)copies[storedRelationship];
+        copy.From = storedRelationship.From is null ? null : copies[storedRelationship.From];
+        copy.LinkType = storedRelationship.LinkType is null ? null : copies[storedRelationship.LinkType];
+        copy.To = storedRelationship.To is null ? null : copies[storedRelationship.To];
+        // A Relationship stored as an exemplar is not an asserted fact.
+        if (storedRelationship.From?.LinksTo.Any(link => ReferenceEquals(link, storedRelationship)) == true)
+            UKS.UKS.WriteTheLink(copy);
+    }
+    preview.AtomicThoughts.UnionWith(store.AtomicThoughts.Select(thought => copies[thought]));
+    return preview;
+};
+Func<string, string> sequenceType = kind => kind == "word" ? "spelled" : kind == "digits" ? "ordered" : "notes";
+Func<UKS.UKS, string, string, string[], UKS.Thought> storeDemoSequence = (store, kind, label, values) =>
+{
+    var owner = store.GetOrAddThought(label, store.GetOrAddThought("DemoSequences." + kind))!;
+    var type = store.GetOrAddThought(sequenceType(kind), "LinkType")!;
+    var thoughts = values.Select(value => kind == "word" ? store.GetOrAddCharacter(value[0])
+        : store.GetOrAddThought(kind == "music" ? "note:" + value : value)!).ToList();
+    store.AddSequenceAndLink(owner, type, thoughts, allowCompression: false);
+    return owner;
+};
+Func<UKS.Thought, List<UKS.Thought>> demoSequenceCells = first =>
+{
+    var cells = new List<UKS.Thought>(); var seen = new HashSet<UKS.Thought>(ReferenceEqualityComparer.Instance);
+    for (UKS.Thought? cell = first; cell is not null && seen.Add(cell) && cells.Count < 256;
+        cell = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("NXT"))?.To)
+        cells.Add(cell);
+    return cells;
+};
+Func<UKS.Thought, string, object> demoSequence = (owner, kind) =>
+{
+    var first = owner.LinksTo.First(link => link.LinkType == owner.Store.Labeled(sequenceType(kind))).To!;
+    return new { id = graphId(owner), label = owner.Label, startId = graphId(first), kind,
+        cells = demoSequenceCells(first).Select(cell => new {
+            id = graphId(cell), value = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("VLU"))?.To?.Label,
+            nextId = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("NXT"))?.To is UKS.Thought next ? (long?)graphId(next) : null
+        }).ToArray() };
+};
+app.MapPost("/api/sequences", (System.Text.Json.JsonElement input, HttpContext context) =>
+{
+    if (input.ValueKind != System.Text.Json.JsonValueKind.Object) return Results.BadRequest(new { error = "Supply a sequence object." });
+    string? kind = input.TryGetProperty("kind", out var kindJson) && kindJson.ValueKind == System.Text.Json.JsonValueKind.String ? kindJson.GetString() : null;
+    string? label = input.TryGetProperty("label", out var labelJson) && labelJson.ValueKind == System.Text.Json.JsonValueKind.String ? labelJson.GetString()?.Trim() : null;
+    if (kind is not ("word" or "digits" or "music") || string.IsNullOrEmpty(label) || label.Length > 80 ||
+        !input.TryGetProperty("values", out var valuesJson) || valuesJson.ValueKind != System.Text.Json.JsonValueKind.Array)
+        return Results.BadRequest(new { error = "Choose a sequence kind, name, and values." });
+    if (valuesJson.GetArrayLength() is < 1 or > 32 || valuesJson.EnumerateArray().Any(value => value.ValueKind != System.Text.Json.JsonValueKind.String))
+        return Results.BadRequest(new { error = "Use between one and 32 sequence values." });
+    var values = valuesJson.EnumerateArray().Select(value => value.GetString()!).ToArray();
+    if (values.Any(value => kind == "word" ? value.Length != 1 || !char.IsAsciiLetter(value[0])
+        : kind == "digits" ? value.Length != 1 || value[0] < '1' || value[0] > '9'
+        : !new[] { "C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5" }.Contains(value)))
+        return Results.BadRequest(new { error = "Select letters, digits 1–9, or notes C4–C5." });
+    var sandbox = sandboxes[(string)context.Items["session"]!]; var uks = sandbox.Store;
+    lock (sandbox.Sync)
+    {
+        var existing = uks.Labeled(label);
+        if (existing is not null)
+        {
+            var link = existing.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled(sequenceType(kind)));
+            var expected = values.Select(value => kind == "word" ? UKS.UKS.GetCharacterLabel(value[0]) : kind == "music" ? "note:" + value : value);
+            if (link?.To is not null && demoSequenceCells(link.To).Select(cell => cell.LinksTo.FirstOrDefault(edge => edge.LinkType == uks.Labeled("VLU"))?.To?.Label).SequenceEqual(expected))
+                return Results.Ok(demoSequence(existing, kind));
+            return Results.Conflict(new { error = "That name already has different content. Choose another name." });
+        }
+        var previous = UKS.UKS.theUKS;
+        try
+        {
+            var preview = sequencePreview(uks);
+            storeDemoSequence(preview, kind, label, values);
+            var baseline = storedThoughts(uks).Count(thought => initialThoughts.TryGetValue(thought, out _));
+            if (storedThoughts(preview).Count - baseline > thoughtLimit)
+                return Results.Json(new { error = $"This demo is limited to {thoughtLimit} added Thoughts, including relationships." }, statusCode: 409);
+        }
+        finally { UKS.UKS.theUKS = previous; }
+        var owner = storeDemoSequence(uks, kind, label, values);
+        Volatile.Write(ref sandbox.HasChanges.Value, true);
+        return Results.Ok(demoSequence(owner, kind));
+    }
+});
+app.MapGet("/api/sequences", (string? kind, HttpContext context) =>
+{
+    if (kind is not ("word" or "digits" or "music")) return Results.BadRequest(new { error = "Choose word, digits, or music." });
+    var sandbox = sandboxes[(string)context.Items["session"]!]; var uks = sandbox.Store;
+    lock (sandbox.Sync) return Results.Ok(new { sequences = uks.Labeled("DemoSequences." + kind)?.Children
+        .Where(owner => owner.LinksTo.Any(link => link.LinkType == uks.Labeled(sequenceType(kind)) && link.To is not null))
+        .Select(owner => demoSequence(owner, kind)).ToArray() ?? Array.Empty<object>() });
+});
+app.MapGet("/api/sequence-matches", (string? kind, string? values, HttpContext context) =>
+{
+    if (kind is not ("word" or "digits" or "music")) return Results.BadRequest(new { error = "Choose word, digits, or music." });
+    string[] pattern;
+    try { pattern = System.Text.Json.JsonSerializer.Deserialize<string[]>(values ?? "[]") ?? Array.Empty<string>(); }
+    catch (System.Text.Json.JsonException) { return Results.BadRequest(new { error = "Supply a list of sequence values." }); }
+    if (pattern.Length is < 1 or > 32 || pattern.Any(value => string.IsNullOrEmpty(value) || value.Length > 16))
+        return Results.BadRequest(new { error = "Choose between one and 32 values." });
+    if (pattern.Any(value => kind == "word" ? value.Length != 1 || !char.IsAsciiLetter(value[0])
+        : kind == "digits" ? value.Length != 1 || value[0] < '1' || value[0] > '9'
+        : !new[] { "C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5" }.Contains(value)))
+        return Results.BadRequest(new { error = "Use letters, digits 1–9, or notes C4–C5." });
+    var sandbox = sandboxes[(string)context.Items["session"]!]; var uks = sandbox.Store;
+    lock (sandbox.Sync)
+    {
+        var thoughts = pattern.Select(value => uks.Labeled(kind == "word" ? UKS.UKS.GetCharacterLabel(value[0]) : kind == "music" ? "note:" + value : value)).ToList();
+        if (thoughts.Any(thought => thought is null)) return Results.Ok(new { matches = Array.Empty<object>() });
+        var options = new UKS.Thought(uks);
+        try
+        {
+            var matches = uks.FindSequencesByActivation(thoughts!, options, getFirstElements:false);
+            var owners = uks.Labeled("DemoSequences." + kind)?.Children ?? new List<UKS.Thought>();
+            var rows = new List<object>();
+            foreach (var owner in owners)
+            {
+                var first = owner.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled(sequenceType(kind)))?.To;
+                if (first is null) continue;
+                var cells = demoSequenceCells(first);
+                foreach (var match in matches)
+                {
+                    int offset = cells.FindIndex(cell => ReferenceEquals(cell, match.seqNode));
+                    if (offset < 0 || offset + pattern.Length > cells.Count) continue;
+                    var labels = cells.Select(cell => cell.LinksTo.First(link => link.LinkType == uks.Labeled("VLU")).To!.Label).ToArray();
+                    rows.Add(new { sequence = demoSequence(owner,kind), offset, matched = pattern.Length, total = cells.Count,
+                        full = offset == 0 && pattern.Length == cells.Count, confidence = match.confidence,
+                        continuation = labels.Skip(offset + pattern.Length).ToArray() });
+                }
+            }
+            return Results.Ok(new { matches = rows });
+        }
+        finally { options.Delete(); }
+    }
+});
+
 app.MapPost("/api/statements", (StatementInput input, HttpContext context) =>
 {
     if (string.IsNullOrWhiteSpace(input.Source) ||
@@ -409,7 +610,93 @@ app.MapDelete("/api/thoughts", (string? label, HttpContext context) =>
     }
 });
 
-app.MapGet("/api/graph", (string? label, long? id, string? ids, bool? expand, HttpContext context) =>
+// UKS returns the winning category/depth, not a full path. Reconstruct one
+// stored supporting route; never claim this is the search engine's execution trace.
+Func<UKS.Thought, UKS.Link, object> attributeSnapshot = (source, result) =>
+{
+    var origin = result.InheritedFromCategory ?? source;
+    var paths = new Dictionary<UKS.Thought, List<UKS.Link>>(ReferenceEqualityComparer.Instance) { [source] = new() };
+    var pending = new Queue<UKS.Thought>(); pending.Enqueue(source);
+    while (pending.TryDequeue(out var current) && !paths.ContainsKey(origin))
+    {
+        if (paths[current].Count >= result.InheritanceDepth) continue;
+        foreach (var edge in current.LinksTo)
+        {
+            if (edge.To is null || edge.LinkType?.HasProperty("inheritable") != true || paths.ContainsKey(edge.To)) continue;
+            paths[edge.To] = new List<UKS.Link>(paths[current]) { edge };
+            pending.Enqueue(edge.To);
+        }
+    }
+    var stored = origin.LinksTo.FirstOrDefault(edge => edge.LinkType == result.LinkType && edge.To == result.To);
+    var evidence = stored is not null && paths.TryGetValue(origin, out var route)
+        ? route.Append(stored).ToArray() : Array.Empty<UKS.Link>();
+    return new
+    {
+        source = source.Label, relationshipType = result.LinkType?.Label, target = result.To?.Label,
+        inheritedFrom = result.InheritedFromCategory?.Label, depth = result.InheritanceDepth, weight = result.Weight,
+        evidenceLinkIds = evidence.Select(graphId).ToArray(),
+        evidenceThoughtIds = evidence.SelectMany(edge => new[] { edge.From!, edge.To! }).Distinct().Select(graphId).ToArray()
+    };
+};
+
+// Query results are values, not stored Relationship identities. Never register
+// GetAttributes' temporary Links as graph handles; the graph shows stored facts.
+app.MapGet("/api/attributes", (string? label, HttpContext context) =>
+{
+    var sandbox = sandboxes[(string)context.Items["session"]!];
+    var uks = sandbox.Store;
+    lock (sandbox.Sync)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return Results.BadRequest(new { error = "Choose a Thought." });
+        var thought = uks.Labeled(label.Trim());
+        if (thought is null) return Results.NotFound(new { error = "That Thought was not found." });
+        return Results.Ok(new { label = thought.Label, id = graphId(thought), attributes = uks.GetAttributes(thought)
+            .Where(link => link.LinkType is not null && link.To is not null).Select(link => attributeSnapshot(thought, link)).ToArray() });
+    }
+});
+
+app.MapGet("/api/candidates", (string? root, HttpContext context) =>
+{
+    var sandbox = sandboxes[(string)context.Items["session"]!];
+    var uks = sandbox.Store;
+    lock (sandbox.Sync)
+    {
+        var types = context.Request.Query["types"];
+        var targets = context.Request.Query["targets"];
+        if (types.Count == 0 || types.Count > 16 || types.Count != targets.Count)
+            return Results.BadRequest(new { error = "Choose between one and sixteen attributes." });
+        var scope = string.IsNullOrWhiteSpace(root) ? null : uks.Labeled(root.Trim());
+        if (scope is null) return Results.NotFound(new { error = "Choose an existing search root." });
+        var pairs = new List<(UKS.Thought Type, UKS.Thought Target)>();
+        for (int index = 0; index < types.Count; index++)
+        {
+            var type = uks.Labeled(types[index] ?? "");
+            var target = uks.Labeled(targets[index] ?? "");
+            if (type is null || target is null) return Results.NotFound(new { error = "A selected attribute no longer exists." });
+            pairs.Add((type, target));
+        }
+        // An unlabeled temporary Thought supplies the existing desktop search
+        // API's pattern. Always detach it, including on query failure.
+        var pattern = new UKS.Thought(uks);
+        try
+        {
+            foreach (var pair in pairs.Distinct()) pattern.AddLink(pair.Type, pair.Target);
+            var candidates = uks.SearchByAttributes(pattern, scope).Where(item => item.conf > 0).Take(100).ToArray();
+            return Results.Ok(new { root = scope.Label, candidates = candidates.Select(item =>
+            {
+                var effective = uks.GetAttributes(item.t);
+                return new { id = graphId(item.t), label = item.t.Label, score = item.conf,
+                    matched = pairs.Count(pair => effective.Any(link => link.LinkType?.HasAncestor(pair.Type) == true && link.To == pair.Target)),
+                    total = pairs.Count, attributes = effective.Where(link => pairs.Any(pair =>
+                        link.LinkType?.HasAncestor(pair.Type) == true && link.To == pair.Target))
+                        .Select(link => attributeSnapshot(item.t, link)).ToArray() };
+            }).ToArray() });
+        }
+        finally { pattern.Delete(); }
+    }
+});
+
+app.MapGet("/api/graph", (string? label, long? id, string? ids, string? roots, bool? expand, bool? sequenceValues, HttpContext context) =>
 {
     var sandbox = sandboxes[(string)context.Items["session"]!];
     var uks = sandbox.Store;
@@ -419,6 +706,33 @@ app.MapGet("/api/graph", (string? label, long? id, string? ids, bool? expand, Ht
         foreach (var stale in graphThoughts.Where(pair => !pair.Value.TryGetTarget(out _)).Select(pair => pair.Key).ToArray())
             graphThoughts.TryRemove(stale, out _);
 
+        var names = context.Request.Query["labels"];
+        if (roots is not null || names.Count > 0)
+        {
+            var selected = new List<UKS.Thought>();
+            var missingIds = new List<long>();
+            var missingLabels = new List<string>();
+            if (roots is not null)
+            {
+                var handles = roots.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                if (handles.Length > 256 || handles.Any(handle => !long.TryParse(handle, out var number) || number < 1))
+                    return Results.BadRequest(new { error = "Supply at most 256 valid graph handles." });
+                foreach (var handle in handles.Select(long.Parse).Distinct())
+                    if (graphThoughts.TryGetValue(handle, out var reference) && reference.TryGetTarget(out var selectedThought) && graphRegistered(uks, selectedThought)) selected.Add(selectedThought);
+                    else missingIds.Add(handle);
+            }
+            else
+            {
+                if (names.Count > 256) return Results.BadRequest(new { error = "Supply at most 256 Thought labels." });
+                foreach (var name in names)
+                    if (!string.IsNullOrWhiteSpace(name) && uks.Labeled(name.Trim()) is UKS.Thought namedThought && graphRegistered(uks, namedThought)) selected.Add(namedThought);
+                    else missingLabels.Add(name ?? "");
+            }
+            var packet = (Dictionary<string, object?>)graphSnapshot(selected, expand == true, sequenceValues == true);
+            packet["missingIds"] = missingIds;
+            packet["missingLabels"] = missingLabels;
+            return Results.Ok(packet);
+        }
         if (ids is not null)
         {
             // Refresh only nodes the browser has already expanded, in bounded batches.
@@ -432,7 +746,7 @@ app.MapGet("/api/graph", (string? label, long? id, string? ids, bool? expand, Ht
                 if (!graphThoughts.TryGetValue(handle, out var reference) || !reference.TryGetTarget(out var node) ||
                     !graphRegistered(uks, node))
                     missingIds.Add(handle);
-                else snapshots.Add(graphSnapshot(node, true));
+                else snapshots.Add(graphSnapshot(new[] { node }, true, sequenceValues == true));
             }
             return Results.Ok(new { snapshots, missingIds });
         }
@@ -454,7 +768,7 @@ app.MapGet("/api/graph", (string? label, long? id, string? ids, bool? expand, Ht
         if (!graphRegistered(uks, thought))
             return Results.NotFound(new { error = "That Thought has been deleted. Reload the root to refresh the graph." });
 
-        return Results.Ok(graphSnapshot(thought, expand == true));
+        return Results.Ok(graphSnapshot(new[] { thought }, expand == true, sequenceValues == true));
     }
 });
 

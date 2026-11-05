@@ -1,181 +1,299 @@
-import { sandbox, request } from './sandbox.js?v=20261103-simple';
+import { sandbox, request } from './sandbox.js?v=20261105-resume';
+import { createUKSGraph, selectRelationship } from './uks-graph.js?v=20261105-collapse3';
+import { createQueryPanel } from './uks-query.js?v=20261105-resume';
+import { createSequencePanel } from './uks-sequences.js?v=20261105-resume';
+import { createDemoComponents } from './demo-components.js?v=20261105-components';
 
-// Presentation-only draft: prompts and choices live here until their UKS
-// representation is agreed. All facts and relationship expansion use the UKS API.
-const facts = [
-  { source: 'Fido', relationshipType: 'is', target: 'brown', caption: 'Fido is brown' },
-  { source: 'Fido', relationshipType: 'has', target: 'tail', caption: 'Fido has a tail' },
-  { source: 'Fido', relationshipType: 'makes', target: 'barking-sound', caption: 'Fido makes a barking sound' },
-  { source: 'Fido', relationshipType: 'is-in', target: 'yard', caption: 'Fido is in the yard' },
-  { source: 'Fido', relationshipType: 'chases', target: 'ball', caption: 'Fido chases a ball' },
-  { source: 'Fido', relationshipType: 'plays', target: 'fetch', caption: 'Fido plays fetch' },
-  { source: '[Fido->plays->fetch]', sourceFact: 5, relationshipType: 'using', target: 'frisbee', caption: 'Fido plays fetch using a frisbee', requires: [5] },
-  { source: '[Fido->plays->fetch]', sourceFact: 5, relationshipType: 'basis', target: '"personal experience"', targetLabel: 'personal experience', caption: 'The play was known through personal experience', requires: [5] }
-];
-const steps = [
-  { title: 'Things and attributes are Thoughts.', copy: 'Chapter 2 starts with Fido. Brown and tail are Thoughts too. Relationships connect them into knowledge.', choices: [0, 1], try: 'Add both facts. Hover over an edge to read [source → type → target], then tap the edge to look inside.' },
-  { title: 'The Relationship type matters.', copy: 'Color, structure, sound, location, and action use the same triple. The Relationship type tells us how the Thoughts are connected.', choices: [0, 1, 2, 3, 4], try: 'Add different kinds of facts about Fido. Tap an edge to reveal its type as a Thought, alongside its source and target.' },
-  { title: 'A Relationship is a Thought.', copy: 'Figure 2.3 expands [Fido → plays → fetch]. The whole Relationship is a Thought connected to its source, type, and target.', choices: [1, 5], try: 'Add Fido’s play, then tap the plays edge. The purple Thought represents [Fido → plays → fetch], not just Fido or fetch.' },
-  { title: 'Relationships have attributes too.', copy: 'Figure 2.3 adds using → frisbee and basis → personal experience to the play Relationship. These describe the play itself.', choices: [5, 6, 7], try: 'Choose an attribute of the play. Tap its edge to reveal a Relationship whose source is another Relationship. Explore the nested brackets in its label.' }
-];
-function factNotation(index) {
-  const fact = facts[index];
-  const source = fact.sourceFact === undefined ? fact.source : factNotation(fact.sourceFact);
-  return `[${source} → ${fact.relationshipType} → ${fact.targetLabel || fact.target}]`;
-}
-const $ = selector => document.querySelector(selector);
-const created = new Map();
-const expanded = new Map();
-const promoted = new Map();
-const base = new Map();
-const positions = new Map();
-let step = 0, graph, busy = false;
+// Common guided-demo engine. A page supplies facts, steps, and its HTML layout.
+// No chapter-specific content, graph rendering, or expansion state lives here.
+export async function startExperiment({ facts, steps, colors, query, sequence, initialFacts = [], seedIfMissing, seedGroups = [] }) {
+  const $ = selector => document.querySelector(selector);
+  const created = new Map(), completed = new Set();
+  const componentChoices = steps.some(item=>(item.choices || []).some(entry=>entry && typeof entry==='object' && entry.component));
+  const rootInput = $('#root');
+  let step = 0, graph, queryPanel, busy = true, selection = '', refreshTask = null;
+  const parameters = new URLSearchParams(location.search);
+  if (parameters.get('root')) rootInput.value = parameters.get('root');
+  let stateReady=false, savedState=null, saveTimer;
+  const stateKey=()=>`uks-demo-state:1:${sandbox.id}:${location.pathname}`;
+  function saveState() {
+    if(!stateReady || !sandbox.available || !graph)return;
+    try {
+      sessionStorage.setItem(stateKey(),JSON.stringify({version:1,step,completed:[...completed],
+        urlRoot:new URL(location.href).searchParams.get('root'),selection,
+        panel:queryPanel?.getState(),graph:graph.getState(),
+        scrolls:Object.fromEntries(['.action-zone','.prompt-content','.invitation','#query-results'].map(selector=>[selector,$(selector)?.scrollTop||0]))}));
+    } catch { /* Storage can be disabled or full; the demo still works. */ }
+  }
+  function scheduleSave() {clearTimeout(saveTimer);saveTimer=setTimeout(saveState,100);}
 
-function feedback(text, error = false) {
-  $('#feedback').textContent = text;
-  $('#feedback').classList.toggle('error', error);
-}
-function controls() {
-  document.querySelectorAll('#choices button, #reset, #back, #next, .progress button').forEach(button => button.disabled = busy);
-  $('#back').disabled = busy || step === 0;
-  $('#next').disabled = busy || step === steps.length - 1;
-}
-function showStep() {
-  const current = steps[step];
-  $('#step-number').textContent = `Experiment ${step + 1} of ${steps.length}`;
-  $('#prompt-title').textContent = current.title;
-  $('#prompt-copy').textContent = current.copy;
-  $('#try-this').textContent = current.try;
-  $('#choices').replaceChildren(...current.choices.map(index => {
-    const fact = facts[index], button = document.createElement('button');
-    button.className = 'choice' + (created.has(index) ? ' added' : '');
-    button.textContent = `${created.has(index) ? '✓' : '+'} ${fact.caption}`;
-    const hint = document.createElement('small');
-    hint.textContent = factNotation(index);
-    button.setAttribute('aria-label', `${created.has(index) ? 'Inspect' : 'Add'}: ${fact.caption}`);
-    button.append(hint);
-    button.onclick = () => run(async () => { await addFact(index); draw(true); showStep(); });
-    return button;
-  }));
-  $('.progress').replaceChildren(...steps.map((_, index) => {
-    const button = document.createElement('button');
-    button.className = index <= step ? 'active' : '';
-    button.setAttribute('aria-label', `Experiment ${index + 1}`);
-    if (index === step) button.setAttribute('aria-current', 'step');
-    button.onclick = () => { step = index; showStep(); };
-    return button;
-  }));
+
+  function notation(index, input = false, path = new Set()) {
+    if (path.has(index) || !facts[index]) throw new Error('A fact has a missing or circular sourceFact reference.');
+    const next = new Set(path).add(index), fact = facts[index];
+    const source = fact.sourceFact === undefined ? fact.source : notation(fact.sourceFact, input, next);
+    return input ? `[${source}->${fact.relationshipType}->${fact.target}]`
+      : `[${source} → ${fact.relationshipType} → ${targetLabel(fact)}]`;
+  }
+  function targetLabel(fact) {
+    if (fact.targetLabel) return fact.targetLabel;
+    return fact.target.startsWith('"') ? JSON.parse(fact.target) : fact.target;
+  }
+  function feedback(text, error = false) {
+    $('#feedback').textContent = text;
+    $('#feedback').classList.toggle('error', error);
+  }
+  function inspect(text = '') { $('#selection').textContent = text || selection; }
+  function controls() {
+    const unavailable = busy || !graph || !sandbox.available;
+    queryPanel?.setBusy(unavailable);
+    $('#reset-content').disabled = busy;
+    document.querySelectorAll('#choices button, #load-root').forEach(button => button.disabled = unavailable);
+    $('#back').disabled = busy || step === 0;
+    const lastStep = step === steps.length - 1;
+    $('#next').textContent = lastStep ? 'More demos' : 'Next →';
+    $('#next').disabled = busy || (!lastStep && (unavailable || !completed.has(step)));
+    $('#next').title = lastStep ? 'Explore more demos' : completed.has(step) ? 'Next experiment' : 'Add, remove, or explore something first';
+    document.querySelectorAll('.progress button').forEach((button, index) => {
+      button.disabled = busy || index > 0 && !completed.has(index - 1);
+    });
+  }
+  function actionIcon(remove) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('class', 'action-icon'); svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(svg.namespaceURI, 'path');
+    path.setAttribute('d', remove ? 'M5 12h14' : 'M12 5v14M5 12h14');
+    path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-width', '1.7'); path.setAttribute('stroke-linecap', 'round');
+    svg.append(path); return svg;
+  }
+  function showStep() {
+    const actionZone = $('.action-zone') || $('#choices');
+    const current = steps[step], scrollTop = actionZone.scrollTop;
+    queryPanel?.showStep(current.query || current.sequence);
+    $('#step-number').textContent = `Experiment ${step + 1} of ${steps.length}`;
+    // These fields are trusted author-written HTML from the experiment page.
+    // UKS labels, user input, feedback and results continue to use textContent.
+    $('#prompt-title').innerHTML = current.title || '';
+    $('#prompt-copy').innerHTML = current.copy || '';
+    $('#try-this').innerHTML = current.try || '';
+    const choiceKey=entry=>typeof entry==='number'?`fact:${entry}`:entry.id || `component:${entry.component}`;
+    const offeredChoices = new Map();
+    for (const item of steps.slice(0, step + 1)) {
+      if (item.inheritChoices === false) offeredChoices.clear();
+      for (const entry of item.choices || []) offeredChoices.set(choiceKey(entry),entry);
+      for (const entry of item.removeChoices || []) {
+        const key=typeof entry==='number'?`fact:${entry}`:entry;
+        offeredChoices.delete(key);offeredChoices.delete(`component:${key}`);
+      }
+    }
+    const choices = [...offeredChoices.values()].filter(entry => typeof entry!=='number' ||
+      current.query !== 'exceptions' || facts[entry].source === queryPanel?.subject);
+    $('#choices').replaceChildren(...choices.map(index => {
+      if(typeof index!=='number') {
+        if(queryPanel?.createComponent)return queryPanel.createComponent(index);
+        const pending=document.createElement('div');pending.textContent='Loading…';return pending;
+      }
+      const fact = facts[index], added = created.has(index), button = document.createElement('button');
+      button.className = 'choice' + (added ? ' added' : '');
+      button.setAttribute('aria-label', `${added ? 'Delete' : 'Add'}: ${fact.caption}`);
+      button.title = `${added ? 'Delete' : 'Add'} this Relationship`;
+      const label = document.createElement('span'); label.textContent = fact.caption;
+      button.append(label, actionIcon(added));
+      button.onclick = () => run(async () => {
+        const removing = created.has(index);
+        try {
+          if (removing) {
+            try { await request('/api/relationships?id=' + created.get(index), { method: 'DELETE' }); }
+            catch (error) { if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error; }
+          } else await addFact(index);
+        } finally { await synchronize({ show: !removing && !query && !sequence, fit: true }); showStep(); }
+        await queryPanel?.refresh();
+        selection = removing ? '' : notation(index); inspect();
+        feedback(`${removing ? 'Removed' : 'Added'}: ${fact.caption}.`);
+      });
+      return button;
+    }));
+    actionZone.scrollTop = scrollTop;
+    $('.progress').replaceChildren(...steps.map((_, index) => {
+      const button = document.createElement('button');
+      button.className = index <= step ? 'active' : '';
+      button.setAttribute('aria-label', `Experiment ${index + 1}`);
+      if (index === step) button.setAttribute('aria-current', 'step');
+      button.onclick = () => moveStep(index);
+      return button;
+    }));
+    controls();
+  }
+  function moveStep(index) {
+    if (busy || index < 0 || index >= steps.length || index > 0 && !completed.has(index - 1)) return;
+    step = index; ($('.action-zone') || $('#choices')).scrollTop = 0; showStep(); feedback('');
+    if (queryPanel) run(() => queryPanel.activate());
+    saveState();
+  }
+  async function run(action) {
+    if (refreshTask) await refreshTask;
+    if (busy || !graph) return false;
+    const actionStep = step;
+    busy = true; controls();
+    try { if (await action() !== false) completed.add(actionStep); }
+    catch (error) { feedback(error.message, true); }
+    finally { busy = false; controls(); saveState(); }
+  }
+  function findFact(index, data) {
+    const fact = facts[index];
+    const target = data.nodes.find(node => node.label === targetLabel(fact))?.id;
+    return data.links.find(link => !link.structural && link.source === data.root && link.type === fact.relationshipType && link.target === target);
+  }
+  async function addFact(index, path = new Set()) {
+    if (created.has(index)) return;
+    if (path.has(index)) throw new Error('A fact has circular prerequisites.');
+    const next = new Set(path).add(index), fact = facts[index];
+    const prerequisites = [...(fact.requires || []), ...(fact.sourceFact === undefined ? [] : [fact.sourceFact])];
+    for (const prerequisite of new Set(prerequisites)) await addFact(prerequisite, next);
+    const source = fact.sourceFact === undefined ? fact.source : notation(fact.sourceFact, true);
+    await request('/api/statements', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source, relationshipType: fact.relationshipType, target: fact.target }) });
+    const data = await graph.read(fact.sourceFact === undefined ? { label: fact.source, expand: true } : { id: created.get(fact.sourceFact), expand: true });
+    const link = findFact(index, data);
+    if (!link) throw new Error('The fact was stored, but its connection could not be displayed. Reload the page to synchronize.');
+    created.set(index, link.id);
+  }
+  // Check actual UKS membership, so reloads and edits from another tab update
+  // choice buttons. The graph component handles its own exploration/refresh.
+  async function synchronize({ automatic = false, show = false, fit = false } = {}) {
+    const cache = new Map(), found = new Map(), checked = new Set(), path = new Set();
+    async function resolve(index) {
+      if (checked.has(index)) return;
+      if (path.has(index)) throw new Error('A fact has a circular sourceFact reference.');
+      path.add(index);
+      const fact = facts[index];
+      if (fact.sourceFact !== undefined) await resolve(fact.sourceFact);
+      if (fact.sourceFact === undefined || found.has(fact.sourceFact)) {
+        const query = fact.sourceFact === undefined ? { label: fact.source, expand: true } : { id: found.get(fact.sourceFact).link.id, expand: true };
+        const key = JSON.stringify(query);
+        if (!cache.has(key)) {
+          try { cache.set(key, await graph.read(query, automatic)); }
+          catch (error) { if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error; cache.set(key, null); }
+        }
+        const data = cache.get(key), link = data && findFact(index, data);
+        if (link) found.set(index, { data, link });
+      }
+      path.delete(index); checked.add(index);
+    }
+    for (let index = 0; index < facts.length; index++) await resolve(index);
+    created.clear(); for (const [index, { link }] of found) created.set(index, link.id);
+    await graph.refresh({ automatic });
+    const seeds = [...found.values()].map(({ data, link }) => selectRelationship(data, link));
+    graph.setPresets(seeds, new Map([...created].map(([index, id]) => [id, notation(index)])), { show, fit });
+  }
+  function updateGraphControls({ nodes, nodeCount }) {
+    $('#counts').textContent = `${nodeCount} visible`;
+    const labels = new Set([rootInput.value, 'Thought', ...facts.flatMap(fact => fact.sourceFact === undefined ? [fact.source, targetLabel(fact)] : [targetLabel(fact)]), ...nodes.filter(node => !node.isRelationship).map(node => node.label)]);
+    $('#root-options').replaceChildren(...[...labels].map(label => { const option = document.createElement('option'); option.value = label; return option; }));
+  }
+  $('#back').onclick = () => moveStep(step - 1);
+  $('#next').onclick = () => {
+    if (step === steps.length - 1) window.top.location.href = 'https://futureaisociety.org/demos';
+    else moveStep(step + 1);
+  };
+  $('#fit').onclick = () => graph?.fit();
+  $('#reset-content').onclick = async () => {
+    if (refreshTask) await refreshTask;
+    if (busy) return;
+    busy = true; controls();
+    try {
+      const creation = new URL('/api/sandboxes', location.origin);
+      const demo = sandbox.demo || parameters.get('demo');
+      if (demo) creation.searchParams.set('demo', demo);
+      const response = await fetch(creation, {method:'POST',cache:'no-store'});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || data.detail || 'Could not reset the demo.');
+      const url = new URL(location.pathname, location.origin);
+      if (demo) url.searchParams.set('demo', demo);
+      url.searchParams.set('session', data.id);
+      url.searchParams.set('root', rootInput.defaultValue || rootInput.options?.[0]?.value || 'Thought');
+      location.assign(url);
+    } catch (error) { feedback(error.message, true); }
+    finally { busy = false; controls(); }
+  };
+  $('#root-form').onsubmit = event => { event.preventDefault(); run(async () => {
+    await graph.loadRoot(rootInput.value);
+    feedback(`Showing root: ${rootInput.value.trim()}.`);
+  }); };
   controls();
-}
-async function run(action) {
-  if (busy) return;
-  busy = true; controls();
-  try { await action(); } catch (error) { feedback(error.message, true); }
+  try {
+    if (!await sandbox.ready) throw sandbox.error;
+    try {
+      const stored=JSON.parse(sessionStorage.getItem(stateKey())||'null');
+      if(stored?.version===1 && Number.isInteger(stored.step) && stored.step>=0 && stored.step<steps.length &&
+          stored.urlRoot===new URL(location.href).searchParams.get('root')) {
+        savedState=stored;step=stored.step;
+        for(const index of Array.isArray(stored.completed)?stored.completed:[])if(Number.isInteger(index)&&index>=0&&index<steps.length)completed.add(index);
+      }
+    } catch { /* Ignore unavailable storage and outdated/invalid state. */ }
+    showStep();
+    graph = await createUKSGraph($('#graph'), {
+      request, root: rootInput.value, colors, help: {button: $('#help'), dialog: $('#help-box')}, perform: run, onInspect: inspect,
+      onRoot: label => { rootInput.value = label; sandbox.updateRoot(label); },
+      onChange: updateGraphControls, onError: error => feedback(error.message, true),
+      onDrag: () => { completed.add(step); controls(); scheduleSave(); }
+    });
+    let seed = false;
+    if (seedIfMissing) {
+      try { await graph.read({label:seedIfMissing}); }
+      catch (error) { if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error; seed = true; }
+    }
+    if (seed) for (const index of initialFacts) await addFact(index);
+    for (const group of seedGroups) {
+      try { await graph.read({label:group.thought}); }
+      catch (error) {
+        if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error;
+        for (const index of group.facts) await addFact(index);
+      }
+    }
+    const onSubject=() => { selection = ''; inspect(); feedback(''); showStep(); };
+    if(componentChoices)queryPanel=createDemoComponents({request,graph,perform:run,feedback,onSubject,query,sequence,facts,steps});
+    else if (query) queryPanel = createQueryPanel({request, graph, perform:run, config:query, feedback, onSubject});
+    else if (sequence) queryPanel = createSequencePanel({request,graph,perform:run,config:sequence,feedback});
+    await synchronize({ fit: true });
+    try { if (query || sequence) await graph.loadThoughts([]); else await graph.loadRoot(rootInput.value, { showPresets: true }); }
+    catch (error) { if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error; }
+    showStep(); feedback('');
+    if(savedState) {
+      if(savedState.panel && queryPanel) {await queryPanel.restoreState(savedState.panel);showStep();}
+      if(savedState.graph)await graph.restoreState(savedState.graph);
+      selection=typeof savedState.selection==='string'?savedState.selection:'';inspect();
+      for(const [selector,top] of Object.entries(savedState.scrolls||{}))if($(selector)&&Number.isFinite(top))$(selector).scrollTop=top;
+    }
+  } catch (error) { feedback(error.message, true); }
   finally { busy = false; controls(); }
+  if (queryPanel) await run(() => queryPanel.activate());
+  stateReady=sandbox.available && !!graph;
+  saveState();
+  document.addEventListener('input',scheduleSave);
+  document.addEventListener('change',scheduleSave);
+  document.addEventListener('scroll',event=>{
+    if(event.target?.matches?.('.action-zone,.prompt-content,.invitation,#query-results'))scheduleSave();
+  },{capture:true,passive:true});
+  window.addEventListener('pagehide',saveState);
+  // Native select menus close when their controls are disabled/recreated.
+  // Poll quietly and defer updates while the user is choosing or editing.
+  const interacting = () => document.querySelector('dialog[open]') || document.activeElement?.matches('select,input,textarea');
+  let needsStepRender = false;
+  const timer = setInterval(async () => {
+    if (busy || !graph || !sandbox.available || document.hidden || interacting()) return;
+    busy = true;
+    refreshTask = (async () => {
+      const membership = JSON.stringify([...created]);
+      await synchronize({ automatic: true });
+      if (!interacting()) await queryPanel?.refresh({automatic:true});
+      needsStepRender ||= membership !== JSON.stringify([...created]);
+      if (needsStepRender && !interacting()) { showStep(); needsStepRender = false; }
+    })();
+    try { await refreshTask; }
+    catch (error) { feedback(error.message, true); }
+    finally { refreshTask = null; busy = false; if (!interacting()) controls(); }
+  }, 4000);
+  return { graph, stopRefreshing: () => clearInterval(timer) };
 }
-async function snapshot(query) { return request('/api/graph?' + new URLSearchParams(query)); }
-async function addFact(index) {
-  if (created.has(index)) {
-    const id = created.get(index);
-    promoted.set(id, await snapshot({ id, expand: true }));
-    $('#selection').textContent = factNotation(index);
-    feedback('Relationship opened: explore its source, type, and target in the graph.');
-    return;
-  }
-  const fact = facts[index];
-  for (const prerequisite of fact.requires || []) await addFact(prerequisite);
-  feedback('Adding relationship…');
-  await request('/api/statements', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ source: fact.source, relationshipType: fact.relationshipType, target: fact.target }) });
-  const data = await snapshot(fact.sourceFact === undefined
-    ? { label: fact.source, expand: true }
-    : { id: created.get(fact.sourceFact), expand: true });
-  const target = data.nodes.find(node => node.label === (fact.targetLabel || fact.target))?.id;
-  const link = data.links.find(link => link.source === data.root && link.type === fact.relationshipType && link.target === target);
-  if (!link) throw new Error('The fact was added, but its graph connection could not be located. Try resetting the experiment.');
-  // Keep the curated graph free of initialization scaffolding; users can still
-  // discover the full direct neighborhood by expanding an ordinary Thought.
-  base.set(link.id, { root: data.root, nodes: data.nodes.filter(node => node.id === link.source || node.id === link.target), links: [link] });
-  created.set(index, link.id);
-  $('#selection').textContent = factNotation(index);
-  feedback(`Added: ${fact.caption}. Your earlier facts remain available.`);
-}
-function draw(fit = false) {
-  const nodes = new Map(), links = new Map();
-  for (const data of [...base.values(), ...expanded.values(), ...promoted.values()]) {
-    for (const node of data.nodes) nodes.set(node.id, { ...node });
-    for (const link of data.links) links.set(link.id, { ...link });
-  }
-  for (const id of promoted.keys()) links.delete(id);
-  for (const node of nodes.values()) {
-    const preset = [...created].find(([, id]) => id === node.id);
-    if (preset) node.label = factNotation(preset[0]);
-    const old = positions.get(node.id);
-    if (old) Object.assign(node, { x: old.x, y: old.y, z: old.z });
-    node.expanded = expanded.has(node.id);
-    positions.set(node.id, node);
-  }
-  for (const link of links.values())
-    link.notation = link.structural ? link.type
-      : `[${nodes.get(link.source)?.label || '?'} → ${link.type} → ${nodes.get(link.target)?.label || '?'}]`;
-  graph.graphData({ nodes: [...nodes.values()], links: [...links.values()] });
-  $('#empty').hidden = nodes.size > 0;
-  $('#counts').textContent = `${nodes.size} visible Thoughts`;
-  if (fit) graph.d3ReheatSimulation();
-}
-async function reveal(node) {
-  if (node.isRelationship) {
-    if (promoted.has(node.id)) { promoted.delete(node.id); expanded.delete(node.id); }
-    else promoted.set(node.id, await snapshot({ id: node.id, expand: true }));
-  } else if (expanded.has(node.id)) expanded.delete(node.id);
-  else expanded.set(node.id, await snapshot({ id: node.id, expand: true }));
-  $('#selection').textContent = node.isRelationship ? 'Purple nodes are relationships: Thoughts with source, type, and target.' : `${node.label} · showing direct connections only`;
-  draw(true);
-}
-$('#back').onclick = () => { step--; showStep(); };
-$('#next').onclick = () => { step++; showStep(); };
-$('#fit').onclick = () => graph?.zoomToFit(400, 55);
-$('#reset').onclick = () => run(async () => {
-  if (!confirm('Remove the preset facts added in this experiment?')) return;
-  // Reverse order removes outer statements before their embedded relationships.
-  for (const [index, id] of [...created].reverse()) {
-    try { await request('/api/relationships?id=' + id, { method: 'DELETE' }); }
-    catch (error) { if (error.status !== 404) throw error; }
-    created.delete(index); base.delete(id);
-  }
-  expanded.clear(); promoted.clear(); positions.clear(); step = 0;
-  draw(); showStep(); feedback('Preset relationships removed. Unconnected Thoughts may remain in the store.');
-  $('#selection').textContent = 'Choose a relationship on the left to begin.';
-});
-showStep(); busy = true; controls();
-try {
-  if (!await sandbox.ready) throw sandbox.error;
-  if (typeof ForceGraph3D === 'undefined') throw new Error('The graph library did not load. Check your connection and reload.');
-  const { default: SpriteText } = await import('https://esm.sh/three-spritetext@1.10.0');
-  const container = $('#graph');
-  graph = new ForceGraph3D(container, { controlType: 'orbit' })
-    .backgroundColor('#0c1422').nodeRelSize(5).nodeOpacity(1)
-    .nodeColor(node => node.isRelationship ? '#b79aff' : node.expanded ? '#6cdbbd' : '#80bbef')
-    .nodeThreeObject(node => {
-      const label = new SpriteText(node.label);
-      label.color = '#e6edf7'; label.textHeight = 4; label.center.y = -0.9;
-      label.backgroundColor = '#0c1422cc'; label.padding = 1;
-      label.material.depthTest = false;
-      return label;
-    }).nodeThreeObjectExtend(true)
-    .nodeLabel(node => { const text = document.createElement('span'); text.textContent = node.label; return text; })
-    .linkLabel(link => { const text = document.createElement('span'); text.textContent = link.notation; return text; })
-    .linkColor(link => link.structural ? '#b79aff' : '#7798b6')
-    .linkOpacity(.8).linkWidth(1.6).linkDirectionalArrowLength(4).linkDirectionalArrowRelPos(.85)
-    .onNodeClick(node => run(() => reveal(node)))
-    .onLinkClick(link => run(async () => {
-      if (link.structural) { $('#selection').textContent = `${link.type} connector · tap the connected Thought to explore`; return; }
-      promoted.set(link.id, await snapshot({ id: link.id, expand: true }));
-      $('#selection').textContent = 'This relationship is a Thought. Its three connectors reveal source, type, and target.';
-      draw(true);
-    }))
-    .cooldownTicks(60).onEngineStop(() => graph.zoomToFit(400, 55));
-  new ResizeObserver(() => graph.width(container.clientWidth).height(container.clientHeight)).observe(container);
-  draw(); feedback('Choose any preset. You can explore freely and move on whenever you like.');
-} catch (error) { feedback(error.message, true); }
-finally { busy = !graph; controls(); }

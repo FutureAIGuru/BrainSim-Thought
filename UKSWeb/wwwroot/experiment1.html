@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Thoughts & Relationships · BrainSim Thought</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="experiments.css?v=20261105-navigation">
+</head>
+<body class="guided-demo relationship-demo">
+    <main>
+        <aside>
+            <div class="chapter">Chapter 2 / The Atomic Thought</div>
+            <div class="progress" aria-label="Experiment progress"></div>
+            <p id="step-number" class="eyebrow"></p>
+            <div class="prompt-content"><h1 id="prompt-title"></h1><div id="prompt-copy"></div></div>
+            <div class="action-zone" role="region" aria-label="Experiment actions" tabindex="0">
+                <div id="choices" role="region" aria-label="Experiment content" tabindex="0"></div>
+            </div>
+            <p id="feedback" role="status" aria-live="polite">Connecting to the UKS…</p>
+            <div class="invitation" role="region" aria-label="Try this" tabindex="0"><span>Try this</span><div id="try-this"></div></div>
+            <nav aria-label="Experiments"><button id="back">← Back</button><button id="next" class="primary">Next →</button></nav>
+        </aside>
+        <section class="workspace" aria-label="Knowledge graph">
+            <div class="graph-toolbar">
+                <form id="root-form"><label for="root">Root</label><input id="root" value="Fido" list="root-options" autocomplete="off" required><datalist id="root-options"></datalist><button id="load-root">Show</button></form>
+                <button id="fit" type="button">Fit view</button><button id="reset-content" type="button" title="Reset demo content and return to the first step">Reset Content</button><button id="help" type="button" aria-haspopup="dialog">Help</button>
+            </div>
+            <div class="canvas"><div id="graph" aria-label="Interactive knowledge graph"></div><div id="selection" role="status" aria-live="polite"></div></div>
+            <div class="graph-key" aria-label="Node color key"><span><i class="gold"></i>Root</span><span><i class="blue"></i>Thought</span><span><i class="green"></i>Expanded</span><span><i class="purple"></i>Relationship</span><small id="counts"></small></div>
+        </section>
+    </main>
+    <dialog id="help-box" aria-labelledby="help-title"><p id="inactivity-note"></p></dialog>
+    <p id="sandbox-status" role="status"></p>
+    <!-- Existing session management is shared with the editor; XML selection is not part of this guided demo. -->
+    <select id="demo-select" hidden><option value="__choose">Choose</option><option value="">Standard UKS</option></select>
+    <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js" crossorigin="anonymous"></script>
+    <script type="module">
+        import { startExperiment } from './experiments.js?v=20261105-navigation';
+
+
+        const steps = [
+            {
+                title: 'Things and attributes are Thoughts.',
+                copy: `
+                      How does your brain represent what it knows about Fido?
+                      Atomic Thoughts offer a possible answer. Fido, dog, and brown,
+                      and tail are all Thoughts that can be connected into knowledge.
+                      <p><strong>Click "Fido is a dog" to begin.</strong></p>
+                    `,
+                choices: [8, 0, 1, 9, 10, 11],
+                try: `
+                      <ol>
+                        <li>Add a few more facts about Fido. Watch the graph grow.</li>
+                        <li>Drag the background to rotate the graph in 3D.</li>
+                        <li>Use the mouse wheel to zoom in and out.</li>
+                        <li>Drag individual Thoughts to rearrange them.</li>
+                        <li>Hover over a connecting line to read its Relationship.</li>
+                        <li>Click a Thought to expand or collapse its connections.</li>
+                      </ol>
+                      Don't worry about memorizing the controls.
+                      The Help button is always available.
+                    `
+            },
+            {
+                title: 'Relationships give Thoughts meaning.',
+                copy: `
+                      Fido can be brown, chase a ball, or be in
+                      the yard. These are different kinds of knowledge,
+                      yet all use the same basic structure.
+
+                      Relationship types are Thoughts too and new ones can be
+                      created whenever they're needed.
+                      <p><strong>Click "Fido can bark" to begin.</strong></p>
+                    `,
+                choices: [2, 3, 4, 12, 13],
+                try: `
+                      <ol>
+                        <li>Add several different Relationships about Fido.</li>
+                        <li>Hover over their connecting lines. Notice that
+                            each Relationship has a source, type, and target.</li>
+                        <li>Try removing a Relationship. What changes in the graph?</li>
+                        <li>Can you think of another Relationship type?
+                            If the general Relationship editor is available,
+                            try creating your own.</li>
+                      </ol>
+                      The important point: almost any real-world facts
+                      can be represented using the same structure.
+                    `
+            },
+            {
+                title: 'A Relationship is itself a Thought.',
+                copy: `
+                      So far, Relationships have looked like lines connecting
+                      Thoughts. But there's something surprising about them:
+                      every Relationship is itself an Atomic Thought!
+
+                      That means we can examine a Relationship just as we
+                      examine Fido or dog.
+                      <p><strong>Click "Fido plays fetch" to begin.</strong></p>
+                    `,
+                choices: [1, 5],
+                try: `
+                      <ol>
+                        <li>Find the line connecting Fido and fetch.</li>
+                        <li>Click the line to reveal the purple Relationship Thought.</li>
+                        <li>Click the purple Thought to expand its components.</li>
+                        <li>Find the three components:
+                            Source (Fido), Type (plays), and Target (fetch).</li>
+                        <li>Rotate the graph to see how these Thoughts connect.</li>
+                      </ol>
+                      The purple Thought represents the entire Relationship
+                      [Fido → plays → fetch]. It isn't just a line!
+                    `
+            },
+            {
+                title: 'Relationships can have Relationships.',
+                copy: `
+                      Fido plays fetch. But what if we want to describe HOW
+                      he plays, or HOW we know about his play?
+
+                      Because a Relationship is a Thought, we can connect
+                      other Relationships to it. The same structure can
+                      represent knowledge about knowledge.
+                      <p><strong>Click "Fido plays fetch using a frisbee" to begin.</strong></p>
+                    `,
+                choices: [5, 6, 7],
+                try: `
+                      <ol>
+                        <li>Make sure "Fido plays fetch" is present.</li>
+                        <li>Add "Fido plays fetch using a frisbee."</li>
+                        <li>Find the new purple Relationship and explore its
+                            connections. Its Source is another Relationship!</li>
+                        <li>Add "The play was known through personal experience."</li>
+                        <li>Expand the Relationships and explore how they
+                            connect to one another.</li>
+                      </ol>
+                      How many levels could you build this way?
+                      Atomic Thoughts use the same structure at every level.
+                    `
+            },
+            {
+                title: 'Explore the Knowledge.',
+                copy: `
+                             Every Thought can lead to other Thoughts. Follow the
+            connections to discover knowledge you didn't see at first.
+            <p><strong>Start by adding "Rover is black."</strong></p>
+                    `,
+                inheritChoices: false,
+                choices: [14, 15,
+                    { component: 'attribute-editor', label: 'Manage attributes…' }],
+                    try: `
+                      <ol>
+          <li>Add Fido is brown and Rover is black.</li>
+              <li>Expand brown and black. What do they have in common?</li>
+              <li>Expand color to discover other colors.</li>
+              <li>Try the general Relationship editor to add your own facts.</li>
+              <li>Explore freely. There's no right answer!</li>              </ol>
+          `
+            }
+        ];
+
+
+
+        const facts = [
+            { source: 'Fido', relationshipType: 'is', target: 'brown', caption: 'Fido is brown' },
+            { source: 'Fido', relationshipType: 'has', target: 'tail', caption: 'Fido has a tail' },
+            { source: 'Fido', relationshipType: 'can', target: 'bark', caption: 'Fido can bark' },
+            { source: 'Fido', relationshipType: 'is-in', target: 'yard', caption: 'Fido is in the yard' },
+            { source: 'Fido', relationshipType: 'chases', target: 'ball', caption: 'Fido chases a ball' },
+            { source: 'Fido', relationshipType: 'plays', target: 'fetch', caption: 'Fido plays fetch' },
+            { sourceFact: 5, relationshipType: 'using', target: 'frisbee', caption: 'Fido plays fetch using a frisbee' },
+            { sourceFact: 5, relationshipType: 'basis', target: '"personal experience"', targetLabel: 'personal experience', caption: 'The play was known through personal experience' },
+            { source: 'Fido', relationshipType: 'is-a', target: 'dog', caption: 'Fido is a dog' },
+            { source: 'Fido', relationshipType: 'has', target: 'collar', caption: 'Fido has a collar' },
+            { source: 'Fido', relationshipType: 'is', target: 'friendly', caption: 'Fido is friendly' },
+            { source: 'Fido', relationshipType: 'has', target: 'nose', caption: 'Fido has a nose' },
+            { source: 'Fido', relationshipType: 'wants', target: 'food-bowl', caption: 'Fido wants his food bowl' },
+            { source: 'Fido', relationshipType: 'owned-by', target: 'Suzie', caption: 'Fido is owned by Suzie' },
+            { source: 'Rover', relationshipType: 'is-a', target: 'dog', caption: 'Rover is a dog' },
+            { source: 'Rover', relationshipType: 'is', target: 'black', caption: 'Rover is black' }
+        ];
+        await startExperiment({ facts, steps });
+    </script>
+</body>
+</html>
