@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Compiles the (unmodified) UKS library sources plus a thin C ABI into a
+    NativeAOT static library that is linked straight into the iOS app binary.
+    Build with ../build-uks.sh rather than invoking dotnet directly.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>annotations</Nullable>
+    <RootNamespace>UKSNative</RootNamespace>
+    <AssemblyName>UKSNative</AssemblyName>
+
+    <PublishAot>true</PublishAot>
+    <PublishAotUsingRuntimePack>true</PublishAotUsingRuntimePack>
+    <NativeLib>Static</NativeLib>
+    <SelfContained>true</SelfContained>
+
+    <!-- Keep the binary lean and avoid needing ICU data on device -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>false</UseSystemResourceKeys>
+    <IlcGenerateStackTraceData>true</IlcGenerateStackTraceData>
+
+    <!-- UKS sources predate nullable annotations; silence the noise -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>$(NoWarn);CS8600;CS8601;CS8602;CS8603;CS8604;CS8618;CS8625;CS0168;CS0219;CS0414;CS0649;CS0660;CS0661</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Pull in the UKS library as-is; it is not reimplemented here. -->
+    <Compile Include="../../UKS/*.cs" LinkBase="UKS" />
+    <!-- Desktop module logic, unchanged. Their WPF dialogs (*Dlg.xaml.cs) are rebuilt in SwiftUI,
+         and ModuleBase/MainWindow are replaced by the headless versions in Host/. -->
+    <Compile Include="../../BrainSimulator/Modules/**/*.cs" LinkBase="Modules"
+             Exclude="../../BrainSimulator/Modules/**/*Dlg.xaml.cs;../../BrainSimulator/Modules/ModuleBase.cs;../../BrainSimulator/Modules/ModuleBaseDlg.cs" />
+    <Compile Include="../../BrainSimulator/Network.cs" LinkBase="BrainSimulator" />
+    <PackageReference Include="Pluralize.NET" Version="1.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- XmlSerializer runs in reflection mode under NativeAOT; keep its types. -->
+    <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
+  </ItemGroup>
+
+  <!--
+    With NativeLib=Static the SDK emits only the managed code archive. Record the
+    runtime archives and system libs/frameworks it would have linked, so
+    build-uks.sh can fold everything into one libUKSNative.a for Xcode.
+  -->
+  <Target Name="WriteNativeLinkInputs" AfterTargets="LinkNative">
+    <WriteLinesToFile File="$(PublishDir)link-archives.txt" Lines="@(NativeLibrary)" Overwrite="true" />
+    <WriteLinesToFile File="$(PublishDir)link-system-libs.txt" Lines="@(NativeSystemLibrary)" Overwrite="true" />
+    <WriteLinesToFile File="$(PublishDir)link-frameworks.txt" Lines="@(NativeFramework)" Overwrite="true" />
+  </Target>
+
+</Project>

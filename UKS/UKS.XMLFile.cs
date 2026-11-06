@@ -59,28 +59,55 @@ public partial class UKS
         theUKS = this;
         //if you don't pass in a file name, it uses the previous name
         if (!String.IsNullOrEmpty(filenameIn)) { fileName = filenameIn; }
-        if (!CanWriteToFile(fileName, out string message))
+        return WriteSaveSnapshot(CaptureSaveSnapshot(), fileName);
+    }
+
+    /// <summary>
+    /// The first half of <see cref="SaveUKStoXMLFile"/>: flattens the UKS into the list that
+    /// is written to the XML file. This is the only part that reads the UKS, so a caller that
+    /// must keep other threads out of the UKS while saving only needs to do so for this call.
+    /// </summary>
+    public List<sThought> CaptureSaveSnapshot()
+    {
+        UKSTemp.Clear();
+        uksTempIndex.Clear();
+        try
+        {
+            if (Labeled("BrainSim") is Thought brainSim)
+                FormatContentForSaving(brainSim);
+            if (Labeled("Thought") is Thought thoughtRoot)
+                FormatContentForSaving(thoughtRoot);
+            return UKSTemp;
+        }
+        finally
+        {
+            UKSTemp = new();
+            uksTempIndex.Clear();
+        }
+    }
+
+    /// <summary>
+    /// The second half of <see cref="SaveUKStoXMLFile"/>: writes a snapshot from
+    /// <see cref="CaptureSaveSnapshot"/> to <paramref name="path"/>. It does not touch the UKS.
+    /// </summary>
+    public static bool WriteSaveSnapshot(List<sThought> snapshot, string path)
+    {
+        if (!CanWriteToFile(path, out string message))
         {
             Debug.WriteLine("Could not save file because: " + message);
             return false;
         }
 
         string tempFilePath = Path.GetTempFileName();
-        UKSTemp.Clear();
-        if (Labeled("BrainSim") is Thought brainSim)
-            FormatContentForSaving(brainSim);
-        if (Labeled("Thought") is Thought thoughtRoot)
-            FormatContentForSaving(thoughtRoot);
-
         //List<Type> extraTypes = GetTypesInUKS();
         Stream file = File.Create(tempFilePath);
         file.Position = 0;
         try
         {
-            XmlSerializer writer = new XmlSerializer(UKSTemp.GetType());
-            writer.Serialize(file, UKSTemp);
+            XmlSerializer writer = new XmlSerializer(snapshot.GetType());
+            writer.Serialize(file, snapshot);
             file.Close();
-            File.Copy(tempFilePath, fileName, overwrite: true);
+            File.Copy(tempFilePath, path, overwrite: true);
         }
         catch (Exception e)
         {
@@ -93,10 +120,15 @@ public partial class UKS
         finally
         {
             file.Close();
-            UKSTemp = new();
+            // the copy is done (or failed): don't leave a full-size copy behind on every save
+            try { File.Delete(tempFilePath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
         return true;
     }
+
+    //label -> position in UKSTemp while saving. Looking entries up here instead of
+    //scanning UKSTemp keeps saving linear in the number of Thoughts and Links.
+    private readonly Dictionary<string, int> uksTempIndex = new(StringComparer.Ordinal);
 
     //gets the index of a Thought in the output array
     //and creates an entry if it's not already there.
@@ -105,8 +137,7 @@ public partial class UKS
         if (t is null) return -1;
         if (string.IsNullOrWhiteSpace(t.Label))  // Put the GUID into the label only when it's unlabeled
             t.Label = $"unl_{Guid.NewGuid().ToString("N")[..8]}";
-        int index = UKSTemp.FindIndex(x => x.label == t.Label);
-        if (index == -1)
+        if (!uksTempIndex.TryGetValue(t.Label, out int index))
         {
             sThought st = new()
             {
@@ -125,6 +156,7 @@ public partial class UKS
             }
             index = UKSTemp.Count;
             UKSTemp.Add(st);
+            uksTempIndex.TryAdd(st.label, index);
         }
         return index;
     }
@@ -227,6 +259,34 @@ public partial class UKS
         UKSTemp = snapshot;
         DeFormatContentAfterLoading();
         ApplyPostXmlLoadCompatibility();
+    }
+
+    /// <summary>
+    /// Same result as WriteTheLink, but fast for big files: WriteTheLink scans the whole
+    /// link-type and target lists (e.g. every is-a link), which made loading quadratic.
+    /// A link already wired by this load is skipped; one its source doesn't have yet is
+    /// appended directly; anything else takes the full WriteTheLink path.
+    /// </summary>
+    private static void WireLoadedLink(Link lnk, HashSet<Link> wired)
+    {
+        if (!wired.Add(lnk))
+            return;
+        Thought from = lnk.From!, linkType = lnk.LinkType!;
+        // Same locks, in the same order, as WriteTheLink.
+        lock (from.LinksToWriteable)
+            lock (linkType.LinksAsTypeWriteable)
+            {
+                if (from.LinksToWriteable.Contains(lnk))
+                {
+                    WriteTheLink(lnk);
+                    return;
+                }
+                from.LinksToWriteable.Add(lnk);
+                linkType.LinksAsTypeWriteable.Add(lnk);
+                if (lnk.To is Thought to)
+                    lock (to.LinksFromWriteable)
+                        to.LinksFromWriteable.Add(lnk);
+            }
     }
 
     private void ApplyPostXmlLoadCompatibility(List<string>? brainSimContentToRestore = null)
@@ -350,6 +410,8 @@ public partial class UKS
             }
         }
         //add contents of links
+        // Links wired so far, compared like the Contains checks in WriteTheLink.
+        HashSet<Link> wired = new();
         foreach (sThought st in UKSTemp)
         {
             if (st.source == -1 || st.linkType == -1)
@@ -375,9 +437,10 @@ public partial class UKS
                 // Wire the deserialized Relationship itself. Creating another Link here
                 // separates its endpoints from the IF/property metadata attached by label,
                 // and can turn a saved condition into an unconditional assertion.
-                WriteTheLink(theLink);
-                if (!AtomicThoughts.Any(thought => ReferenceEquals(thought, theLink)))
-                    AtomicThoughts.Add(theLink);
+                WireLoadedLink(theLink, wired);
+                // AtomicThoughts compares by reference, so Add skips a link already present
+                // (a linear Any() scan here made loading quadratic in the file size).
+                AtomicThoughts.Add(theLink);
                 if (linkType?.Label == "VLU")
                     PromoteToSeqElement(theLink.From);
             }

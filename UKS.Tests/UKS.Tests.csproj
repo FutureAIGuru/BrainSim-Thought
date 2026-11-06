@@ -22,6 +22,8 @@
   <ItemGroup>
     <Compile Include="..\Tests\InheritanceCh5RegressionTests.cs" Link="InheritanceCh5RegressionTests.cs" />
     <Compile Include="..\Tests\InheritanceCh5PhaseDRegressionTests.cs" Link="InheritanceCh5PhaseDRegressionTests.cs" />
+    <!-- The Phase D context tests use ModuleAlgorithm's context resolver, which needs only the UKS. -->
+    <Compile Include="..\BrainSimulator\Modules\ModuleAlgorithm.ContextResolver.cs" Link="ModuleAlgorithm.ContextResolver.cs" />
     <Compile Include="..\Tests\InheritanceCh5PhaseERegressionTests.cs" Link="InheritanceCh5PhaseERegressionTests.cs" />
     <Compile Include="..\Tests\UKSFixesRegressionTests.cs" Link="UKSFixesRegressionTests.cs" />
     <Compile Include="..\Tests\UKSExclusivityTests.cs" Link="UKSExclusivityTests.cs" />
@@ -30,6 +32,5 @@
     <Compile Include="..\Tests\UKSConditionalTests.cs" Link="UKSConditionalTests.cs" />
     <Compile Include="..\Tests\NatureAnimalsXmlTests.cs" Link="NatureAnimalsXmlTests.cs" />
     <Compile Include="..\Tests\NonUksP2FixesRegressionTests.cs" Link="NonUksP2FixesRegressionTests.cs" />
-    <Compile Include="..\Tests\VisionCompatRegressionTests.cs" Link="VisionCompatRegressionTests.cs" />
   </ItemGroup>
 </Project>

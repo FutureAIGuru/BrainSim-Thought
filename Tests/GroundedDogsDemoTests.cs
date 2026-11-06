@@ -78,13 +78,21 @@ public class GroundedDogsDemoTests
     }
 
     [Theory]
-    [InlineData("..\\Fido.png")]
     [InlineData("folder/Fido.png")]
-    [InlineData("C:\\Dogs\\Fido.png")]
+    [InlineData("/Dogs/Fido.png")]
     [InlineData("O1.txt")]
     public void ResolverRejectsPathsAndUnsupportedFiles(string label)
     {
         Assert.False(GroundedImageResolver.IsSafeImageFileName(label));
+    }
+
+    // \ and : are path characters only on Windows; elsewhere they are legal in a file name.
+    [Theory]
+    [InlineData("..\\Fido.png")]
+    [InlineData("C:\\Dogs\\Fido.png")]
+    public void ResolverJudgesWindowsPathsByThePlatformsRules(string label)
+    {
+        Assert.Equal(!OperatingSystem.IsWindows(), GroundedImageResolver.IsSafeImageFileName(label));
     }
 
 }

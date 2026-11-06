@@ -453,22 +453,40 @@ public partial class ModuleVision : ModuleBase
     public void ClearBoundaryArray()
     {
         //hide any currently-displayed patches
+        //Only this module's own Thoughts are reset: theUKS.AtomicThoughts holds every Thought
+        //(and, after a file load, every Link), so resetting all of it wiped the learned weights
+        //of other modules and of this module's own links, and made Links with a TimeToLive expire.
+        List<Thought> displayed = DisplayedThoughts();
         bool dontClearBoundaryImage = false;
-        foreach (var t in theUKS.AtomicThoughts) 
+        foreach (var t in displayed)
             if (t.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10)) dontClearBoundaryImage = true;
 
-        foreach (var t in theUKS.AtomicThoughts) t.Weight = 0;
-        foreach (var t in theUKS.AtomicThoughts) t.LastFiredTime = new DateTime(0);
+        foreach (var t in displayed) t.Weight = 0;
+        foreach (var t in displayed) t.LastFiredTime = new DateTime(0);
 
         //if (dontClearBoundaryImage || boundaryArray == null)
         //    return;
 
         // Debug.WriteLine("Boundary Array: " + boundaryArray);
 
+        if (boundaryArray is null) return;  //not initialized yet (Init makes it)
         for (int x = 0; x < boundaryArray.GetLength(0); x++)
             for (int y = 0; y < boundaryArray.GetLength(1); y++)
                 boundaryArray[x, y] = false;
 
+    }
+
+    //the Thoughts the dialog shows: the boundary points, patches and corners made by InitArray
+    List<Thought> DisplayedThoughts()
+    {
+        List<Thought> displayed = new();
+        foreach (string layer in new[] { "Pt", "patch", "corner" })
+        {
+            Thought root = theUKS.Labeled(layer);
+            if (root is null) continue;
+            displayed.AddRange(root.Descendants.Where(t => t.Label.StartsWith(layer + "_")));
+        }
+        return displayed;
     }
 
     void SetBoundaryArrayFromImage()
@@ -884,7 +902,7 @@ public partial class ModuleVision : ModuleBase
                     imageArray[i, j] = new Color() { A = 0xff, R = c.R, G = c.G, B = c.B };
                 }
         }
-        dlg.Draw(false);
+        dlg?.Draw(false);
     }
 
 
@@ -905,8 +923,8 @@ public partial class ModuleVision : ModuleBase
         if (t != null) { theUKS.DeleteAllChildrenAndLinks(t); }
         t = theUKS.Labeled("Outline");
         if (t != null) { theUKS.DeleteAllChildrenAndLinks(t); }
-        t = theUKS.Labeled("MentalModel");
-        if (t != null) { theUKS.DeleteAllChildrenAndLinks(t); }
+        // (A "MentalModel" Thought is not Vision's: labels ignore case, so clearing it here deleted
+        // ModuleMentalModel's "mentalModel" sheet on every save, and its buttons stopped working.)
     }
 
 
