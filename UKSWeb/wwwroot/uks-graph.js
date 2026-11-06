@@ -190,8 +190,10 @@ export function arrangeSequences(nodes, sequences, previous = new Map()) {
 function graphHelp(container, supplied = {}) {
   const button = supplied.button || document.createElement('button');
   const dialog = supplied.dialog || document.createElement('dialog');
+  button.innerHTML = '<img src="help-icon.svg" width="20" height="20" alt="" aria-hidden="true" style="display:block">'; button.title = 'Graph help'; button.setAttribute('aria-label', 'Graph help');
+  button.setAttribute('aria-haspopup','dialog');
   if (!supplied.button) {
-    button.textContent = '?'; button.setAttribute('aria-label', 'Graph help');
+
     Object.assign(button.style, { position: 'absolute', right: '12px', top: '12px', zIndex: 5 });
     container.parentElement.append(button);
   }
@@ -200,7 +202,32 @@ function graphHelp(container, supplied = {}) {
   if (note) { note.hidden = true; dialog.after(note); }
   dialog.removeAttribute('aria-labelledby'); dialog.setAttribute('aria-label', 'Graph commands');
   Object.assign(dialog.style, { maxWidth: '480px', background: '#160c29', color: '#f3eef9', border: '1px solid #833ecf', borderRadius: '12px', padding: '24px' });
-  dialog.innerHTML = '<div class="help-heading" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h2 style="margin:0;font-size:19px">Graph commands</h2><button type="button" id="close-help" aria-label="Close help" style="flex-shrink:0;font-size:22px;padding:0 9px">&times;</button></div><ul><li>Click a node to expand or collapse its connections.</li><li>Click an edge to reveal the Relationship and its source, type, and target. Component connectors do not expand.</li><li>Hover over nodes or edges to inspect them in the lower left.</li><li>Drag the background to rotate. Right-drag to pan. Use the mouse wheel or pinch to zoom.</li><li>Drag a node to move it. Sequence elements move together as a rigid row.</li><li>Use Fit view to see everything, or select another root.</li></ul>';
+  // Shared graph Help content. Edit the HTML below; each <li> is one instruction.
+  // Backticks allow this HTML template to span multiple lines.
+  dialog.innerHTML = `
+    <div class="help-heading"
+         style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <h2 style="margin:0;font-size:19px">Graph commands</h2>
+      <button type="button"
+              id="close-help"
+              aria-label="Close help"
+              style="flex-shrink:0;font-size:22px;padding:0 9px">
+        &times;
+      </button>
+    </div>
+
+    <ul>
+      <li>Click a node to expand or collapse its connections.</li>
+      <li>
+        Click an edge to reveal the Relationship and its source, type, and target.
+        Component connectors do not expand.
+      </li>
+      <li>Hover over nodes or edges to inspect them in the lower left.</li>
+      <li>Drag the background to rotate. Right-drag to pan.Use the mouse wheel or pinch to zoom.</li>
+      <li>Drag a node to move it. Sequence elements move together as a rigid row.</li>
+      <li>Use Fit view to see everything, or select another root.</li>
+    </ul>
+  `;
   button.onclick = () => dialog.showModal();
   dialog.querySelector('button').onclick = () => dialog.close();
 }
@@ -376,6 +403,7 @@ export async function createUKSGraph(container, {
   let rootLabel = root, customRoot = false, signature = '', generation = 0, fitPending = false;
   let view;
   async function read(query, automatic = false) {
+    // === WEB SERVICE: GET /api/graph — retrieve graph nodes, Relationships, and VLU/NXT sequence structure for the requested roots. ===
     return request('/api/graph?' + new URLSearchParams(query), { automatic, signal: AbortSignal.timeout(15000) });
   }
   async function dispatch(action) {
@@ -481,7 +509,7 @@ export async function createUKSGraph(container, {
       expandRoots = false; showSequenceValues = false; evidenceSnapshot = null; highlightedLinks.clear();
       rootLabel = label.trim(); rootId = data.root; rootIds = new Set(data.roots || [data.root]); rootSnapshot = data;
       customRoot = !showPresets; expansions.clear(); collapsed.clear(); collapsedSnapshots.clear();
-      onRoot(rootLabel); onInspect(data.nodes.find(node => node.id === rootId)?.label || rootLabel);
+      onRoot(rootLabel); onInspect('');
       render(true);
     },
     async loadThoughts(values, { expand = false, sequenceValues = false } = {}) {
@@ -494,7 +522,7 @@ export async function createUKSGraph(container, {
       customRoot = true; expansions.clear(); collapsed.clear(); collapsedSnapshots.clear();
       if (data.roots.length === 1) {
         rootLabel = data.nodes.find(node => node.id === data.root)?.label || rootLabel;
-        onRoot(rootLabel); onInspect(rootLabel);
+        onRoot(rootLabel); onInspect('');
       }
       render(true);
     },
@@ -509,9 +537,9 @@ export async function createUKSGraph(container, {
       const endpoints = new Set(links.flatMap(link => [link.source,link.target]));
       evidenceSnapshot = {nodes:packets.flatMap(packet => packet.nodes).filter(node => endpoints.has(node.id)),links};
       if (!automatic) {
-        highlightUntil = Date.now() + 8000;
+        highlightUntil = Date.now() + 2000;
         clearTimeout(highlightTimer);
-        highlightTimer = setTimeout(() => { highlightedLinks.clear(); render(); },8000);
+        highlightTimer = setTimeout(() => { highlightedLinks.clear(); render(); },2000);
       }
       highlightedLinks = Date.now() < highlightUntil ? selectedLinks : new Set();
       render(fit);

@@ -42,7 +42,9 @@ internal static class StatementInputParser
             Thought? pattern = store.ProcessSingleLineWithNesting(text, asPattern: true);
             if (pattern is not null) return pattern;
         }
-        else if (store.Labeled(text) is Thought existing) return existing;
+        // Unquoted nouns must be normalized before lookup, even when a plural
+        // label already exists. Quoted menu identities are handled below.
+        else if (attributesFollow && store.Labeled(text) is Thought existing) return existing;
 
         if (text.StartsWith('['))
         {

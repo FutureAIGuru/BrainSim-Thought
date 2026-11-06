@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="experiments.css?v=20261105-navigation">
+  <link rel="stylesheet" href="experiments.css?v=20261106-content-scroll">
 </head>
 <body class="guided-demo query-demo sequence-demo">
   <main>
@@ -28,20 +28,20 @@
     <section class="workspace" aria-label="Knowledge graph">
       <div class="graph-toolbar">
         <form id="root-form"><label for="root">Root</label><input id="root" value="Thought" list="root-options" aria-label="Graph root"><datalist id="root-options"></datalist><button id="load-root">Show</button></form>
-        <button id="fit" type="button">Fit view</button><button id="reset-content" type="button" title="Reset demo content and return to the first step">Reset Content</button><button id="help" type="button" aria-haspopup="dialog">Help</button>
+        <button id="fit" type="button">Fit view</button><button id="reset-content" type="button" title="Reset demo content and return to the first step">Reset Content</button><button id="help" type="button" aria-haspopup="dialog" aria-label="Graph help"><img src="help-icon.svg" width="20" height="20" alt="" aria-hidden="true" style="display:block"></button>
       </div>
       <div class="canvas"><div id="graph" aria-label="Interactive knowledge graph"></div><div id="selection" role="status" aria-live="polite"></div></div>
       <div class="graph-key" aria-label="Node color key"><span><i class="gold"></i>Root</span><span><i class="blue"></i>Thought</span><span><i class="green"></i>Expanded</span><span><i class="purple"></i>Relationship</span><span><i class="orange"></i>Supporting relationship</span><small id="counts"></small></div>
     </section>
   </main>
-  <dialog id="attribute-box" aria-label="Manage attributes"></dialog>
+  <dialog id="attribute-box" aria-label="Manage Attributes"></dialog>
   <dialog id="help-box" aria-labelledby="help-title"><p id="inactivity-note"></p></dialog>
   <p id="sandbox-status" role="status"></p>
   <!-- Existing session management is shared with the editor; XML selection is not part of this guided demo. -->
   <select id="demo-select" hidden><option value="__choose">Choose</option><option value="">Standard UKS</option></select>
   <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js" crossorigin="anonymous"></script>
   <script type="module">
-    import { startExperiment } from './experiments.js?v=20261105-navigation';
+    import { startExperiment } from './experiments.js?v=20261106-missing-root';
     const steps = [
       {title:'Spelling is a sequence.',sequence:'spelling',inheritChoices:false,choices:[{component:'word-input'}, {component:'sequence-values'}, {component:'sequence-library'}, {component:'sequence-results'}],
         copy:'Choose a word or enter your own. Each position is a Thought with a VLU link to its letter and a NXT link to the following position.',

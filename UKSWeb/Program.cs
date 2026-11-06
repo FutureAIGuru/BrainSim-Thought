@@ -533,7 +533,11 @@ app.MapPost("/api/statements", (StatementInput input, HttpContext context) =>
 
         return Results.Ok(new
         {
+            id = graphId(relationship),
+            targetId = graphId(relationship.To!),
             source = UKSWeb.StatementInputParser.Format(relationship.From),
+            sourceLabel = relationship.From?.Label,
+            sourceId = graphId(relationship.From!),
             relationshipType = UKSWeb.StatementInputParser.Format(relationship.LinkType),
             target = UKSWeb.StatementInputParser.Format(relationship.To)
         });
@@ -672,7 +676,9 @@ app.MapGet("/api/candidates", (string? root, HttpContext context) =>
         {
             var type = uks.Labeled(types[index] ?? "");
             var target = uks.Labeled(targets[index] ?? "");
-            if (type is null || target is null) return Results.NotFound(new { error = "A selected attribute no longer exists." });
+            // An offered attribute may not have been asserted yet (e.g. three legs
+            // before adding Tripper's exception). It contributes no matches or weight.
+            if (type is null || target is null) continue;
             pairs.Add((type, target));
         }
         // An unlabeled temporary Thought supplies the existing desktop search
@@ -680,14 +686,15 @@ app.MapGet("/api/candidates", (string? root, HttpContext context) =>
         var pattern = new UKS.Thought(uks);
         try
         {
-            foreach (var pair in pairs.Distinct()) pattern.AddLink(pair.Type, pair.Target);
+            // Match ModuleUKSQueryDlg.CreateTheQueryThought's default query-link weight.
+            foreach (var pair in pairs.Distinct()) pattern.AddLink(pair.Type, pair.Target)!.Weight = .9f;
             var candidates = uks.SearchByAttributes(pattern, scope).Where(item => item.conf > 0).Take(100).ToArray();
             return Results.Ok(new { root = scope.Label, candidates = candidates.Select(item =>
             {
                 var effective = uks.GetAttributes(item.t);
-                return new { id = graphId(item.t), label = item.t.Label, score = item.conf,
+                return new { id = graphId(item.t), label = item.t.Label, weight = item.conf,
                     matched = pairs.Count(pair => effective.Any(link => link.LinkType?.HasAncestor(pair.Type) == true && link.To == pair.Target)),
-                    total = pairs.Count, attributes = effective.Where(link => pairs.Any(pair =>
+                    total = types.Count, attributes = effective.Where(link => pairs.Any(pair =>
                         link.LinkType?.HasAncestor(pair.Type) == true && link.To == pair.Target))
                         .Select(link => attributeSnapshot(item.t, link)).ToArray() };
             }).ToArray() });

@@ -131,6 +131,7 @@
         setStatus(status, 'Loading…');
       }
       try {
+        // === WEB SERVICE: GET /api/children — retrieve the selected Thought’s children and direct Relationships for the table. ===
         const data = await request('/api/children?label=' + encodeURIComponent(label), { signal: controller.signal, automatic });
         if (controller !== refreshController || selectedSandbox !== sandbox.id) return;
         const summary = `${data.label}: ${data.children.length} children · ${data.relationships.length} direct relationships. Auto-refresh: 2s.`;
@@ -157,6 +158,7 @@
             button.disabled = true;
             setStatus(status, `Deleting ${description}…`);
             try {
+              // === WEB SERVICE: DELETE /api/thoughts or /api/relationships — remove the item represented by this row; url selects the endpoint. ===
               await request(url, { method: 'DELETE' });
               await showChildren();
             } catch (error) {
@@ -233,6 +235,7 @@
       button.disabled = true;
       setStatus(status, 'Adding…');
       try {
+        // === WEB SERVICE: POST /api/statements — send the three form fields unchanged to the common server-side parser. ===
         const data = await request('/api/statements', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

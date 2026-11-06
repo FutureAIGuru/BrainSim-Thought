@@ -1,92 +1,339 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Search, Inheritance &amp; Exceptions · BrainSim Thought</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="experiments.css?v=20261105-navigation">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Search, Inheritance &amp; Exceptions · BrainSim Thought</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="experiments.css?v=20261106-content-scroll">
 </head>
 <body class="guided-demo query-demo">
-  <main>
-    <aside>
-      <div class="chapter">Searching / Inheritance / Exceptions</div>
-      <div class="progress" aria-label="Experiment progress"></div>
-      <p id="step-number" class="eyebrow"></p>
-      <div class="prompt-content"><h1 id="prompt-title"></h1><div id="prompt-copy"></div></div>
-      <div class="action-zone" role="region" aria-label="Experiment actions" tabindex="0">
-        <div id="query-controls" aria-label="Query controls"></div>
-        <div id="choices" role="region" aria-label="Experiment content" tabindex="0"></div>
-      </div>
-      <div id="query-results" role="region" aria-label="Query results" tabindex="0"><p>Choose a Thought to see its attributes.</p></div>
-      <p id="feedback" role="status" aria-live="polite">Connecting to the UKS…</p>
-      <div class="invitation" role="region" aria-label="Try this" tabindex="0"><span>Try this</span><div id="try-this"></div></div>
-      <nav aria-label="Experiments"><button id="back">← Back</button><button id="next" class="primary">Next →</button></nav>
-    </aside>
-    <section class="workspace" aria-label="Knowledge graph">
-      <div class="graph-toolbar">
-        <form id="root-form"><label for="root">Root</label><select id="root"><option>Fido</option><option>Tripper</option><option>robot-dog</option><option>Felix</option><option>Tweety</option><option>dog</option><option>cat</option><option>bird</option><option>animal</option></select><datalist id="root-options"></datalist><button id="load-root">Show</button></form>
-        <button id="fit" type="button">Fit view</button><button id="reset-content" type="button" title="Reset demo content and return to the first step">Reset Content</button><button id="help" type="button" aria-haspopup="dialog">Help</button>
-      </div>
-      <div class="canvas"><div id="graph" aria-label="Interactive knowledge graph"></div><div id="selection" role="status" aria-live="polite"></div></div>
-      <div class="graph-key" aria-label="Node color key"><span><i class="gold"></i>Root</span><span><i class="blue"></i>Thought</span><span><i class="green"></i>Expanded</span><span><i class="purple"></i>Relationship</span><span><i class="orange"></i>Supporting relationship</span><small id="counts"></small></div>
-    </section>
-  </main>
-  <dialog id="attribute-box" aria-label="Manage attributes"></dialog>
-  <dialog id="help-box" aria-labelledby="help-title"><p id="inactivity-note"></p></dialog>
-  <p id="sandbox-status" role="status"></p>
-  <!-- Existing session management is shared with the editor; XML selection is not part of this guided demo. -->
-  <select id="demo-select" hidden><option value="__choose">Choose</option><option value="">Standard UKS</option></select>
-  <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js" crossorigin="anonymous"></script>
-  <script type="module">
-    import { startExperiment } from './experiments.js?v=20261105-navigation';
-    const facts = [
-      {source:'animal',relationshipType:'is-a',target:'Object',caption:'animal is an Object'},
-      {source:'dog',relationshipType:'is-a',target:'animal',caption:'dog is an animal'},
-      {source:'cat',relationshipType:'is-a',target:'animal',caption:'cat is an animal'},
-      {source:'bird',relationshipType:'is-a',target:'animal',caption:'bird is an animal'},
-      {source:'Fido',relationshipType:'is-a',target:'dog',caption:'Fido is a dog'},
-      {source:'Tripper',relationshipType:'is-a',target:'dog',caption:'Tripper is a dog'},
-      {source:'Felix',relationshipType:'is-a',target:'cat',caption:'Felix is a cat'},
-      {source:'Tweety',relationshipType:'is-a',target:'bird',caption:'Tweety is a bird'},
-      {source:'animal',relationshipType:'needs',target:'food',caption:'animal needs food'},
-      {source:'dog',relationshipType:'has',target:'fur',caption:'dog has fur'},
-      {source:'dog',relationshipType:'has.4',target:'"legs"',targetLabel:'legs',caption:'dog has four legs'},
-      {source:'dog',relationshipType:'makes',target:'barking-sound',caption:'dog makes a barking sound'},
-      {source:'cat',relationshipType:'has',target:'fur',caption:'cat has fur'},
-      {source:'cat',relationshipType:'has.4',target:'"legs"',targetLabel:'legs',caption:'cat has four legs'},
-      {source:'cat',relationshipType:'makes',target:'meowing-sound',caption:'cat makes a meowing sound'},
-      {source:'bird',relationshipType:'has',target:'"wings"',targetLabel:'wings',caption:'bird has wings'},
-      {source:'bird',relationshipType:'has.2',target:'"legs"',targetLabel:'legs',caption:'bird has two legs'},
-      {source:'Fido',relationshipType:'is',target:'brown',caption:'Fido is brown'},
-      {source:'Felix',relationshipType:'is',target:'black',caption:'Felix is black'},
-      {source:'Tripper',relationshipType:'has.3',target:'"legs"',targetLabel:'legs',caption:'Tripper has three legs'},
-      {source:'dog',relationshipType:'has',target:'tail',caption:'dog has a tail'},
-      {source:'robot-dog',relationshipType:'is-a',target:'dog',caption:'robot-dog is a dog'},
-      {source:'robot-dog',relationshipType:'needs.NOT',target:'food',caption:'robot-dog does not need food'},
-      {source:'robot-dog',relationshipType:'has.NOT',target:'fur',caption:'robot-dog does not have fur'},
-      {source:'Tripper',relationshipType:'makes.NOT',target:'barking-sound',caption:'Tripper does not bark'}
-    ];
-    const steps = [
-      {title:'What do we know about it?', query:'attributes', inheritChoices:false, choices:[{component:'thought-selector',id:'subject'}, {component:'attribute-editor'}, {component:'attribute-results',source:'subject'}],
-        copy:'Choose a Thought. Its results include both direct attributes and attributes inherited from its categories.',
-        try:'Look up Fido, then dog. Select a result to highlight its supporting relationships in the graph.'},
-      {title:'Find something by its attributes.', query:'candidates', inheritChoices:false, choices:[{component:'attribute-search',id:'search'}, {component:'attribute-editor'}, {component:'candidate-results',source:'search'}],
-        copy:'Select one or more attributes and ask the UKS for likely candidates. The graph can show several results together.',
-        try:'Start with has → fur. Add is → brown, or try makes → barking-sound. Click a candidate to inspect its attributes.'},
-      {title:'A specific exception wins.', query:'exceptions', inheritChoices:false, choices:[{component:'thought-selector',id:'subject'},19,22,23,24, {component:'attribute-editor'}, {component:'attribute-results',source:'subject'}],
-        copy:'Choose Tripper to see his inherited four legs. Add his explicit three-leg exception and watch the inherited attribute disappear.',
-        try:'Add and remove the offered relationships. Try robot-dog: it inherits a need for food until you add the explicit exception.'}
-    ];
-    await startExperiment({facts, steps, seedIfMissing:'Tweety', initialFacts:facts.map((_,index)=>index).filter(index=>![19,22,23,24].includes(index)), seedGroups:[{thought:'robot-dog',facts:[21]}],
-      query:{root:'animal',subjects:['Fido','Tripper','robot-dog','Felix','Tweety','dog','cat','bird','animal'],exceptionSubjects:['Tripper','robot-dog','Fido'],
-        types:['is','has','has.2','has.3','has.4','has.NOT','makes','makes.NOT','needs','needs.NOT'],
-        targets:['brown','black','friendly','fur','tail','legs','wings','food','barking-sound','meowing-sound'],
-        attributes:[{relationshipType:'has',target:'fur'},{relationshipType:'is',target:'brown'},
-          {relationshipType:'makes',target:'barking-sound'},{relationshipType:'has.4',target:'legs'},
-          {relationshipType:'has',target:'wings'},{relationshipType:'is',target:'black'}]}});
-  </script>
+    <main>
+        <aside>
+            <div class="chapter">Searching / Inheritance / Exceptions</div>
+            <div class="progress" aria-label="Experiment progress"></div>
+            <p id="step-number" class="eyebrow"></p>
+            <div class="prompt-content"><h1 id="prompt-title"></h1><div id="prompt-copy"></div></div>
+            <div class="action-zone" role="region" aria-label="Experiment actions" tabindex="0">
+                <div id="query-controls" aria-label="Query controls"></div>
+                <div id="choices" role="region" aria-label="Experiment content" tabindex="0"></div>
+            </div>
+            <div id="query-results" role="region" aria-label="Query results" tabindex="0"><p>Choose a Thought to see its attributes.</p></div>
+            <p id="feedback" role="status" aria-live="polite">Connecting to the UKS…</p>
+            <div class="invitation" role="region" aria-label="Try this" tabindex="0"><span>Try this</span><div id="try-this"></div></div>
+            <nav aria-label="Experiments"><button id="back">← Back</button><button id="next" class="primary">Next →</button></nav>
+        </aside>
+        <section class="workspace" aria-label="Knowledge graph">
+            <div class="graph-toolbar">
+                <form id="root-form"><label for="root">Root</label><input id="root" value="Rover" list="root-options" aria-label="Graph root" autocomplete="off" required><datalist id="root-options"></datalist><button id="load-root">Show</button></form>
+                <button id="fit" type="button">Fit view</button><button id="reset-content" type="button" title="Reset demo content and return to the first step">Reset Content</button><button id="help" type="button" aria-haspopup="dialog" aria-label="Graph help"><img src="help-icon.svg" width="20" height="20" alt="" aria-hidden="true" style="display:block"></button>
+            </div>
+            <div class="canvas"><div id="graph" aria-label="Interactive knowledge graph"></div><div id="selection" role="status" aria-live="polite"></div></div>
+            <div class="graph-key" aria-label="Node color key"><span><i class="gold"></i>Root</span><span><i class="blue"></i>Thought</span><span><i class="green"></i>Expanded</span><span><i class="purple"></i>Relationship</span><span><i class="orange"></i>Supporting relationship</span><small id="counts"></small></div>
+        </section>
+    </main>
+    <dialog id="attribute-box" aria-label="Manage Attributes"></dialog>
+    <dialog id="help-box" aria-labelledby="help-title"><p id="inactivity-note"></p></dialog>
+    <p id="sandbox-status" role="status"></p>
+    <!-- Existing session management is shared with the editor; XML selection is not part of this guided demo. -->
+    <select id="demo-select" hidden><option value="__choose">Choose</option><option value="">Standard UKS</option></select>
+    <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js" crossorigin="anonymous"></script>
+    <script type="module">
+  //      import { startExperiment } from './experiments.js?v=20261106-missing-root';
+
+
+    import { startExperiment } from './experiments.js?v=20261106-missing-root';
+
+        const facts = [
+            // General hierarchy
+            { source: 'animal', relationshipType: 'is-a', target: 'Object', caption: 'animal is an Object' }, // 0
+            { source: 'dog', relationshipType: 'is-a', target: 'animal', caption: 'dog is an animal' }, // 1
+            { source: 'cat', relationshipType: 'is-a', target: 'animal', caption: 'cat is an animal' }, // 2
+            { source: 'bird', relationshipType: 'is-a', target: 'animal', caption: 'bird is an animal' }, // 3
+            { source: 'Fido', relationshipType: 'is-a', target: 'dog', caption: 'Fido is a dog' }, // 4
+            { source: 'Tripper', relationshipType: 'is-a', target: 'dog', caption: 'Tripper is a dog' }, // 5
+            { source: 'Felix', relationshipType: 'is-a', target: 'cat', caption: 'Felix is a cat' }, // 6
+            { source: 'Tweety', relationshipType: 'is-a', target: 'bird', caption: 'Tweety is a bird' }, // 7
+
+            // Attributes of categories
+            { source: 'animal', relationshipType: 'needs', target: 'food', caption: 'animal needs food' }, // 8
+            { source: 'dog', relationshipType: 'has', target: 'fur', caption: 'dog has fur' }, // 9
+            { source: 'dog', relationshipType: 'has.4', target: 'leg', caption: 'dog has four legs' }, // 10
+            { source: 'dog', relationshipType: 'can', target: 'bark', caption: 'dog can bark' }, // 11
+            { source: 'cat', relationshipType: 'has', target: 'fur', caption: 'cat has fur' }, // 12
+            { source: 'cat', relationshipType: 'has.4', target: 'leg', caption: 'cat has four legs' }, // 13
+            { source: 'cat', relationshipType: 'can', target: 'meow', caption: 'cat can meow' }, // 14
+            { source: 'bird', relationshipType: 'has', target: 'wing', caption: 'bird has wings' }, // 15
+            { source: 'bird', relationshipType: 'has.2', target: 'leg', caption: 'bird has two legs' }, // 16
+
+            // Other individual attributes
+            { source: 'Fido', relationshipType: 'is', target: 'brown', caption: 'Fido is brown' }, // 17
+            { source: 'Felix', relationshipType: 'is', target: 'black', caption: 'Felix is black' }, // 18
+
+            // Exceptions
+            { source: 'Tripper', relationshipType: 'has.3', target: 'leg', caption: 'Tripper has three legs' }, // 19
+
+            { source: 'dog', relationshipType: 'has', target: 'tail', caption: 'dog has a tail' }, // 20
+
+            // Robot dog
+            { source: 'robot-dog', relationshipType: 'is-a', target: 'dog', caption: 'robot-dog is a dog' }, // 21
+            { source: 'robot-dog', relationshipType: 'needs.NOT', target: 'food', caption: 'robot-dog does not need food' }, // 22
+            { source: 'robot-dog', relationshipType: 'has.NOT', target: 'fur', caption: 'robot-dog does not have fur' }, // 23
+            { source: 'Tripper', relationshipType: 'can.NOT', target: 'bark', caption: 'Tripper cannot bark' }, // 24
+
+            // Rover: deliberately NOT seeded initially
+            { source: 'Rover', relationshipType: 'is', target: 'brown', caption: 'Rover is brown' }, // 25
+            { source: 'Rover', relationshipType: 'has', target: 'collar', caption: 'Rover has a collar' }, // 26
+            { source: 'Rover', relationshipType: 'is', target: 'friendly', caption: 'Rover is friendly' }, // 27
+            { source: 'Rover', relationshipType: 'is-a', target: 'dog', caption: 'Rover is a dog' } // 28
+        ];
+
+        const steps = [
+            {
+                title: 'The Power of Inheritance',
+                query: 'attributes',
+                inheritChoices: false,
+                choices: [
+                    25, 26, 27, 28,11,
+                    { component: 'thought-selector', id: 'subject', label: 'Select Thought to show attributes' },
+                    { component: 'attribute-results', source: 'subject' }
+                ],
+                copy: `
+                              How does your brain know so much about a dog you've
+                              never met? Atomic Thoughts retrieve knowledge by
+                              traversing Relationships.
+
+                              First, give Rover a few attributes of his own.
+                              <p><strong>Select Rover, then click "Rover is brown"
+                              to begin.</strong></p>
+                            `,
+                try: `
+                              <ol>
+                                <li>Add Rover's color, collar, and friendliness.
+                                    Watch his attributes accumulate in the results.</li>
+                                <li>Now add "Rover is a dog." Suddenly, Rover inherits
+                                    many more attributes! The is-a relationship is special because it enables inheritance.</li>
+                                <li>Explore the graph. Where did those additional
+                                    attributes come from?</li>
+                                <li>Add or remove "dog can bark". Changing dog, immediately changes every descendant.
+                                    Check Rover and other dogs again.</li>
+                              </ol>
+                              Facts are not copied into Rover. He inherits
+                              them as the relationships are followed. Change a general fact once,
+                              and every applicable descendant can use it.
+                            `
+            },
+
+            {
+                title: 'Exceptions to the Rule',
+                query: 'exceptions',
+                inheritChoices: false,
+                choices: [19, 22, 23, 24,
+
+                    { component: 'attribute-editor', label: 'Manage Attributes…' },
+                    { component: 'thought-selector', id: 'subject' },
+                    { component: 'attribute-results', source: 'subject' }
+                ],
+                copy: `
+                              General knowledge is powerful, but individuals don't
+                              always follow the rules.
+
+                              Tripper is a dog with three legs. How can the UKS
+                              represent that without losing everything else it
+                              knows about dogs?
+
+                              <p><strong>Select Tripper and examine his legs.</strong></p>
+                            `,
+                try: `
+                              <ol>
+                                <li>Tripper initially inherits four legs from dog.</li>
+                                <li>Add "Tripper has three legs." Check his results
+                                    again. What happened to the four-leg attribute?</li>
+                                <li>Remove the exception. Does he inherit four legs
+                                    again? Direct attributes can override conflicting inherited attributes.</li>
+                                <li>Now select robot-dog. It inherits food and fur
+                                    from animal and dog.</li>
+                                <li>Add the exceptions saying robot-dog doesn't
+                                    need food and doesn't have fur.</li>
+                              </ol>
+                              This powerful feature lets specific exceptions override inherited
+                              knowledge without changing the general rule. Rules are efficient and exceptions make them flexible.
+                            `
+            },
+
+            {
+                title: 'Recognize and Predict',
+                query: 'candidates',
+                inheritChoices: false,
+                choices: [
+                    { component: 'attribute-editor', label: 'Manage Attributes…' },
+                    { component: 'attribute-search', id: 'search' },
+                    { component: 'candidate-results', source: 'search' }
+                ],
+                copy: `
+                              Your brain works in two directions: from observed
+                              attributes to possible objects, and from recognized
+                              objects to other attributes.
+
+                              Recognizing something lets you predict what else
+                              might be true about it.
+
+                              <p><strong>Search for things that have fur.</strong></p>
+                            `,
+                try: `
+                              <ol>
+                                <li>Search for "has fur." Which candidates appear?</li>
+                                <li>Add "is brown." Does that narrow the results?</li>
+                                <li>Select a candidate in the Thought selector
+                                    and examine its other attributes.</li>
+                                <li>Try "can bark" or "has four legs" to find
+                                    other candidates.</li>
+                              </ol>
+                              Recognition starts with attributes and finds possible
+                              objects--highlighting relationships it follows.
+                              Brains use 2 kinds of searches.  First, they find candidates that match a set of attributes.  Second, they find attributes that match a candidate.  Both search modes are essential.
+
+                            `
+            },
+
+            {
+                title: 'Explore on Your Own',
+                query: 'attributes',
+                inheritChoices: false,
+                choices: [
+                    { component: 'attribute-editor', label: 'Manage Attributes…' },
+                    { component: 'attribute-search', id: 'search' },
+                    { component: 'candidate-results', source: 'search' },
+                    { component: 'thought-selector', id: 'subject' },
+                    { component: 'attribute-results', source: 'subject' }
+                ],
+                copy: `
+                              Now try building some knowledge of your own.
+                              Create a new Thought, make it a member of an existing
+                              category, and see what it inherits.
+
+                              <p><strong>Open "Manage attributes…" to begin.</strong></p>
+                            `,
+                try: `
+                              <ol>
+                                <li>Create a new animal or dog using by unchecking "Use dropdowns"" .</li>
+                                <li>Give it an is-a Relationship to an existing
+                                    category.</li>
+                                <li>Select your new Thought and examine its
+                                    inherited attributes.</li>
+                                <li>Add an attribute or an exception of your own.</li>
+                                <li>Try searching for your new Thought using
+                                    one of its attributes.</li>
+                              </ol>
+                              Can you create a Thought that inherits useful
+                              knowledge without storing that knowledge directly?
+                            `
+            }
+        ];
+
+        // Keep these facts out of the initial knowledge base.
+        // Visitors will add them during the experiments.
+        const initiallyAbsent = new Set([
+            19,             // Tripper's three legs
+            22, 23, 24,     // Explicit exceptions
+            25, 26, 27, 28  // Rover's initial relationships
+        ]);
+
+        await startExperiment({
+            facts,
+            steps,
+            seedIfMissing: 'Rover',
+
+            initialFacts: facts
+                .map((_, index) => index)
+                .filter(index => !initiallyAbsent.has(index)),
+
+            seedGroups: [
+                { thought: 'robot-dog', facts: [21] }
+            ],
+
+            query: {
+                root: 'animal',
+
+                subjects: [
+                    'Rover', 'Fido', 'Tripper', 'robot-dog',
+                    'Felix', 'Tweety', 'dog', 'cat', 'bird', 'animal'
+                ],
+
+                exceptionSubjects: [
+                    'Tripper', 'robot-dog', 'Rover', 'Fido'
+                ],
+
+                types: [
+                    'is', 'is-a', 'has', 'has.2', 'has.3', 'has.4',
+                    'has.NOT', 'can', 'can.NOT', 'needs', 'needs.NOT'
+                ],
+
+                targets: [
+                    'brown', 'black', 'friendly', 'fur', 'tail',
+                    'collar', 'leg', 'wing', 'food', 'bark', 'meow'
+                ],
+
+                attributes: [
+                    { relationshipType: 'has', target: 'fur' },
+                    { relationshipType: 'is', target: 'brown' },
+                    { relationshipType: 'can', target: 'bark' },
+                    { relationshipType: 'has.4', target: 'leg' },
+                    { relationshipType: 'has.3', target: 'leg' },
+                    { relationshipType: 'has', target: 'wing' },
+                    { relationshipType: 'is', target: 'black' }
+                ]
+            }
+        });
+
+
+        // const facts = [
+        //   {source:'animal',relationshipType:'is-a',target:'Object',caption:'animal is an Object'},
+        //   {source:'dog',relationshipType:'is-a',target:'animal',caption:'dog is an animal'},
+        //   {source:'cat',relationshipType:'is-a',target:'animal',caption:'cat is an animal'},
+        //   {source:'bird',relationshipType:'is-a',target:'animal',caption:'bird is an animal'},
+        //   {source:'Fido',relationshipType:'is-a',target:'dog',caption:'Fido is a dog'},
+        //   {source:'Tripper',relationshipType:'is-a',target:'dog',caption:'Tripper is a dog'},
+        //   {source:'Felix',relationshipType:'is-a',target:'cat',caption:'Felix is a cat'},
+        //   {source:'Tweety',relationshipType:'is-a',target:'bird',caption:'Tweety is a bird'},
+        //   {source:'animal',relationshipType:'needs',target:'food',caption:'animal needs food'},
+        //   {source:'dog',relationshipType:'has',target:'fur',caption:'dog has fur'},
+        //   {source:'dog',relationshipType:'has.4',target:'"legs"',caption:'dog has four legs'},
+        //   {source:'dog',relationshipType:'makes',target:'barking-sound',caption:'dog makes a barking sound'},
+        //   {source:'cat',relationshipType:'has',target:'fur',caption:'cat has fur'},
+        //   {source:'cat',relationshipType:'has.4',target:'"legs"',caption:'cat has four legs'},
+        //   {source:'cat',relationshipType:'makes',target:'meowing-sound',caption:'cat makes a meowing sound'},
+        //   {source:'bird',relationshipType:'has',target:'"wings"',caption:'bird has wings'},
+        //   {source:'bird',relationshipType:'has.2',target:'"legs"',caption:'bird has two legs'},
+        //   {source:'Fido',relationshipType:'is',target:'brown',caption:'Fido is brown'},
+        //   {source:'Felix',relationshipType:'is',target:'black',caption:'Felix is black'},
+        //   {source:'Tripper',relationshipType:'has.3',target:'"legs"',caption:'Tripper has three legs'},
+        //   {source:'dog',relationshipType:'has',target:'tail',caption:'dog has a tail'},
+        //   {source:'robot-dog',relationshipType:'is-a',target:'dog',caption:'robot-dog is a dog'},
+        //   {source:'robot-dog',relationshipType:'needs.NOT',target:'food',caption:'robot-dog does not need food'},
+        //   {source:'robot-dog',relationshipType:'has.NOT',target:'fur',caption:'robot-dog does not have fur'},
+        //   {source:'Tripper',relationshipType:'makes.NOT',target:'barking-sound',caption:'Tripper does not bark'}
+        // ];
+        // const steps = [
+        //   {title:'What do we know about it?', query:'attributes', inheritChoices:false, choices:[{component:'thought-selector',id:'subject'}, {component:'attribute-editor'}, {component:'attribute-results',source:'subject'}],
+        //     copy:'Choose a Thought. Its results include both direct attributes and attributes inherited from its categories.',
+        //     try:'Look up Fido, then dog. Select a result to highlight its supporting relationships in the graph.'},
+        //   {title:'Find something by its attributes.', query:'candidates', inheritChoices:false, choices:[{component:'attribute-search',id:'search'}, {component:'attribute-editor'}, {component:'candidate-results',source:'search'}],
+        //     copy:'Select one or more attributes and ask the UKS for likely candidates. The graph can show several results together.',
+        //     try:'Start with has → fur. Add is → brown, or try makes → barking-sound. Click a candidate to inspect its attributes.'},
+        //   {title:'A specific exception wins.', query:'exceptions', inheritChoices:false, choices:[{component:'thought-selector',id:'subject'},19,22,23,24, {component:'attribute-editor'}, {component:'attribute-results',source:'subject'}],
+        //     copy:'Choose Tripper to see his inherited four legs. Add his explicit three-leg exception and watch the inherited attribute disappear.',
+        //     try:'Add and remove the offered relationships. Try robot-dog: it inherits a need for food until you add the explicit exception.'}
+        // ];
+        // await startExperiment({facts, steps, seedIfMissing:'Tweety', initialFacts:facts.map((_,index)=>index).filter(index=>![19,22,23,24].includes(index)), seedGroups:[{thought:'robot-dog',facts:[21]}],
+        //   query:{root:'animal',subjects:['Fido','Tripper','robot-dog','Felix','Tweety','dog','cat','bird','animal'],exceptionSubjects:['Tripper','robot-dog','Fido'],
+        //     types:['is','has','has.2','has.3','has.4','has.NOT','makes','makes.NOT','needs','needs.NOT'],
+        //     targets:['brown','black','friendly','fur','tail','legs','wings','food','barking-sound','meowing-sound'],
+        //     attributes:[{relationshipType:'has',target:'fur'},{relationshipType:'is',target:'brown'},
+        //       {relationshipType:'makes',target:'barking-sound'},{relationshipType:'has.4',target:'legs'},
+        //       {relationshipType:'has',target:'wings'},{relationshipType:'is',target:'black'}]}});
+    </script>
 </body>
 </html>

@@ -17,6 +17,7 @@ export function createSequencePanel({request,graph,perform,config,feedback,contr
   }
   function display(value) {return value.startsWith('note:')?value.slice(5):value.startsWith('c:')?value.slice(2):value;}
   async function catalog(automatic=false) {
+    // === WEB SERVICE: GET /api/sequences — list stored demo sequences for the current word/digit/music kind. ===
     const data=await request('/api/sequences?'+new URLSearchParams({kind:kind()}),{automatic});
     catalogs.set(kind(),data.sequences);return data.sequences;
   }
@@ -35,6 +36,7 @@ export function createSequencePanel({request,graph,perform,config,feedback,contr
   }
   async function store(label,values) {
     if(!values.length){feedback('Choose some sequence values first.');return false;}
+    // === WEB SERVICE: POST /api/sequences — store the entered sequence using the UKS sequence operations. ===
     const data=await request('/api/sequences',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:kind(),label,values})});
     await catalog();await showSequence(data);return data;
   }
@@ -47,6 +49,7 @@ export function createSequencePanel({request,graph,perform,config,feedback,contr
   }
   async function match({automatic=false}={}) {
     const values=[...buffer()];if(!values.length){feedback('Select a sequence to match.');return false;}
+    // === WEB SERVICE: GET /api/sequence-matches — match the entered values; return full/partial matches and continuations. ===
     const data=await request('/api/sequence-matches?'+new URLSearchParams({kind:kind(),values:JSON.stringify(values)}),{automatic});
     if(automatic&&(document.querySelector('dialog[open]')||document.activeElement?.matches('select,input,textarea')))return false;
     results.replaceChildren(el('h3','Sequence matches'));

@@ -290,7 +290,7 @@ Query-demo results now live in the wider left column. Thought selection loads at
 Attribute responses include `evidenceLinkIds` and `evidenceThoughtIds`. The web host reconstructs one stored inheritance route to `InheritedFromCategory` and appends the matching stored attribute. `depth` is the UKS's `InheritanceDepth`, not a browser estimate and not a candidate search score. If a computed result has no matching stored support, its evidence arrays are empty. This route is supporting evidence, not an internal search execution trace. Candidate responses include the effective attributes matching their search criteria with the same evidence metadata. The shared graph controller's `setEvidence(attributes, {fit, automatic})` displays and highlights those stored links in orange, including structural connectors if a highlighted Relationship is expanded. Clicking an attribute focuses its support; polling refreshes the selected explanation without refitting the camera.
 
 
-Background refresh pauses while a select/input is focused or any dialog is open; polling no longer disables controls. The attribute dialog opens beside the left edge of the graph and is clamped to the viewport. Experiment instructions follow query results immediately above navigation. Supporting relationships change color to orange without changing line/arrow size. Emphasis expires after eight seconds; automatic polling updates evidence without renewing the timeout. The supporting graph remains visible after its colors return to normal.
+Background refresh pauses while a select/input is focused or any dialog is open; polling no longer disables controls. The attribute dialog opens beside the left edge of the graph and is clamped to the viewport. Experiment instructions follow query results immediately above navigation. Supporting relationships change color to orange without changing line/arrow size. Emphasis expires after two seconds; automatic polling updates evidence without renewing the timeout. The supporting graph remains visible after its colors return to normal.
 
 
 The query demo opens with no selected Thought or results. The exception step uses the same selector as attribute lookup and shows only the selected Thought's effective attributes. Its suggested add/remove relationships are filtered to that Thought: Tripper's leg count/barking exceptions and robot-dog's food/fur exceptions. `robot-dog is-a dog` is a baseline fact; explicit negative properties are optional. Adding an exception removes the inherited default from effective results; removing it restores the default. Existing sandboxes missing robot-dog receive only its baseline membership via the configurable `seedGroups` bootstrap, without resetting prior edits. Manage attributes places Add and Delete to the right of their dropdown rows.
@@ -373,8 +373,8 @@ A step's `choices` array accepts fact indices and reusable component entries in 
 | --- | --- |
 | `thought-selector` | Choose the subject in attributes/exceptions mode. |
 | `attribute-editor` | Open the existing Add/Delete attribute dialog. |
-| `attribute-search` | Attribute checkboxes and Find candidates, in candidates mode. |
-| `attribute-choices`, `candidate-search` | The two search controls, if separate placement is wanted. |
+| `attribute-search` | Attribute checkboxes that search automatically when changed, in candidates mode. |
+| `attribute-choices` | Attribute checkboxes without the enclosing search group; changes search automatically. |
 | `attribute-results`, `candidate-results` | Output of the current query; optional `source` names the selector/search `id`. |
 | `word-input` | Word selection/input and Add, in spelling mode. |
 | `letter-keyboard`, `digit-pad`, `note-keyboard` | Input controls for letters, digits, or music respectively. |
@@ -387,6 +387,18 @@ A step's `choices` array accepts fact indices and reusable component entries in 
 | `sequence-results` | Sequence display, matches, or melody completion output. |
 | `html` | Trusted author HTML, for example `{component:'html', id:'note', html:'<b>Try this</b>'}`. |
 
-Use the step's existing `query: 'attributes' | 'candidates' | 'exceptions'` or `sequence: 'spelling' | 'letters' | 'digits' | 'music'` to choose its mode. There is one shared query stream and one shared sequence stream per page, with at most one instance of each control/result component per step. The optional result `source` binds to that stream's selector/search ID; it does not create additional independent queries. Place the producer and its results in the same step. `height` optionally bounds the result box; results scroll when longer.
+Use the step's existing `query: 'attributes' | 'candidates' | 'exceptions'` or `sequence: 'spelling' | 'letters' | 'digits' | 'music'` to choose its mode. There is one candidate-search stream, one subject-attribute stream, and one sequence stream per page, with at most one instance of each control/result component per step. Candidate search and a Thought selector can coexist with separate candidate and attribute results. The optional result `source` binds to that stream's selector/search ID; it does not create additional independent queries. Place the producer and its results in the same step. `height` optionally bounds the result box; results scroll when longer.
 
 Components carry forward like fact choices. An `id` identifies a component across steps; otherwise its component name does. Repeating its ID/name updates it in place. Use `inheritChoices: false` to start fresh, or `removeChoices: [14, 'attribute-editor', 'subject']` to remove selected fact indices, component names, or explicit IDs. These settings affect the offered UI only, never delete UKS data.
+
+
+The Manage Attributes dialog has a **Use menus** checkbox. Checked, Source Thought, Relationship type, and Target offer preset identities without a NEW item. Unchecked, they become text fields sent unchanged to the same `/api/statements` parser as the table page. Examples include `big dog`, `have 3`, a sequence such as `^c a t`, and bracketed nested Relationships or IF/AND expressions. Menu mode quotes noun choices to retain exact identities; text mode leaves parsing to the server. The selected mode is retained in the tab's saved demo state.
+
+
+Preset facts have a single `target` field. There is no separate `targetLabel`. Quote a literal target in `target` when required by the parser; English wording belongs in `caption`. The statement endpoint returns the actual Relationship and endpoint handles, and the guided engine retains that result to recognize parsed facts and restore their state after refresh.
+
+
+Candidate results use compact list rows. Each row shows matched/selected attribute count and the search weight returned by SearchByAttributes, matching the Windows query display. Query links use its default weight of 0.9. Stored Relationship and inheritance-link weights determine the returned values. Attribute result rows show inherited origin/hop count and the effective Relationship weight returned by GetAttributes. Checkbox changes search automatically after a short debounce; clearing all selections clears candidate output. There is no Find candidates button.
+
+
+Results components default to their natural content height. They do not stretch to fill leftover space or have an internal height cap. The action/content area scrolls the entire ordered choices list, including any candidate results, later Thought selectors, and attribute results. Try This and Back/Next remain outside this scroller.

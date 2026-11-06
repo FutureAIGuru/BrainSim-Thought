@@ -42,6 +42,7 @@ function updateControls() {
 }
 
 async function jsonRequest(url, options = {}) {
+  // === WEB SERVICE: HTTP TRANSPORT — perform the actual network request; method, endpoint, and payload come from the caller. ===
   const response = await fetch(url, { cache: 'no-store', ...options });
   const data = await response.json();
   if (!response.ok) {
@@ -53,6 +54,9 @@ async function jsonRequest(url, options = {}) {
   return data;
 }
 
+// SHARED WEB SERVICE WRAPPER: most page code calls request(), not fetch().
+// It waits for initialization, adds ?session=..., and handles expired sessions.
+// The actual HTTP fetch is in jsonRequest() above. Search WEB SERVICE for call sites.
 export async function request(path, options = {}) {
   if (!await sandbox.ready) throw sandbox.error;
   if (!sandbox.available) throw sandbox.error;
@@ -62,6 +66,7 @@ export async function request(path, options = {}) {
   const headers = new Headers(fetchOptions.headers);
   if (automatic) headers.set('X-Sandbox-Poll', '1');
   try {
+    // === WEB SERVICE: FORWARD REQUEST — send the caller’s endpoint with the session ID and optional background-poll header. ===
     return await jsonRequest(url, { ...fetchOptions, headers });
   } catch (error) {
     if (error.code === 'sandbox_unavailable') {
@@ -79,6 +84,7 @@ async function initialize() {
   updateControls();
   message('Loading demo…');
   const parameters = new URLSearchParams(location.search);
+  // === WEB SERVICE: GET /api/demos — retrieve the available XML demo names for the dropdown. ===
   const demos = await jsonRequest('/api/demos');
   for (const demo of demos) {
     const option = document.createElement('option');
@@ -91,16 +97,19 @@ async function initialize() {
   if (!parameters.has('session')) {
     try { remembered=JSON.parse(sessionStorage.getItem(activeSessionKey)||'null'); } catch {}
     if(typeof remembered?.id==='string') {
+      // === WEB SERVICE: GET /api/sandbox — check whether the tab’s remembered UKS session still exists. ===
       try { data=await jsonRequest('/api/sandbox?session='+encodeURIComponent(remembered.id)); }
       catch(error) {if(error.code!=='sandbox_unavailable')throw error;remembered=null;}
     }
   }
   if (parameters.has('session')) {
     sandbox.id = parameters.get('session');
+    // === WEB SERVICE: GET /api/sandbox — open the existing UKS session identified by the address-bar URL. ===
     data = await jsonRequest('/api/sandbox?session=' + encodeURIComponent(sandbox.id));
   } else if (!data) {
     const query = new URLSearchParams();
     if (parameters.get('demo')) query.set('demo', parameters.get('demo'));
+    // === WEB SERVICE: POST /api/sandboxes — create a UKS session with standard or XML-preloaded content. ===
     data = await jsonRequest('/api/sandboxes?' + query, { method: 'POST' });
   }
   sandbox.id = data.id;
@@ -144,6 +153,7 @@ function recordActivity(event) {
   const interval = Math.max(100, Math.min(30000, sandbox.idleTimeoutMs / 3));
   if (now - lastActivityPing < interval) return;
   lastActivityPing = now;
+  // === WEB SERVICE: GET /api/sandbox — record real user activity, periodically, so an active demo does not expire. ===
   request('/api/sandbox').catch(() => {});
 }
 for (const type of ['pointerdown', 'pointermove', 'keydown', 'wheel'])
