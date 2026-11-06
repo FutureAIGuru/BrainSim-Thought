@@ -110,6 +110,10 @@ public static class GroundedImageResolver
             return false;
         if (!string.Equals(Path.GetFileName(label), label, StringComparison.Ordinal))
             return false;
+        // Judged by the running platform's rules: on Windows this rejects \, / and :, while
+        // on macOS/iOS only / and NUL are invalid in a file name.
+        if (label.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            return false;
         return SupportedExtensions.Contains(Path.GetExtension(label));
     }
 

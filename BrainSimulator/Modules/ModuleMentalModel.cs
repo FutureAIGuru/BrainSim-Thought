@@ -410,13 +410,16 @@ public class ModuleMentalModel : ModuleBase
         return idx;
     }
 
+    /// <summary>
+    /// The azimuth at the centre of a cell: the inverse of GetBinFromAzimuth. (Mapping the bins
+    /// onto -1..1 end to end put the last cell of every ring at +180°, which is the first cell,
+    /// so anything placed there jumped to the other side when it was moved or rotated.)
+    /// </summary>
     public Angle GetAzimuthFromBin(int bin, int ring)
     {
-        float halfWidth = _cells[ring].Length / 2;
-        float offset = bin - halfWidth;
-        float u = offset / halfWidth;
-        Angle a = Angle.FromDegrees((float)InvertWarp(u) * 180);
-        return a;
+        int bins = _cells[ring].Length;
+        double u = (2.0 * bin + 1.0) / bins - 1.0;
+        return Angle.FromDegrees((float)(InvertWarp(u) * 180));
     }
 
     public double InvertWarp(double u)
@@ -587,6 +590,19 @@ public class ModuleMentalModel : ModuleBase
             newLink.Weight = move.weight;
             newLink.AddLink("distance", move.distThought);
         }
+        FollowAttention();
+    }
+
+    /// <summary>
+    /// Attention moves with an object it shares a cell with; keep AttentionCell on the cell the
+    /// attention marker is in now (it stayed on the old cell, so the status and Attention
+    /// module pointed where nothing was).
+    /// </summary>
+    private void FollowAttention()
+    {
+        Thought marker = theUKS.Labeled("attention");
+        Thought cell = marker?.LinksFrom.FirstOrDefault(l => l.LinkType == _ltContains)?.From;
+        if (cell is not null) AttentionCell = cell;
     }
     public void MoveMentalModel(float distanceForward)
     {
@@ -647,6 +663,7 @@ public class ModuleMentalModel : ModuleBase
                 newLink.RemoveLink(dl);
             newLink.AddLink("distance", distThought);
         }
+        FollowAttention();
     }
 
     private double GetDistanceFromLink(Link l)

@@ -463,6 +463,23 @@ public partial class UKS
         List<Thought> thoughtsToSearch = new();
         List<Thought> alreadySearched = new();
         searchCandidates = new();
+        //Nothing changes the UKS during a search, so these answers are computed once per Thought.
+        //(They are asked for every link visited, and each answer walks the ancestors.)
+        Dictionary<Thought, bool> inheritableLinkTypes = new(ReferenceEqualityComparer.Instance);
+        Dictionary<Thought, bool> underRoot = new(ReferenceEqualityComparer.Instance);
+        bool IsInheritable(Thought? linkType)
+        {
+            if (linkType is null) return false;
+            if (!inheritableLinkTypes.TryGetValue(linkType, out bool value))
+                inheritableLinkTypes[linkType] = value = linkType.HasProperty("inheritable");
+            return value;
+        }
+        bool IsUnderRoot(Thought t)
+        {
+            if (!underRoot.TryGetValue(t, out bool value))
+                underRoot[t] = value = t.HasAncestor(root);
+            return value;
+        }
 
         //seed the search queue with the given parameters.
         foreach (Link r in target.LinksTo)
@@ -512,7 +529,7 @@ public partial class UKS
                 var existing = thoughtsToSearch.FindFirst(x => x == r1.From);
                 if (r.LinkType is not null &&
                     (r1.LinkType == r.LinkType || r1.LinkType?.HasAncestor(r.LinkType) == true) &&
-                    r1.From.HasAncestor(root) &&
+                    IsUnderRoot(r1.From) &&
                     r1.To == r.To && existing is null)
                 {
                     thoughtsToSearch.Add(r1.From);
@@ -536,7 +553,7 @@ public partial class UKS
             alreadySearched.Add(t);
             foreach (Link r in t.LinksFrom)
             {
-                if (r.LinkType?.HasProperty("inheritable") != true) continue;
+                if (!IsInheritable(r.LinkType)) continue;
                 if (r.From == target || r.From is null) continue;
                 AddToQueues(t, r.From);
                 inheritedValueCount++;
@@ -578,7 +595,7 @@ public partial class UKS
 
         bool AddToQueues(Thought tPrev, Thought tNew)
         {
-            if (!tNew.HasAncestor(root)) return false;
+            if (!IsUnderRoot(tNew)) return false;
             if (!searchCandidates.ContainsKey(tNew))
                 searchCandidates[tNew] = 0; //initialize a new dictionary entry if needed
             searchCandidates[tNew] += searchCandidates[tPrev] * GetLinkWeight(tNew, tPrev);

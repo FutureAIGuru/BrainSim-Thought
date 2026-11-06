@@ -1,0 +1,11 @@
+<linker>
+  <!-- UKS save/load uses XmlSerializer over these types via reflection -->
+  <assembly fullname="UKSNative">
+    <type fullname="UKS.UKS/sThought" preserve="all" />
+    <!-- Module web lookups (ModuleOnlineInfo, GPT, ModuleGPTInfo) deserialize API responses
+         into their nested classes with Newtonsoft.Json, which needs them via reflection. -->
+    <namespace fullname="BrainSimulator.Modules" preserve="all" />
+    <namespace fullname="BrainSimulator" preserve="all" />
+  </assembly>
+  <assembly fullname="Newtonsoft.Json" preserve="all" />
+</linker>

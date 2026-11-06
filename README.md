@@ -6,7 +6,7 @@ Brain Simulator Thought is a cognitive architecture designed to model **meaning,
 
 At its core, Brain Simulator Thought provides a substrate in which knowledge is not stored as static facts, but emerges from interconnected, competing, and evolving structures—much closer to how biological cognition operates.
 
-| [API](https://futureaisociety.org/Documentation/html/) | [Books](https://futureaisociety.org/resources/books/) | [Linux Installation](https://futureaisociety.org/wp-content/uploads/2026/07/windows-11-vm.pdf) | [Website](https://futureaisociety.org/) | [Youtube](https://www.youtube.com/@FutureAISociety) |
+| [API](https://futureaisociety.org/Documentation/html/) | [Books](https://futureaisociety.org/resources/books/) | [Linux Installation](https://futureaisociety.org/wp-content/uploads/2026/07/windows-11-vm.pdf) | [Website](https://futureaisociety.org/) | [Youtube](https://www.youtube.com/@FutureAISociety) | [iOS](https://github.com/FutureAIGuru/BrainSim-Thought-IOS/tree/ios-port/iOS)
 
 ---
 
