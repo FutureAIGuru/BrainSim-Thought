@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo frame preview · Future AI Society</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { font: 14px/1.5 'Open Sans', sans-serif; color: #f3eef9; background: #090018; color-scheme: dark; }
+    * { box-sizing: border-box; } body { margin: 0; }
+    .site-notice { background: #833ecf; text-align: center; padding: 6px 12px; font-size: 12px; }
+    .site-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 19px 24px; min-height: 100px; }
+    .site-header img { width: 180px; max-width: 32vw; height: auto; }
+    .site-nav { display: flex; gap: 26px; }
+    a { color: inherit; text-decoration: none; } a:hover { color: #58adfe; }
+    .join { border-radius: 8px; padding: 10px 15px; background: linear-gradient(110deg,#58adfe,#833ecf); color: #1e0146; font-size: 12px; font-weight: 700; }
+    .preview-tools { margin: 0 12px 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11px; color: #bdb0ce; }
+    label { display: flex; gap: 8px; align-items: center; } select { font: inherit; color: #f3eef9; background: #211331; border: 1px solid #5a426f; border-radius: 4px; padding: 4px 8px; }
+    #frame-region { margin: auto; width: calc(100% - 24px); transition: max-width .2s; }
+    iframe { display: block; width: 100%; height: 70vh; border: 1px solid #382747; }
+    footer { padding: 35px 24px; color: #bdb0ce; font-size: 12px; }
+    footer strong { color: #f3eef9; } footer p { margin: 8px 0; }
+    @media(max-width:700px) { .site-header { min-height: 80px; padding: 14px 12px; gap: 8px; } .site-nav { display: none; } .site-notice { font-size: 10px; } }
+  </style>
+</head>
+<body>
+  <div class="site-notice">Free &amp; open exploration of brain-like AI — join the discussion</div>
+  <header class="site-header">
+    <a href="https://futureaisociety.org/" target="_blank" rel="noopener"><img src="https://futureaisociety.org/wp-content/uploads/2023/10/NewLogo46x200.png" alt="Future AI Society"></a>
+    <nav class="site-nav" aria-label="Example site navigation"><a href="https://futureaisociety.org/">Home</a><a href="https://futureaisociety.org/technologies/brain-simulator-thought/">Technologies</a><a href="https://futureaisociety.org/resources/books/">Resources</a><a href="https://futureaisociety.org/about/">About</a></nav>
+    <a class="join" href="https://futureaisociety.org/login" target="_blank" rel="noopener">Log In / Join</a>
+  </header>
+  <div class="preview-tools"><span>Local WordPress frame approximation · <span id="frame-size"></span></span><label>Preview width <select id="device"><option value="full">Available width</option><option value="820">Tablet · 820px</option><option value="390">Phone · 390px</option></select></label></div>
+  <div id="frame-region"><iframe id="demo-frame" src="lab1.html" title="Chapter 2 Atomic Thought demo" allow="fullscreen" allowfullscreen></iframe></div>
+  <footer><strong>Future AI Society</strong><p>Local layout preview. The header and footer approximate the public demos page; WordPress remains responsible for the real navigation.</p><a href="https://futureaisociety.org/demos/" target="_blank" rel="noopener">View the WordPress demos page ↗</a></footer>
+  <script>
+    const frame = document.getElementById('demo-frame');
+    // Keep demo navigation in this local test harness, outside the demo itself.
+    const lab = new URLSearchParams(location.search).get('lab');
+    if (['2','3'].includes(lab)) {
+      frame.src = `lab${lab}.html`; frame.title = lab === '2' ? 'Search, inheritance and exceptions demo' : 'Sequences demo';
+    }
+    const region = document.getElementById('frame-region');
+    const device = document.getElementById('device');
+    function resizeFrame() {
+      region.style.maxWidth = device.value === 'full' ? 'none' : device.value + 'px';
+      const viewport = window.visualViewport;
+      const bottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+      frame.style.height = Math.max(420, bottom - Math.max(0, frame.getBoundingClientRect().top) - 12) + 'px';
+      document.getElementById('frame-size').textContent = `${Math.round(frame.clientWidth)} × ${Math.round(frame.clientHeight)}px`;
+    }
+    device.addEventListener('change', resizeFrame);
+    window.addEventListener('load', resizeFrame);
+    window.addEventListener('resize', resizeFrame);
+    window.visualViewport?.addEventListener('resize', resizeFrame);
+    document.fonts?.ready.then(resizeFrame);
+    new ResizeObserver(() => {
+      document.getElementById('frame-size').textContent = `${Math.round(frame.clientWidth)} × ${Math.round(frame.clientHeight)}px`;
+    }).observe(frame);
+    resizeFrame();
+  </script>
+</body>
+</html>

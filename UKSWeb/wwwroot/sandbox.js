@@ -2,8 +2,6 @@
 export const sandbox = {
   id: null,
   available: false,
-  changed: false,
-  pendingWrites: 0,
   idleTimeoutMs: 30 * 60 * 1000,
   demo: null,
   error: null,
@@ -16,15 +14,18 @@ export const sandbox = {
     return url.href;
   },
   updateRoot(root) {
-    if (this.id) history.replaceState(null, '', this.pageUrl(location.pathname, root));
+    if (this.id) {
+      history.replaceState(null, '', this.pageUrl(location.pathname, root));
+      try { sessionStorage.setItem(activeSessionKey,JSON.stringify({id:this.id,root})); } catch {}
+    }
   }
 };
 
+const activeKey=(demo)=>`uks-active-demo:${location.pathname}:${demo || ''}`;
+const activeSessionKey=activeKey(new URLSearchParams(location.search).get('demo'));
 const status = document.querySelector('#sandbox-status');
 const demoSelect = document.querySelector('#demo-select');
 const inactivityNote = document.querySelector('#inactivity-note');
-let approvedDeparture = false;
-let sameSessionNavigation = false;
 
 function currentRoot() {
   return (document.querySelector('#root') || document.querySelector('#children-form [name="label"]'))?.value.trim() || 'Thought';
@@ -40,46 +41,9 @@ function updateControls() {
     control.disabled = !sandbox.available;
 }
 
-function hasChanges() {
-  return sandbox.available && (sandbox.changed || sandbox.pendingWrites > 0);
-}
-
-function warnBeforeLeaving(event) {
-  if (!hasChanges() || approvedDeparture || sameSessionNavigation) return;
-  event.preventDefault();
-  event.returnValue = '';
-}
-
-function updateLeaveGuard() {
-  if (hasChanges()) window.addEventListener('beforeunload', warnBeforeLeaving);
-  else window.removeEventListener('beforeunload', warnBeforeLeaving);
-}
-
-function sameSession(url) {
-  return sandbox.id && url.origin === location.origin && url.searchParams.get('session') === sandbox.id;
-}
-
-// Following our editor/graph links keeps every edit. Do not warn on that move.
-document.addEventListener('click', event => {
-  const link = event.target.closest?.('a[href]');
-  if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target === '_blank') return;
-  const url = new URL(link.href, location.href);
-  if (sameSession(url) && (url.pathname !== location.pathname || url.search !== location.search)) sameSessionNavigation = true;
-});
-// Modern browsers also identify reloads/back-forward navigation to the same
-// session. Other browsers retain their standard beforeunload warning.
-window.navigation?.addEventListener('navigate', event => {
-  if (!event.destination.sameDocument) sameSessionNavigation = Boolean(sameSession(new URL(event.destination.url)));
-});
-window.navigation?.addEventListener('navigateerror', () => { approvedDeparture = false; sameSessionNavigation = false; });
-
 async function jsonRequest(url, options = {}) {
+  // === WEB SERVICE: HTTP TRANSPORT — perform the actual network request; method, endpoint, and payload come from the caller. ===
   const response = await fetch(url, { cache: 'no-store', ...options });
-  // Shared tabs learn about changes made by another visitor through normal reads.
-  if (response.headers.get('X-Demo-Changed') === '1' && sameSession(new URL(url, location.origin))) {
-    sandbox.changed = true;
-    updateLeaveGuard();
-  }
   const data = await response.json();
   if (!response.ok) {
     const error = new Error(data.error || data.detail || data.title || 'The request failed.');
@@ -90,37 +54,29 @@ async function jsonRequest(url, options = {}) {
   return data;
 }
 
+// SHARED WEB SERVICE WRAPPER: most page code calls request(), not fetch().
+// It waits for initialization, adds ?session=..., and handles expired sessions.
+// The actual HTTP fetch is in jsonRequest() above. Search WEB SERVICE for call sites.
 export async function request(path, options = {}) {
   if (!await sandbox.ready) throw sandbox.error;
   if (!sandbox.available) throw sandbox.error;
   const { automatic = false, ...fetchOptions } = options;
-  const method = (fetchOptions.method || 'GET').toUpperCase();
-  const writing = method !== 'GET' && method !== 'HEAD';
   const url = new URL(path, location.origin);
   url.searchParams.set('session', sandbox.id);
   const headers = new Headers(fetchOptions.headers);
   if (automatic) headers.set('X-Sandbox-Poll', '1');
-  if (writing) {
-    sandbox.pendingWrites++;
-    updateLeaveGuard();
-  }
   try {
-    const data = await jsonRequest(url, { ...fetchOptions, headers });
-    if (writing) sandbox.changed = true;
-    return data;
+    // === WEB SERVICE: FORWARD REQUEST — send the caller’s endpoint with the session ID and optional background-poll header. ===
+    return await jsonRequest(url, { ...fetchOptions, headers });
   } catch (error) {
     if (error.code === 'sandbox_unavailable') {
       sandbox.available = false;
       sandbox.error = error;
       demoSelect.value = '__choose';
       updateControls();
-      updateLeaveGuard();
       message(error.message, true);
     }
     throw error;
-  } finally {
-    if (writing) sandbox.pendingWrites--;
-    updateLeaveGuard();
   }
 }
 
@@ -128,6 +84,7 @@ async function initialize() {
   updateControls();
   message('Loading demo…');
   const parameters = new URLSearchParams(location.search);
+  // === WEB SERVICE: GET /api/demos — retrieve the available XML demo names for the dropdown. ===
   const demos = await jsonRequest('/api/demos');
   for (const demo of demos) {
     const option = document.createElement('option');
@@ -136,24 +93,32 @@ async function initialize() {
     demoSelect.append(option);
   }
   demoSelect.disabled = false;
-  let data;
+  let data, remembered;
+  if (!parameters.has('session')) {
+    try { remembered=JSON.parse(sessionStorage.getItem(activeSessionKey)||'null'); } catch {}
+    if(typeof remembered?.id==='string') {
+      // === WEB SERVICE: GET /api/sandbox — check whether the tab’s remembered UKS session still exists. ===
+      try { data=await jsonRequest('/api/sandbox?session='+encodeURIComponent(remembered.id)); }
+      catch(error) {if(error.code!=='sandbox_unavailable')throw error;remembered=null;}
+    }
+  }
   if (parameters.has('session')) {
     sandbox.id = parameters.get('session');
+    // === WEB SERVICE: GET /api/sandbox — open the existing UKS session identified by the address-bar URL. ===
     data = await jsonRequest('/api/sandbox?session=' + encodeURIComponent(sandbox.id));
-  } else {
+  } else if (!data) {
     const query = new URLSearchParams();
     if (parameters.get('demo')) query.set('demo', parameters.get('demo'));
+    // === WEB SERVICE: POST /api/sandboxes — create a UKS session with standard or XML-preloaded content. ===
     data = await jsonRequest('/api/sandboxes?' + query, { method: 'POST' });
   }
   sandbox.id = data.id;
   sandbox.demo = data.demo;
-  sandbox.changed = data.hasChanges;
   sandbox.idleTimeoutMs = data.idleTimeoutMinutes * 60 * 1000;
   sandbox.available = true;
   demoSelect.value = sandbox.demo || '';
-  sandbox.updateRoot(parameters.get('root') || currentRoot());
+  sandbox.updateRoot(parameters.get('root') || (typeof remembered?.root==='string'?remembered.root:null) || currentRoot());
   updateControls();
-  updateLeaveGuard();
   inactivityNote.textContent = `Edits are deleted after ${data.idleTimeoutMinutes} minutes of inactivity or a server restart.`;
   message('');
   return true;
@@ -161,12 +126,9 @@ async function initialize() {
 
 demoSelect.addEventListener('change', () => {
   if (demoSelect.value === '__choose') return;
-  if (hasChanges() && !window.confirm('You have changes in this demo. Open another demo?')) {
-    demoSelect.value = sandbox.demo || '';
-    return;
-  }
-  approvedDeparture = true; // The explicit confirmation replaces a second browser warning.
   demoSelect.disabled = true;
+  // An explicit XML selection always creates a fresh sandbox.
+  try { sessionStorage.removeItem(activeKey(demoSelect.value)); } catch {}
   const url = new URL(location.pathname, location.origin);
   if (demoSelect.value) url.searchParams.set('demo', demoSelect.value);
   url.searchParams.set('root', 'Thought');
@@ -179,7 +141,6 @@ sandbox.ready = initialize().catch(error => {
   sandbox.error = error;
   demoSelect.value = '__choose';
   updateControls();
-  updateLeaveGuard();
   message(error.message, true);
   return false;
 });
@@ -192,6 +153,7 @@ function recordActivity(event) {
   const interval = Math.max(100, Math.min(30000, sandbox.idleTimeoutMs / 3));
   if (now - lastActivityPing < interval) return;
   lastActivityPing = now;
+  // === WEB SERVICE: GET /api/sandbox — record real user activity, periodically, so an active demo does not expire. ===
   request('/api/sandbox').catch(() => {});
 }
 for (const type of ['pointerdown', 'pointermove', 'keydown', 'wheel'])

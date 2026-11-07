@@ -1,0 +1,333 @@
+:root {
+  font: 14px/1.5 'Open Sans', sans-serif;
+  color: #f3eef9; background: #090018; color-scheme: dark;
+  --panel: #130a24; --border: #382747; --muted: #bdb0ce; --blue: #58adfe; --purple: #833ecf;
+}
+* { box-sizing: border-box; }
+body { margin: 0; height: 100dvh; display: flex; flex-direction: column; }
+main { display: grid; grid-template-columns: minmax(260px, var(--prompt-width, 357px)) minmax(0, 1fr); flex: 1; min-height: 0; }
+aside { min-height: 0; padding: 18px; display: flex; flex-direction: column; gap: 10px; border-right: 1px solid var(--border); background: var(--panel); overflow: hidden; }
+.chapter, .eyebrow, .invitation > span { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.chapter { color: var(--blue); font-weight: 700; }
+.eyebrow { color: var(--muted); margin: 0; }
+.progress { display: flex; gap: 6px; flex-shrink: 0; }
+.progress button { padding: 0; height: 5px; border: 0; border-radius: 3px; background: #3a2a50; flex: 1; }
+.progress button.active { background: linear-gradient(90deg, var(--blue), var(--purple)); }
+.progress button:disabled { opacity: .5; }
+h1 { font-size: 16px; line-height: 1.2; letter-spacing: -.025em; margin: 0 0 9px; }
+p { margin: 0; }
+#prompt-copy { color: #d0c5dd; font-size: 12px; }
+.prompt-content { max-height: 56%; min-height: 90px; overflow: auto; flex: 0 1 320px; }
+button, input { font: inherit; color: inherit; border: 1px solid #5a426f; border-radius: 5px; background: #211331; padding: 7px 10px; }
+button { cursor: pointer; }
+button:hover:not(:disabled) { background: #33204b; border-color: var(--blue); }
+button:disabled { cursor: default; opacity: .4; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+#choices { display: grid; align-content: start; grid-auto-rows: max-content; gap: 6px; flex: 1 1 180px; min-height: 85px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding: 3px; }
+.choice { display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; width: 100%; padding: 10px; min-height: 43px; }
+.choice span { flex: 1; }
+.choice .action-icon { flex: 0 0 18px; width: 18px; height: 18px; color: var(--blue); }
+.choice.added { border-color: #76559a; background: #27173b; }
+.choice.added .action-icon { color: #f1a9c9; }
+.invitation { border-left: 2px solid var(--purple); padding-left: 10px; margin-top: 12px; }
+.invitation span { color: #c69af1; }
+.invitation p { font-size: 12px; margin-top: 3px; }
+#feedback { color: var(--muted); font-size: 11px; max-height: 32px; overflow: auto; flex-shrink: 0; }
+#feedback:empty { display: none; }
+#feedback.error, #sandbox-status { color: #ffb0b7; }
+nav { display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.primary { background: linear-gradient(110deg, #398bd8, #833ecf); color: white; border-color: #9d74c9; font-weight: 600; }
+.workspace { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.graph-toolbar { display: flex; align-items: center; gap: 7px; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12px; background: #0e041e; }
+#root-form { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+#root { width: 150px; min-width: 45px; flex: 0 1 180px; }
+.graph-toolbar button { white-space: nowrap; font-size: 12px; }
+#help { margin-left: auto; }
+.canvas { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+#graph { position: absolute; inset: 0; }
+#selection { position: absolute; left: 10px; bottom: 10px; max-width: calc(100% - 20px); padding: 7px 10px; background: #211331ed; border: 1px solid #63457d; border-radius: 5px; font-size: 12px; pointer-events: none; overflow-wrap: anywhere; }
+#selection:empty { display: none; }
+.graph-key { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 13px; padding: 7px 10px; font-size: 10px; color: var(--muted); border-top: 1px solid var(--border); }
+.graph-key span { display: inline-flex; align-items: center; gap: 5px; }
+.graph-key i { width: 8px; height: 8px; display: inline-block; border-radius: 50%; }
+.gold { background: #efbd64; } .blue { background: #58adfe; } .green { background: #62d5be; } .purple { background: #ba8aef; }
+#counts { margin-left: auto; font-size: inherit; }
+dialog { color: #f3eef9; background: #180c2a; border: 1px solid #755092; border-radius: 8px; padding: 18px; width: min(440px, calc(100% - 24px)); max-height: calc(100dvh - 32px); margin: 12px 12px auto auto; overflow: auto; }
+dialog::backdrop { background: #09001899; }
+.help-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.help-heading h2 { font-size: 19px; margin: 0; }
+#close-help { font-size: 22px; padding: 0 9px; }
+dialog ul { padding-left: 19px; font-size: 12px; }
+dialog li { margin: 10px 0; }
+#inactivity-note { font-size: 11px; color: var(--muted); }
+#sandbox-status { margin: 0; font-size: 12px; padding: 5px 10px; background: var(--panel); }
+#sandbox-status:empty { display: none; }
+@media (max-width: 700px) {
+  main { grid-template-columns: 1fr; grid-template-rows: minmax(270px, 52%) minmax(190px, 1fr); }
+  aside { padding: 10px 12px; gap: 6px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .chapter, .progress { display: none; }
+  h1 { font-size: 13px; margin-bottom: 3px; }
+  #prompt-copy { font-size: 11px; }
+  .prompt-content { max-height: 54%; min-height: 60px; flex-basis: 155px; }
+  #choices { grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); min-height: 55px; flex-basis: 80px; }
+  .choice { font-size: 11px; padding: 6px 8px; min-height: 33px; }
+  .invitation { margin-top: 8px; }
+  .invitation p { font-size: 11px; }
+  .graph-toolbar { padding: 6px; gap: 4px; }
+  .graph-toolbar button, .graph-toolbar input { padding: 5px 6px; font-size: 11px; }
+  #root-form { gap: 4px; }
+  .graph-key { font-size: 9px; gap: 4px 9px; padding: 5px 7px; }
+}
+
+/* Query demos share the graph and step layout, with controls and an output pane. */
+#query-controls { display: flex; flex-direction: column; gap: 8px; min-height: 90px; overflow: auto; flex: 1 1 180px; }
+#query-controls label, #attribute-box > label { display: flex; flex-direction: column; gap: 4px; }
+#query-controls select, #attribute-box select, .graph-toolbar select { font: inherit; color: inherit; background: #211331; border: 1px solid #5a426f; border-radius: 5px; padding: 7px; min-width: 0; }
+#query-controls .attribute-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; }
+#query-controls .attribute-choices label { flex-direction: row; align-items: center; gap: 8px; }
+#query-controls input { margin: 0; }
+.query-demo #choices:empty { display: none; }
+.query-demo #choices:not(:empty) { flex: 0 1 65px; min-height: 43px; }
+#query-results { flex: 0 1 210px; min-height: 100px; max-height: 43%; overflow: auto; border-top: 1px solid var(--border); background: var(--panel); padding: 10px 14px; }
+#query-results h3 { font-size: 14px; margin: 0 0 8px; }
+#query-results section + section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+#query-results ul { list-style: none; margin: 0; padding: 0; }
+#query-results li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 12px; padding: 4px 0; }
+#query-results small { color: var(--muted); }
+#query-results .direct { color: #62d5be; }
+#query-results .inherited { color: #c69af1; }
+.candidate-row { display: flex; align-items: center; gap: 12px; margin: 5px 0; }
+.query-note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+#attribute-box > label { margin: 12px 0; }
+#attribute-box > button { margin: 8px 6px 0 0; }
+@media (max-width: 700px) {
+  #query-controls { gap: 5px; flex-basis: 130px; font-size: 12px; }
+  #query-results { flex-basis: 150px; min-height: 80px; font-size: 11px; padding: 7px 10px; }
+  .query-demo .canvas { min-height: 100px; }
+}
+#query-results.comparison-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-content: start; }
+#query-results.comparison-results section + section { margin: 0; padding: 0; border: 0; }
+#query-results .attribute-difference { background: #382044; border-left: 3px solid #efbd64; padding-left: 7px; }
+@media (max-width: 450px) { #query-results.comparison-results { grid-template-columns: 1fr; } }
+
+/* Give query controls, explanation and results their own scrollable areas. */
+.query-demo main { --prompt-width: 430px; }
+.query-demo #query-controls { flex: 0 1 auto; min-height: 65px; max-height: 32%; flex-shrink: 1; }
+.query-demo .prompt-content { flex: 0 1 180px; min-height: 75px; max-height: 34%; }
+.query-demo #query-results { flex: 1 1 220px; min-height: 110px; max-height: none; border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
+.query-demo #query-results.comparison-results { grid-template-columns: 1fr; gap: 10px; }
+.query-demo #query-results.comparison-results section + section { padding-top: 8px; border-top: 1px solid var(--border); }
+.result-link { border: 0; background: transparent; padding: 2px 0; text-align: left; font-size: 12px; overflow-wrap: anywhere; }
+#query-results li { align-items: baseline; }
+#attribute-box .delete-attribute { border-color: #c7869c; background: #4c2135; }
+@media (max-width: 700px) {
+  .query-demo main { grid-template-rows: minmax(320px, 62%) minmax(160px, 1fr); }
+  .query-demo #query-controls { max-height: 30%; min-height: 55px; }
+  .query-demo .prompt-content { flex-basis: 90px; min-height: 55px; max-height: 25%; }
+  .query-demo #query-results { flex-basis: 125px; min-height: 75px; }
+}
+.orange { background: #ff7a18; }
+/* Compact attribute editing: actions stay next to the fields they affect. */
+.attribute-dialog-row { display: flex; align-items: end; gap: 8px; margin: 12px 0; }
+.attribute-dialog-row label { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.attribute-dialog-row select { width: 100%; }
+.attribute-dialog-row button { flex: 0 0 auto; }
+#attribute-box > label { max-width: 260px; }
+.attribute-add-row label { flex: 1 1 0; }
+.query-demo #choices:not(:empty) { flex: 0 1 120px; max-height: 25%; }
+@media (max-width: 450px) { .attribute-add-row { flex-wrap: wrap; } .attribute-add-row label { min-width: 85px; } }
+.query-demo aside { gap: 7px; }
+.query-demo #query-controls { flex-shrink: 0; }
+.query-demo #choices:not(:empty) { flex: 0 0 auto; min-height: 0; }
+/* Shared action styling matches the Login / Join button in the frame. */
+#attribute-box .delete-attribute, #attribute-box .attribute-add-row > button {
+  background: linear-gradient(110deg, #58adfe, #833ecf); color: #1e0146; border-color: transparent; font-weight: 700; border-radius: 8px;
+}
+#attribute-box .delete-attribute:hover, #attribute-box .attribute-add-row > button:hover { filter: brightness(1.12); }
+.sequence-demo #query-controls { max-height: 48%; overflow: auto; }
+.sequence-demo #query-results { font-size: 12px; }
+.sequence-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sequence-actions input { flex: 1; min-width: 90px; width: 100%; }
+.sequence-keyboard { display: grid; grid-template-columns: repeat(8,minmax(0,1fr)); gap: 4px; }
+.sequence-keyboard button { padding: 5px 0; }
+.color-pad { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; max-width: 180px; }
+.color-pad .color-square { background: var(--sequence-color); color: #101010; aspect-ratio: 1; min-height: 42px; padding: 5px; border: 2px solid #ffffff60; text-shadow: 0 0 3px #ffffffc0; font-size: 12px; }
+.color-pad .color-square:hover:not(:disabled), .color-pad .color-square:focus-visible { background: var(--sequence-color); outline: 2px solid var(--blue); outline-offset: 2px; }
+.color-token::before { content: ''; display: inline-block; width: 12px; height: 12px; background: var(--sequence-color); border: 1px solid #ffffff80; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.sequence-buffer { border: 1px solid var(--border); padding: 6px; border-radius: 4px; overflow-wrap: anywhere; max-height: 65px; overflow: auto; }
+.sequence-text { margin: 6px 0; line-height: 1.8; overflow-wrap: anywhere; }
+.matched-values { color: #ff9c51; font-weight: 700; }
+.sequence-toggle { display: flex !important; flex-direction: row !important; align-items: center; gap: 6px; }
+.sequence-library-item { display: inline-block; margin: 3px; }
+.sequence-demo #query-results section button { margin: 3px 5px 3px 0; }
+@media (max-width:700px) { .sequence-demo #query-controls { max-height: 49%; } .sequence-demo .prompt-content { max-height: 23%; } }
+.sequence-demo #query-controls > * { flex-shrink: 0; }
+.sequence-buffer { min-height: 34px; }
+
+
+/* Common guided-demo zones: explanation, actions, results, Try This, navigation.
+   Zone sizes depend on the viewport/font, never the number of available actions. */
+.guided-demo main { --prompt-width: 411px; }
+.guided-demo aside { gap: 8px; }
+.guided-demo .chapter, .guided-demo .eyebrow { flex-shrink: 0; }
+.guided-demo .prompt-content {
+  flex: 0 1 calc(8rem + 8px); min-height: 2.5rem; max-height: 25%; overflow-y: auto;
+}
+.guided-demo .action-zone {
+  display: flex; flex-direction: column; gap: 8px;
+  flex: 2 1 0; min-height: 80px; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior-y: contain; scrollbar-gutter: stable;
+}
+.guided-demo .action-zone #query-controls,
+.guided-demo .action-zone #choices {
+  flex: 0 0 auto; min-height: 0; max-height: none; overflow: visible;
+  scrollbar-gutter: auto;
+}
+.guided-demo #query-results {
+  flex: 1 1 0; min-height: 80px; max-height: none; overflow-y: auto;
+}
+.guided-demo .invitation {
+  font-size: 12px; line-height: 1.5; margin-top: 0; padding-right: 6px;
+  flex: 0 1 7.5lh; min-height: 3lh; max-height: 35%;
+  overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable;
+}
+.guided-demo #feedback {
+  display: block; flex: 0 0 2lh; min-height: 2lh; max-height: 2lh; overflow-y: auto;
+}
+.guided-demo nav { flex-shrink: 0; }
+@media (max-width: 700px) {
+  .guided-demo main { grid-template-rows: minmax(340px, 62%) minmax(160px, 1fr); }
+  .guided-demo aside { gap: 6px; }
+  .guided-demo .prompt-content { flex-basis: calc(5rem + 8px); min-height: 2rem; max-height: 22%; }
+  .guided-demo .action-zone, .guided-demo #query-results { min-height: 48px; }
+  .guided-demo .invitation { font-size: 11px; max-height: 28%; }
+}
+
+/* Author-written demo instructions may include paragraphs and HTML lists. */
+#try-this { margin-top: 3px; font-size: inherit; }
+#try-this p + p, #prompt-copy p + p { margin-top: .5em; }
+#try-this ul, #try-this ol, #prompt-copy ul, #prompt-copy ol { margin: .4em 0; padding-left: 1.6em; }
+#try-this li + li, #prompt-copy li + li { margin-top: .25em; }
+
+/* Components can be arranged in each step's choices, alongside fact buttons. */
+.demo-component { min-width: 0; grid-column: 1 / -1; }
+.demo-component > label:not(.sequence-toggle),
+.demo-component .word-input > label, .demo-component .tune-selector > label {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.demo-component select { width: 100%; min-width: 0; font: inherit; color: inherit; background: #211331; border: 1px solid #5a426f; border-radius: 5px; padding: 7px; }
+.demo-component .attribute-search, .demo-component .word-input,
+.demo-component .tune-selector, .demo-component .sequence-input { display: flex; flex-direction: column; gap: 8px; }
+.demo-component .attribute-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; }
+.demo-component .attribute-choices label { display: flex; align-items: center; gap: 8px; }
+.component-results { height: auto; max-height: none; overflow: visible; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: var(--panel); }
+.component-results:empty { display: none; }
+.component-results h3 { font-size: 14px; margin: 0 0 8px; }
+.component-results section + section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.component-results ul { list-style: none; margin: 0; padding: 0; }
+.component-results li { display: flex; align-items: baseline; flex-wrap: wrap; justify-content: space-between; gap: 0 8px; padding: 0; line-height: 1.2; }
+.component-results small { color: var(--muted); }
+.component-results .direct { color: #62d5be; }
+.component-results .inherited { color: #c69af1; }
+.component-results section button { margin: 3px 5px 3px 0; }
+
+.demo-component[data-component="attribute-editor"] > button { width: 100%; }
+
+/* Attribute editor: consistent fields and equally sized row actions. */
+#attribute-box > .attribute-field { margin: 14px 0; }
+#attribute-box .attribute-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+#attribute-box .attribute-dialog-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 76px; gap: 10px; align-items: end; }
+#attribute-box .attribute-dialog-row > label { grid-column: span 2; }
+#attribute-box select, #attribute-box input { width: 100%; min-width: 0; min-height: 38px; padding: 7px 9px; font: inherit; border-radius: 5px; }
+#attribute-box .attribute-dialog-row > button { width: 76px; height: 38px; padding: 7px; margin: 0; }
+#attribute-box hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+#attribute-box .help-heading { align-items: center; }
+@media (max-width: 380px) {
+  #attribute-box .attribute-add-row { grid-template-columns: minmax(0, 1fr) 76px; }
+  #attribute-box .attribute-add-row > .attribute-field { grid-column: 1; }
+  #attribute-box .attribute-add-row > button { grid-column: 2; grid-row: 2; }
+}
+
+/* Components, including results, take their natural content height.
+   The .action-zone owns scrolling for the whole ordered choices list, so a
+   long candidate list can be scrolled past to reach later selectors/results. */
+#attribute-box .attribute-menu-toggle { display: flex; flex-direction: row; align-items: center; gap: 7px; margin: 12px 0; max-width: none; }
+#attribute-box .attribute-menu-toggle input { width: auto; min-height: 0; margin: 0; }
+#attribute-box .attribute-field [hidden] { display: none; }
+
+/* Manage Attributes introduction: prompt on the left, menu/text toggle on the right.
+   Action messages appear at the bottom so they cannot stretch this row. */
+#attribute-box .attribute-intro { display: flex; align-items: center; gap: 10px; margin: 10px 0 14px; }
+#attribute-box .attribute-intro .query-note { flex: 1; min-width: 0; margin: 0; }
+#attribute-box .attribute-intro .attribute-menu-toggle { flex: 0 0 auto; margin: 0; white-space: nowrap; font-size: 11px; }
+#attribute-box .attribute-status { margin-top: 10px; font-size: 12px; overflow-wrap: anywhere; }
+#attribute-box .attribute-status:empty { display: none; }
+/* Help stays beside the editor close button; long formatting examples wrap. */
+.attribute-heading-actions { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+#attribute-help-box { width: min(600px, calc(100% - 24px)); }
+#attribute-help-box .help-heading h2 { min-width: 0; }
+#attribute-help-box .help-heading button { flex-shrink: 0; }
+#attribute-help-box h3 { margin: 18px 0 6px; font-size: 15px; }
+#attribute-help-box p { margin-top: 10px; font-size: 12px; }
+#attribute-help-box pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: #211331; border-radius: 5px; font-size: 12px; }
+#attribute-help-box code { overflow-wrap: anywhere; }
+
+/* Compact attribute results: each relationship is one closely spaced row. */
+.component-results .result-link { line-height: 1.2; padding: 1px 0; margin: 0; }
+.component-results li small { line-height: 1.2; }
+.component-results h3 { margin-bottom: 4px; }
+
+/* Root combo: editable name plus an explicit full-list arrow. */
+.root-combo { position: relative; display: flex; flex: 0 1 180px; min-width: 70px; z-index: 30; }
+.root-combo #root { flex: 1; width: 100%; min-width: 0; border-radius: 5px 0 0 5px; }
+.root-combo > button { flex: 0 0 28px; padding: 4px; border-left: 0; border-radius: 0 5px 5px 0; }
+.root-choices { position: absolute; top: calc(100% + 3px); left: 0; min-width: 100%; width: max-content; max-width: min(300px, 80vw); max-height: 240px; overflow-y: auto; background: #211331; border: 1px solid #76559a; border-radius: 5px; box-shadow: 0 5px 16px #0008; }
+.root-choices[hidden] { display: none; }
+.root-choices > button { display: block; width: 100%; border: 0; border-radius: 0; text-align: left; padding: 6px 10px; }
+.root-choices > button[aria-selected="true"] { background: #44305f; }
+.root-choices > span { display: block; padding: 8px; white-space: normal; }
+
+/* Search options share two columns; long labels wrap inside their own column. */
+.attribute-choices label { min-width: 0; overflow-wrap: anywhere; }
+.attribute-choices input[type="checkbox"] { flex-shrink: 0; }
+
+/* Shared sequence finder: keep actions together and options just below them. */
+.finder-actions { flex-wrap: nowrap; }
+.finder-actions button { flex: 0 0 auto; white-space: nowrap; padding-inline: 8px; }
+
+.sequence-finder { display: flex; flex-direction: column; gap: 8px; }
+.sequence-match-options { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.sequence-match-options label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+
+.sequence-pattern { width: 100%; min-width: 0; box-sizing: border-box; }
+.component-results .sequence-match-row { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: space-between; gap: 12px; line-height: 1.2; }
+.sequence-match-row .result-link { flex: 0 0 auto; }
+.sequence-match-values { margin-left: auto; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.component-results .sequence-match-playback { justify-content: flex-start; gap: 6px; }
+
+.color-pad .color-square.playing { outline: 4px solid white; outline-offset: 2px; box-shadow: 0 0 18px var(--sequence-color); filter: brightness(1.25); }
+.sequence-playback-status { color: var(--blue); font-size: 12px; }
+
+/* A responsive piano drawing, with real keys as mouse/touch/keyboard controls. */
+.piano-keyboard { display: block; width: 100%; height: auto; max-height: 180px; touch-action: manipulation; }
+.piano-key { cursor: pointer; outline: none; }
+.piano-key rect { stroke: #666; stroke-width: 1; }
+.piano-key text { text-anchor: middle; font: 9px sans-serif; pointer-events: none; }
+.white-key rect { fill: #fbfbf8; }
+.white-key text { fill: #333; }
+.black-key rect { fill: #222; }
+.black-key text { fill: #fff; font-size: 8px; }
+.piano-key.playing rect { fill: #f3ba51; }
+.piano-key.playing text { fill: #111; }
+.piano-key:focus-visible rect { stroke: #58adfe; stroke-width: 3; }
+.piano-key[aria-disabled="true"] { opacity: .65; cursor: wait; }
+
+.forward-actions { display: flex; gap: 8px; margin-left: auto; }
+
+/* Music controls share rows to leave more room for results and the graph. */
+.demo-component .tune-selector > label { flex-direction: row; align-items: center; gap: 8px; }
+.tune-selector select { flex: 1; width: 0; }
+.music-finder { gap: 4px; }
+.music-finder .finder-actions { gap: 4px; flex-wrap: wrap; }
+.music-finder button { font-size: 12px; padding: 5px 6px; }
+.music-finder .sequence-match-options { align-items: center; gap: 4px 8px; font-size: 12px; }

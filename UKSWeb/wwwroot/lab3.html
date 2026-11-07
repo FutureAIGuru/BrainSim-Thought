@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sequences · BrainSim Thought</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="experiments.css?v=20261107-compact-music">
+</head>
+<body class="guided-demo query-demo sequence-demo">
+  <main>
+    <aside>
+      <div class="chapter">Sequences / Spelling / Time / Music</div>
+      <div class="progress" aria-label="Experiment progress"></div>
+      <p id="step-number" class="eyebrow"></p>
+      <div class="prompt-content"><h1 id="prompt-title"></h1><div id="prompt-copy"></div></div>
+      <div class="action-zone" role="region" aria-label="Experiment actions" tabindex="0">
+        <div id="query-controls" aria-label="Query controls"></div>
+        <div id="choices" role="region" aria-label="Experiment content" tabindex="0"></div>
+      </div>
+      <div id="query-results" role="region" aria-label="Query results" tabindex="0"><p>Choose a word to begin.</p></div>
+      <p id="feedback" role="status" aria-live="polite">Connecting to the UKS…</p>
+      <div class="invitation" role="region" aria-label="Try this" tabindex="0"><span>Try this</span><div id="try-this"></div></div>
+      <nav aria-label="Experiments"><button id="back">← Back</button><span class="forward-actions"><button id="quit" type="button">Quit</button><button id="next" class="primary">Next →</button></span></nav>
+    </aside>
+    <section class="workspace" aria-label="Knowledge graph">
+      <div class="graph-toolbar">
+        <form id="root-form"><label for="root">Root</label><input id="root" value="word" list="root-options" aria-label="Graph root"><datalist id="root-options"></datalist><button id="load-root">Show</button></form>
+        <button id="fit" type="button">Fit view</button><button id="reset-content" type="button" title="Reset demo content and return to the first step">Reset Content</button><button id="help" type="button" aria-haspopup="dialog" aria-label="Graph help"><img src="help-icon.svg" width="20" height="20" alt="" aria-hidden="true" style="display:block"></button>
+      </div>
+      <div class="canvas"><div id="graph" aria-label="Interactive knowledge graph"></div><div id="selection" role="status" aria-live="polite"></div></div>
+      <div class="graph-key" aria-label="Node color key"><span><i class="gold"></i>Root</span><span><i class="blue"></i>Thought</span><span><i class="green"></i>Expanded</span><span><i class="purple"></i>Relationship</span><span><i class="orange"></i>Supporting relationship</span><small id="counts"></small></div>
+    </section>
+  </main>
+  <dialog id="attribute-box" aria-label="Manage Attributes"></dialog>
+  <dialog id="help-box" aria-labelledby="help-title"><p id="inactivity-note"></p></dialog>
+  <p id="sandbox-status" role="status"></p>
+  <!-- Existing session management is shared with the editor; XML selection is not part of this guided demo. -->
+  <select id="demo-select" hidden><option value="__choose">Choose</option><option value="">Standard UKS</option></select>
+  <script src="external/3d-force-graph-1.80.1.min.js"></script>
+  <script type="module">
+      import { startExperiment } from './experiments.js?v=20261107-compact-music';
+
+      const steps = [
+          // EXPERIMENT 1 — SPELLING
+          {
+              title: 'Your Brain Puts Things in Order',
+              sequence: 'spelling',
+              inheritChoices: false,
+
+              choices: [
+                  { component: 'word-input' },
+                  { component: 'sequence-library' },
+                  { component: 'sequence-results' }
+              ],
+
+              copy: `
+            Many facts are not isolated but come in order. 
+            How can it remember the order of letters in a word?
+
+            Atomic Thoughts use Sequence Elements (SeqElems).
+            Each has a VLU link to its content and a NXT link
+            to the following element.
+
+            <p><strong>Choose "cat" to see how it works.</strong></p>
+        `,
+
+              try: `
+            <ol>
+                <li>Examine the spelling in the graph. Sequence Elements are separate from values.</li>
+                <li>Mouse over the NXT links between sequence elements to see the order.</li>
+                <li>Notice the VLU links to see the letters.</li>
+                <li>Click 'Stored Sequences' and select w:cat to see its internal expanded.</li>
+                <li>Add car and cart. Notice how the same letter Thoughts can be reused.</li>
+                <li>Try a word with repeated letters.</li>
+            </ol>
+            A word Thought such as w:cat represents a word
+            and has a spelling. This is distinct from the Thought labeled 'cat' which represents an actual cat
+            and has attributes such as fur. More details coming in the Lab on Language.
+        `
+          },
+
+          // EXPERIMENT 2 — SEQUENCE MATCHING
+          {
+              title: 'Finding Your Remembered Sequences',
+              sequence: 'letters',
+              inheritChoices: false,
+
+              choices: [
+                  { component: 'sequence-input' },
+                  { component: 'sequence-finder' },
+                  { component: 'sequence-library' },
+                  { component: 'sequence-results' }
+              ],
+
+              copy: `
+            You can recognize a word from just a few letters.
+            How can a computer search its stored sequences
+            without knowing the whole thing?
+
+            The UKS can find matching sequences from
+            complete or partial patterns.
+
+            <p><strong>Enter "ca" and 'Match' to search.</strong></p>
+        `,
+
+              try: `
+            <ol>
+                <li>Search for ca. How many words match?</li>
+                <li>Try cat. Notice the difference between
+                    a complete match and a fragment.</li>
+                <li>Try at or ar. Must the fragment
+                    start at the beginning?</li>
+                <li>Experiment with matching at the
+                    beginning, end, or anywhere.</li>
+                <li>You can also type in your own words and click 'Remember' to add them.</li>
+            </ol>
+            We can recognize a sequence without knowing
+            every element. Partial matching is a fundamental
+            capability of memory and recognition.
+        `
+          },
+
+          // EXPERIMENT 3 — COLORS AND TIME
+          {
+              title: 'Sequences Can Store Anything, Including Time',
+              sequence: 'colors',
+              inheritChoices: false,
+
+              choices: [
+                  { component: 'color-pad' },
+                  { component: 'sequence-input' },
+                  { component: 'sequence-finder' },
+                  { component: 'sequence-library' },
+                  { component: 'sequence-results' }
+              ],
+
+              copy: `
+            Sequences aren't limited to letters or symbols.
+            They can represent experiences unfolding over time.
+
+            Each SeqElem can have multiple VLU links,
+            representing both a color and its timing.
+
+            <p><strong>Click red, blue, and white in that order.</strong></p>
+        `,
+
+              try: `
+            <ol>
+                <li>Click several colors. Pause three seconds
+                    to finish the sequence, then press Remember to learn it.</li>
+                <li>Select your stored sequence and replay it. Notice it replicates the timing of your clicked input.</li>
+                <li>Try the same colors in a different order or differen speed.
+                    Does the sequence still match?</li>
+                <li>Try varying the pauses between colors.</li>
+            </ol>
+            In this experiment, timing is stored in quarter-second units,
+            although matching currently compares colors only.
+            Notice that the same color Thoughts used elsewhere
+            can also participate in sequences.
+        `
+          },
+
+          // EXPERIMENT 4 — MUSIC
+          {
+              title: 'Remembering a Melody',
+              sequence: 'music',
+              inheritChoices: false,
+
+              choices: [
+                  { component: 'tune-selector' },
+                  { component: 'note-keyboard' },
+                  { component: 'sequence-input' },
+                  { component: 'sequence-finder' },
+                  { component: 'sequence-results' }
+              ],
+
+              copy: `
+            How can hearing just a few notes bring an entire
+            melody to mind?
+
+            Music uses the same sequence structure as
+            spelling and colors, but with musical notes
+            instead of letters or colored squares.
+
+            <p><strong>Choose a tune and listen to it.</strong></p>
+        `,
+
+              try: `
+            <ol>
+                <li>Learn Twinkle, Twinkle and
+                    Mary Had a Little Lamb.</li>
+                <li>Enter the opening notes of one tune.</li>
+                <li>Search for matching melodies.</li>
+                <li>Play the entire matching tune, or
+                    just the notes that follow your fragment.</li>
+                <li>Try a fragment from the middle
+                    of a melody.</li>
+                <li>Enter your own melody.</li>
+            </ol>
+            The UKS recognizes a musical sequence using
+            the same machinery it uses for spelling.
+            Different content, same basic structure.
+        `
+    }
+];
+await startExperiment({
+    facts: [],
+    steps,
+
+    sequence: {
+        words: [
+            'cat',
+            'car',
+            'cart',
+            'cater',
+            'carrot',
+            'dog',
+            'door',
+            'letter',
+            'banana'
+        ],
+
+        fragments: [
+            'ca',
+            'cat',
+            'at',
+            'ar'
+        ],
+
+        notes: [
+            'C4', 'C#4', 'D4', 'D#4', 'E4', 'F4', 'F#4',
+            'G4', 'G#4', 'A4', 'A#4', 'B4', 'C5'
+        ],
+
+        tunes: [
+            {
+                label: 'Twinkle, Twinkle',
+                values: [
+                    'C4', 'C4', 'G4', 'G4', 'A4', 'A4', 'G4',
+                    'F4', 'F4', 'E4', 'E4', 'D4', 'D4', 'C4'
+                ],
+                delays: [2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 4]
+            },
+            {
+                label: 'Mary Had a Little Lamb',
+                values: [
+                    'E4', 'D4', 'C4', 'D4', 'E4', 'E4', 'E4',
+                    'D4', 'D4', 'D4', 'E4', 'G4', 'G4'
+                ],
+                delays: [2, 2, 2, 2, 2, 2, 4, 2, 2, 4, 2, 2, 4]
+            },
+            {
+                label: 'Ode to Joy',
+                values: [
+                    'E4', 'E4', 'F4', 'G4', 'G4', 'F4', 'E4',
+                    'D4', 'C4', 'C4', 'D4', 'E4', 'E4', 'D4', 'D4'
+                ],
+                delays: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 1, 4]
+            }
+        ]
+    }
+      });
+  </script>
+</body>
+</html>

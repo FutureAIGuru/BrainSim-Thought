@@ -15,7 +15,7 @@
     section { background: white; border: 1px solid #ccd9df; border-radius: 10px; padding: .85rem; }
     .content-section { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     .fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: end; gap: .6rem; }
-    #children-form { display: flex; align-items: end; gap: .6rem; }
+    #children-form { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem; }
     label { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: .2rem; }
     input, button, select { font: inherit; border-radius: 6px; padding: .45rem .6rem; }
     .top-line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
@@ -71,7 +71,10 @@
       <form id="children-form">
         <label>Thought label<input name="label" value="Thought" required></label>
         <button type="submit">Show content</button>
+        <button id="save-text" type="button">Save</button><button id="load-text" type="button">Load</button>
+        <input id="text-file" type="file" accept=".txt,text/plain" hidden>
       </form>
+      <p id="file-status" class="status" role="status" aria-live="polite"></p>
       <p id="children-status" class="status" role="status" aria-live="polite"></p>
       <ul id="children-list" aria-label="Children and direct relationships" tabindex="0"></ul>
     </section>
@@ -81,7 +84,7 @@
     <p id="sandbox-status" role="status" aria-live="polite"></p>
   </footer>
   <script type="module">
-    import { sandbox, request } from './sandbox.js?v=20261103-simple';
+    import { sandbox, request } from './sandbox.js?v=20261105-resume';
     const pageParameters = new URLSearchParams(location.search);
     document.querySelector('#graph-link').addEventListener('click', event => {
       const root = document.querySelector('#children-form').elements.label.value.trim() || 'Thought';
@@ -95,6 +98,33 @@
 
     const childrenForm = document.querySelector('#children-form');
     if (pageParameters.get('root')) childrenForm.elements.label.value = pageParameters.get('root');
+    // FILE CONTROLS: browsers download files or read only the file the user selects.
+    const saveText=document.querySelector('#save-text'),loadText=document.querySelector('#load-text'),textFile=document.querySelector('#text-file');
+    saveText.onclick=async()=>{
+      saveText.disabled=true;const status=document.querySelector('#file-status');setStatus(status,'Saving…');
+      try {
+        const root=childrenForm.elements.label.value.trim();
+        // === WEB SERVICE: GET /api/text-export — export the selected root using UKS.TextFile. ===
+        const data=await request('/api/text-export?'+new URLSearchParams({root}));
+        const url=URL.createObjectURL(new Blob([data.content],{type:'text/plain;charset=utf-8'}));
+        const download=document.createElement('a');download.href=url;download.download=data.filename;document.body.append(download);download.click();download.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+        setStatus(status,`Saved ${root} and its dependencies to ${data.filename}.`);
+      } catch(error){setStatus(status,error.message,true);}
+      finally{saveText.disabled=!sandbox.available;}
+    };
+    loadText.onclick=()=>textFile.click();
+    textFile.onchange=async()=>{
+      const file=textFile.files[0];if(!file)return;
+      const status=document.querySelector('#file-status');setStatus(status,`Loading ${file.name}…`);loadText.disabled=true;saveText.disabled=true;deleting=true;refreshController?.abort();
+      try {
+        if(file.size>1024*1024)throw new Error('Choose a text file no larger than 1 MB.');
+        // === WEB SERVICE: POST /api/text-import — merge the explicitly selected local text file using UKS.TextFile. ===
+        const result=await request('/api/text-import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:await file.text()})});
+        renderedContent='';await showChildren();setStatus(status,`Loaded ${file.name}; ${result.added} Thoughts added. Existing content was merged.`);
+      } catch(error){setStatus(status,error.message,true);}
+      finally{deleting=false;loadText.disabled=!sandbox.available;saveText.disabled=!sandbox.available;textFile.value='';}
+    };
+
     let watchedLabel = null;
     let renderedKey = '';
     let renderedContent = '';
@@ -131,6 +161,7 @@
         setStatus(status, 'Loading…');
       }
       try {
+        // === WEB SERVICE: GET /api/children — retrieve the selected Thought’s children and direct Relationships for the table. ===
         const data = await request('/api/children?label=' + encodeURIComponent(label), { signal: controller.signal, automatic });
         if (controller !== refreshController || selectedSandbox !== sandbox.id) return;
         const summary = `${data.label}: ${data.children.length} children · ${data.relationships.length} direct relationships. Auto-refresh: 2s.`;
@@ -157,6 +188,7 @@
             button.disabled = true;
             setStatus(status, `Deleting ${description}…`);
             try {
+              // === WEB SERVICE: DELETE /api/thoughts or /api/relationships — remove the item represented by this row; url selects the endpoint. ===
               await request(url, { method: 'DELETE' });
               await showChildren();
             } catch (error) {
@@ -233,6 +265,7 @@
       button.disabled = true;
       setStatus(status, 'Adding…');
       try {
+        // === WEB SERVICE: POST /api/statements — send the three form fields unchanged to the common server-side parser. ===
         const data = await request('/api/statements', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
