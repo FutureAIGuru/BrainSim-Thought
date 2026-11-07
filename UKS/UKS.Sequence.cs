@@ -65,15 +65,16 @@ public class SeqElement : Thought
     {
         get
         {
-            Link nxt = LinksTo.FindFirst(x => x.LinkType?.Label == "VLU");
-            return nxt?.To;
+            return Store.GetElementValue(this);
         }
         set
         {
             if (value is not null && !ReferenceEquals(value.Store, Store))
                 throw new ArgumentException("Sequence values must belong to the same UKS.", nameof(value));
-            // Remove existing links ??
-            RemoveLinks(Store.Labeled("VLU")!);  //Removing this would allow for multiple values per element , but would require changes to the search and flattening functions
+            // Replace the primary value without discarding timing/other metadata.
+            bool metadata = value?.HasProperty("isSequenceMetadata") == true;
+            foreach (var link in LinksTo.Where(link => link.LinkType == Store.Labeled("VLU") &&
+                (link.To?.HasProperty("isSequenceMetadata") == true) == metadata).ToList()) RemoveLink(link);
             if (value is null) return;
 
             Thought nxtType = Store.GetOrAddThought("VLU", "LinkType");
@@ -168,14 +169,18 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Gets the single VLU target value of a sequence node.
+    /// Gets a primary VLU value, or a VLU value belonging to the requested class.
     /// </summary>
-    /// <param name="t">Sequence element to read.</param>
-    /// <returns>The linked VLU value, or null if none.</returns>
-    public Thought GetElementValue(SeqElement s)  //assuming there is only one
+    /// <param name="s">Sequence element to read.</param>
+    /// <param name="valueClass">Optional ancestor class of the requested VLU facet; null selects a non-metadata value.</param>
+    /// <returns>The selected VLU value, or null if none.</returns>
+    public Thought GetElementValue(SeqElement s, Thought valueClass = null)
     {
         if (s is null) return null;
-        Thought retVal = s.LinksTo.FindFirst(x => x.LinkType?.Label == "VLU")?.To;
+        // A class selects one facet by ancestry. Legacy callers read the primary
+        // value; metadata VLU targets do not add sequence positions or affect matching.
+        Thought retVal = s.LinksTo.FirstOrDefault(link => link.LinkType == s.Store.Labeled("VLU") && link.To is not null &&
+            (valueClass is null ? !link.To.HasProperty("isSequenceMetadata") : ReferenceEquals(link.To, valueClass) || link.To.HasAncestor(valueClass)))?.To;
         return retVal;
     }
     public int GetSequenceLength(SeqElement firstNode)
@@ -206,9 +211,11 @@ public partial class UKS
                 FRST = first,
                 NXT = first.NXT,
             };
-            Thought origValue = GetElementValue(first);
-            newNode.AddLink("VLU", origValue);
-            first.RemoveLink("VLU", origValue);
+            foreach (var link in first.LinksTo.Where(link => link.LinkType == Labeled("VLU")).ToList())
+            {
+                newNode.AddLink(link.LinkType, link.To);
+                first.RemoveLink(link);
+            }
             first.AddLink("VLU", value);
             first.NXT = newNode;
         }
@@ -373,7 +380,8 @@ public partial class UKS
             oldCacheKeys[sequence] = FlattenSequence(sequence);
 
         foreach (SeqElement element in affectedElements)
-            element.VLU = unknownSequenceValue;
+            if (value.HasProperty("isSequenceMetadata")) element.RemoveLink(Labeled("VLU"), value);
+            else element.VLU = unknownSequenceValue;
 
         foreach ((SeqElement sequence, List<Thought> oldCacheKey) in oldCacheKeys)
         {

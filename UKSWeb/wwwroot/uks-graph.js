@@ -81,7 +81,7 @@ export function composeGraph(seeds, expansions, labels = new Map(), collapsed = 
     return `[${describe(source, next)} → ${describe(type, next)} → ${describe(target, next)}]`;
   }
   for (const node of nodes.values()) {
-    node.label = !node.showSequenceCellLabel && node.sequenceValue?.label || describe(node.id);
+    node.label = describe(node.id);
     node.expanded = active.has(node.id);
     node.hasComponents = components.has(node.id);
   }
@@ -103,11 +103,7 @@ export function composeGraph(seeds, expansions, labels = new Map(), collapsed = 
   const occupied = new Set();
   const sequences = groups.slice().sort((a, b) => b.elements.length - a.elements.length).filter(group => {
     if (group.elements.some(id => !nodes.has(id) || occupied.has(id))) return false;
-    group.elements.forEach((id, index) => {
-      occupied.add(id);
-      if (nodes.get(id).showSequenceCellLabel) nodes.get(id).label = `[${index + 1}]`;
-      nodes.get(id).description += ` · Sequence position ${index + 1}: ${nodes.get(id).label}`;
-    });
+    group.elements.forEach(id => occupied.add(id));
     return true;
   });
   return { nodes, links, active, sequences };
@@ -177,6 +173,14 @@ export function arrangeSequences(nodes, sequences, previous = new Map()) {
       valueIndex++;
       valueOwners.set(id,row);
     }
+    // Timing is a second VLU facet; keep its Thoughts in a separate nearby row.
+    cells.forEach((node,index)=>{
+      for(const value of node.sequenceValues||[]){
+        if(!value.metadata||!byId.has(value.id)||valueOwners.has(value.id))continue;
+        row.values.set(value.id,previous.get(group.id)?.values?.get(value.id)||{x:index*22,y:-45,z:0});
+        valueOwners.set(value.id,row);
+      }
+    });
     apply(row);
   }
   return { rows, enforce() { for (const row of rows.values()) apply(row); }, move(id, delta) {
@@ -218,12 +222,9 @@ function graphHelp(container, supplied = {}) {
 
     <ul>
       <li>Click a node to expand or collapse its connections.</li>
-      <li>
-        Click an edge to reveal the Relationship and its source, type, and target.
-        Component connectors do not expand.
-      </li>
+      <li>Click an edge to reveal the Relationship and its source, type, and target. Component connectors do not expand.</li>
       <li>Hover over nodes or edges to inspect them in the lower left.</li>
-      <li>Drag the background to rotate. Right-drag to pan.Use the mouse wheel or pinch to zoom.</li>
+      <li>Drag the background to rotate. Right-drag to pan. Use the mouse wheel or pinch to zoom.</li>
       <li>Drag a node to move it. Sequence elements move together as a rigid row.</li>
       <li>Use Fit view to see everything, or select another root.</li>
     </ul>
@@ -240,7 +241,11 @@ async function createGraphView(container, {
   colors = {}
 } = {}) {
   if (typeof ForceGraph3D === 'undefined') throw new Error('The 3D graph library did not load. Check your connection and reload.');
-  const { default: SpriteText } = await import('https://esm.sh/three-spritetext@1.10.0');
+  const { default: SpriteText } = await import('./external/three-spritetext-1.10.0.mjs');
+  const { Sprite, SpriteMaterial, CanvasTexture } = await import('./external/three.module.min.js');
+  // Color the color Thoughts themselves, never sequence cells (whose displayed
+  // labels may borrow the names of their VLU targets).
+  const thoughtColors={red:'#db3838',orange:'#ed8b23',yellow:'#f3d840',green:'#339d55',blue:'#397ddd',purple:'#9750c6',brown:'#94603d',pink:'#ee9ebd',white:'#f5f5f5',black:'#202020',gray:'#888888'};
   const palette = { background: '#090018', text: '#f3eef9', root: '#efbd64', node: '#58adfe',
     expanded: '#62d5be', relationship: '#ba8aef', edge: '#819ac2', connector: '#b28adc', ...colors };
   let showLabels = labels;
@@ -263,8 +268,8 @@ async function createGraphView(container, {
   // after node dragging; orbit controls can treat it as a missing touch pointer.
   const graph = new ForceGraph3D(container, { controlType: 'trackball' })
     .backgroundColor(palette.background).showNavInfo(false).nodeRelSize(6).nodeOpacity(1)
-    .nodeColor(node => getRootIds().has(node.id) ? palette.root : node.isRelationship ? palette.relationship : node.expanded ? palette.expanded : palette.node)
-    .nodeThreeObject(node => showLabels ? makeLabel(node) : null).nodeThreeObjectExtend(true)
+    .nodeColor(node => (!node.sequenceValue && !node.isRelationship && thoughtColors[node.label]) || (getRootIds().has(node.id) ? palette.root : node.isRelationship ? palette.relationship : node.expanded ? palette.expanded : palette.node))
+    .nodeThreeObject(node => showLabels && !node.sequenceValue ? makeLabel(node) : null).nodeThreeObjectExtend(true)
     .nodeLabel(() => '').linkLabel(() => '')
     .linkColor(link => link.highlighted ? '#ff7a18' : link.structural ? palette.connector : palette.edge)
     .linkOpacity(.95).linkWidth(link => link.structural ? 1.5 : 2)
@@ -281,6 +286,32 @@ async function createGraphView(container, {
     .onNodeDrag((node, delta) => layout.move(node.id, delta))
     .onNodeDragEnd(node => { layout.enforce(); onNodeDragEnd(node); })
     .onEngineTick(() => layout.enforce()).cooldownTicks(60).onEngineStop(onSettled);
+  // One reusable halo follows the actual sequence cell, not its VLU target.
+  // Attach it to the rendered node so dragging/rotation cannot detach it. It
+  // never participates in pointer picking, and runs only during playback.
+  const haloCanvas=document.createElement('canvas');haloCanvas.width=haloCanvas.height=128;
+  const context=haloCanvas.getContext('2d'),gradient=context.createRadialGradient(64,64,0,64,64,64);
+  gradient.addColorStop(0,'rgba(255,200,80,0)');
+  gradient.addColorStop(.38,'rgba(255,200,80,0)');
+  gradient.addColorStop(.48,'rgba(255,255,230,1)');
+  gradient.addColorStop(.57,'rgba(255,185,50,.85)');
+  gradient.addColorStop(1,'rgba(255,150,30,0)');
+  context.fillStyle=gradient;context.fillRect(0,0,128,128);
+  const halo=new Sprite(new SpriteMaterial({map:new CanvasTexture(haloCanvas),transparent:true,depthTest:false,depthWrite:false}));
+  halo.scale.set(34,34,1);halo.renderOrder=9;halo.raycast=()=>{};
+  let playbackId=null,haloFrame;
+  function setPlayback(id) {
+    playbackId=id;cancelAnimationFrame(haloFrame);halo.removeFromParent();
+    if(id===null)return;
+    const follow=()=>{
+      const node=graph.graphData().nodes.find(node=>node.id===playbackId);
+      const object=node?.__threeObj;
+      if(object&&halo.parent!==object){halo.removeFromParent();object.add(halo);}
+      halo.visible=!!object;
+      haloFrame=requestAnimationFrame(follow);
+    };
+    follow();
+  }
   graph.controls().addEventListener('start', onViewChange);
   const centeringForce = graph.d3Force('center');
   const ordinaryLinkStrength = graph.d3Force('link').strength();
@@ -342,7 +373,7 @@ async function createGraphView(container, {
   });
   observer.observe(container);
   return {
-    graph, fit,
+    graph, fit, setPlayback,
     cameraState() {
       const position=graph.camera().position, target=graph.controls().target, up=graph.camera().up;
       return {position:{x:position.x,y:position.y,z:position.z},target:{x:target.x,y:target.y,z:target.z},up:{x:up.x,y:up.y,z:up.z}};
@@ -382,7 +413,7 @@ async function createGraphView(container, {
     setLabels(visible) {
       showLabels = visible;
       sprites.clear();
-      graph.nodeThreeObject(node => showLabels ? makeLabel(node) : null);
+      graph.nodeThreeObject(node => showLabels && !node.sequenceValue ? makeLabel(node) : null);
       if (graph.graphData().nodes.length === 1) fit();
     }
   };
@@ -391,7 +422,7 @@ async function createGraphView(container, {
 // Reusable UKS explorer: owns graph snapshots, root selection, expansion,
 // refresh, layout state, and rendering. Demo engines only supply preset seeds.
 export async function createUKSGraph(container, {
-  request, root = 'Thought', colors, labels = true, help,
+  request, root = 'Thought', colors, labels = true, help, alwaysShowSequenceValues = false,
   perform = action => action(), onChange = () => {}, onInspect = () => {},
   onRoot = () => {}, onError = () => {}, onDrag = () => {}
 }) {
@@ -404,7 +435,9 @@ export async function createUKSGraph(container, {
   let view;
   async function read(query, automatic = false) {
     // === WEB SERVICE: GET /api/graph — retrieve graph nodes, Relationships, and VLU/NXT sequence structure for the requested roots. ===
-    return request('/api/graph?' + new URLSearchParams(query), { automatic, signal: AbortSignal.timeout(15000) });
+    const parameters=new URLSearchParams(query);
+    if(alwaysShowSequenceValues)parameters.set('sequenceValues','true');
+    return request('/api/graph?' + parameters, { automatic, signal: AbortSignal.timeout(15000) });
   }
   async function dispatch(action) {
     try { await perform(action); } catch (error) { onError(error); }
@@ -581,6 +614,7 @@ export async function createUKSGraph(container, {
       }
       render(fit);
     },
+    setPlayback: id => view.setPlayback(id),
     fit: () => view.fit(),
     setLabels: visible => view.setLabels(visible)
   };

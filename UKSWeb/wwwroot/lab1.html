@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="experiments.css?v=20261106-content-scroll">
+    <link rel="stylesheet" href="experiments.css?v=20261107-compact-music">
 </head>
 <body class="guided-demo relationship-demo">
     <main>
@@ -21,7 +21,7 @@
             </div>
             <p id="feedback" role="status" aria-live="polite">Connecting to the UKS…</p>
             <div class="invitation" role="region" aria-label="Try this" tabindex="0"><span>Try this</span><div id="try-this"></div></div>
-            <nav aria-label="Experiments"><button id="back">← Back</button><button id="next" class="primary">Next →</button></nav>
+            <nav aria-label="Experiments"><button id="back">← Back</button><span class="forward-actions"><button id="quit" type="button">Quit</button><button id="next" class="primary">Next →</button></span></nav>
         </aside>
         <section class="workspace" aria-label="Knowledge graph">
             <div class="graph-toolbar">
@@ -36,9 +36,9 @@
     <p id="sandbox-status" role="status"></p>
     <!-- Existing session management is shared with the editor; XML selection is not part of this guided demo. -->
     <select id="demo-select" hidden><option value="__choose">Choose</option><option value="">Standard UKS</option></select>
-    <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.80.1/dist/3d-force-graph.min.js" crossorigin="anonymous"></script>
+    <script src="external/3d-force-graph-1.80.1.min.js"></script>
     <script type="module">
-        import { startExperiment } from './experiments.js?v=20261106-missing-root';
+        import { startExperiment } from './experiments.js?v=20261107-compact-music';
 
         const steps = [
             {

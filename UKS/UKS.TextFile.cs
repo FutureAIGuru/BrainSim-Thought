@@ -589,6 +589,14 @@ public partial class UKS
         string? sIsPlastic = null;
         bool hasExtendedMetadata = tokens.Count - metadataStart >= 3 &&
             bool.TryParse(tokens[^1], out _);
+        if (tokens[metadataStart] == "V:" && tokens.Count > metadataStart + 1)
+        {
+            int end = tokens.Count - (hasExtendedMetadata ? 3 : 1);
+            string value = string.Join(" ", tokens.Skip(metadataStart + 1).Take(Math.Max(0, end - metadataStart - 1)));
+            thought.V = int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int integer) ? integer
+                : double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double number) ? number
+                : bool.TryParse(value, out bool boolean) ? boolean : value;
+        }
         if (hasExtendedMetadata)
         {
             sWeight = tokens[^3];
@@ -719,8 +727,22 @@ public partial class UKS
             if (metadataMatch.Success)
             {
                 string thoughtLabel = metadataMatch.Groups[1].Value.Trim();
+                // Exported V: metadata belongs to the value, not the Thought label.
+                // Only split outside a quoted label, whose text can contain V: itself.
+                string? storedValue = null; bool inQuotes = false;
+                for (int position = 0; position < thoughtLabel.Length; position++)
+                {
+                    if (inQuotes && thoughtLabel[position] == '\\') { position++; continue; }
+                    if (thoughtLabel[position] == '"') { inQuotes = !inQuotes; continue; }
+                    if (!inQuotes && thoughtLabel.AsSpan(position).StartsWith(" V:"))
+                    {
+                        storedValue = thoughtLabel[(position + 3)..].Trim();
+                        thoughtLabel = thoughtLabel[..position].TrimEnd(); break;
+                    }
+                }
                 if (thoughtLabel.StartsWith('"')) thoughtLabel = System.Text.Json.JsonSerializer.Deserialize<string>(thoughtLabel) ?? "";
                 tokens.Add(thoughtLabel);
+                if (storedValue is not null) { tokens.Add("V:"); tokens.Add(storedValue); }
                 for (int i = 2; i <= 4; i++) tokens.Add(metadataMatch.Groups[i].Value);
                 return tokens;
             }

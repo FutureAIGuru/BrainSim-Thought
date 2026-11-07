@@ -386,6 +386,11 @@ Target: [[Fido-&gt;is-&gt;outside] AND [weather-&gt;is-&gt;rainy]]</pre>
       message.textContent = `Added [${added.source} → ${added.relationshipType} → ${added.target}].`;
       feedback(message.textContent);
     });
+    // Enter in the final typed field performs the same Add action as the button.
+    // Menu Enter keeps its normal selection behavior; IME composition is untouched.
+    target.text.addEventListener('keydown',event=>{
+      if(event.key==='Enter' && !event.isComposing){event.preventDefault();if(!save.disabled)save.click();}
+    });
     const use = button('Use in search', async () => {
       const attribute = {relationshipType:type.value(),target:target.value()};
       if (!attribute.relationshipType || !attribute.target) { message.textContent = 'Enter a relationship type and target.'; return false; }

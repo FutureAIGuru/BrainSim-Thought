@@ -32,14 +32,14 @@
     <a class="join" href="https://futureaisociety.org/login" target="_blank" rel="noopener">Log In / Join</a>
   </header>
   <div class="preview-tools"><span>Local WordPress frame approximation · <span id="frame-size"></span></span><label>Preview width <select id="device"><option value="full">Available width</option><option value="820">Tablet · 820px</option><option value="390">Phone · 390px</option></select></label></div>
-  <div id="frame-region"><iframe id="demo-frame" src="experiment1.html" title="Chapter 2 Atomic Thought demo" allow="fullscreen" allowfullscreen></iframe></div>
+  <div id="frame-region"><iframe id="demo-frame" src="lab1.html" title="Chapter 2 Atomic Thought demo" allow="fullscreen" allowfullscreen></iframe></div>
   <footer><strong>Future AI Society</strong><p>Local layout preview. The header and footer approximate the public demos page; WordPress remains responsible for the real navigation.</p><a href="https://futureaisociety.org/demos/" target="_blank" rel="noopener">View the WordPress demos page ↗</a></footer>
   <script>
     const frame = document.getElementById('demo-frame');
     // Keep demo navigation in this local test harness, outside the demo itself.
-    const experiment = new URLSearchParams(location.search).get('experiment');
-    if (['2','3'].includes(experiment)) {
-      frame.src = `experiment${experiment}.html`; frame.title = experiment === '2' ? 'Search, inheritance and exceptions demo' : 'Sequences demo';
+    const lab = new URLSearchParams(location.search).get('lab');
+    if (['2','3'].includes(lab)) {
+      frame.src = `lab${lab}.html`; frame.title = lab === '2' ? 'Search, inheritance and exceptions demo' : 'Sequences demo';
     }
     const region = document.getElementById('frame-region');
     const device = document.getElementById('device');

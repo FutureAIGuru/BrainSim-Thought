@@ -2,7 +2,7 @@
 
 ## Guided experiment draft
 
-Open `/experiment1.html` for the Chapter 2 demo: Fido's attributes,
+Open `/lab1.html` for the Chapter 2 demo: Fido's attributes,
 Relationship types, Relationships as Thoughts, and attributes of Relationships.
 Presets follow Chapter 2 of *Current Manuscript*: color, tail, barking, yard,
 chasing a ball, and Figure 2.3's fetch/frisbee/personal-experience structure.
@@ -25,7 +25,7 @@ unconnected ordinary Thoughts remain. Reload preserves the session's knowledge.
 The draft keeps prompts in JavaScript pending agreement on their UKS representation.
 Existing editor and graph pages remain
 available at their original addresses. Embed this page using
-`https://Brainsim-Thought.onrender.com/experiment1.html` after deployment.
+`https://Brainsim-Thought.onrender.com/lab1.html` after deployment.
 The previous `/experiments.html` address redirects to it, preserving session and root.
 
 Open `/demo-frame.html` to preview the demo inside an iframe with a local
@@ -38,7 +38,7 @@ not a replacement for WordPress or a synchronized copy of its menus.
 
 | File | Responsibility |
 | --- | --- |
-| `wwwroot/experiment1.html` | Chapter 2 layout, facts, steps, title, and default root. |
+| `wwwroot/lab1.html` | Chapter 2 layout, facts, steps, title, and default root. |
 | `wwwroot/experiments.js` | Common guided-demo engine: choices, add/remove, prerequisites, membership checks, prompts, progress, and Help. No chapter-specific content or graph implementation. |
 | `wwwroot/demo-components.js` | Mounts selectors, editors, sequence controls, and results from each step's choices. |
 | `wwwroot/uks-query.js`, `wwwroot/uks-sequences.js` | Shared query/editor and sequence component behavior. |
@@ -46,7 +46,7 @@ not a replacement for WordPress or a synchronized copy of its menus.
 | `wwwroot/uks-graph.js` | Shared UKS graph component: snapshots, root loading, expansion/collapse, refresh, reachable graph composition, component-role descriptions, labels, rendering, camera, and resizing. |
 | `wwwroot/graph.js` | Small adapter connecting the standalone `graph.html` controls to the same graph component. It is not a second graph implementation. |
 
-To add a demo, copy `experiment1.html` to a new page such as `experiment2.html`.
+To add a demo, copy `lab1.html` to a new page such as `lab2.html`.
 Change its layout, chapter/title, initial root, `facts`, and `steps`. Keep the
 common CSS import and `startExperiment({ facts, steps })` call. Do not copy or
 modify the common JavaScript for each chapter. Help is populated by the engine.
@@ -278,9 +278,9 @@ Run a single application process/replica with the current in-memory design. Mult
 
 ## Search, inheritance, and exceptions demo
 
-Open `/experiment2.html` for the second guided demo, or `/demo-frame.html?experiment=2` to test it inside the WordPress-style frame. Its three steps show effective attributes (with direct/inherited provenance), candidate search from selected attributes, and the dog/Tripper leg-count exception. The attribute dialog uses dropdowns throughout. Candidate scores are the existing UKS ranking, not probabilities; displayed match counts are checked against effective attributes.
+Open `/lab2.html` for the second guided demo, or `/demo-frame.html?lab=2` to test it inside the WordPress-style frame. Its three steps show effective attributes (with direct/inherited provenance), candidate search from selected attributes, and the dog/Tripper leg-count exception. The attribute dialog uses dropdowns throughout. Candidate scores are the existing UKS ranking, not probabilities; displayed match counts are checked against effective attributes.
 
-`experiment2.html` contains the sample facts, steps, and selectable vocabulary. `experiments.js` manages the common progression and optional initial facts; `uks-query.js` manages reusable query controls and results; `uks-graph.js` remains the only graph implementation. On a fresh sandbox the page seeds a small animal hierarchy; reloads preserve edits while the sample Thought Tweety remains present. The third step's Tripper exception starts absent and can be added or removed. The comparison highlights differing relationship types for the same target.
+`lab2.html` contains the sample facts, steps, and selectable vocabulary. `experiments.js` manages the common progression and optional initial facts; `uks-query.js` manages reusable query controls and results; `uks-graph.js` remains the only graph implementation. On a fresh sandbox the page seeds a small animal hierarchy; reloads preserve edits while the sample Thought Tweety remains present. The third step's Tripper exception starts absent and can be added or removed. The comparison highlights differing relationship types for the same target.
 
 `GET /api/attributes?label=Fido&session=<key>` calls `GetAttributes` and returns effective relationships with inheritance depth/category. These are query values, not stored Relationship handles. `GET /api/candidates?root=animal&types=has&targets=fur&types=is&targets=brown&session=<key>` accepts up to 16 attribute pairs, calls `SearchByAttributes`, and returns up to 100 positive-score candidates with graph handles and effective match counts. The graph displays the first 32 together; individual candidates can be inspected. Query patterns are temporary unlabeled Thoughts, detached in a `finally` block. All query calls use the sandbox lock; no underlying UKS changes are required.
 
@@ -298,11 +298,11 @@ The query demo opens with no selected Thought or results. The exception step use
 
 ## Sequences demo
 
-Open `/experiment3.html` or `/demo-frame.html?experiment=3`. The four steps cover spelling, matching letter fragments, recording order on a 3-by-3 digit pad, and recognizing/completing melodies. Words can be chosen or typed; every other input can be selected. Tune examples are short public-domain melody phrases with fixed-duration note playback through Web Audio. Matching compares ordered values, not timing intervals or rhythm. A partial match is an exact contiguous fragment of a stored sequence, rather than approximate spelling/pitch matching.
+Open `/lab3.html` or `/demo-frame.html?lab=3`. The four steps cover spelling, matching letter fragments, recording order on a 3-by-3 color pad, and recognizing/completing melodies. Words are added by dropdown selection; all sequence VLU links are always shown. Tune examples are short public-domain melody phrases with quarter-second duration units and Web Audio playback. Matching compares ordered values, not timing intervals or rhythm. A partial match is an exact contiguous fragment of a stored sequence, rather than approximate spelling/pitch matching.
 
-The page supplies words, fragments, digit-order examples, tunes and step text. Shared `experiments.js` handles progression; `uks-sequences.js` handles sequence input/results; all graph behavior remains in `uks-graph.js`. The optional `sequenceValues=true` graph query includes all VLU targets and links alongside the NXT chain. Sequence cells remain a rigid row; exposed distinct value Thoughts occupy a separate row and repeated values share their canonical Thought. Graph discovery continues to follow VLU/NXT identities, without requiring SeqElement classification.
+The page supplies words, fragments, color-order examples, tunes and step text. Shared `experiments.js` handles progression; `uks-sequences.js` handles sequence input/results; all graph behavior remains in `uks-graph.js`. The sequence lab always requests `sequenceValues=true`, including graph expansion and root changes, to include VLU targets and links alongside the NXT chain. Sequence cells remain a rigid row; exposed distinct value Thoughts occupy a separate row and repeated values share their canonical Thought. Graph discovery continues to follow VLU/NXT identities, without requiring SeqElement classification.
 
-`POST /api/sequences` accepts `{kind:"word"|"digits"|"music",label,values:[...]}` within the selected session. It calls the existing UKS `AddSequenceAndLink` with compression disabled to keep the introductory representation flat. Writes are previewed in a separate in-memory UKS for the existing Thought allowance. A repeated identical addition reuses its sequence; an occupied name with different content returns 409. `GET /api/sequences?kind=...` lists that sandbox's demo sequences. `GET /api/sequence-matches?kind=...&values=<JSON array>` uses `FindSequencesByActivation` to return complete matches and occurrences within stored sequences, including offset, matched length and the following values. This remainder supplies music completion. Search uses a temporary, unlabelled options Thought that is deleted afterward; it creates no stored query sequence.
+`POST /api/sequences` accepts `{kind:"word"|"colors"|"music",label,values:[...]}` within the selected session. Words and music use the existing UKS `AddSequenceAndLink` with compression disabled. Color examples use `CreateFirstElement`/`AddElement` to keep remembered cells independent of disposable live input. Writes are previewed in a separate in-memory UKS for the existing Thought allowance. A repeated identical addition reuses its sequence; an occupied name with different content returns 409. `GET /api/sequences?kind=...` lists that sandbox's demo sequences. `GET /api/sequence-matches?kind=...&values=<JSON array>` uses `FindSequencesByActivation` to return complete matches and occurrences within stored sequences, including offset, matched length and the following values. This remainder supplies music completion. Search uses a temporary, unlabelled options Thought that is deleted afterward; it creates no stored query sequence.
 
 
 The shared graph temporarily disables its global centering force when fixed sequence rows are visible. Otherwise that force can push free referrer nodes far away while trying to balance an immovable row. Links into a sequence start use a shorter, stronger spring (including expanded Relationship target connectors); owners remain free to drag. Ordinary centering resumes when no sequence rows remain.
@@ -376,18 +376,19 @@ A step's `choices` array accepts fact indices and reusable component entries in 
 | `attribute-search` | Attribute checkboxes that search automatically when changed, in candidates mode. |
 | `attribute-choices` | Attribute checkboxes without the enclosing search group; changes search automatically. |
 | `attribute-results`, `candidate-results` | Output of the current query; optional `source` names the selector/search `id`. |
-| `word-input` | Word selection/input and Add, in spelling mode. |
-| `letter-keyboard`, `digit-pad`, `note-keyboard` | Input controls for letters, digits, or music respectively. |
-| `sequence-input` | Current input buffer with Undo/Clear. |
+| `word-input` | Dropdown-only word selection, immediately adding its spelling. |
+| `color-pad`, `note-keyboard` | Input controls for colors or music respectively. |
+| `sequence-input` | Current input pattern. |
+| `sequence-finder` | Shared steps 2–4 finder: Clear, Remember, Match, followed by Match first/Match last checkboxes. |
+| `sequence-actions` | Action-row-only variant of the finder. |
 | `sequence-match` | Match the current letter, digit, or note buffer. |
-| `sequence-examples`, `order-examples` | Letter fragments or remembered digit examples. |
-| `remember-sequence` | Store the current digit order. |
+| `remember-sequence` | Store the current color order. |
 | `tune-selector`, `playback` | Select/learn a tune or play entered notes, in music mode. |
-| `sequence-values`, `sequence-library` | VLU display toggle or stored-sequence list. |
+| `sequence-library` | Stored-sequence list. VLU links are always visible in sequence labs. |
 | `sequence-results` | Sequence display, matches, or melody completion output. |
 | `html` | Trusted author HTML, for example `{component:'html', id:'note', html:'<b>Try this</b>'}`. |
 
-Use the step's existing `query: 'attributes' | 'candidates' | 'exceptions'` or `sequence: 'spelling' | 'letters' | 'digits' | 'music'` to choose its mode. There is one candidate-search stream, one subject-attribute stream, and one sequence stream per page, with at most one instance of each control/result component per step. Candidate search and a Thought selector can coexist with separate candidate and attribute results. The optional result `source` binds to that stream's selector/search ID; it does not create additional independent queries. Place the producer and its results in the same step. `height` optionally bounds the result box; results scroll when longer.
+Use the step's existing `query: 'attributes' | 'candidates' | 'exceptions'` or `sequence: 'spelling' | 'letters' | 'colors' | 'music'` to choose its mode. There is one candidate-search stream, one subject-attribute stream, and one sequence stream per page, with at most one instance of each control/result component per step. Candidate search and a Thought selector can coexist with separate candidate and attribute results. The optional result `source` binds to that stream's selector/search ID; it does not create additional independent queries. Place the producer and its results in the same step. `height` optionally bounds the result box; results scroll when longer.
 
 Components carry forward like fact choices. An `id` identifies a component across steps; otherwise its component name does. Repeating its ID/name updates it in place. Use `inheritChoices: false` to start fresh, or `removeChoices: [14, 'attribute-editor', 'subject']` to remove selected fact indices, component names, or explicit IDs. These settings affect the offered UI only, never delete UKS data.
 
@@ -402,3 +403,49 @@ Candidate results use compact list rows. Each row shows matched/selected attribu
 
 
 Results components default to their natural content height. They do not stretch to fill leftover space or have an internal height cap. The action/content area scrolls the entire ordered choices list, including any candidate results, later Thought selectors, and attribute results. Try This and Back/Next remain outside this scroller.
+
+
+Input shortcuts: choosing a graph root displays it immediately; Enter also commits a typed root or highlighted root suggestion. Enter in the Attribute editor's Target textbox performs Add and leaves the dialog open. Selecting a preset word stores/displays it directly; Enter in the custom Word textbox performs Add. The Show/Add buttons remain available. IME composition Enter does not trigger these shortcuts.
+
+Graph JavaScript libraries are snapshotted in wwwroot/external and served locally. See [external/README.md](wwwroot/external/README.md) for pinned versions, licenses, download sources, and update instructions. No JavaScript CDN is required; Google Fonts and the WordPress preview logo remain external resources.
+
+
+The temporal-sequence step uses `sequence: 'colors'` with a `color-pad`. Its nine squares reference the UKS's existing red, orange, yellow, green, blue, purple, brown, pink, and white Thoughts. Each selection (and Undo/Clear) updates a private live VLU/NXT chain through `POST /api/sequence-input`; this input is excluded from remembered examples. Remember order stores an independent sequence, so subsequent input edits cannot delete it. The shared graph colors the actual color Thoughts; sequence cells retain their normal structural colors, even when displaying their VLU target names. The core UKS library is unchanged.
+
+Remember and Match in the color and music steps clear the input only after success, without clearing the stored/matching graph or result list. Match retains a separate submitted pattern for refresh, page restoration. Include `sequence-finder` after `sequence-input` instead of separate Remember/Match components to keep actions and matching options together.
+
+The finder sends `matchFirst` and `matchLast` booleans to `/api/sequence-matches`. The host adds the existing UKS `mustMatchFirst` / `mustMatchLast` properties to its temporary search-options Thought. Neither checked allows a contiguous match anywhere; first requires a prefix, last requires a suffix, and both require the whole sequence. Changing a checkbox reruns the entered or last submitted pattern without clearing new input. Options survive page refresh.
+
+
+Guided pages are named `lab1.html`, `lab2.html`, and `lab3.html`; each lab contains numbered experiments. The frame preview selects a lab with `/demo-frame.html?lab=3`. Update embedding URLs to the new page names. Shared `experiments.js` and `experiments.css` retain their names.
+
+Lab 3's spelling experiment opens at `word` with its relationships expanded. Selecting a word creates its ordinary `is-a word` relationship and displays the selected spelling alongside the word hierarchy. Word sequence owners are children of `word`; color sequence owners belong to `color-sequence`, and music sequence owners to `melody`. No `DemoSequences` grouping is created.
+
+Sequence graph cells have no permanent text labels; hovering identifies the actual Thought (for example, `w:cat-seq0`) without synthetic position annotations. The stored-sequence chooser, detail heading, and VLU/NXT listing use those element names. Adding a spelling accumulates its expanded word owner alongside earlier additions; choosing a stored spelling replaces that expanded set with the selected word. This set is saved in the tab's demo state.
+
+Experiment 2 uses a typed letter pattern in `sequence-input`, with Clear, Remember, and Match (Enter also matches). Its pattern remains visible after Remember/Match and across refresh; Clear empties it. Sequence matches appear as compact rows: owner label on the left, values on the right with matched values highlighted. Clicking the label still opens the sequence. Undo is removed from the shared finder.
+
+
+Experiment 3 records timed color orders. Color clicks measure intervals rounded to quarter-second units, clamped to 1–12. Three seconds without another click ends capture; only Remember learns the order. Manual Remember ends capture immediately; Match cancels automatic remembering and searches only color values. Clear and leaving the step cancel capture/playback timers. Order names (`o:1`, `o:2`, ...) are allocated by the server under the sandbox lock.
+
+Each stored color cell has two VLU links: its color Thought and a `delay:N` Thought beneath `duration`. Delay Thoughts store their integer unit count in V; `duration` supplies the inherited `isSequenceMetadata` property. The existing UKS `GetElementValue` accepts an optional ancestor class; its default and `SeqElement.VLU` select a primary, non-metadata value. Replacing a primary preserves metadata, prepending moves all facets together, and deleting a duration preserves the color. Flattening and matching therefore ignore durations, without adding sequence positions. Timed color examples are built independently so differently timed orders never share disposable cells.
+
+The graph returns and draws all VLU facets, with duration values in a separate row. Selecting a stored color order starts visual playback: the corresponding color square lights up and the input display builds the replayed pattern using stored delays. Playback is cancellable by a new action and does not run through the recording handlers or create new orders. The older paragraph stating that the core UKS is unchanged predates this timing extension.
+
+The shared graph exposes `setPlayback(cellId)` / `setPlayback(null)`. A single glow sprite follows the active cell's rendered object, with no changes to position, size, or UKS content. It cannot intercept node/edge picking. Timed color replay advances the halo using stored delays; stored melody and remainder playback advance it with their note schedule. Completion, Clear, step changes, or another playback clear it. The frame callback runs only while a halo is active.
+
+Selected patterns now persist in every finder until Clear is pressed. Remember, Match, the three-second capture timeout, library selection, and playback do not clear or replace them. Color capture closes after remembering/matching so its final delay stays fixed, and refresh does not remember the same retained capture again. Adding another color explicitly extends the retained pattern and resumes capture. Playback progress appears separately in the results area.
+
+
+Experiment 4 uses an inline SVG piano keyboard (C4–C5, including black keys). Its keys support mouse, touch, Enter, and Space; clicking sounds a short note and appends it to the retained pattern. No image-map coordinates, external audio assets, or Use opening button are needed. Preset names are Twinkle, Mary, and Ode; their `delays` arrays live beside `values` in lab3.html and use the same quarter-second units as color timing.
+
+Notes are ordinary Thoughts named C4, E4, C#4, etc., beneath `note`; the web host no longer creates `note:` labels. Stored melody cells have note and duration VLU links. Entered melodies record tap intervals independently from the color pattern, close after a three-second pause, and receive server-allocated names t:1, t:2, etc. Remember and Match preserve input until Clear. Matching ignores durations.
+
+Stored melody playback and remainder playback schedule audio from saved delays, with synchronized piano-key highlighting and graph-cell halos. Clicking another key, Clear, a step change, or new playback stops queued audio and highlights. Selecting a stored melody replays it; selecting a preset fills the input, and Remember learns it.
+
+
+All lab navigation bars have Quit immediately left of Next / More demos, returning the containing page to https://futureaisociety.org/demos. Music dropdown captions may be long; their first word supplies the newly created Thought name. Choosing a tune only fills the retained notes and timings. Pauses end capture without learning; only Remember stores it. Remember reuses existing sequences with identical values and delays, under the sandbox lock. Search never creates a learned sequence.
+
+The table page (index.html) has Save and Load beside Show content. Save exports the selected root's descendants and outgoing dependencies using UKS.ExportTextFile, then downloads a UTF-8 .txt file through the browser. Export uses a private UKS copy so temporary formatter labels do not alter the live store. Load reads only the file selected by the user and merges it with UKS.ImportTextFile. A preview validates the import and Thought allowance before touching the live store; uploads are limited to 1 MB and bounded nesting/line lengths. Temporary server files are removed after each operation. No local filesystem permission is needed beyond the normal download/file chooser.
+
+GET /api/text-export?root=... returns the existing UKS text format and a download filename; POST /api/text-import accepts {content:...}. Text import now restores the formatter's existing V: metadata on standalone Thoughts, including integer delay values. Round trips retain sequence structure, timings, and matching; repeated merges do not create copies. Save/load status remains separate from the auto-refresh status.

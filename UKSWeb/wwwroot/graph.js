@@ -1,6 +1,6 @@
 // Standalone graph.html controls. All graph behavior lives in uks-graph.js.
 import { sandbox, request } from './sandbox.js?v=20261105-resume';
-import { createUKSGraph } from './uks-graph.js?v=20261106-hover-clear';
+import { createUKSGraph } from './uks-graph.js?v=20261107-compact-music';
 
 const root = document.querySelector('#root');
 const status = document.querySelector('#status');

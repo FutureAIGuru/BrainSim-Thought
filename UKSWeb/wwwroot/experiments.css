@@ -150,14 +150,15 @@ dialog li { margin: 10px 0; }
 .sequence-actions input { flex: 1; min-width: 90px; width: 100%; }
 .sequence-keyboard { display: grid; grid-template-columns: repeat(8,minmax(0,1fr)); gap: 4px; }
 .sequence-keyboard button { padding: 5px 0; }
-.digit-pad { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; max-width: 210px; }
-.digit-pad button { font-size: 20px; padding: 7px; }
+.color-pad { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; max-width: 180px; }
+.color-pad .color-square { background: var(--sequence-color); color: #101010; aspect-ratio: 1; min-height: 42px; padding: 5px; border: 2px solid #ffffff60; text-shadow: 0 0 3px #ffffffc0; font-size: 12px; }
+.color-pad .color-square:hover:not(:disabled), .color-pad .color-square:focus-visible { background: var(--sequence-color); outline: 2px solid var(--blue); outline-offset: 2px; }
+.color-token::before { content: ''; display: inline-block; width: 12px; height: 12px; background: var(--sequence-color); border: 1px solid #ffffff80; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
 .sequence-buffer { border: 1px solid var(--border); padding: 6px; border-radius: 4px; overflow-wrap: anywhere; max-height: 65px; overflow: auto; }
 .sequence-text { margin: 6px 0; line-height: 1.8; overflow-wrap: anywhere; }
 .matched-values { color: #ff9c51; font-weight: 700; }
 .sequence-toggle { display: flex !important; flex-direction: row !important; align-items: center; gap: 6px; }
 .sequence-library-item { display: inline-block; margin: 3px; }
-.sequence-result-title { font-weight: 700; }
 .sequence-demo #query-results section button { margin: 3px 5px 3px 0; }
 @media (max-width:700px) { .sequence-demo #query-controls { max-height: 49%; } .sequence-demo .prompt-content { max-height: 23%; } }
 .sequence-demo #query-controls > * { flex-shrink: 0; }
@@ -289,3 +290,44 @@ dialog li { margin: 10px 0; }
 /* Search options share two columns; long labels wrap inside their own column. */
 .attribute-choices label { min-width: 0; overflow-wrap: anywhere; }
 .attribute-choices input[type="checkbox"] { flex-shrink: 0; }
+
+/* Shared sequence finder: keep actions together and options just below them. */
+.finder-actions { flex-wrap: nowrap; }
+.finder-actions button { flex: 0 0 auto; white-space: nowrap; padding-inline: 8px; }
+
+.sequence-finder { display: flex; flex-direction: column; gap: 8px; }
+.sequence-match-options { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.sequence-match-options label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+
+.sequence-pattern { width: 100%; min-width: 0; box-sizing: border-box; }
+.component-results .sequence-match-row { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: space-between; gap: 12px; line-height: 1.2; }
+.sequence-match-row .result-link { flex: 0 0 auto; }
+.sequence-match-values { margin-left: auto; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.component-results .sequence-match-playback { justify-content: flex-start; gap: 6px; }
+
+.color-pad .color-square.playing { outline: 4px solid white; outline-offset: 2px; box-shadow: 0 0 18px var(--sequence-color); filter: brightness(1.25); }
+.sequence-playback-status { color: var(--blue); font-size: 12px; }
+
+/* A responsive piano drawing, with real keys as mouse/touch/keyboard controls. */
+.piano-keyboard { display: block; width: 100%; height: auto; max-height: 180px; touch-action: manipulation; }
+.piano-key { cursor: pointer; outline: none; }
+.piano-key rect { stroke: #666; stroke-width: 1; }
+.piano-key text { text-anchor: middle; font: 9px sans-serif; pointer-events: none; }
+.white-key rect { fill: #fbfbf8; }
+.white-key text { fill: #333; }
+.black-key rect { fill: #222; }
+.black-key text { fill: #fff; font-size: 8px; }
+.piano-key.playing rect { fill: #f3ba51; }
+.piano-key.playing text { fill: #111; }
+.piano-key:focus-visible rect { stroke: #58adfe; stroke-width: 3; }
+.piano-key[aria-disabled="true"] { opacity: .65; cursor: wait; }
+
+.forward-actions { display: flex; gap: 8px; margin-left: auto; }
+
+/* Music controls share rows to leave more room for results and the graph. */
+.demo-component .tune-selector > label { flex-direction: row; align-items: center; gap: 8px; }
+.tune-selector select { flex: 1; width: 0; }
+.music-finder { gap: 4px; }
+.music-finder .finder-actions { gap: 4px; flex-wrap: wrap; }
+.music-finder button { font-size: 12px; padding: 5px 6px; }
+.music-finder .sequence-match-options { align-items: center; gap: 4px 8px; font-size: 12px; }

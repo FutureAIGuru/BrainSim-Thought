@@ -1,8 +1,8 @@
-import { createQueryPanel } from './uks-query.js?v=20261106-mixed-query';
-import { createSequencePanel } from './uks-sequences.js?v=20261105-components';
+import { createQueryPanel } from './uks-query.js?v=20261106-commit-input';
+import { createSequencePanel } from './uks-sequences.js?v=20261107-compact-music';
 
 const queryNames=new Set(['thought-selector','attribute-editor','attribute-choices','attribute-search','attribute-results','candidate-results']);
-const sequenceNames=new Set(['word-input','letter-keyboard','digit-pad','note-keyboard','sequence-input','sequence-match','sequence-examples','remember-sequence','order-examples','tune-selector','playback','sequence-values','sequence-library','sequence-results']);
+const sequenceNames=new Set(['word-input','color-pad','note-keyboard','sequence-input','sequence-actions','sequence-finder','sequence-match','remember-sequence','tune-selector','playback','sequence-library','sequence-results']);
 
 // Components share the page's UKS and graph, but own their controls/results.
 // A page lists component names in steps[].choices. createComponent() below routes
@@ -25,21 +25,21 @@ export function createDemoComponents({request,graph,perform,feedback,onSubject,q
   if(queryNeeded && !dialog){dialog=document.createElement('dialog');dialog.id='attribute-box';dialog.setAttribute('aria-label','Manage Attributes');document.body.append(dialog);}
   const queryResults=results('Attribute results'),sequenceResults=results('Sequence results');
   const q=queryNeeded?createQueryPanel({request,graph,perform,feedback,onSubject,config:{...defaults,...query},controls:document.createElement('div'),results:queryResults,dialog}):null;
-  const s=sequenceNeeded?createSequencePanel({request,graph,perform,feedback,config:{words:[],fragments:[],orders:[],notes:['C4','D4','E4','F4','G4','A4','B4','C5'],tunes:[],...sequence},controls:document.createElement('div'),results:sequenceResults}):null;
+  const s=sequenceNeeded?createSequencePanel({request,graph,perform,feedback,config:{words:[],fragments:[],notes:['C4','D4','E4','F4','G4','A4','B4','C5'],tunes:[],...sequence},controls:document.createElement('div'),results:sequenceResults}):null;
   for(const id of ['#query-controls','#query-results']) {const legacy=document.querySelector(id);if(legacy)legacy.style.display='none';}
   let mode='attributes',active=new Set(),mounted=[];
   return {
     showStep(next) {
       mode=next || 'attributes';active=new Set();mounted=[];
       q?.showStep(['attributes','candidates','exceptions'].includes(mode)?mode:'attributes');
-      s?.showStep(['spelling','letters','digits','music'].includes(mode)?mode:'spelling');
+      s?.showStep(['spelling','letters','colors','music'].includes(mode)?mode:'spelling');
     },
     createComponent(spec) {
       const host=document.createElement('div');host.className='demo-component';
       host.dataset.component=spec.component;if(spec.id)host.dataset.componentId=spec.id;
       if(spec.component==='html'){host.innerHTML=spec.html || '';return host;}
       let panel=queryNames.has(spec.component)?q:sequenceNames.has(spec.component)?s:null;
-      if(spec.component==='results')panel=['spelling','letters','digits','music'].includes(mode)?s:q;
+      if(spec.component==='results')panel=['spelling','letters','colors','music'].includes(mode)?s:q;
       if(!panel)throw new Error(`Unknown or unconfigured demo component: ${spec.component}`);
       const node=panel.createComponent(spec);
       if(mounted.some(item=>item.contains(node)))throw new Error(`Component ${spec.component} is already present in this step.`);

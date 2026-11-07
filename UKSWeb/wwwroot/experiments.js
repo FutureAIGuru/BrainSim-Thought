@@ -1,8 +1,8 @@
 import { sandbox, request } from './sandbox.js?v=20261105-resume';
-import { createUKSGraph, selectRelationship } from './uks-graph.js?v=20261106-hover-clear';
-import { createQueryPanel } from './uks-query.js?v=20261106-mixed-query';
-import { createSequencePanel } from './uks-sequences.js?v=20261105-resume';
-import { createDemoComponents } from './demo-components.js?v=20261106-mixed-query';
+import { createUKSGraph, selectRelationship } from './uks-graph.js?v=20261107-compact-music';
+import { createQueryPanel } from './uks-query.js?v=20261106-commit-input';
+import { createSequencePanel } from './uks-sequences.js?v=20261107-compact-music';
+import { createDemoComponents } from './demo-components.js?v=20261107-compact-music';
 
 // Common guided-demo engine. A page supplies facts, steps, and its HTML layout.
 // No chapter-specific content, graph rendering, or expansion state lives here.
@@ -32,7 +32,8 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     rootMenu.replaceChildren(...matches.map((label,index)=>{
       const option=document.createElement('button');option.type='button';option.textContent=label;
       option.id=`graph-root-choice-${index}`;option.setAttribute('role','option');option.setAttribute('aria-selected','false');option.tabIndex=-1;
-      option.onclick=()=>{setRootLabel(label);closeRootMenu();rootInput.focus();};
+      // A committed menu choice is enough to display the new root.
+      option.onclick=()=>{setRootLabel(label);closeRootMenu();rootInput.focus();rootInput.form.requestSubmit();};
       return option;
     }));
     if(!matches.length){const empty=document.createElement('span');empty.textContent='No matching suggestions. You can still type a name.';rootMenu.append(empty);}
@@ -41,9 +42,12 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
   rootChooser.onclick=()=>rootMenu.hidden?showRootMenu():closeRootMenu();
   rootInput.addEventListener('input',()=>showRootMenu(rootInput.value));
   rootInput.addEventListener('keydown',event=>{
+    if(event.isComposing)return;
     if(event.key==='Escape'){closeRootMenu();return;}
     if(event.key==='Enter'&&!rootMenu.hidden){
-      event.preventDefault();const option=rootMenu.querySelectorAll('button')[rootIndex];if(option)option.click();else closeRootMenu();return;
+      event.preventDefault();const option=rootMenu.querySelectorAll('button')[rootIndex];
+      if(option)option.click();else {closeRootMenu();rootInput.form.requestSubmit();}
+      return;
     }
     if(!['ArrowDown','ArrowUp'].includes(event.key))return;
     event.preventDefault();if(rootMenu.hidden)showRootMenu();
@@ -258,6 +262,7 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     $('#root-options').replaceChildren(...rootLabels.map(label => { const option = document.createElement('option'); option.value = label; return option; }));
   }
   updateGraphControls({nodes:[],nodeCount:0});
+  $('#quit').onclick = () => { window.top.location.href = 'https://futureaisociety.org/demos'; };
   $('#back').onclick = () => moveStep(step - 1);
   $('#next').onclick = () => {
     if (step === steps.length - 1) window.top.location.href = 'https://futureaisociety.org/demos';
@@ -307,7 +312,7 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     } catch { /* Ignore unavailable storage and outdated/invalid state. */ }
     showStep();
     graph = await createUKSGraph($('#graph'), {
-      request, root: rootInput.value, colors, help: {button: $('#help'), dialog: $('#help-box')}, perform: run, onInspect: inspect,
+      request, root: rootInput.value, colors, alwaysShowSequenceValues:!!sequence, help: {button: $('#help'), dialog: $('#help-box')}, perform: run, onInspect: inspect,
       onRoot: label => { setRootLabel(label); sandbox.updateRoot(label); },
       onChange: updateGraphControls, onError: error => feedback(error.message, true),
       onDrag: () => { completed.add(step); controls(); scheduleSave(); }

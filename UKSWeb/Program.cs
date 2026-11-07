@@ -102,7 +102,7 @@ Func<IReadOnlyList<UKS.Thought>, bool, bool, object> graphSnapshot = (starts, ex
     Func<UKS.Thought, string> labelOf = thought => !string.IsNullOrEmpty(thought.Label) ? thought.Label
         : thought is UKS.Link link ? $"[{link.From?.Label} → {link.LinkType?.Label} → {link.To?.Label}]" : "(unnamed Thought)";
     Func<UKS.Thought, UKS.Link?> valueLink = thought => thought.LinksTo.FirstOrDefault(link =>
-        link.LinkType is not null && link.To is not null && ReferenceEquals(link.LinkType, thought.Store.Labeled("VLU")));
+        link.LinkType is not null && link.To is not null && ReferenceEquals(link.LinkType, thought.Store.Labeled("VLU")) && !link.To.HasProperty("isSequenceMetadata"));
     var sequenceLinks = new HashSet<UKS.Link>(ReferenceEqualityComparer.Instance);
     var chains = new List<(List<UKS.Thought> Elements, UKS.Thought? CycleTo)>();
     foreach (var start in nodes.ToArray())
@@ -132,7 +132,8 @@ Func<IReadOnlyList<UKS.Thought>, bool, bool, object> graphSnapshot = (starts, ex
     }).ToList();
     if (sequenceValues)
         foreach (var cell in chains.SelectMany(chain => chain.Elements))
-            if (valueLink(cell) is UKS.Link value) { links.Add(value); nodes.Add(value.To!); }
+            foreach (var value in cell.LinksTo.Where(link => link.LinkType == cell.Store.Labeled("VLU") && link.To is not null))
+            { links.Add(value); nodes.Add(value.To!); }
     var displayedLinks = links.Select(link => new
     {
         id = (object)graphId(link), source = graphId(link.From!), target = graphId(link.To!),
@@ -160,6 +161,8 @@ Func<IReadOnlyList<UKS.Thought>, bool, bool, object> graphSnapshot = (starts, ex
         {
             id = graphId(thought), label = labelOf(thought), isRelationship = thought is UKS.Link,
             showSequenceCellLabel = sequenceValues && valueLink(thought) is not null,
+            sequenceValues = thought.LinksTo.Where(link => link.LinkType == thought.Store.Labeled("VLU") && link.To is not null)
+                .Select(link => new { id = graphId(link.To!), label = labelOf(link.To!), metadata = link.To!.HasProperty("isSequenceMetadata") }).ToArray(),
             sequenceValue = valueLink(thought)?.To is UKS.Thought value
                 ? new { id = graphId(value), label = labelOf(value), isRelationship = value is UKS.Link } : null
         }).ToArray(),
@@ -350,14 +353,117 @@ Func<UKS.UKS, UKS.UKS> sequencePreview = store =>
     preview.AtomicThoughts.UnionWith(store.AtomicThoughts.Select(thought => copies[thought]));
     return preview;
 };
-Func<string, string> sequenceType = kind => kind == "word" ? "spelled" : kind == "digits" ? "ordered" : "notes";
-Func<UKS.UKS, string, string, string[], UKS.Thought> storeDemoSequence = (store, kind, label, values) =>
+// Text files use the desktop UKS formatter/parser. Export a private clone because
+// the formatter assigns temporary labels; importing previews the merge and quota.
+app.MapGet("/api/text-export", (string? root, HttpContext context) =>
 {
-    var owner = store.GetOrAddThought(label, store.GetOrAddThought("DemoSequences." + kind))!;
+    if (string.IsNullOrWhiteSpace(root)) return Results.BadRequest(new { error = "Select a root Thought to save." });
+    var sandbox = sandboxes[(string)context.Items["session"]!];
+    UKS.UKS snapshot;
+    lock (sandbox.Sync)
+    {
+        if (sandbox.Store.Labeled(root) is null) return Results.NotFound(new { error = "That root Thought does not exist." });
+        var previous = UKS.UKS.theUKS;
+        try { snapshot = sequencePreview(sandbox.Store); }
+        finally { UKS.UKS.theUKS = previous; }
+    }
+    var path = Path.GetTempFileName();
+    try
+    {
+        snapshot.ExportTextFile(root, path);
+        var content = File.ReadAllText(path);
+        var filename = string.Concat(root.Select(character => char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '_'));
+        return Results.Ok(new { filename = filename + ".txt", content });
+    }
+    finally { File.Delete(path); }
+});
+app.MapPost("/api/text-import", async (HttpContext context) =>
+{
+    const int limit = 1024 * 1024;
+    var size = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+    if (size is not null && !size.IsReadOnly) size.MaxRequestBodySize = 2 * limit;
+    System.Text.Json.JsonElement input;
+    try { input = await System.Text.Json.JsonSerializer.DeserializeAsync<System.Text.Json.JsonElement>(context.Request.Body); }
+    catch (System.Text.Json.JsonException) { return Results.BadRequest(new { error = "Choose a UKS text file." }); }
+    if (input.ValueKind != System.Text.Json.JsonValueKind.Object || !input.TryGetProperty("content", out var contentJson) || contentJson.ValueKind != System.Text.Json.JsonValueKind.String)
+        return Results.BadRequest(new { error = "Choose a UKS text file." });
+    var content = contentJson.GetString()!.TrimStart('\uFEFF');
+    if (string.IsNullOrWhiteSpace(content) || System.Text.Encoding.UTF8.GetByteCount(content) > limit)
+        return Results.BadRequest(new { error = "Choose a nonempty text file no larger than 1 MB." });
+    // Bound nesting before invoking the recursive desktop parser. Quoted labels
+    // and comments may legitimately contain brackets and must not count.
+    int depth = 0; bool quoted = false, escaped = false;
+    foreach (var line in content.Split('\n'))
+    {
+        if (line.Length > 8192) return Results.BadRequest(new { error = "A text-file line is too long." });
+        for (int index = 0; index < line.Length; index++)
+        {
+            char character = line[index];
+            if (escaped) { escaped = false; continue; }
+            if (quoted && character == '\\') { escaped = true; continue; }
+            if (character == '"') { quoted = !quoted; continue; }
+            if (quoted) continue;
+            if (character == '/' && index + 1 < line.Length && line[index + 1] == '/') { break; }
+            if (character == '[' && ++depth > 64) return Results.BadRequest(new { error = "The text file is nested too deeply." });
+            if (character == ']' && --depth < 0) return Results.BadRequest(new { error = "The text file has unmatched brackets." });
+        }
+    }
+    if (quoted || depth != 0) return Results.BadRequest(new { error = "The text file has unmatched quotes or brackets." });
+    var path = Path.GetTempFileName();
+    try
+    {
+        await File.WriteAllTextAsync(path, content);
+        var sandbox = sandboxes[(string)context.Items["session"]!]; var uks = sandbox.Store;
+        lock (sandbox.Sync)
+        {
+            var previous = UKS.UKS.theUKS;
+            int before = storedThoughts(uks).Count;
+            try
+            {
+                var preview = sequencePreview(uks); preview.ImportTextFile(path);
+                int baseline = storedThoughts(uks).Count(thought => initialThoughts.TryGetValue(thought, out _));
+                if (storedThoughts(preview).Count - baseline > thoughtLimit)
+                    return Results.Json(new { error = $"This import would exceed the limit of {thoughtLimit} added Thoughts, including relationships." }, statusCode: 409);
+                UKS.UKS.theUKS = uks;
+                uks.ImportTextFile(path);
+            }
+            catch (Exception error) when (error is FormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException)
+            { return Results.BadRequest(new { error = "The text file could not be imported: " + error.Message }); }
+            finally { UKS.UKS.theUKS = previous; }
+            Volatile.Write(ref sandbox.HasChanges.Value, true);
+            return Results.Ok(new { added = storedThoughts(uks).Count - before });
+        }
+    }
+    finally { File.Delete(path); }
+});
+// Sequence owners belong to ordinary knowledge categories, not demo-only groups.
+Func<string, string> sequenceCategory = kind => kind == "word" ? "word" : kind == "colors" ? "color-sequence" : "melody";
+Func<string, string> sequenceType = kind => kind == "word" ? "spelled" : kind == "colors" ? "ordered" : "notes";
+Func<UKS.UKS, string, string, string[], int[], UKS.Thought> storeDemoSequence = (store, kind, label, values, delays) =>
+{
+    var owner = store.GetOrAddThought(label, store.GetOrAddThought(sequenceCategory(kind), "Abstract"))!;
     var type = store.GetOrAddThought(sequenceType(kind), "LinkType")!;
     var thoughts = values.Select(value => kind == "word" ? store.GetOrAddCharacter(value[0])
-        : store.GetOrAddThought(kind == "music" ? "note:" + value : value)!).ToList();
-    store.AddSequenceAndLink(owner, type, thoughts, allowCompression: false);
+        : store.GetOrAddThought(value, kind == "music" ? store.GetOrAddThought("note", "Abstract") : null)!).ToList();
+    if (kind is "colors" or "music")
+    {
+        // Keep remembered examples independent of the disposable live-input cells.
+        // AddSequenceAndLink may reuse an exact sequence, including the live input.
+        var first = store.CreateFirstElement(owner.Label, thoughts[0]);
+        var previous = first;
+        foreach (var value in thoughts.Skip(1)) previous = store.AddElement(previous, value);
+        owner.AddLink(type, first);
+        var duration = store.GetOrAddThought("duration", "Abstract")!;
+        duration.AddLink(store.Labeled("hasProperty")!, store.GetOrAddThought("isSequenceMetadata", "Property"));
+        var cell = first;
+        for (int index = 0; cell is not null; index++, cell = cell.NXT)
+        {
+            int units = delays[index];
+            var delay = store.GetOrAddThought("delay:" + units, duration)!; delay.V = units;
+            cell.AddLink(store.Labeled("VLU")!, delay);
+        }
+    }
+    else store.AddSequenceAndLink(owner, type, thoughts, allowCompression: false);
     return owner;
 };
 Func<UKS.Thought, List<UKS.Thought>> demoSequenceCells = first =>
@@ -373,34 +479,105 @@ Func<UKS.Thought, string, object> demoSequence = (owner, kind) =>
     var first = owner.LinksTo.First(link => link.LinkType == owner.Store.Labeled(sequenceType(kind))).To!;
     return new { id = graphId(owner), label = owner.Label, startId = graphId(first), kind,
         cells = demoSequenceCells(first).Select(cell => new {
-            id = graphId(cell), value = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("VLU"))?.To?.Label,
+            id = graphId(cell), label = cell.Label, value = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("VLU") && link.To?.HasProperty("isSequenceMetadata") != true)?.To?.Label,
+            delay = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("VLU") && link.To?.HasAncestor(cell.Store.Labeled("duration")) == true)?.To?.V is int units ? units : 1,
             nextId = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("NXT"))?.To is UKS.Thought next ? (long?)graphId(next) : null
         }).ToArray() };
 };
+// Live input uses private, ordinary Thoughts with VLU/NXT links. It is not a
+// remembered example, so it cannot match itself. Replacing input deletes only
+// these private cells, never the shared color Thoughts or remembered sequences.
+var sequenceInputs = new System.Runtime.CompilerServices.ConditionalWeakTable<UKS.UKS, List<UKS.Thought>>();
+app.MapPost("/api/sequence-input", (System.Text.Json.JsonElement input, HttpContext context) =>
+{
+    if (input.ValueKind != System.Text.Json.JsonValueKind.Object ||
+        !input.TryGetProperty("values", out var valuesJson) || valuesJson.ValueKind != System.Text.Json.JsonValueKind.Array ||
+        valuesJson.GetArrayLength() > 32 || valuesJson.EnumerateArray().Any(value => value.ValueKind != System.Text.Json.JsonValueKind.String))
+        return Results.BadRequest(new { error = "Choose up to 32 colors." });
+    var values = valuesJson.EnumerateArray().Select(value => value.GetString()!).ToArray();
+    if (values.Any(value => !new[] { "red", "orange", "yellow", "green", "blue", "purple", "brown", "pink", "white" }.Contains(value)))
+        return Results.BadRequest(new { error = "Choose a color from the squares." });
+    var sandbox = sandboxes[(string)context.Items["session"]!]; var uks = sandbox.Store;
+    lock (sandbox.Sync)
+    {
+        var colors = values.Select(value => uks.Labeled(value)).ToArray();
+        if (colors.Any(color => color is null))
+            return Results.BadRequest(new { error = "This UKS does not contain that color." });
+        var previous = sequenceInputs.GetOrCreateValue(uks);
+        // Keep handles stable when restoring a page or toggling VLU visibility.
+        if (previous.Select(cell => cell.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled("VLU"))?.To?.Label).SequenceEqual(values))
+            return Results.Ok(new { startId = previous.Count == 0 ? (long?)null : graphId(previous[0]) });
+        var oldStructure = previous.SelectMany(cell => cell.LinksTo.Cast<UKS.Thought>().Append(cell))
+            .ToHashSet(ReferenceEqualityComparer.Instance);
+        var cells = new List<UKS.Thought>();
+        foreach (var color in colors)
+        {
+            var cell = new UKS.Thought(uks); uks.AtomicThoughts.Add(cell);
+            cell.AddLink(uks.Labeled("VLU")!, color);
+            if (cells.Count > 0) cells[^1].AddLink(uks.Labeled("NXT")!, cell);
+            cells.Add(cell);
+        }
+        // Count the replacement, excluding the previous input that will be removed.
+        if (storedThoughts(uks).Count(thought => !oldStructure.Contains(thought) && !initialThoughts.TryGetValue(thought, out _)) > thoughtLimit)
+        {
+            foreach (var cell in cells) cell.Delete();
+            return Results.Json(new { error = $"This demo is limited to {thoughtLimit} added Thoughts, including relationships." }, statusCode: 409);
+        }
+        foreach (var cell in previous) cell.Delete();
+        previous.Clear(); previous.AddRange(cells);
+        return Results.Ok(new { startId = cells.Count == 0 ? (long?)null : graphId(cells[0]) });
+    }
+});
 app.MapPost("/api/sequences", (System.Text.Json.JsonElement input, HttpContext context) =>
 {
     if (input.ValueKind != System.Text.Json.JsonValueKind.Object) return Results.BadRequest(new { error = "Supply a sequence object." });
     string? kind = input.TryGetProperty("kind", out var kindJson) && kindJson.ValueKind == System.Text.Json.JsonValueKind.String ? kindJson.GetString() : null;
     string? label = input.TryGetProperty("label", out var labelJson) && labelJson.ValueKind == System.Text.Json.JsonValueKind.String ? labelJson.GetString()?.Trim() : null;
-    if (kind is not ("word" or "digits" or "music") || string.IsNullOrEmpty(label) || label.Length > 80 ||
+    if (kind is not ("word" or "colors" or "music") || string.IsNullOrEmpty(label) || label.Length > 80 ||
         !input.TryGetProperty("values", out var valuesJson) || valuesJson.ValueKind != System.Text.Json.JsonValueKind.Array)
         return Results.BadRequest(new { error = "Choose a sequence kind, name, and values." });
     if (valuesJson.GetArrayLength() is < 1 or > 32 || valuesJson.EnumerateArray().Any(value => value.ValueKind != System.Text.Json.JsonValueKind.String))
         return Results.BadRequest(new { error = "Use between one and 32 sequence values." });
     var values = valuesJson.EnumerateArray().Select(value => value.GetString()!).ToArray();
     if (values.Any(value => kind == "word" ? value.Length != 1 || !char.IsAsciiLetter(value[0])
-        : kind == "digits" ? value.Length != 1 || value[0] < '1' || value[0] > '9'
-        : !new[] { "C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5" }.Contains(value)))
-        return Results.BadRequest(new { error = "Select letters, digits 1–9, or notes C4–C5." });
+        : kind == "colors" ? !new[] { "red", "orange", "yellow", "green", "blue", "purple", "brown", "pink", "white" }.Contains(value)
+        : !new[] { "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4", "C5" }.Contains(value)))
+        return Results.BadRequest(new { error = "Select letters, common colors, or notes C4–C5." });
+    int[] delays = Enumerable.Repeat(1, values.Length).ToArray();
+    if (input.TryGetProperty("delays", out var delayJson))
+    {
+        if (kind is not ("colors" or "music") || delayJson.ValueKind != System.Text.Json.JsonValueKind.Array || delayJson.GetArrayLength() != values.Length ||
+            delayJson.EnumerateArray().Any(value => value.ValueKind != System.Text.Json.JsonValueKind.Number || !value.TryGetInt32(out var units) || units is < 1 or > 12))
+            return Results.BadRequest(new { error = "Supply one delay from 1 to 12 per element (each unit is 0.25 seconds)." });
+        delays = delayJson.EnumerateArray().Select(value => value.GetInt32()).ToArray();
+    }
     var sandbox = sandboxes[(string)context.Items["session"]!]; var uks = sandbox.Store;
     lock (sandbox.Sync)
     {
+        // Remember is idempotent for a complete pattern, including timing facets.
+        foreach (var candidate in uks.Labeled(sequenceCategory(kind))?.Children ?? new List<UKS.Thought>())
+        {
+            var start = candidate.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled(sequenceType(kind)))?.To;
+            if (start is null) continue;
+            var cells = demoSequenceCells(start);
+            if (!cells.Select(cell => cell.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled("VLU") && link.To?.HasProperty("isSequenceMetadata") != true)?.To?.Label)
+                .SequenceEqual(values.Select(value => kind == "word" ? UKS.UKS.GetCharacterLabel(value[0]) : value))) continue;
+            if (kind != "word" && !cells.Select(cell => cell.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled("VLU") && link.To?.HasAncestor(uks.Labeled("duration")) == true)?.To?.V is int units ? units : 1).SequenceEqual(delays)) continue;
+            return Results.Ok(demoSequence(candidate, kind));
+        }
+        // The server allocates order names under the sandbox lock.
+        if (kind == "colors" || kind == "music" && label == "t:new")
+        {
+            var prefix = kind == "colors" ? "o:" : "t:";
+            int order = 1; while (uks.Labeled(prefix + order) is not null) order++;
+            label = prefix + order;
+        }
         var existing = uks.Labeled(label);
         if (existing is not null)
         {
             var link = existing.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled(sequenceType(kind)));
-            var expected = values.Select(value => kind == "word" ? UKS.UKS.GetCharacterLabel(value[0]) : kind == "music" ? "note:" + value : value);
-            if (link?.To is not null && demoSequenceCells(link.To).Select(cell => cell.LinksTo.FirstOrDefault(edge => edge.LinkType == uks.Labeled("VLU"))?.To?.Label).SequenceEqual(expected))
+            var expected = values.Select(value => kind == "word" ? UKS.UKS.GetCharacterLabel(value[0]) : value);
+            if (link?.To is not null && demoSequenceCells(link.To).Select(cell => cell.LinksTo.FirstOrDefault(edge => edge.LinkType == uks.Labeled("VLU") && edge.To?.HasProperty("isSequenceMetadata") != true)?.To?.Label).SequenceEqual(expected))
                 return Results.Ok(demoSequence(existing, kind));
             return Results.Conflict(new { error = "That name already has different content. Choose another name." });
         }
@@ -408,47 +585,55 @@ app.MapPost("/api/sequences", (System.Text.Json.JsonElement input, HttpContext c
         try
         {
             var preview = sequencePreview(uks);
-            storeDemoSequence(preview, kind, label, values);
+            storeDemoSequence(preview, kind, label, values, delays);
             var baseline = storedThoughts(uks).Count(thought => initialThoughts.TryGetValue(thought, out _));
             if (storedThoughts(preview).Count - baseline > thoughtLimit)
                 return Results.Json(new { error = $"This demo is limited to {thoughtLimit} added Thoughts, including relationships." }, statusCode: 409);
         }
         finally { UKS.UKS.theUKS = previous; }
-        var owner = storeDemoSequence(uks, kind, label, values);
+        var owner = storeDemoSequence(uks, kind, label, values, delays);
         Volatile.Write(ref sandbox.HasChanges.Value, true);
         return Results.Ok(demoSequence(owner, kind));
     }
 });
 app.MapGet("/api/sequences", (string? kind, HttpContext context) =>
 {
-    if (kind is not ("word" or "digits" or "music")) return Results.BadRequest(new { error = "Choose word, digits, or music." });
+    if (kind is not ("word" or "colors" or "music")) return Results.BadRequest(new { error = "Choose word, colors, or music." });
     var sandbox = sandboxes[(string)context.Items["session"]!]; var uks = sandbox.Store;
-    lock (sandbox.Sync) return Results.Ok(new { sequences = uks.Labeled("DemoSequences." + kind)?.Children
+    lock (sandbox.Sync)
+    {
+        // Make the category available for an initially empty lab graph.
+        uks.GetOrAddThought(sequenceCategory(kind!), "Abstract");
+        return Results.Ok(new { sequences = uks.Labeled(sequenceCategory(kind))?.Children
         .Where(owner => owner.LinksTo.Any(link => link.LinkType == uks.Labeled(sequenceType(kind)) && link.To is not null))
-        .Select(owner => demoSequence(owner, kind)).ToArray() ?? Array.Empty<object>() });
+        .Select(owner => demoSequence(owner, kind!)).ToArray() ?? Array.Empty<object>() });
+    }
 });
-app.MapGet("/api/sequence-matches", (string? kind, string? values, HttpContext context) =>
+app.MapGet("/api/sequence-matches", (string? kind, string? values, bool? matchFirst, bool? matchLast, HttpContext context) =>
 {
-    if (kind is not ("word" or "digits" or "music")) return Results.BadRequest(new { error = "Choose word, digits, or music." });
+    if (kind is not ("word" or "colors" or "music")) return Results.BadRequest(new { error = "Choose word, colors, or music." });
     string[] pattern;
     try { pattern = System.Text.Json.JsonSerializer.Deserialize<string[]>(values ?? "[]") ?? Array.Empty<string>(); }
     catch (System.Text.Json.JsonException) { return Results.BadRequest(new { error = "Supply a list of sequence values." }); }
     if (pattern.Length is < 1 or > 32 || pattern.Any(value => string.IsNullOrEmpty(value) || value.Length > 16))
         return Results.BadRequest(new { error = "Choose between one and 32 values." });
     if (pattern.Any(value => kind == "word" ? value.Length != 1 || !char.IsAsciiLetter(value[0])
-        : kind == "digits" ? value.Length != 1 || value[0] < '1' || value[0] > '9'
-        : !new[] { "C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5" }.Contains(value)))
-        return Results.BadRequest(new { error = "Use letters, digits 1–9, or notes C4–C5." });
+        : kind == "colors" ? !new[] { "red", "orange", "yellow", "green", "blue", "purple", "brown", "pink", "white" }.Contains(value)
+        : !new[] { "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4", "C5" }.Contains(value)))
+        return Results.BadRequest(new { error = "Use letters, common colors, or notes C4–C5." });
     var sandbox = sandboxes[(string)context.Items["session"]!]; var uks = sandbox.Store;
     lock (sandbox.Sync)
     {
-        var thoughts = pattern.Select(value => uks.Labeled(kind == "word" ? UKS.UKS.GetCharacterLabel(value[0]) : kind == "music" ? "note:" + value : value)).ToList();
+        var thoughts = pattern.Select(value => uks.Labeled(kind == "word" ? UKS.UKS.GetCharacterLabel(value[0]) : value)).ToList();
         if (thoughts.Any(thought => thought is null)) return Results.Ok(new { matches = Array.Empty<object>() });
         var options = new UKS.Thought(uks);
         try
         {
+            // Use the UKS's inherited search-option properties for boundary matching.
+            if (matchFirst == true) options.AddLink(uks.Labeled("hasProperty")!, uks.GetOrAddThought("mustMatchFirst"));
+            if (matchLast == true) options.AddLink(uks.Labeled("hasProperty")!, uks.GetOrAddThought("mustMatchLast"));
             var matches = uks.FindSequencesByActivation(thoughts!, options, getFirstElements:false);
-            var owners = uks.Labeled("DemoSequences." + kind)?.Children ?? new List<UKS.Thought>();
+            var owners = uks.Labeled(sequenceCategory(kind))?.Children ?? new List<UKS.Thought>();
             var rows = new List<object>();
             foreach (var owner in owners)
             {
@@ -459,7 +644,7 @@ app.MapGet("/api/sequence-matches", (string? kind, string? values, HttpContext c
                 {
                     int offset = cells.FindIndex(cell => ReferenceEquals(cell, match.seqNode));
                     if (offset < 0 || offset + pattern.Length > cells.Count) continue;
-                    var labels = cells.Select(cell => cell.LinksTo.First(link => link.LinkType == uks.Labeled("VLU")).To!.Label).ToArray();
+                    var labels = cells.Select(cell => cell.LinksTo.First(link => link.LinkType == uks.Labeled("VLU") && link.To?.HasProperty("isSequenceMetadata") != true).To!.Label).ToArray();
                     rows.Add(new { sequence = demoSequence(owner,kind), offset, matched = pattern.Length, total = cells.Count,
                         full = offset == 0 && pattern.Length == cells.Count, confidence = match.confidence,
                         continuation = labels.Skip(offset + pattern.Length).ToArray() });
