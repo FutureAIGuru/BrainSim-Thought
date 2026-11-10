@@ -204,7 +204,7 @@
       allow="fullscreen"
       allowfullscreen>
     </iframe>
-    <div id="frame-fallback" role="status">
+    <div id="frame-fallback" role="status" hidden>
       Loading the demo. If it doesn't open here,
       <a id="open-demo" href="lab1.html" target="_blank" rel="noopener">
         Open the demo in a new tab.
@@ -227,23 +227,25 @@
     const frame = document.getElementById('demo-frame');
     const fallback = document.getElementById('frame-fallback');
 
+    // Offer the direct link only if the frame hasn't responded within two seconds.
+    const readyTimeout = setTimeout(() => {
+      fallback.hidden = false;
+    }, 2000);
+
     // IFRAME READY LISTENER: only this frame, from its expected server,
     // can confirm that its JavaScript is accessible and hide the loading link.
     window.addEventListener('message', (event) => {
       if (event.source !== frame.contentWindow) return;
       if (event.origin !== new URL(frame.src).origin) return;
       if (event.data?.type !== 'uks-demo-ready') return;
+      clearTimeout(readyTimeout);
       fallback.hidden = true;
     });
 
     // Keep demo navigation in this local test harness, outside the demo itself.
-    const lab = new URLSearchParams(location.search).get('lab');
-    if (['2', '3'].includes(lab)) {
-      frame.src = `lab${lab}.html`;
-      frame.title = lab === '2'
-        ? 'Search, inheritance and exceptions demo'
-        : 'Sequences demo';
-    }
+    const lab = new URLSearchParams(location.search).get('lab') ?? '1';
+    frame.src = `lab${encodeURIComponent(lab)}.html`;
+    frame.title = `Lab ${lab} · BrainSim Thought demo`;
     document.getElementById('open-demo').href = frame.src;
 
     const region = document.getElementById('frame-region');
