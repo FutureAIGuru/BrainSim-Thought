@@ -1,3 +1,13 @@
+// IFRAME ACCESSIBILITY MESSAGE: send immediately when this shared script runs.
+// This confirms that the embedded page can run JavaScript, not that its UKS,
+// graph, or other content has finished loading. The parent hides its loading link.
+if (window.parent !== window) {
+  const parentOrigin = document.referrer && new URL(document.referrer).origin === location.origin
+    ? location.origin
+    : 'https://futureaisociety.org';
+  window.parent.postMessage({ type: 'uks-demo-ready' }, parentOrigin);
+}
+
 // Keep demo identity in the address bar; the UI only exposes the XML selector.
 export const sandbox = {
   id: null,
