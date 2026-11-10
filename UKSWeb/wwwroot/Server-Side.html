@@ -1,0 +1,118 @@
+﻿<!--
+This is the server-side code for the UKSWeb application. It handles requests from the client and serves the appropriate HTML files.
+It is located in the file Server-Side.html in the wwwroot directory. The code is written in HTML and JavaScript, and it uses the Fetch API to communicate with the server.
+Paste it into the Raw Html control of the Wordpress Labrun page
+-->
+<style>
+    .uks-demo-wide {
+        position: relative;
+        width: calc(100vw - 24px);
+        max-width: none !important;
+        margin-left: calc(50% - 50vw + 12px);
+        margin-top: -30px !important;
+        margin-bottom: 0 !important;
+        padding-top: 0 !important;
+    }
+
+    #uks-demo {
+        display: block;
+        width: 100%;
+        height: 70vh; /* Fallback before the script runs */
+        border: 0;
+    }
+    /* Overlay the frame so the fallback uses no additional vertical space. */
+    #frame-fallback {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        z-index: 1;
+        padding: 12px;
+        border: 1px solid #833ecf;
+        border-radius: 6px;
+        background: #211331;
+        color: #f3eef9;
+    }
+
+        #frame-fallback a {
+            color: #58adfe;
+            text-decoration: underline;
+        }
+
+        #frame-fallback[hidden] {
+            display: none !important;
+        }
+</style>
+
+<div class="uks-demo-wide">
+    <iframe id="uks-demo"
+            src="https://Brainsim-Thought.onrender.com/lab1.html"
+            title="BrainSim Thought demo"
+            allow="fullscreen"
+            allowfullscreen>
+    </iframe>
+    <div id="frame-fallback" role="status" hidden>
+        Loading the demo. If it doesn't open here,
+        <a id="open-demo" href="https://brainsim-thought.onrender.com/lab1.html" target="_blank" rel="noopener">
+            Open the demo in a new tab.
+        </a>
+    </div>
+
+</div>
+<script>
+    (() => {
+        const frame = document.getElementById("uks-demo");
+        const fallback = document.getElementById("frame-fallback");
+        // Offer the direct link only if the frame hasn't responded within two seconds.
+        const readyTimeout = setTimeout(() => {
+            fallback.hidden = false;
+        }, 2000);
+
+        // IFRAME READY LISTENER: only this frame, from its expected server,
+        // can confirm that its JavaScript is accessible and hide the loading link.
+        window.addEventListener('message', (event) => {
+            if (event.source !== frame.contentWindow) return;
+            if (event.origin !== new URL(frame.src).origin) return;
+            if (event.data?.type !== 'uks-demo-ready') return;
+            clearTimeout(readyTimeout);
+            fallback.hidden = true;
+        });
+
+        function resizeDemo() {
+            const viewport = window.visualViewport;
+            const bottom = viewport
+                ? viewport.offsetTop + viewport.height
+                : window.innerHeight;
+
+            const top = frame.getBoundingClientRect().top;
+            const available = bottom - Math.max(0, top) - 12;
+
+            frame.style.height = Math.max(240, available) + "px";
+        }
+
+        const scheduleResize = () => requestAnimationFrame(resizeDemo);
+
+        scheduleResize();
+        window.addEventListener("load", scheduleResize);
+        window.addEventListener("resize", scheduleResize);
+        window.addEventListener("pageshow", scheduleResize);
+        window.visualViewport?.addEventListener("resize", scheduleResize);
+        document.fonts?.ready.then(scheduleResize);
+    })();
+</script>
+
+<script>
+    (() => {
+        const parameters = new URLSearchParams(window.location.search);
+        const requestedLab = parameters.get("lab");
+
+        // Default only when absent. Unknown Labs intentionally exercise the fallback.
+        const lab = requestedLab ?? "1";
+
+        const url =
+            `https://Brainsim-Thought.onrender.com/lab${encodeURIComponent(lab)}.html`;
+
+        document.getElementById("uks-demo").src = url;
+        document.getElementById("open-demo").href = url;
+    })();
+</script>
