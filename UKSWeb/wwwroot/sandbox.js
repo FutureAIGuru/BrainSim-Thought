@@ -26,8 +26,17 @@ export const sandbox = {
   updateRoot(root) {
     if (this.id) {
       history.replaceState(null, '', this.pageUrl(location.pathname, root));
-      try { sessionStorage.setItem(activeSessionKey,JSON.stringify({id:this.id,root})); } catch {}
+      try { sessionStorage.setItem(activeKey(this.demo),JSON.stringify({id:this.id,root})); } catch {}
     }
+  },
+  async startFresh(root) {
+    // === WEB SERVICE: POST /api/sandboxes — open a clean UKS for the next experiment. ===
+    const data = await jsonRequest('/api/sandboxes', { method: 'POST' });
+    this.id = data.id;
+    this.demo = data.demo;
+    this.idleTimeoutMs = data.idleTimeoutMinutes * 60 * 1000;
+    demoSelect.value = this.demo || '';
+    this.updateRoot(root);
   }
 };
 
