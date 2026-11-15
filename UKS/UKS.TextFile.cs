@@ -449,6 +449,11 @@ public partial class UKS
                 linkType.AddParent(ordinaryType);
                 linkType.AddParent(GetOrAddThought("?", "Property"));
             }
+            // Attach a clause to the existing possibility when the user has
+            // already entered it as an ordinary stored Relationship.
+            if (asPattern && !structural && string.IsNullOrEmpty(label) &&
+                GetLink(from, linkType, to) is Link existingPattern)
+                return existingPattern;
             // Reuse preallocated named links so forward references retain their identity.
             r = !string.IsNullOrEmpty(label) && Labeled(label) is Link placeholder && placeholder.From is null
                 ? placeholder : new Link(this);

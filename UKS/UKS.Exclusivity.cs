@@ -36,8 +36,8 @@ public partial class UKS
 #endif
 
 
-    //TODO: This method has gotten out of hand and needs a rewrite
-    private bool LinksAreExclusive(Link r1, Link r2)
+    /// <summary>Checks whether two Relationships conflict under this store's exclusivity rules.</summary>
+    public bool LinksAreExclusive(Link r1, Link r2)
     {
         //are two links mutually exclusive?
         //yes if they differ by a single component property
@@ -50,12 +50,18 @@ public partial class UKS
 
         if (r1.To != r2.To && (r1.To is null || r2.To is null)) return false;
         if (r1.To == r2.To && r1.LinkType == r2.LinkType) return false;
+        // Historical assertions can describe different states of the same Thought.
+        if (r1.LinkType?.HasProperty("isHistorical") == true || r2.LinkType?.HasProperty("isHistorical") == true) return false;
         // Rule descriptions and possible Relationships are not competing assertions.
         if (r1.LinkType?.HasProperty("isPossible") == true || r1.LinkType?.HasProperty("isConditional") == true) return false;
         if (r2.LinkType?.HasProperty("isPossible") == true || r2.LinkType?.HasProperty("isConditional") == true) return false;
 
         if (LinkTypesAreExclusive(r1, r2))
             return true;
+
+        // Exclusive targets compete for the same relationship type. A location
+        // assertion can coexist with an activity involving another location.
+        bool sameLinkType = r1.LinkType == r2.LinkType;
 
         if (r1.From is not null && r2.From is not null &&
             (r1.From == r2.From ||
@@ -90,7 +96,7 @@ public partial class UKS
                 List<Thought> commonParents = FindCommonParents(r1.To!, r2.To!);
                 foreach (Thought t3 in commonParents)
                 {
-                    if (HasProperty(t3, "isexclusive") || HasProperty(t3, "allowMultiple"))
+                    if ((sameLinkType && HasProperty(t3, "isexclusive")) || HasProperty(t3, "allowMultiple"))
                         return true;
                 }
             }
@@ -132,7 +138,7 @@ public partial class UKS
             List<Thought> commonParents = FindCommonParents(r1.To!, r2.To!);
             foreach (Thought t3 in commonParents)
             {
-                if (HasProperty(t3, "isexclusive"))
+                if (sameLinkType && HasProperty(t3, "isexclusive"))
                     return true;
                 if (HasProperty(t3, "allowMultiple") && r1.From != r2.From)
                     return true;

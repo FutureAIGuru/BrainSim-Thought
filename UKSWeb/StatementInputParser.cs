@@ -1,3 +1,4 @@
+using System.Globalization;
 using UKS;
 using KnowledgeStore = UKS.UKS;
 
@@ -16,6 +17,12 @@ internal static class StatementInputParser
             store.GetOrAddThought("isConditional", "Property"));
         store.GetOrAddThought("AND", "ClauseType")!.AddLink("hasProperty",
             store.GetOrAddThought("isConjunction", "Property"));
+        var pastMarker = store.Labeled("was");
+        if (pastMarker?.HasProperty("isHistorical") != true)
+        {
+            pastMarker = store.GetOrAddThought("was", "LinkType")!;
+            pastMarker.AddLink("hasProperty", store.GetOrAddThought("isHistorical", "Property"));
+        }
 
         Thought type = ParseField(store, relationshipType, attributesFollow: true);
         bool conditional = type.HasProperty("isConditional") || type.HasProperty("isConjunction");
@@ -23,6 +30,74 @@ internal static class StatementInputParser
         Thought to = ParseField(store, target, attributesFollow: false, asPattern: conditional);
         if (conditional && (from is not Link || to is not Link))
             throw new FormatException("IF and AND require Relationships or condition expressions in both Source and Target.");
+
+        var historyProperty = store.Labeled("recordsHistory");
+        if (!conditional && from is not Link && !type.HasProperty("isPossible") && !type.HasProperty("isHistorical") &&
+            historyProperty is not null &&
+            (type.HasProperty(historyProperty) || to.HasProperty(historyProperty)))
+        {
+            var incoming = new Link(from, type, to);
+            var conflicts = from.LinksTo.Where(previous => previous.LinkType is not null && previous.To is not null &&
+                !previous.LinksTo.Any(clause => KnowledgeStore.IsConditionalLinkType(clause.LinkType)) &&
+                store.LinksAreExclusive(incoming, previous)).ToArray();
+            if (conflicts.Length > 0)
+            {
+                var effective = store.GetAttributes(from);
+                var displaced = conflicts.Where(previous => effective.Any(result => result.InheritanceDepth == 0 &&
+                    result.LinkType == previous.LinkType && result.To == previous.To)).ToArray();
+                if (displaced.Length > 0)
+                {
+                    var events = store.GetOrAddThought("events", "LinkType")!;
+                    var validUntil = store.GetOrAddThought("validUntil", "LinkType")!;
+                    var timestamp = store.GetOrAddThought(DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture), "EventTime")!;
+                    var head = from.GetTargetOfFirstLinkOfType(events) as SeqElement;
+                    var pastValues = new Dictionary<(Thought Type, Thought Target), Link>();
+                    var visited = new HashSet<SeqElement>(ReferenceEqualityComparer.Instance);
+                    for (var cell = head; cell is not null && visited.Add(cell); cell = cell.NXT)
+                    {
+                        if (cell.VLU is Link { LinkType: { } historicalType, To: { } targetThought } value &&
+                            ReferenceEquals(value.From, from))
+                            pastValues.TryAdd((historicalType, targetThought), value);
+                    }
+                    foreach (var previous in displaced)
+                    {
+                        // A repeat visit gets a new sequence cell pointing to the same Relationship.
+                        var previousType = previous.LinkType!;
+                        var pastType = store.GetOrAddThought($"was.{previousType.Label}", "LinkType")!;
+                        pastType.AddParent(pastMarker);
+                        pastType.AddParent(previousType);
+                        var key = (pastType, previous.To!);
+                        if (!pastValues.TryGetValue(key, out var archived))
+                        {
+                            archived = from.HasLink(pastType, previous.To) ??
+                                new Link(from, pastType, previous.To!) { Weight = previous.Weight };
+                            archived.AddDefaultLabel();
+                            pastValues.Add(key, archived);
+                        }
+                        if (head is null)
+                        {
+                            head = store.CreateFirstElement(from.Label, archived);
+                            from.AddLink(events, head);
+                        }
+                        else
+                        {
+                            // InsertElement keeps the head identity and moves its old VLU to NXT.
+                            // Move the occurrence's timestamp with that value.
+                            var previousEnd = head.GetTargetOfFirstLinkOfType(validUntil);
+                            store.InsertElement(head, archived);
+                            if (previousEnd is not null)
+                            {
+                                head.RemoveLink(validUntil, previousEnd);
+                                head.NXT!.AddLink(validUntil, previousEnd);
+                            }
+                        }
+                        head.AddLink(validUntil, timestamp);
+                    }
+                    // Suppressed alternatives were already out of effect.
+                    foreach (var conflict in conflicts) from.RemoveLink(conflict);
+                }
+            }
+        }
 
         return store.AddStatement(from, type, to)
             ?? throw new FormatException("UKS could not add the relationship.");

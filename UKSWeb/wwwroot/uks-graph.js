@@ -17,7 +17,9 @@ export function composeGraph(seeds, expansions, labels = new Map(), collapsed = 
     }
   }
   for(const [id,parts] of knownParts)if(!definitions.has(id) && parts.source!==undefined && parts.target!==undefined)
-    definitions.set(id,{id,source:parts.source,target:parts.target,type:knownNodes.get(parts['relationship type'])?.label || '?',structural:false});
+    definitions.set(id, { id, source: parts.source, target: parts.target,
+      type: knownNodes.get(parts['relationship type'])?.label || '?',
+      structural: false, weight: knownNodes.get(id)?.weight });
   const hidden = new Set();
   let changed=true;
   while(changed) {
@@ -89,6 +91,7 @@ export function composeGraph(seeds, expansions, labels = new Map(), collapsed = 
   for (const link of links.values()) {
     if (!link.structural) {
       link.notation = `[${nodes.get(link.source)?.label || '?'} → ${link.type} → ${nodes.get(link.target)?.label || '?'}]`;
+      if (Number.isFinite(link.weight)) link.notation += ` · weight ${link.weight}`;
       continue;
     }
     const role = link.type === 'relationship type' ? 'Type' : link.type === 'source' ? 'Source' : 'Target';
@@ -99,7 +102,10 @@ export function composeGraph(seeds, expansions, labels = new Map(), collapsed = 
     if (!roles.has(componentId)) roles.set(componentId, []);
     roles.get(componentId).push(description);
   }
-  for (const node of nodes.values()) node.description = roles.get(node.id)?.join(' · ') || node.label;
+  for (const node of nodes.values()) {
+    node.description = roles.get(node.id)?.join(' · ') || node.label;
+    if (node.isRelationship && Number.isFinite(node.weight)) node.description += ` · weight ${node.weight}`;
+  }
   const occupied = new Set();
   const sequences = groups.slice().sort((a, b) => b.elements.length - a.elements.length).filter(group => {
     if (group.elements.some(id => !nodes.has(id) || occupied.has(id))) return false;
@@ -141,7 +147,7 @@ export function arrangeSequences(nodes, sequences, previous = new Map()) {
   }
   function apply(row) {
     row.cells.forEach((node, index) => {
-      node.x = node.fx = row.anchor.x + index * 22;
+      node.x = node.fx = row.anchor.x + index * row.spacing;
       node.y = node.fy = row.anchor.y; node.z = node.fz = row.anchor.z;
       node.sequenceFixed = true;
     });
@@ -157,7 +163,9 @@ export function arrangeSequences(nodes, sequences, previous = new Map()) {
     const cells = group.elements.map(id => byId.get(id)).filter(Boolean);
     if (!cells.length) continue;
     const anchor = previous.get(group.id)?.anchor || { x: cells[0].x || 0, y: cells[0].y || 0, z: cells[0].z || 0 };
-    const row = { anchor, cells, values:new Map() }; rows.set(group.id, row);
+    const history = cells.some(node => node.isEventCell);
+    const spacing = history ? 36 : 22;
+    const row = { anchor, cells, spacing, values:new Map() }; rows.set(group.id, row);
     const occurrences = new Map();
     cells.forEach((node,index) => {
       members.set(node.id,row);
@@ -167,9 +175,13 @@ export function arrangeSequences(nodes, sequences, previous = new Map()) {
       occurrences.get(id).push(index);
     });
     let valueIndex = 0;
+    const length = (cells.length - 1) * spacing;
+    const valueSpacing = history ? Math.max(36, ...[...occurrences.keys()].map(id => byId.get(id).label.length * 3.4 + 10)) : 0;
     for (const [id] of occurrences) {
-      const x = occurrences.size > 1 ? valueIndex * (cells.length - 1) * 22 / (occurrences.size - 1) : (cells.length - 1) * 11;
-      row.values.set(id,previous.get(group.id)?.values?.get(id) || {x,y:55,z:0});
+      const x = history ? length / 2 + (valueIndex - (occurrences.size - 1) / 2) * valueSpacing
+        : occurrences.size > 1 ? valueIndex * length / (occurrences.size - 1) : length / 2;
+      const previousOffset = history ? null : previous.get(group.id)?.values?.get(id);
+      row.values.set(id,previousOffset || {x,y:55,z:0});
       valueIndex++;
       valueOwners.set(id,row);
     }
@@ -177,7 +189,7 @@ export function arrangeSequences(nodes, sequences, previous = new Map()) {
     cells.forEach((node,index)=>{
       for(const value of node.sequenceValues||[]){
         if(!value.metadata||!byId.has(value.id)||valueOwners.has(value.id))continue;
-        row.values.set(value.id,previous.get(group.id)?.values?.get(value.id)||{x:index*22,y:-45,z:0});
+        row.values.set(value.id,previous.get(group.id)?.values?.get(value.id)||{x:index*spacing,y:-45,z:0});
         valueOwners.set(value.id,row);
       }
     });
@@ -271,11 +283,16 @@ async function createGraphView(container, {
     .nodeColor(node => (!node.sequenceValue && !node.isRelationship && thoughtColors[node.label]) || (getRootIds().has(node.id) ? palette.root : node.isRelationship ? palette.relationship : node.expanded ? palette.expanded : palette.node))
     .nodeThreeObject(node => showLabels && !node.sequenceValue ? makeLabel(node) : null).nodeThreeObjectExtend(true)
     .nodeLabel(() => '').linkLabel(() => '')
-    .linkColor(link => link.highlighted ? '#ff7a18' : link.structural ? palette.connector : palette.edge)
-    .linkOpacity(.95).linkWidth(link => link.structural ? 1.5 : 2)
+    .linkColor(link => link.highlighted ? '#ff7a18' : link.structural || link.eventSequence ? palette.connector : palette.edge)
+    .linkOpacity(.95).linkWidth(link => {
+      if (link.structural) return 1.5;
+      if (!Number.isFinite(link.weight)) return 2;
+      // Keep weak connections visible and cap width outside the usual 0–1 range.
+      return 1 + 2 * Math.min(1, Math.max(0, link.weight));
+    })
     .linkCurvature(link => link.curvature || 0).linkHoverPrecision(8)
     .linkDirectionalArrowLength(9).linkDirectionalArrowRelPos(.78)
-    .showPointerCursor(object => Boolean(object) && !object.structural)
+    .showPointerCursor(object => Boolean(object) && !object.structural && !object.isEvent)
     // Let the library finish its pointer/drag cleanup before a page changes
     // graph data or resizes the canvas in response to a click.
     .onNodeClick((node, event) => routeClick(event))
@@ -389,10 +406,12 @@ async function createGraphView(container, {
       const lanes = new Map();
       const sequenceStarts = new Set((data.sequences || []).map(row => row.elements[0]));
       const sequenceCells = new Set((data.sequences || []).flatMap(row => row.elements));
+      const eventCells = new Set(data.nodes.filter(node => node.isEventCell).map(node => node.id));
       for (const link of data.links) {
         const source = typeof link.source === 'object' ? link.source.id : link.source;
         const target = typeof link.target === 'object' ? link.target.id : link.target;
         link.sequenceReferrer = sequenceStarts.has(target) && !sequenceCells.has(source);
+        link.eventSequence = link.sequence && eventCells.has(source) && eventCells.has(target);
         const key = JSON.stringify([Math.min(source, target), Math.max(source, target)]);
         const lane = lanes.get(key) || 0;
         link.curvature = source === target ? .5 + lane * .18 : lane * .18;
@@ -484,6 +503,7 @@ export async function createUKSGraph(container, {
   }
   async function toggleNode(node) {
     onInspect(node.description || node.label);
+    if (node.isEvent) return false;
     if (node.isRelationship && node.hasComponents) {
       collapsed.add(node.id);
       if(expansions.has(node.id))collapsedSnapshots.set(node.id,expansions.get(node.id));
