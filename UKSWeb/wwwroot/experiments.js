@@ -227,9 +227,9 @@ export async function startExperiment({
         const removing = !fact.assertOnly && created.has(index);
         try {
           if (removing) {
-            // === WEB SERVICE: DELETE /api/relationships — remove this preset Relationship by its server handle. ===
+            // === WEB SERVICE: DELETE /api/thoughts — remove this preset Relationship by its label. ===
             try {
-              await request('/api/relationships?id=' + created.get(index), { method: 'DELETE' });
+              await request('/api/thoughts?' + new URLSearchParams({label: created.get(index)}), { method: 'DELETE' });
             } catch (error) {
               if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error;
             }
@@ -324,8 +324,7 @@ export async function startExperiment({
     const actual = await request('/api/statements', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source, relationshipType: fact.relationshipType, target: fact.target }) });
     resolvedFacts.set(index, {...actual, definition:JSON.stringify([fact.source,fact.sourceFact,fact.relationshipType,fact.target])});
-    const data = await graph.read(actual.sourceId !== undefined ? {id:actual.sourceId,expand:true} :
-      fact.sourceFact === undefined ? { label: actual.sourceLabel || actual.source || fact.source, expand: true } : { id: created.get(fact.sourceFact), expand: true });
+    const data = await graph.read({ label: actual.sourceId, expand: true });
     const link = findFact(index, data);
     if (!link) throw new Error(`The relationship ${notation(index)} was stored, but its connection could not be displayed.`);
     created.set(index, link.id);
@@ -341,7 +340,8 @@ export async function startExperiment({
       const fact = facts[index];
       if (fact.sourceFact !== undefined) await resolve(fact.sourceFact);
       if (fact.sourceFact === undefined || found.has(fact.sourceFact)) {
-        const query = fact.sourceFact === undefined ? { label: resolvedFacts.get(index)?.sourceLabel || fact.source, expand: true } : { id: found.get(fact.sourceFact).link.id, expand: true };
+        const label = fact.sourceFact === undefined ? resolvedFacts.get(index)?.sourceId || fact.source : found.get(fact.sourceFact).link.id;
+        const query = { label, expand: true };
         const key = JSON.stringify(query);
         if (!cache.has(key)) {
           try { cache.set(key, await graph.read(query, automatic)); }

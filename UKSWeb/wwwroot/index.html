@@ -188,7 +188,7 @@
             button.disabled = true;
             setStatus(status, `Deleting ${description}…`);
             try {
-              // === WEB SERVICE: DELETE /api/thoughts or /api/relationships — remove the item represented by this row; url selects the endpoint. ===
+              // === WEB SERVICE: DELETE /api/thoughts — remove the item represented by this row. ===
               await request(url, { method: 'DELETE' });
               await showChildren();
             } catch (error) {
@@ -214,7 +214,7 @@
           const name = document.createElement('span');
           name.className = 'child-label';
           name.textContent = `[${relationship.source} → ${relationship.relationshipType ?? '(no type)'} → ${relationship.target ?? '(no target)'}]`;
-          item.append(name, deleteButton(`relationship ${name.textContent}`, '/api/relationships?id=' + relationship.id));
+          item.append(name, deleteButton(`relationship ${name.textContent}`, '/api/thoughts?label=' + encodeURIComponent(relationship.id)));
           return item;
         });
         list.replaceChildren(...items, ...relationships);

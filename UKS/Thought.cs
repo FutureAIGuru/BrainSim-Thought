@@ -96,7 +96,7 @@ public class Link : Thought
     /// </summary>
     public override string ToString()
     {
-        string retVal = Label + "[";
+        string retVal = (HasGeneratedLabel ? "" : Label) + "[";
         if (From is not null) retVal += From.ToString();
         if (LinkType is not null) retVal += ((retVal == "") ? "" : "→") + LinkType.ToString();
         if (To is not null) retVal += ((retVal == "") ? "" : "→") + To.ToString();
@@ -154,10 +154,21 @@ public partial class Thought
         set
         {
             if (value == _label) return;
+            bool wasUnlabeled = string.IsNullOrWhiteSpace(_label);
             ThoughtLabels.RemoveThoughtLabel(_label, Store);
             _label = ThoughtLabels.AddThoughtLabel(value, this);
+            // A private pattern can become a stored Thought with existing links.
+            if (wasUnlabeled && !string.IsNullOrWhiteSpace(_label) && _linksTo.Count != 0)
+                foreach (var link in LinksTo)
+                {
+                    link.AddDefaultLabel();
+                    link.LinkType?.AddDefaultLabel();
+                    link.To?.AddDefaultLabel();
+                }
         }
     }
+
+    public bool HasGeneratedLabel => Label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase);
 
 
     public void Delete()
@@ -375,9 +386,8 @@ public partial class Thought
     /// </summary>
     public Thought AddDefaultLabel()
     {
-        if (this is not Link l || l.LinkType is null) return this;
-        if (string.IsNullOrEmpty(Label))
-            Label = "R*";
+        if (string.IsNullOrWhiteSpace(Label))
+            Label = Store.NextGeneratedLabel();
         return this;
     }
 
@@ -623,6 +633,13 @@ public partial class Thought
             To = to,
             LastFiredTime = DateTime.Now,
         };
+        // Unlabeled prototypes can build a private pattern without indexing it.
+        if (!string.IsNullOrEmpty(Label))
+        {
+            r.AddDefaultLabel();
+            linkType.AddDefaultLabel();
+            to?.AddDefaultLabel();
+        }
         if (to is not null)
         {
             lock (_linksTo)

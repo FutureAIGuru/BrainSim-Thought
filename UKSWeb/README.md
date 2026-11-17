@@ -244,20 +244,18 @@ Calls `StatementInputParser.Add`, which resolves labels and attribute phrases, p
 `GET /api/children?label=dog`:
 
 ```json
-{"label":"dog","children":[{"label":"Fido"}],"relationships":[{"id":42,"source":"dog","relationshipType":"has","target":"fur"}]}
+{"label":"dog","children":[{"label":"Fido"}],"relationships":[{"id":"unl_1042","source":"dog","relationshipType":"has","target":"fur"}]}
 ```
 
 Looks up the existing Thought and returns its direct children plus its directly stored outgoing relationships, from the selected sandbox. Children are sorted alphabetically; relationships are sorted by type and target. Missing Thoughts return HTTP 404; blank fields return HTTP 400. Only explicit response data is serialized, never the graph objects. Requests to these operations are serialized within each sandbox.
 
-`GET /api/graph?label=Fido` (or `id=<handle>`) returns a graph packet. Add `expand=true` for direct connections. `labels=Fido&labels=weather` or `roots=<handle>,<handle>` returns a single combined packet for multiple starting Thoughts (maximum 256). The packet includes `roots`, deduplicated `nodes` and `links`, and `sequences`. Missing members are reported in `missingIds` / `missingLabels`; an empty `roots=` returns an empty graph. The existing `ids=` query remains a batch of individual expanded snapshots for refresh.
+`GET /api/graph?label=Fido` returns a graph packet. Add `expand=true` for direct connections. Repeat `labels` to request a combined packet, for example `labels=Fido&labels=weather`. Repeat `ids` to request individual expanded snapshots by label. Either batch accepts up to 256 labels. The packet uses each stored Thought’s label as its string ID, including generated `unl_…` labels. A node's display label can show the Relationship in bracket notation.
 
-Sequence detection uses direct `VLU` link identity, then follows `NXT` until the end or a repeated Thought. It never checks for `SeqElement`. Each sequence describes its ordered cell handles and optional cycle endpoint; each cell supplies its `sequenceValue` separately, preserving repeated values as distinct positions. Structural Relationship endpoints are checked too. The underlying UKS is unchanged.
+Sequence detection uses direct `VLU` link identity, then follows `NXT` until the end or a repeated Thought. Each sequence describes its ordered cell labels and optional cycle endpoint. Each cell supplies its `sequenceValue` separately, preserving repeated values as distinct positions.
 
-Both graph pages use `uks-graph.js` for sequence composition, compact rigid rows, whole-row dragging, camera fitting, and graph-command Help. The controller's `loadThoughts([handle, ...])` or `loadThoughts([label, ...])` displays multiple starting Thoughts; `loadThoughts([])` clears the view. This supplies the graph interface for future search results, without implementing search itself.
+Both graph pages use `uks-graph.js` for sequence composition, compact rigid rows, whole-row dragging, camera fitting, and graph-command Help. The controller's `loadThoughts([label, ...])` displays multiple starting Thoughts. Call `loadThoughts([])` to clear the view.
 
-`DELETE /api/relationships?id=<handle>&session=<key>` removes exactly the stored relationship identified by a row's `id`. It uses the existing UKS link cleanup and preserves the endpoint Thoughts. The server checks the containing UKS and that the relationship is still attached; stale, deleted, or foreign-session handles return HTTP 404. Successful deletion marks the demo changed and releases its stored-content allowance. Row IDs are stable across ordinary refreshes.
-
-`DELETE /api/thoughts?label=Fido` calls the existing `Thought.Delete()` method and returns `{"label":"Fido"}`. A missing Thought returns HTTP 404; a blank label returns HTTP 400. This deletes the Thought itself using the DLL's existing relationship cleanup; it does not recursively delete its children.
+`DELETE /api/thoughts?label=Fido` resolves the label in the selected session, then calls `Thought.Delete()`. Use the same endpoint for a Relationship, passing the row’s `id` as the label. A missing label returns HTTP 404 and a blank label returns HTTP 400.
 
 For example, `GET /api/children?label=dog&session=<key>` lists children in that UKS. Use the same session key for POST and DELETE.
 

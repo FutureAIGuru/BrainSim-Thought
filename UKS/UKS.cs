@@ -24,6 +24,7 @@ public partial class UKS
     //This is the actual internal Universal Knowledge Store
     private readonly HashSet<Thought> uKSList = new(ReferenceEqualityComparer.Instance);
     internal readonly System.Collections.Concurrent.ConcurrentDictionary<string, Thought> Labels = new();
+    private long nextGeneratedLabel = 999;
     internal readonly Queue<Thought> RecentlyFired = new();
     internal readonly object RecentlyFiredLock = new();
     internal readonly Queue<Thought> RecentlyCreated = new();
@@ -84,6 +85,7 @@ public partial class UKS
         { }
         Thought newThought = new(this);
         newThought.Label = label;
+        newThought.AddDefaultLabel();
         if (parent is not null)
         {
             newThought.AddParent(parent);
@@ -108,6 +110,28 @@ public partial class UKS
         return thought;
     }
 
+    internal string NextGeneratedLabel()
+    {
+        string label;
+        do label = "unl_" + Interlocked.Increment(ref nextGeneratedLabel).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        while (Labels.ContainsKey(label));
+        return label;
+    }
+
+    internal void ReserveGeneratedLabel(string label)
+    {
+        if (!label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase) ||
+            !int.TryParse(label.AsSpan(4), System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out int number)) return;
+        long current = Interlocked.Read(ref nextGeneratedLabel);
+        while (number > current)
+        {
+            long previous = Interlocked.CompareExchange(ref nextGeneratedLabel, number, current);
+            if (previous == current) break;
+            current = previous;
+        }
+    }
+
 
     private bool HasProperty(Thought t, string propertyName)
     {
@@ -120,7 +144,9 @@ public partial class UKS
     private bool LinksAreEqual(Link r1, Link r2, bool ignoreSource = true)
     {
         if (
-            r1.Label == r2.Label &&
+            (r1.Label == r2.Label ||
+             (r1.Label.Length == 0 && r2.HasGeneratedLabel) ||
+             (r2.Label.Length == 0 && r1.HasGeneratedLabel)) &&
             (r1.From == r2.From || ignoreSource) &&
             (r1.To is null && r2.To is null || r1.To == r2.To) &&
             r1.LinkType == r2.LinkType

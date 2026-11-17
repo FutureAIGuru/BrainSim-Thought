@@ -48,9 +48,11 @@ public partial class UKS
             throw new ArgumentException("Cannot create a statement using Thoughts from another UKS.");
         theUKS = this;
 
-        Link? wired = GetLink(source, linkType, target);
         Link? labeledLink = string.IsNullOrEmpty(label) ? null : Labeled(label) as Link;
         bool isUnwiredPlaceholder = labeledLink is not null && labeledLink.From is null;
+        Link? wired = labeledLink is not null && ReferenceEquals(labeledLink.From, source) &&
+            ReferenceEquals(labeledLink.LinkType, linkType) && ReferenceEquals(labeledLink.To, target)
+            ? labeledLink : GetLink(source, linkType, target);
 
         source.Fire();
         linkType.Fire();
@@ -237,13 +239,18 @@ public partial class UKS
     {
         if (lnk.From is null) return;
         if (lnk.LinkType is null) return;
+        lnk.From.AddDefaultLabel();
+        lnk.LinkType.AddDefaultLabel();
+        lnk.To?.AddDefaultLabel();
         if (lnk.To is null)
         {
             lock (lnk.From.LinksToWriteable)
                 lock (lnk.LinkType.LinksAsTypeWriteable)
                 {
-                    if (!lnk.From.LinksToWriteable.Contains(lnk))
-                        lnk.From.LinksToWriteable.Add(lnk);
+                    if (lnk.From.LinksToWriteable.Any(existing => existing.Equals(lnk) ||
+                        (existing.HasGeneratedLabel && lnk.Label.Length == 0 && existing == lnk))) return;
+                    lnk.AddDefaultLabel();
+                    lnk.From.LinksToWriteable.Add(lnk);
                     if (!lnk.LinkType.LinksAsTypeWriteable.Contains(lnk))
                         lnk.LinkType.LinksAsTypeWriteable.Add(lnk);
                 }
@@ -254,8 +261,10 @@ public partial class UKS
                 lock (lnk.LinkType.LinksAsTypeWriteable)
                     lock (lnk.To.LinksFromWriteable)
                     {
-                        if (!lnk.From.LinksToWriteable.Contains(lnk))
-                            lnk.From.LinksToWriteable.Add(lnk);
+                        if (lnk.From.LinksToWriteable.Any(existing => existing.Equals(lnk) ||
+                            (existing.HasGeneratedLabel && lnk.Label.Length == 0 && existing == lnk))) return;
+                        lnk.AddDefaultLabel();
+                        lnk.From.LinksToWriteable.Add(lnk);
                         if (!lnk.LinkType.LinksAsTypeWriteable.Contains(lnk))
                             lnk.LinkType.LinksAsTypeWriteable.Add(lnk);
                         if (!lnk.To.LinksFromWriteable.Contains(lnk))

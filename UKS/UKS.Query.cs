@@ -228,7 +228,7 @@ public partial class UKS
                     foreach (Link r3 in r.LinksTo.Where(x => x.LinkType?.Label != "is-a"))
                     {
                         if (r3.LinkType is not null)
-                            r1.AddLink(r3.LinkType, r3.To);
+                            r1.LinksToWriteable.Add(new Link(this) { From = r1, LinkType = r3.LinkType, To = r3.To });
                     }
                     result.Add(r1);
                 }

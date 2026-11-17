@@ -47,26 +47,9 @@ Func<UKS.UKS, HashSet<UKS.Thought>> storedThoughts = store =>
     }
     return result;
 };
-// Handles are globally unique, but every lookup also checks the containing UKS.
-// Weak references let deleted content be collected. Separate sandbox locks can
-// access this registry concurrently.
-var graphIds = new System.Runtime.CompilerServices.ConditionalWeakTable<UKS.Thought, System.Runtime.CompilerServices.StrongBox<long>>();
-var graphThoughts = new System.Collections.Concurrent.ConcurrentDictionary<long, WeakReference<UKS.Thought>>();
-long nextGraphId = 0;
-Func<UKS.Thought, long> graphId = thought =>
-{
-    var id = graphIds.GetValue(thought, _ =>
-        new System.Runtime.CompilerServices.StrongBox<long>(Interlocked.Increment(ref nextGraphId))).Value;
-    graphThoughts.TryAdd(id, new WeakReference<UKS.Thought>(thought));
-    return id;
-};
-Func<UKS.UKS, UKS.Thought, bool> graphRegistered = (store, thought) =>
-    ReferenceEquals(thought.Store, store) && (
-    store.AtomicThoughts.Contains(thought) ||
-    (!string.IsNullOrEmpty(thought.Label) && ReferenceEquals(store.Labeled(thought.Label), thought)) ||
-    thought.LinksTo.Any(link => ReferenceEquals(link.From, thought)) ||
-    thought.LinksFrom.Any(link => link.From?.LinksTo.Any(stored => ReferenceEquals(stored, link)) == true) ||
-    (thought is UKS.Link storedLink && storedLink.From?.LinksTo.Any(l => ReferenceEquals(l, storedLink)) == true));
+// A graph ID is the stored label within the selected UKS. A node's caption
+// can render the Relationship's structure without changing that lookup key.
+string graphId(UKS.Thought thought) => thought.Label;
 // One packet can describe several starting Thoughts. A VLU link, not a CLR
 // subclass or label notation, identifies the start of a sequence to display.
 Func<IReadOnlyList<UKS.Thought>, bool, bool, object> graphSnapshot = (starts, expand, sequenceValues) =>
@@ -105,7 +88,7 @@ Func<IReadOnlyList<UKS.Thought>, bool, bool, object> graphSnapshot = (starts, ex
         }
     }
 
-    Func<UKS.Thought, string> labelOf = thought => isArchivedEvent(thought)
+    Func<UKS.Thought, string> labelOf = thought => thought is UKS.Link && (thought.HasGeneratedLabel || isArchivedEvent(thought))
         ? UKSWeb.StatementInputParser.Format(thought)
         : !string.IsNullOrEmpty(thought.Label) ? thought.Label
         : thought is UKS.Link link ? $"[{link.From?.Label} → {link.LinkType?.Label} → {link.To?.Label}]" : "(unnamed Thought)";
@@ -144,7 +127,7 @@ Func<IReadOnlyList<UKS.Thought>, bool, bool, object> graphSnapshot = (starts, ex
             { links.Add(value); nodes.Add(value.To!); }
     var displayedLinks = links.Select(link => new
     {
-        id = (object)graphId(link), source = graphId(link.From!), target = graphId(link.To!),
+        id = graphId(link), source = graphId(link.From!), target = graphId(link.To!),
         type = link.LinkType!.Label, structural = false, sequence = sequenceLinks.Contains(link),
         weight = float.IsFinite(link.Weight) ? (float?)link.Weight : null
     }).ToList();
@@ -156,7 +139,7 @@ Func<IReadOnlyList<UKS.Thought>, bool, bool, object> graphSnapshot = (starts, ex
         {
             if (part.Thought is null) continue;
             nodes.Add(part.Thought);
-            displayedLinks.Add(new { id = (object)$"part:{relationshipId}:{part.Role}",
+            displayedLinks.Add(new { id = $"\0part:{relationshipId}:{part.Role}",
                 source = part.Role == "target" ? relationshipId : graphId(part.Thought),
                 target = part.Role == "target" ? graphId(part.Thought) : relationshipId,
                 type = part.Role, structural = true, sequence = false, weight = (float?)null });
@@ -185,7 +168,7 @@ Func<IReadOnlyList<UKS.Thought>, bool, bool, object> graphSnapshot = (starts, ex
         ["sequences"] = chains.Select(chain => new
         {
             id = graphId(chain.Elements[0]), elements = chain.Elements.Select(graphId).ToArray(),
-            cycleTo = chain.CycleTo is null ? (long?)null : graphId(chain.CycleTo)
+            cycleTo = chain.CycleTo is null ? null : graphId(chain.CycleTo)
         }).ToArray()
     };
 };
@@ -200,7 +183,7 @@ var cleanupTask = Task.Run(async () =>
     {
         while (await timer.WaitForNextTickAsync(stopping))
         {
-            var expiredStores = new HashSet<UKS.UKS>(ReferenceEqualityComparer.Instance);
+            int expiredCount = 0;
             foreach (var pair in sandboxes)
             {
                 var sandbox = pair.Value;
@@ -210,16 +193,12 @@ var cleanupTask = Task.Run(async () =>
                     if (sandbox.ActiveRequests.Value == 0 &&
                         Environment.TickCount64 - sandbox.LastActivity.Value >= idleTimeout.TotalMilliseconds &&
                         sandboxes.TryRemove(pair.Key, out _))
-                        expiredStores.Add(sandbox.Store);
+                        expiredCount++;
                 }
                 finally { Monitor.Exit(sandbox.Sync); }
             }
-            // Drop display handles too, without keeping discarded graphs alive.
-            foreach (var pair in graphThoughts)
-                if (!pair.Value.TryGetTarget(out var thought) || expiredStores.Contains(thought.Store))
-                    graphThoughts.TryRemove(pair.Key, out _);
-            if (expiredStores.Count > 0)
-                app.Logger.LogInformation("Discarded {Count} idle sandboxes", expiredStores.Count);
+            if (expiredCount > 0)
+                app.Logger.LogInformation("Discarded {Count} idle sandboxes", expiredCount);
         }
     }
     catch (OperationCanceledException) when (stopping.IsCancellationRequested) { }
@@ -368,8 +347,7 @@ Func<UKS.UKS, UKS.UKS> sequencePreview = store =>
     preview.AtomicThoughts.UnionWith(store.AtomicThoughts.Select(thought => copies[thought]));
     return preview;
 };
-// Text files use the desktop UKS formatter/parser. Export a private clone because
-// the formatter assigns temporary labels; importing previews the merge and quota.
+// Export a snapshot outside the session lock. Import previews the merge and quota.
 app.MapGet("/api/text-export", (string? root, HttpContext context) =>
 {
     if (string.IsNullOrWhiteSpace(root)) return Results.BadRequest(new { error = "Select a root Thought to save." });
@@ -496,7 +474,7 @@ Func<UKS.Thought, string, object> demoSequence = (owner, kind) =>
         cells = demoSequenceCells(first).Select(cell => new {
             id = graphId(cell), label = cell.Label, value = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("VLU") && link.To?.HasProperty("isSequenceMetadata") != true)?.To?.Label,
             delay = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("VLU") && link.To?.HasAncestor(cell.Store.Labeled("duration")) == true)?.To?.V is int units ? units : 1,
-            nextId = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("NXT"))?.To is UKS.Thought next ? (long?)graphId(next) : null
+            nextId = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("NXT"))?.To?.Label
         }).ToArray() };
 };
 // Live input uses private, ordinary Thoughts with VLU/NXT links. It is not a
@@ -521,7 +499,7 @@ app.MapPost("/api/sequence-input", (System.Text.Json.JsonElement input, HttpCont
         var previous = sequenceInputs.GetOrCreateValue(uks);
         // Keep handles stable when restoring a page or toggling VLU visibility.
         if (previous.Select(cell => cell.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled("VLU"))?.To?.Label).SequenceEqual(values))
-            return Results.Ok(new { startId = previous.Count == 0 ? (long?)null : graphId(previous[0]) });
+            return Results.Ok(new { startId = previous.Count == 0 ? null : graphId(previous[0]) });
         var oldStructure = previous.SelectMany(cell => cell.LinksTo.Cast<UKS.Thought>().Append(cell))
             .ToHashSet(ReferenceEqualityComparer.Instance);
         var cells = new List<UKS.Thought>();
@@ -540,7 +518,7 @@ app.MapPost("/api/sequence-input", (System.Text.Json.JsonElement input, HttpCont
         }
         foreach (var cell in previous) cell.Delete();
         previous.Clear(); previous.AddRange(cells);
-        return Results.Ok(new { startId = cells.Count == 0 ? (long?)null : graphId(cells[0]) });
+        return Results.Ok(new { startId = cells.Count == 0 ? null : graphId(cells[0]) });
     }
 });
 app.MapPost("/api/sequences", (System.Text.Json.JsonElement input, HttpContext context) =>
@@ -766,9 +744,9 @@ app.MapGet("/api/children", (string? label, HttpContext context) =>
             .Select(r => new
             {
                 id = graphId(r),
-                source = thought.Label,
-                relationshipType = r.LinkType?.Label,
-                target = r.To?.Label
+                source = UKSWeb.StatementInputParser.Format(thought),
+                relationshipType = r.LinkType is null ? null : UKSWeb.StatementInputParser.Format(r.LinkType),
+                target = r.To is null ? null : UKSWeb.StatementInputParser.Format(r.To)
             }).ToArray();
         return Results.Ok(new { label = thought.Label, children, relationships });
     }
@@ -803,26 +781,6 @@ app.MapGet("/api/events", (string? label, HttpContext context) =>
     }
 });
 
-app.MapDelete("/api/relationships", (long? id, HttpContext context) =>
-{
-    if (id is null || id <= 0)
-        return Results.BadRequest(new { error = "Select a relationship to delete." });
-
-    var sandbox = sandboxes[(string)context.Items["session"]!];
-    lock (sandbox.Sync)
-    {
-        if (!graphThoughts.TryGetValue(id.Value, out var reference) || !reference.TryGetTarget(out var thought) ||
-            thought is not UKS.Link relationship || !ReferenceEquals(relationship.Store, sandbox.Store) ||
-            relationship.From is null || !relationship.From.LinksTo.Any(link => ReferenceEquals(link, relationship)))
-            return Results.NotFound(new { error = "That relationship is no longer available in this demo." });
-
-        relationship.From.RemoveLink(relationship);
-        graphThoughts.TryRemove(id.Value, out _);
-        Volatile.Write(ref sandbox.HasChanges.Value, true);
-        return Results.Ok(new { id = id.Value });
-    }
-});
-
 app.MapDelete("/api/thoughts", (string? label, HttpContext context) =>
 {
     if (string.IsNullOrWhiteSpace(label))
@@ -832,7 +790,7 @@ app.MapDelete("/api/thoughts", (string? label, HttpContext context) =>
     var uks = sandbox.Store;
     lock (sandbox.Sync)
     {
-        var thought = uks.Labeled(label.Trim());
+        var thought = uks.Labeled(label);
         if (thought is null)
             return Results.NotFound(new { error = $"No Thought named '{label.Trim()}' was found." });
 
@@ -1028,77 +986,43 @@ app.MapGet("/api/candidates", (string? root, HttpContext context) =>
     }
 });
 
-app.MapGet("/api/graph", (string? label, long? id, string? ids, string? roots, bool? expand, bool? sequenceValues, HttpContext context) =>
+app.MapGet("/api/graph", (string? label, string[] labels, string[] ids, bool? expand, bool? sequenceValues, HttpContext context) =>
 {
     var sandbox = sandboxes[(string)context.Items["session"]!];
     var uks = sandbox.Store;
     lock (sandbox.Sync)
     {
-        // The handle table never owns a Thought or keeps deleted content alive.
-        foreach (var stale in graphThoughts.Where(pair => !pair.Value.TryGetTarget(out _)).Select(pair => pair.Key).ToArray())
-            graphThoughts.TryRemove(stale, out _);
-
-        var names = context.Request.Query["labels"];
-        if (roots is not null || names.Count > 0)
+        if (labels.Length > 0)
         {
+            if (labels.Length > 256) return Results.BadRequest(new { error = "Supply at most 256 Thought labels." });
             var selected = new List<UKS.Thought>();
-            var missingIds = new List<long>();
             var missingLabels = new List<string>();
-            if (roots is not null)
-            {
-                var handles = roots.Split(',', StringSplitOptions.RemoveEmptyEntries);
-                if (handles.Length > 256 || handles.Any(handle => !long.TryParse(handle, out var number) || number < 1))
-                    return Results.BadRequest(new { error = "Supply at most 256 valid graph handles." });
-                foreach (var handle in handles.Select(long.Parse).Distinct())
-                    if (graphThoughts.TryGetValue(handle, out var reference) && reference.TryGetTarget(out var selectedThought) && graphRegistered(uks, selectedThought)) selected.Add(selectedThought);
-                    else missingIds.Add(handle);
-            }
-            else
-            {
-                if (names.Count > 256) return Results.BadRequest(new { error = "Supply at most 256 Thought labels." });
-                foreach (var name in names)
-                    if (!string.IsNullOrWhiteSpace(name) && uks.Labeled(name.Trim()) is UKS.Thought namedThought && graphRegistered(uks, namedThought)) selected.Add(namedThought);
-                    else missingLabels.Add(name ?? "");
-            }
+            foreach (var name in labels)
+                if (uks.Labeled(name) is UKS.Thought namedThought) selected.Add(namedThought);
+                else missingLabels.Add(name);
             var packet = (Dictionary<string, object?>)graphSnapshot(selected, expand == true, sequenceValues == true);
-            packet["missingIds"] = missingIds;
             packet["missingLabels"] = missingLabels;
             return Results.Ok(packet);
         }
-        if (ids is not null)
+        if (ids.Length > 0)
         {
             // Refresh only nodes the browser has already expanded, in bounded batches.
-            var handles = ids.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            if (handles.Length == 0 || handles.Length > 256 || handles.Any(handle => !long.TryParse(handle, out var number) || number < 1))
-                return Results.BadRequest(new { error = "Supply between 1 and 256 valid graph handles." });
+            if (ids.Length > 256) return Results.BadRequest(new { error = "Supply at most 256 Thought labels." });
             var snapshots = new List<object>();
-            var missingIds = new List<long>();
-            foreach (var handle in handles.Select(long.Parse).Distinct())
+            var missingIds = new List<string>();
+            foreach (var name in ids.Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                if (!graphThoughts.TryGetValue(handle, out var reference) || !reference.TryGetTarget(out var node) ||
-                    !graphRegistered(uks, node))
-                    missingIds.Add(handle);
-                else snapshots.Add(graphSnapshot(new[] { node }, true, sequenceValues == true));
+                if (uks.Labeled(name) is UKS.Thought node)
+                    snapshots.Add(graphSnapshot(new[] { node }, true, sequenceValues == true));
+                else missingIds.Add(name);
             }
             return Results.Ok(new { snapshots, missingIds });
         }
 
-        UKS.Thought? thought = null;
-        if (id.HasValue)
-        {
-            if (graphThoughts.TryGetValue(id.Value, out var reference)) reference.TryGetTarget(out thought);
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(label))
-                return Results.BadRequest(new { error = "Enter a root Thought label." });
-            thought = uks.Labeled(label.Trim());
-        }
-        if (thought is null || !ReferenceEquals(thought.Store, uks))
+        if (string.IsNullOrWhiteSpace(label))
+            return Results.BadRequest(new { error = "Enter a root Thought label." });
+        if (uks.Labeled(label) is not UKS.Thought thought)
             return Results.NotFound(new { error = "That Thought is not available in this demo." });
-
-        if (!graphRegistered(uks, thought))
-            return Results.NotFound(new { error = "That Thought has been deleted. Reload the root to refresh the graph." });
 
         return Results.Ok(graphSnapshot(new[] { thought }, expand == true, sequenceValues == true));
     }

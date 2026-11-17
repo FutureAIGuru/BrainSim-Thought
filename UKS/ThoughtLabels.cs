@@ -74,6 +74,7 @@ public class ThoughtLabels
             curDigits++;
             newLabel = baseString + curDigits;
         }
+        t.Store.ReserveGeneratedLabel(newLabel);
         return newLabel;
     }
     public static void ClearLabelList()

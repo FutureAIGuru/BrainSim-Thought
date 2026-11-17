@@ -355,8 +355,8 @@ Target: [[Fido-&gt;is-&gt;outside] AND [weather-&gt;is-&gt;rainy]]</pre>
     // DELETE ACTION: remove only the selected stored relationship, then refresh in place.
     const remove = button('Delete', async () => {
       if (!existing.input.value) return false;
-      // === WEB SERVICE: DELETE /api/relationships — delete the exact Relationship selected in the dialog. ===
-      await request('/api/relationships?' + new URLSearchParams({id:existing.input.value}), {method:'DELETE'});
+      // === WEB SERVICE: DELETE /api/thoughts — delete the selected Relationship by label. ===
+      await request('/api/thoughts?' + new URLSearchParams({label:existing.input.value}), {method:'DELETE'});
       await loadExisting();
       // Editing a category must not replace the Thought being inspected.
       render();onSubject(subject);
