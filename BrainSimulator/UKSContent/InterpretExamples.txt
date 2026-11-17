@@ -1,0 +1,6 @@
+# Optional extra facts for trying the queries.
+[rover->is-a->dog]
+[rover->is->black]
+[cat->is->brown]
+[fido->chases->cat]
+[dog->can->bark]

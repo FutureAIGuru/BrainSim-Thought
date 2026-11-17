@@ -135,6 +135,9 @@
     <None Include="Resources\wordlist.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="UKSContent\BasicWords.txt;UKSContent\InterpretLanguage.txt;UKSContent\InterpretExamples.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="UKSContent\GroundedDogs\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

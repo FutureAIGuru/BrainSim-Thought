@@ -1,0 +1,26 @@
+<modules:ModuleBaseDlg x:Class="BrainSimulator.Modules.ModuleInterpretDlg"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:modules="clr-namespace:BrainSimulator.Modules"
+    Title="Interpret English" Width="680" Height="490" MinWidth="440" MinHeight="320" Background="DarkGray">
+    <Grid Margin="12,12,12,40" >
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Label Content="_English input" Target="{Binding ElementName=EnglishInput}"/>
+        <TextBox x:Name="EnglishInput" Grid.Row="1" Margin="0,3,0,8"
+                 Text="Which dogs are brown?" TextChanged="InputChanged" FontSize="16"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button Content="_Interpret" IsDefault="True" Padding="10,3" Click="InterpretClick"/>
+            <Button x:Name="ExecuteButton" Content="E_xecute" IsEnabled="False"
+                    Padding="10,3" Margin="6,0" Click="ExecuteClick"/>
+            <Button Content="Load example facts" Padding="10,3" Click="ExamplesClick"/>
+        </StackPanel>
+        <TextBox x:Name="Output" Grid.Row="3" IsReadOnly="True" TextWrapping="Wrap" FontSize="16"
+                 AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                 AutomationProperties.Name="Interpretation and trace"/>
+    </Grid>
+</modules:ModuleBaseDlg>
