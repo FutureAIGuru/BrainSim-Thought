@@ -21,6 +21,7 @@ export function createQueryPanel({ request, graph, perform, config, feedback, on
   const selected = new Map();
   const attributes = [...config.attributes];
   let mode = 'attributes', subject = '', lastQuery = null, useMenuFields = true, searchTimer;
+  let fixedAttributeQuery = null;
   const key = attribute => JSON.stringify([attribute.relationshipType, attribute.target]);
   function element(tag, text, className) {
     const node = document.createElement(tag); if (text !== undefined) node.textContent = text;
@@ -38,25 +39,48 @@ export function createQueryPanel({ request, graph, perform, config, feedback, on
   }
   const formatWeight = value => Number.isFinite(value) ? Number(value.toFixed(3)).toString() : '—';
   function notation(row) { return `[${row.source} → ${row.relationshipType} → ${row.target}]`; }
+  function attributeDetails(rows) {
+    const list = element('ul', undefined, 'attribute-details');
+    for (const row of rows) {
+      const item = element('li', `[... → ${row.relationshipType} → ${row.target}]`);
+      if (row.details?.length) item.append(attributeDetails(row.details));
+      list.append(item);
+    }
+    return list;
+  }
   function showAttributes(data, title = data.label, differences = new Set(), output = results) {
     const section = element('section'), heading = element('h3', title);
     section.append(heading);
     if (!data.attributes.length) section.append(element('p', 'No effective attributes.'));
     const list = element('ul');
-    for (const row of [...data.attributes].sort((a,b) => Number(differences.has(b.target))-Number(differences.has(a.target)))) {
-      const item = element('li', undefined, differences.has(row.target) ? 'attribute-difference' : '');
+    const rows = [...data.attributes].sort((a,b) => Number(differences.has(b.target))-Number(differences.has(a.target)));
+    rows.push(...(data.suppressed || []).map(row => ({ ...row, suppressed: true })));
+    rows.push(...(data.rules || []));
+    for (const row of rows) {
+      const item = element('li', undefined, 'attribute-tree-item');
+      if (differences.has(row.target)) item.classList.add('attribute-difference');
       const detail = button(notation(row), async () => {
         const inspected = lastQueries.get('attributes');
         if (inspected) inspected.evidenceKey = JSON.stringify([row.source,row.relationshipType,row.target]);
         await graph.setEvidence([row], {fit:true});
-        feedback(row.evidenceLinkIds?.length ? 'Orange relationships show a stored supporting route for 2 seconds.' : 'No stored supporting route is available for this computed result.');
+        feedback(row.conditionalRule ? 'Orange highlights the stored rule.' :
+          row.suppressed ? 'Orange highlights the suppressed stored relationship.' :
+          row.evidenceLinkIds?.length ? 'Orange relationships show a stored supporting route for 2 seconds.' : 'No stored supporting route is available for this computed result.');
       });
-      detail.className = 'result-notation result-link'; detail.title = 'Highlight supporting relationships';
+      detail.className = 'result-notation result-link';
+      detail.title = row.suppressed ? 'Highlight this stored relationship' : 'Highlight supporting relationships';
       const inherited = row.depth > 0;
-      const origin = inherited ? `${row.inheritedFrom || 'ancestor'} · ${row.depth} hop${row.depth === 1 ? '' : 's'}` : 'Direct';
-      const metadata = element('small',`${origin} · weight ${formatWeight(row.weight)}`,inherited ? 'inherited' : 'direct');
-      metadata.title = `${inherited ? 'Inherited from ' + (row.inheritedFrom || 'an ancestor') : 'Stored directly'}; effective Relationship weight ${formatWeight(row.weight)}`;
-      item.append(detail,metadata);
+      const origin = row.suppressed ? 'Suppressed' : inherited ? `${row.inheritedFrom || 'ancestor'} · ${row.depth} hop${row.depth === 1 ? '' : 's'}` : 'Direct';
+      const label = row.conditionalStatus || origin;
+      const metadata = element('small',`${label} · weight ${formatWeight(row.weight)}`,row.conditionalRule || row.suppressed ? '' : inherited ? 'inherited' : 'direct');
+      metadata.title = row.conditionalRule ? 'The current facts do not establish the conclusion' :
+        row.conditionalStatus === 'True' ? 'Inferred from the current facts by a rule' :
+        row.suppressed ? 'Stored assertion excluded by the UKS query' :
+        `${inherited ? 'Inherited from ' + (row.inheritedFrom || 'an ancestor') : 'Stored directly'}; effective Relationship weight ${formatWeight(row.weight)}`;
+      const line = element('div', undefined, 'attribute-result-line');
+      line.append(detail, metadata);
+      item.append(line);
+      if (row.details?.length) item.append(attributeDetails(row.details));
       list.append(item);
     }
     section.append(list); output.append(section);
@@ -111,11 +135,16 @@ export function createQueryPanel({ request, graph, perform, config, feedback, on
       const labels = [query.subject];
       try {
         // === WEB SERVICE: GET /api/attributes (one per label) — retrieve effective attributes, including inheritance and exceptions. ===
-        data = await Promise.all(labels.map(label => request('/api/attributes?' + new URLSearchParams({label}), {automatic})));
+        data = await Promise.all(labels.map(label => {
+          const parameters = new URLSearchParams({ label });
+          if (query.compareGroup) parameters.set('compareGroup', query.compareGroup);
+          return request(`/api/attributes?${parameters}`, { automatic });
+        }));
       } catch (error) {
         if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error;
         if (paused()) return false;
         results.replaceChildren(element('h3',query.subject),element('p','No attributes yet. Add a relationship to begin.'));
+        if (query.fixedSubject) return false;
         // Keep the selection so adding its first fact refreshes these results.
         lastQuery = query; lastQueries.set(stream,query);
         if (showGraph) await graph.loadThoughts([]);
@@ -123,6 +152,11 @@ export function createQueryPanel({ request, graph, perform, config, feedback, on
       }
       if (paused()) return false;
       results.replaceChildren();
+      if (query.fixedSubject) {
+        const attributes = query.showPendingRules === false ? { ...data[0], rules: [] } : data[0];
+        showAttributes(attributes, `Attributes of ${query.subject}`, new Set(), results);
+        return true;
+      }
       const typesByTarget = new Map();
       for (const item of data) for (const row of item.attributes) {
         if (!typesByTarget.has(row.target)) typesByTarget.set(row.target,new Set());
@@ -143,7 +177,10 @@ export function createQueryPanel({ request, graph, perform, config, feedback, on
   // Refresh only queries the visitor has actually requested. An unselected
   // Attributes of control stays on its prompt with an empty results pane.
   async function refreshResults(options = {}) {
-    for (const query of [...lastQueries.values()]) await execute(query,{...options,showGraph:false});
+    for (const query of lastQueries.values()) {
+      if (!fixedAttributeQuery || query.mode === 'candidates') await execute(query, {...options, showGraph:false});
+    }
+    if (fixedAttributeQuery) await execute(fixedAttributeQuery, {...options, showGraph:false});
   }
   function render() {
     controls.replaceChildren();parts.clear();
@@ -318,8 +355,8 @@ Target: [[Fido-&gt;is-&gt;outside] AND [weather-&gt;is-&gt;rainy]]</pre>
     // DELETE ACTION: remove only the selected stored relationship, then refresh in place.
     const remove = button('Delete', async () => {
       if (!existing.input.value) return false;
-      // === WEB SERVICE: DELETE /api/relationships — delete the exact Relationship selected in the dialog. ===
-      await request('/api/relationships?' + new URLSearchParams({id:existing.input.value}), {method:'DELETE'});
+      // === WEB SERVICE: DELETE /api/thoughts — delete the selected Relationship by label. ===
+      await request('/api/thoughts?' + new URLSearchParams({label:existing.input.value}), {method:'DELETE'});
       await loadExisting();
       // Editing a category must not replace the Thought being inspected.
       render();onSubject(subject);
@@ -431,6 +468,10 @@ Target: [[Fido-&gt;is-&gt;outside] AND [weather-&gt;is-&gt;rainy]]</pre>
       if(['attribute-results','candidate-results','results'].includes(name)) {
         const stream = name === 'candidate-results' || name === 'results' && mode === 'candidates' ? 'candidates' : 'attributes';
         resultSources.set(stream,spec.source || (stream === 'candidates' ? 'search' : 'subject'));
+        if (stream === 'attributes' && spec.subject) {
+          fixedAttributeQuery = { mode: 'attributes', subject: spec.subject, fixedSubject: true,
+            compareGroup: spec.compareGroup, showPendingRules: spec.showPendingRules };
+        }
         return resultPanes.get(stream);
       }
       const node=parts.get(name);
@@ -449,6 +490,7 @@ Target: [[Fido-&gt;is-&gt;outside] AND [weather-&gt;is-&gt;rainy]]</pre>
     showStep(nextMode) {
       clearTimeout(searchTimer);
       resultSources.clear();
+      fixedAttributeQuery = null;
       const next = nextMode || 'attributes';
       if (mode !== next) {
         subject = ''; lastQuery = null; lastQueries.clear();
@@ -458,7 +500,7 @@ Target: [[Fido-&gt;is-&gt;outside] AND [weather-&gt;is-&gt;rainy]]</pre>
       mode = next; render();
     },
     async activate() {
-      // Each step waits for the visitor to make a selection.
+      if (fixedAttributeQuery) await execute(fixedAttributeQuery, { showGraph: false });
       return false; // Initial output does not count as a user experiment action.
     },
     getState() { return {mode,subject,useMenuFields,selected:[...selected.values()],attributes,lastQuery,lastQueries:[...lastQueries.values()], vocabulary:{subjects:config.subjects,types:config.types,targets:config.targets,exceptionSubjects:config.exceptionSubjects}}; },

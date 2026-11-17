@@ -70,8 +70,16 @@ public partial class UKS
                         Collect(dependency.To);
                     }
 
+                var referenced = new HashSet<Thought>(ReferenceEqualityComparer.Instance);
+                foreach (var link in thoughtsToWrite.OfType<Link>())
+                    foreach (var part in new[] { link.From, link.LinkType, link.To })
+                        if (part is not null) referenced.Add(part);
+
                 foreach (Thought t in thoughtsToWrite)
                 {
+                    // A Relationship recreates its component Thoughts on import.
+                    if (t is not Link && referenced.Contains(t) &&
+                        t.V is null && t.Weight == 1 && t.maxWeight == 1 && !t.isPlastic) continue;
                     string s = FormatThought(t) + " " + t.Weight.ToString("F2") +
                         " " + t.maxWeight.ToString("F2") + " " + t.isPlastic;
                     if (!alreadyWritten.Contains(s))
@@ -88,25 +96,11 @@ public partial class UKS
             Debug.WriteLine($"ExportTextFile failed: {ex}");
             throw;
         }
-        RemoveTempLabels(Root);
-    }
-
-    private void RemoveTempLabels(Thought Root)
-    {
-        if (Root is null) return;
-        //remove unnecessary "unl_..."  labels
-        foreach (var t in Root.EnumerateSubThoughts())
-        {
-            if (t.Label.StartsWith("unl_"))
-                t.Label = "";
-        }
     }
 
     string EnsureLabel(Thought t)
     {
-        if (string.IsNullOrWhiteSpace(t.Label))
-            // Put the GUID into the label only when it's unlabeled
-            t.Label = $"unl_{Guid.NewGuid().ToString("N")[..8]}";
+        t.AddDefaultLabel();
         return t.Label.Any(char.IsWhiteSpace) || t.Label.IndexOfAny(new[] { '[', ']', '"' }) >= 0 ||
             t.Label.Contains("->") || t.Label.Contains('→')
             ? System.Text.Json.JsonSerializer.Serialize(t.Label) : t.Label;
@@ -114,7 +108,7 @@ public partial class UKS
 
     string FormatThought(Thought t)
     {
-        string retVal = EnsureLabel(t).PadRight(15);
+        string retVal = EnsureLabel(t).PadRight(15) + " ";
         if (t.V is not null)
             retVal += " V: " + t.V.ToString();
         if (t is Link r)
@@ -151,46 +145,22 @@ public partial class UKS
             SuppressFiring = true;
             try
             {
-                // The 3-pass is needed to handle forward label references
-                // FIRST PASS: Find labels which define links. Standalone Thought metadata
-                // lines must remain ordinary Thoughts rather than unwired Link placeholders.
-                List<string> definedLinkLabels = new();
-                foreach (var line in lines)
+                var records = lines.Select(line => TokenizeTopLevel(StripEolComment(line).Replace("→", "->")))
+                    .Where(tokens => tokens.Count >= 2).ToList();
+                RemapGeneratedLabels(records);
+
+                // Preallocate only Relationship definitions that are referenced.
+                // Standalone metadata records describe ordinary Thoughts.
+                var definedLinkLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                HashSet<string> referencedLabels = new(StringComparer.OrdinalIgnoreCase);
+                foreach (var tokens in records)
                 {
-                    string code = StripEolComment(line);
-                    if (string.IsNullOrWhiteSpace(code)) continue;
-                    var tokens = TokenizeTopLevel(code);
-                    if (tokens.Count < 2 || !tokens[1].TrimStart().StartsWith("[")) continue;
-                    string label = tokens[0].Trim();
-                    if (!string.IsNullOrEmpty(label))
-                        definedLinkLabels.Add(label);
+                    if (!tokens[1].StartsWith("[")) continue;
+                    if (tokens[0].Length != 0) definedLinkLabels.Add(tokens[0]);
+                    referencedLabels.UnionWith(TextReferences(tokens[1]));
                 }
 
-                // SECOND PASS: Find all referenced labels (in bracket parts)
-                HashSet<string> referencedLabels = new();
-                foreach (var line in lines)
-                {
-                    string code = StripEolComment(line);
-                    if (string.IsNullOrWhiteSpace(code)) continue;
-                    var tokens = TokenizeTopLevel(code);
-                    if (tokens.Count < 2 || !tokens[1].TrimStart().StartsWith("[")) continue;
-
-                    var stmt = ParseBracketStmt(tokens[1], 0);
-                    foreach (var part in stmt)
-                    {
-                        string trimmed = part.Trim();
-                        if (!string.IsNullOrEmpty(trimmed))
-                            referencedLabels.Add(trimmed);
-                    }
-                }
-
-                // Keep only labels that are referenced
-                List<string> labelsToPreAllocate = definedLinkLabels
-                    .Where(label => referencedLabels.Contains(label))
-                    .ToList();
-
-                // Pre-allocate unwired Link placeholders only for forward references (label not yet defined)
-                foreach (var label in labelsToPreAllocate)
+                foreach (var label in definedLinkLabels.Where(referencedLabels.Contains))
                 {
                     Thought? existing = Labeled(label);
                     if (existing is not null)
@@ -201,11 +171,8 @@ public partial class UKS
                     AtomicThoughts.Add(placeholder);
                 }
 
-                // THIRD PASS: Actually process the lines
-                foreach (var line in lines)
-                {
-                    ProcessSingleLine(line);  //without the possibility of compound or sequence statements, this is straightforward
-                }
+                foreach (var tokens in records)
+                    ProcessSingleLine(tokens);
 
                 // Corpus instructions remain exemplar data when a saved network is imported.
                 foreach (Link operation in AtomicThoughts.SelectMany(thought => thought.LinksTo)
@@ -222,16 +189,6 @@ public partial class UKS
                         operation.LinkType.LinksAsTypeWriteable.RemoveAll(link => ReferenceEquals(link, operation));
                 }
 
-                // Remove unnecessary "unl_..." labels
-                Thought? thoughtRoot = Labeled("Thought");
-                if (thoughtRoot is not null)
-                {
-                    foreach (var t in thoughtRoot.EnumerateSubThoughts())
-                    {
-                        if (t.Label.StartsWith("unl_"))
-                            t.Label = "";
-                    }
-                }
             }
             finally
             {
@@ -249,7 +206,107 @@ public partial class UKS
 
         code = code.Trim().Replace("→", "->");
 
-        var tokens = TokenizeTopLevel(code);
+        return ProcessSingleLine(TokenizeTopLevel(code));
+    }
+
+    private void RemapGeneratedLabels(List<List<string>> records)
+    {
+        // Numeric labels from independently created stores may describe different
+        // objects. Keep matching definitions and rename conflicts within the file.
+        var definitions = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tokens in records)
+        {
+            if (tokens[0].Length != 0) labels.Add(tokens[0]);
+            if (!tokens[1].StartsWith("[")) continue;
+            labels.UnionWith(TextReferences(tokens[1]));
+            if (tokens[0].Length != 0) definitions.TryAdd(tokens[0], ParseBracketStmt(tokens[1], 0));
+        }
+
+        foreach (var label in labels) ReserveGeneratedLabel(label);
+        var collisions = labels.Where(label => label.Length > 4 &&
+                label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase) &&
+                label[4..].All(char.IsAsciiDigit))
+            .Select(label => (Label: label, Existing: Labeled(label)))
+            .Where(entry => entry.Existing is not null).ToArray();
+        var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        bool SamePart(string part, Thought? thought)
+        {
+            string label = TextReferenceLabel(part);
+            return string.Equals(aliases.GetValueOrDefault(label, label), thought?.Label, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // A renamed component can also change the identity of a Relationship that
+        // refers to it, even if that Relationship initially matched by label.
+        int previousCount;
+        do
+        {
+            previousCount = aliases.Count;
+            foreach (var (label, existing) in collisions)
+            {
+                if (aliases.ContainsKey(label)) continue;
+                bool same = definitions.TryGetValue(label, out var parts)
+                    ? existing is Link link && parts.Count is 2 or 3 &&
+                        SamePart(parts[0], link.From) && SamePart(parts[1], link.LinkType) &&
+                        (parts.Count == 3 ? SamePart(parts[2], link.To) : link.To is null)
+                    : existing is not Link;
+                if (!same) aliases.Add(label, NextGeneratedLabel());
+            }
+        } while (aliases.Count != previousCount);
+
+        if (aliases.Count == 0) return;
+        // A second import can reuse the Relationships installed under new labels
+        // by the first import. Resolve their sources before dependent annotations.
+        var reusedLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        do
+        {
+            previousCount = reusedLabels.Count;
+            foreach (var label in aliases.Keys.ToArray())
+            {
+                if (reusedLabels.Contains(aliases[label]) || !definitions.TryGetValue(label, out var parts) ||
+                    parts.Count is < 2 or > 3) continue;
+                string sourceLabel = TextReferenceLabel(parts[0]);
+                if (Labeled(aliases.GetValueOrDefault(sourceLabel, sourceLabel)) is not Thought source) continue;
+                var existing = source.LinksTo.FirstOrDefault(link => link.HasGeneratedLabel &&
+                    !labels.Contains(link.Label) && !reusedLabels.Contains(link.Label) &&
+                    SamePart(parts[1], link.LinkType) &&
+                    (parts.Count == 3 ? SamePart(parts[2], link.To) : link.To is null));
+                if (existing is null) continue;
+                aliases[label] = existing.Label;
+                reusedLabels.Add(existing.Label);
+            }
+        } while (reusedLabels.Count != previousCount);
+
+        string RemapPart(string part) => part.StartsWith("[")
+            ? "[" + string.Join("->", ParseBracketStmt(part, 0).Select(RemapPart)) + "]"
+            : aliases.GetValueOrDefault(TextReferenceLabel(part), part);
+
+        foreach (var tokens in records)
+        {
+            tokens[0] = aliases.GetValueOrDefault(tokens[0], tokens[0]);
+            if (tokens[1].StartsWith("[")) tokens[1] = RemapPart(tokens[1]);
+        }
+    }
+
+    private static IEnumerable<string> TextReferences(string bracket)
+    {
+        foreach (string part in ParseBracketStmt(bracket, 0))
+        {
+            if (part.StartsWith("["))
+            {
+                foreach (var label in TextReferences(part)) yield return label;
+            }
+            else yield return TextReferenceLabel(part);
+        }
+    }
+
+    private static string TextReferenceLabel(string part) => part.StartsWith('"')
+        ? System.Text.Json.JsonSerializer.Deserialize<string>(part) ?? ""
+        : part;
+
+    private Thought? ProcessSingleLine(List<string> tokens)
+    {
         if (tokens.Count < 2) return null;
 
         if (!tokens[1].TrimStart().StartsWith("["))
@@ -318,12 +375,9 @@ public partial class UKS
         Link? r = AddStatement(from, linkType, to, label);
         if (r is null) return null;
         //Link r = from.AddLink(linkType, to);
-        if (!string.IsNullOrEmpty(label))
-            r.Label = label;
-
         if (value != "")
             r.From!.V = value;
-        if (label != "" && !label.StartsWith("unl_"))
+        if (label != "" && !label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase))
         {
             r.Label = label.Trim();
             if (!AtomicThoughts.Contains(r))
@@ -427,11 +481,6 @@ public partial class UKS
         if (linkParts.Count > 2)
         {
             to = ProcessThoughtOrLink(linkParts[2], asPattern || structural);
-            if (to is null && linkParts[2].StartsWith("unl_"))
-            {
-                to = new Link(this);
-                to.Label = linkParts[2];
-            }
             if (to is null) to = CreateThoughtFromMultipleAttributes(linkParts[2], false);
         }
 
@@ -449,23 +498,31 @@ public partial class UKS
                 linkType.AddParent(ordinaryType);
                 linkType.AddParent(GetOrAddThought("?", "Property"));
             }
-            // Reuse preallocated named links so forward references retain their identity.
-            r = !string.IsNullOrEmpty(label) && Labeled(label) is Link placeholder && placeholder.From is null
-                ? placeholder : new Link(this);
+            // Attach a clause to the existing possibility when the user has
+            // already entered it as an ordinary stored Relationship.
+            if (asPattern && !structural && string.IsNullOrEmpty(label) &&
+                GetLink(from, linkType, to) is Link existingPattern)
+                return existingPattern;
+            // Reuse the imported identity when this definition is already present.
+            if (!string.IsNullOrEmpty(label) && Labeled(label) is Link named &&
+                (named.From is null || (ReferenceEquals(named.From, from) &&
+                    ReferenceEquals(named.LinkType, linkType) && ReferenceEquals(named.To, to))))
+                r = named;
+            else if (string.IsNullOrEmpty(label) && GetLink(from, linkType, to) is Link existing)
+                return existing;
+            else
+                r = new Link(this) { Label = label };
             r.From = from;
             r.LinkType = linkType;
             r.To = to;
             if (string.IsNullOrEmpty(label)) r.AddDefaultLabel();
             WriteTheLink(r);
         }
-        else r = from.AddLink(linkType, to);
+        else r = label.Length == 0 ? from.AddLink(linkType, to) : AddStatement(from, linkType, to, label);
         if (r is null) return null;
-        if (!string.IsNullOrEmpty(label))
-            r.Label = label;
-
         if (value != "")
             r.From!.V = value;
-        if (label != "" && !label.StartsWith("unl_"))
+        if (label != "" && !label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase))
         {
             r.Label = label.Trim();
             if (!AtomicThoughts.Contains(r))
@@ -536,6 +593,8 @@ public partial class UKS
                 patternType.AddParent(relationship.LinkType);
                 patternType.AddParent(GetOrAddThought("?", "Property"));
             }
+            if (relationship.From is { } source && GetLink(source, patternType, relationship.To) is Link existingPattern)
+                return existingPattern;
             Link pattern = new(relationship.From, patternType, relationship.To);
             pattern.AddDefaultLabel();
             WriteTheLink(pattern);

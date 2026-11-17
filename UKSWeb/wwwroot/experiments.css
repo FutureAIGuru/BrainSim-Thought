@@ -275,6 +275,10 @@ dialog li { margin: 10px 0; }
 /* Compact attribute results: each relationship is one closely spaced row. */
 .component-results .result-link { line-height: 1.2; padding: 1px 0; margin: 0; }
 .component-results li small { line-height: 1.2; }
+.component-results .attribute-tree-item,
+.component-results .attribute-details li { display: block; overflow-wrap: anywhere; }
+.component-results .attribute-result-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 8px; }
+.component-results ul.attribute-details { padding-inline-start: 1rem; }
 .component-results h3 { margin-bottom: 4px; }
 
 /* Root combo: editable name plus an explicit full-list arrow. */

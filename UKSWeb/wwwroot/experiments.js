@@ -1,30 +1,67 @@
 import { sandbox, request } from './sandbox.js?v=20261105-resume';
-import { createUKSGraph, selectRelationship } from './uks-graph.js?v=20261107-compact-music';
-import { createQueryPanel } from './uks-query.js?v=20261106-commit-input';
-import { createSequencePanel } from './uks-sequences.js?v=20261107-compact-music';
-import { createDemoComponents } from './demo-components.js?v=20261107-compact-music';
+import { createUKSGraph, selectRelationship } from './uks-graph.js?v=20261113-link-weights';
+import { createDemoComponents } from './demo-components.js?v=20261115-lab4';
 
 // Common guided-demo engine. A page supplies facts, steps, and its HTML layout.
 // No chapter-specific content, graph rendering, or expansion state lives here.
-export async function startExperiment({ facts, steps, colors, query, sequence, initialFacts = [], seedIfMissing, seedGroups = [] }) {
+// For step layout, start at STEP LAYOUT (showStep). For the component name
+// dispatch, see createComponent in demo-components.js.
+export async function startExperiment({
+  facts,
+  steps: labSteps,
+  colors,
+  query,
+  sequence,
+  initialFacts = [],
+  seedIfMissing,
+  seedGroups = []
+}) {
   const $ = selector => document.querySelector(selector);
-  const created = new Map(), completed = new Set(), resolvedFacts = new Map();
-  const componentChoices = steps.some(item=>(item.choices || []).some(entry=>entry && typeof entry==='object' && entry.component));
+  const created = new Map();
+  const completed = new Set();
+  const resolvedFacts = new Map();
+
+  // Give every step access to the Attribute Editor, including steps that reset
+  // the choice list. Keep an explicitly placed editor where the author put it.
+  const editor = { component: 'attribute-editor', label: 'Manage Attributes…' };
+  const steps = labSteps.map(step => {
+    const choices = step.choices || [];
+    return choices.some(choice => choice?.component === editor.component)
+      ? step : { ...step, choices: [...choices, editor] };
+  });
+
+  // GRAPH ROOT PICKER
   const rootInput = $('#root');
   // An editable combo box: the arrow shows all roots, while typing filters them.
   // Native datalists only show matches for the current value (e.g. just Rover).
-  const rootCombo = document.createElement('div'); rootCombo.className='root-combo';
-  const rootChooser = document.createElement('button'); rootChooser.type='button';
-  rootChooser.textContent='▾'; rootChooser.setAttribute('aria-label','Choose graph root');
-  rootChooser.setAttribute('aria-haspopup','listbox'); rootChooser.setAttribute('aria-expanded','false');
-  const rootMenu = document.createElement('div'); rootMenu.id='graph-root-choices';
-  rootMenu.className='root-choices'; rootMenu.hidden=true; rootMenu.setAttribute('role','listbox'); rootMenu.setAttribute('aria-label','Graph roots');
-  rootInput.before(rootCombo); rootCombo.append(rootInput,rootChooser,rootMenu);
-  rootInput.removeAttribute('list'); rootInput.setAttribute('role','combobox');
-  rootInput.setAttribute('aria-controls',rootMenu.id); rootInput.setAttribute('aria-expanded','false'); rootInput.setAttribute('aria-autocomplete','list');
-  let rootLabels=[], rootIndex=-1;
+  const rootCombo = document.createElement('div');
+  rootCombo.className = 'root-combo';
+  const rootChooser = document.createElement('button');
+  rootChooser.type = 'button';
+  rootChooser.textContent = '▾';
+  rootChooser.setAttribute('aria-label', 'Choose graph root');
+  rootChooser.setAttribute('aria-haspopup', 'listbox');
+  rootChooser.setAttribute('aria-expanded', 'false');
+  const rootMenu = document.createElement('div');
+  rootMenu.id = 'graph-root-choices';
+  rootMenu.className = 'root-choices';
+  rootMenu.hidden = true;
+  rootMenu.setAttribute('role', 'listbox');
+  rootMenu.setAttribute('aria-label', 'Graph roots');
+  rootInput.before(rootCombo);
+  rootCombo.append(rootInput, rootChooser, rootMenu);
+  rootInput.removeAttribute('list');
+  rootInput.setAttribute('role', 'combobox');
+  rootInput.setAttribute('aria-controls', rootMenu.id);
+  rootInput.setAttribute('aria-expanded', 'false');
+  rootInput.setAttribute('aria-autocomplete', 'list');
+  let rootLabels = [], rootIndex = -1;
   function closeRootMenu() {
-    rootMenu.hidden=true;rootChooser.setAttribute('aria-expanded','false');rootInput.setAttribute('aria-expanded','false');rootInput.removeAttribute('aria-activedescendant');rootIndex=-1;
+    rootMenu.hidden = true;
+    rootChooser.setAttribute('aria-expanded', 'false');
+    rootInput.setAttribute('aria-expanded', 'false');
+    rootInput.removeAttribute('aria-activedescendant');
+    rootIndex = -1;
   }
   function showRootMenu(filter='') {
     const matches=rootLabels.filter(label=>label.toLowerCase().includes(filter.toLowerCase()));
@@ -102,7 +139,9 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     queryPanel?.setBusy(unavailable);
     rootChooser.disabled=unavailable;
     $('#reset-content').disabled = busy;
-    document.querySelectorAll('#choices button, #load-root').forEach(button => button.disabled = unavailable);
+    document.querySelectorAll('#choices button, #load-root').forEach(button => {
+      button.disabled = unavailable || button.dataset.unavailable === 'true';
+    });
     $('#back').disabled = busy || step === 0;
     const lastStep = step === steps.length - 1;
     $('#next').textContent = lastStep ? 'More demos' : 'Next →';
@@ -121,9 +160,15 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     path.setAttribute('stroke-width', '1.7'); path.setAttribute('stroke-linecap', 'round');
     svg.append(path); return svg;
   }
+  // STEP LAYOUT: interpret one entry from the Lab page's steps array.
+  // The Lab HTML supplies the page regions. This function fills the prompt,
+  // the ordered action list (#choices), and the progress buttons.
   function showStep() {
     const actionZone = $('.action-zone') || $('#choices');
-    const current = steps[step], scrollTop = actionZone.scrollTop;
+    const current = steps[step];
+    const scrollTop = actionZone.scrollTop;
+
+    // 1. Select the panel mode and fill the step's visible text.
     queryPanel?.showStep(current.query || current.sequence);
     $('#step-number').textContent = `Experiment ${step + 1} of ${steps.length}`;
     // These fields are trusted author-written HTML from the experiment page.
@@ -131,38 +176,70 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     $('#prompt-title').innerHTML = current.title || '';
     $('#prompt-copy').innerHTML = current.copy || '';
     $('#try-this').innerHTML = current.try || '';
-    const choiceKey=entry=>typeof entry==='number'?`fact:${entry}`:entry.id || `component:${entry.component}`;
+
+    // 2. Assemble choices in order, replaying earlier steps through this one.
+    // A number refers to facts[index]. A component object names a shared UI
+    // control. An explicit id lets a later choice replace that control in place.
+    const choiceKey = entry => typeof entry === 'number'
+      ? `fact:${entry}`
+      : entry.id || `component:${entry.component}`;
     const offeredChoices = new Map();
     for (const item of steps.slice(0, step + 1)) {
+      // Start a fresh list when requested. The stored UKS facts stay intact.
       if (item.inheritChoices === false) offeredChoices.clear();
-      for (const entry of item.choices || []) offeredChoices.set(choiceKey(entry),entry);
+      for (const entry of item.choices || []) {
+        offeredChoices.set(choiceKey(entry), entry);
+      }
+      // removeChoices accepts a fact index, component name, or component id.
       for (const entry of item.removeChoices || []) {
-        const key=typeof entry==='number'?`fact:${entry}`:entry;
-        offeredChoices.delete(key);offeredChoices.delete(`component:${key}`);
+        const key = typeof entry === 'number' ? `fact:${entry}` : entry;
+        offeredChoices.delete(key);
+        offeredChoices.delete(`component:${key}`);
       }
     }
-    // The page's choices list controls visibility, independently of Attributes of.
+
+    // 3. Mount each choice in the action pane. This is the dispatch: objects
+    // go to demo-components.js, while numbers create preset Relationship buttons.
     const choices = [...offeredChoices.values()];
-    $('#choices').replaceChildren(...choices.map(index => {
-      if(typeof index!=='number') {
-        if(queryPanel?.createComponent)return queryPanel.createComponent(index);
-        const pending=document.createElement('div');pending.textContent='Loading…';return pending;
+    $('#choices').replaceChildren(...choices.map(entry => {
+      if (typeof entry !== 'number') {
+        if (queryPanel?.createComponent) return queryPanel.createComponent(entry);
+        const pending = document.createElement('div');
+        pending.textContent = 'Loading…';
+        return pending;
       }
-      const fact = facts[index], added = created.has(index), button = document.createElement('button');
+
+      const index = entry;
+      const fact = facts[index];
+      const added = created.has(index);
+      const button = document.createElement('button');
       button.className = 'choice' + (added ? ' added' : '');
-      button.setAttribute('aria-label', `${added ? 'Delete' : 'Add'}: ${fact.caption}`);
-      button.title = `${added ? 'Delete' : 'Add'} this Relationship`;
-      const label = document.createElement('span'); label.textContent = fact.caption;
-      button.append(label, actionIcon(added));
+      const verb = fact.assertOnly ? 'Assert' : added ? 'Delete' : 'Add';
+      button.setAttribute('aria-label', `${verb}: ${fact.caption}`);
+      button.title = `${verb} this Relationship`;
+      const label = document.createElement('span');
+      label.textContent = fact.caption;
+      button.append(label, actionIcon(added && !fact.assertOnly));
+
+      // Stored facts toggle between Add and Delete. An assertOnly preset sends
+      // the assertion again each time, so the UKS can resolve competing facts.
       button.onclick = () => run(async () => {
-        const removing = created.has(index);
+        const removing = !fact.assertOnly && created.has(index);
         try {
           if (removing) {
-            // === WEB SERVICE: DELETE /api/relationships — remove this preset Relationship by its server handle. ===
-            try { await request('/api/relationships?id=' + created.get(index), { method: 'DELETE' }); }
-            catch (error) { if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error; }
-          } else await addFact(index);
-        } finally { await synchronize({ show: !removing && !query && !sequence, fit: true }); showStep(); }
+            // === WEB SERVICE: DELETE /api/thoughts — remove this preset Relationship by its label. ===
+            try {
+              await request('/api/thoughts?' + new URLSearchParams({label: created.get(index)}), { method: 'DELETE' });
+            } catch (error) {
+              if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error;
+            }
+          } else {
+            await addFact(index, { reassert: fact.assertOnly });
+          }
+        } finally {
+          await synchronize({ show: !removing && !query && !sequence, fit: true });
+          showStep();
+        }
         // Fact edits refresh the current query; they never change its selected Thought.
         await queryPanel?.refresh();
         // The root may have been created by this first fact (e.g. fresh Rover).
@@ -172,10 +249,12 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
           catch (error) { if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error; }
         }
         inspect();
-        feedback(`${removing ? 'Removed' : 'Added'}: ${fact.caption}.`);
+        feedback(`${fact.assertOnly ? 'Asserted' : removing ? 'Removed' : 'Added'}: ${fact.caption}.`);
       });
       return button;
     }));
+
+    // 4. Restore the pane's scroll position and update step navigation.
     actionZone.scrollTop = scrollTop;
     $('.progress').replaceChildren(...steps.map((_, index) => {
       const button = document.createElement('button');
@@ -187,12 +266,34 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     }));
     controls();
   }
+
+  // STEP NAVIGATION AND ACTIONS
   function moveStep(index) {
     if (busy || index < 0 || index >= steps.length || index > 0 && !completed.has(index - 1)) return;
-    step = index; ($('.action-zone') || $('#choices')).scrollTop = 0; showStep(); feedback('');
-    if (queryPanel) run(() => queryPanel.activate());
-    saveState();
+    return run(async () => {
+      const fresh = index !== step && steps[index].freshUKS;
+      if (fresh) await sandbox.startFresh(fresh.root);
+      step = index;
+      if (fresh) {
+        created.clear();
+        resolvedFacts.clear();
+        for (const finished of completed) if (finished >= index) completed.delete(finished);
+        queryPanel = createDemoComponents({request,graph,perform:run,feedback,onSubject,query,sequence,facts,steps});
+      }
+      ($('.action-zone') || $('#choices')).scrollTop = 0;
+      showStep();
+      feedback('');
+      if (fresh) {
+        for (const index of fresh.facts) await addFact(index);
+        await graph.loadRoot(fresh.root);
+        await synchronize({ fit: true });
+        showStep();
+      }
+      await queryPanel?.activate();
+      return false;
+    });
   }
+  const onSubject = () => { inspect(); feedback(''); showStep(); };
   async function run(action) {
     if (refreshTask) await refreshTask;
     if (busy || !graph) return false;
@@ -202,6 +303,8 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     catch (error) { feedback(error.message, true); }
     finally { busy = false; controls(); saveState(); }
   }
+
+  // PRESET FACTS: match the Lab's declarations to actual stored Relationships.
   function findFact(index, data) {
     const fact = facts[index];
     const actual = resolvedFacts.get(index);
@@ -210,19 +313,18 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     const target = data.nodes.find(node => node.id === actual?.targetId || node.label === (actual?.target || targetText(fact)))?.id;
     return data.links.find(link => !link.structural && link.source === data.root && link.type === (actual?.relationshipType || fact.relationshipType) && link.target === target);
   }
-  async function addFact(index, path = new Set()) {
-    if (created.has(index)) return;
+  async function addFact(index, { path = new Set(), reassert = false } = {}) {
+    if (!reassert && created.has(index)) return;
     if (path.has(index)) throw new Error('A fact has circular prerequisites.');
     const next = new Set(path).add(index), fact = facts[index];
     const prerequisites = [...(fact.requires || []), ...(fact.sourceFact === undefined ? [] : [fact.sourceFact])];
-    for (const prerequisite of new Set(prerequisites)) await addFact(prerequisite, next);
+    for (const prerequisite of new Set(prerequisites)) await addFact(prerequisite, { path: next });
     const source = fact.sourceFact === undefined ? fact.source : notation(fact.sourceFact, true);
     // === WEB SERVICE: POST /api/statements — parse and store a preset fact; return the actual Relationship and endpoint handles. ===
     const actual = await request('/api/statements', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source, relationshipType: fact.relationshipType, target: fact.target }) });
     resolvedFacts.set(index, {...actual, definition:JSON.stringify([fact.source,fact.sourceFact,fact.relationshipType,fact.target])});
-    const data = await graph.read(actual.sourceId !== undefined ? {id:actual.sourceId,expand:true} :
-      fact.sourceFact === undefined ? { label: actual.sourceLabel || actual.source || fact.source, expand: true } : { id: created.get(fact.sourceFact), expand: true });
+    const data = await graph.read({ label: actual.sourceId, expand: true });
     const link = findFact(index, data);
     if (!link) throw new Error(`The relationship ${notation(index)} was stored, but its connection could not be displayed.`);
     created.set(index, link.id);
@@ -238,7 +340,8 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
       const fact = facts[index];
       if (fact.sourceFact !== undefined) await resolve(fact.sourceFact);
       if (fact.sourceFact === undefined || found.has(fact.sourceFact)) {
-        const query = fact.sourceFact === undefined ? { label: resolvedFacts.get(index)?.sourceLabel || fact.source, expand: true } : { id: found.get(fact.sourceFact).link.id, expand: true };
+        const label = fact.sourceFact === undefined ? resolvedFacts.get(index)?.sourceId || fact.source : found.get(fact.sourceFact).link.id;
+        const query = { label, expand: true };
         const key = JSON.stringify(query);
         if (!cache.has(key)) {
           try { cache.set(key, await graph.read(query, automatic)); }
@@ -252,8 +355,15 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     for (let index = 0; index < facts.length; index++) await resolve(index);
     created.clear(); for (const [index, { link }] of found) created.set(index, link.id);
     await graph.refresh({ automatic });
-    const seeds = [...found.values()].map(({ data, link }) => selectRelationship(data, link));
-    graph.setPresets(seeds, new Map([...created].map(([index, id]) => [id, notation(index)])), { show, fit });
+    // A step with a fresh UKS keeps the graph focused on its visible presets.
+    const current = steps[step];
+    const seeds = [...found].filter(([index]) => !current.freshUKS || current.choices.includes(index))
+      .map(([, { data, link }]) => selectRelationship(data, link));
+    // Keep the focused event sequence when a location preset records a move.
+    const { expandRoots, showSequenceValues } = graph.getState();
+    const showingEvents = expandRoots && showSequenceValues &&
+      current.choices.some(choice => choice?.component === 'event-history');
+    graph.setPresets(seeds, new Map([...created].map(([index, id]) => [id, notation(index)])), { show: show && !showingEvents, fit });
   }
   function updateGraphControls({ nodes, nodeCount }) {
     $('#counts').textContent = `${nodeCount} visible`;
@@ -261,6 +371,8 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     rootLabels=[...labels].filter(Boolean).sort((a,b)=>a.localeCompare(b));
     $('#root-options').replaceChildren(...rootLabels.map(label => { const option = document.createElement('option'); option.value = label; return option; }));
   }
+
+  // PAGE CONTROLS: navigation, graph toolbar, and Reset Content.
   updateGraphControls({nodes:[],nodeCount:0});
   $('#quit').onclick = () => { window.top.location.href = 'https://futureaisociety.org/demos'; };
   $('#back').onclick = () => moveStep(step - 1);
@@ -294,6 +406,8 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
     await graph.loadRoot(rootInput.value);
     feedback(`Showing root: ${rootInput.value.trim()}.`);
   }); };
+  // STARTUP: restore the saved step, create the graph, seed missing facts,
+  // then mount the shared panels once their service and graph are available.
   controls();
   try {
     if (!await sandbox.ready) throw sandbox.error;
@@ -333,14 +447,15 @@ export async function startExperiment({ facts, steps, colors, query, sequence, i
         for (const index of group.facts) await addFact(index);
       }
     }
-    const onSubject=() => { inspect(); feedback(''); showStep(); };
-    if(componentChoices)queryPanel=createDemoComponents({request,graph,perform:run,feedback,onSubject,query,sequence,facts,steps});
-    else if (query) queryPanel = createQueryPanel({request, graph, perform:run, config:query, feedback, onSubject});
-    else if (sequence) queryPanel = createSequencePanel({request,graph,perform:run,config:sequence,feedback});
+    queryPanel = createDemoComponents({request,graph,perform:run,feedback,onSubject,query,sequence,facts,steps});
     await synchronize({ fit: true });
     // Query demos show their graph root immediately; attribute results still wait
     // for a selection. Sequence demos wait until the user chooses a sequence.
-    try { if (sequence) await graph.loadThoughts([]); else await graph.loadRoot(rootInput.value, { showPresets: !query }); }
+    try {
+      const fresh = steps[step].freshUKS;
+      if (sequence) await graph.loadThoughts([]);
+      else await graph.loadRoot(rootInput.value, { showPresets: !query && !fresh });
+    }
     catch (error) { if (error.status !== 404 || error.code === 'sandbox_unavailable') throw error; }
     showStep(); feedback('');
     if(savedState) {

@@ -135,8 +135,7 @@ public partial class UKS
     private int GetIndex(Thought? t)
     {
         if (t is null) return -1;
-        if (string.IsNullOrWhiteSpace(t.Label))  // Put the GUID into the label only when it's unlabeled
-            t.Label = $"unl_{Guid.NewGuid().ToString("N")[..8]}";
+        t.AddDefaultLabel();
         if (!uksTempIndex.TryGetValue(t.Label, out int index))
         {
             sThought st = new()
@@ -167,7 +166,6 @@ public partial class UKS
         GetIndex(root);
         foreach (var t in root.EnumerateSubThoughts())
             GetIndex(t);
-        RemoveTempLabels(root);
     }
 
     /// <summary>
@@ -378,7 +376,7 @@ public partial class UKS
         ClearSequenceCache();
         Thought.ClearRecentlyFiredQueue();
         Thought.ClearRecentlyCreatedQueue();
-        //3 passes:  1) find all the labels and allocate thoughts 2) fill in links by label  3) remove temp labels from unlabeled thoughts
+        // Allocate all Thoughts before wiring Relationships by their saved indices.
         //allocate all the thoughts
         foreach (sThought st in UKSTemp)
         {
@@ -462,17 +460,5 @@ public partial class UKS
                 operation.LinkType.LinksAsTypeWriteable.RemoveAll(link => ReferenceEquals(link, operation));
         }
 
-        //remove temporary labels
-        foreach (sThought st in UKSTemp)
-        {
-            if (st.label.StartsWith("unl_"))
-            {
-                Thought? x = Labeled(st.label);
-                if (x is not null)
-                {
-                    x.Label = "";
-                }
-            }
-        }
     }
 }

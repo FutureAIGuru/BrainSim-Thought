@@ -92,6 +92,10 @@ public partial class UKS
         //properties are internal capabilities of Thoughts
         AddStatement("Property", "is-a", "LinkType");
         AddStatement("isExclusive", "is-a", "Property");
+        AddStatement("isHistorical", "is-a", "Property");
+        AddStatement("was", "is-a", "LinkType");
+        AddStatement("was", "hasProperty", "isHistorical");
+        AddStatement("recordsHistory", "is-a", "Property");
         AddStatement("isTransitive", "is-a", "Property");
         AddStatement("isInstance", "is-a", "Property");
         AddStatement("isWildcard", "is-a", "Property");

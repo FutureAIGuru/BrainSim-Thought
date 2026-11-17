@@ -1,5 +1,12 @@
 // Shared graph composition and presentation. Pages supply snapshots and actions;
 // this module knows nothing about chapters, choices, or particular DOM element IDs.
+// Repeated parameters preserve labels containing commas, spaces, and punctuation.
+function labelQuery(key, values, options = {}) {
+  return [...values.map(label => [key, label]), ...Object.entries(options)];
+}
+const isLabel = value => typeof value === 'string' && value.length > 0;
+const graphBatchSize = 32;
+
 export function composeGraph(seeds, expansions, labels = new Map(), collapsed = new Set()) {
   const nodes = new Map(), links = new Map(), active = new Set(), queue = [], groups = [];
   // A collapsed Relationship is shown as its ordinary edge. Relationships
@@ -17,7 +24,9 @@ export function composeGraph(seeds, expansions, labels = new Map(), collapsed = 
     }
   }
   for(const [id,parts] of knownParts)if(!definitions.has(id) && parts.source!==undefined && parts.target!==undefined)
-    definitions.set(id,{id,source:parts.source,target:parts.target,type:knownNodes.get(parts['relationship type'])?.label || '?',structural:false});
+    definitions.set(id, { id, source: parts.source, target: parts.target,
+      type: knownNodes.get(parts['relationship type'])?.label || '?',
+      structural: false, weight: knownNodes.get(id)?.weight });
   const hidden = new Set();
   let changed=true;
   while(changed) {
@@ -89,6 +98,7 @@ export function composeGraph(seeds, expansions, labels = new Map(), collapsed = 
   for (const link of links.values()) {
     if (!link.structural) {
       link.notation = `[${nodes.get(link.source)?.label || '?'} → ${link.type} → ${nodes.get(link.target)?.label || '?'}]`;
+      if (Number.isFinite(link.weight)) link.notation += ` · weight ${link.weight}`;
       continue;
     }
     const role = link.type === 'relationship type' ? 'Type' : link.type === 'source' ? 'Source' : 'Target';
@@ -99,7 +109,10 @@ export function composeGraph(seeds, expansions, labels = new Map(), collapsed = 
     if (!roles.has(componentId)) roles.set(componentId, []);
     roles.get(componentId).push(description);
   }
-  for (const node of nodes.values()) node.description = roles.get(node.id)?.join(' · ') || node.label;
+  for (const node of nodes.values()) {
+    node.description = roles.get(node.id)?.join(' · ') || node.label;
+    if (node.isRelationship && Number.isFinite(node.weight)) node.description += ` · weight ${node.weight}`;
+  }
   const occupied = new Set();
   const sequences = groups.slice().sort((a, b) => b.elements.length - a.elements.length).filter(group => {
     if (group.elements.some(id => !nodes.has(id) || occupied.has(id))) return false;
@@ -141,7 +154,7 @@ export function arrangeSequences(nodes, sequences, previous = new Map()) {
   }
   function apply(row) {
     row.cells.forEach((node, index) => {
-      node.x = node.fx = row.anchor.x + index * 22;
+      node.x = node.fx = row.anchor.x + index * row.spacing;
       node.y = node.fy = row.anchor.y; node.z = node.fz = row.anchor.z;
       node.sequenceFixed = true;
     });
@@ -157,7 +170,9 @@ export function arrangeSequences(nodes, sequences, previous = new Map()) {
     const cells = group.elements.map(id => byId.get(id)).filter(Boolean);
     if (!cells.length) continue;
     const anchor = previous.get(group.id)?.anchor || { x: cells[0].x || 0, y: cells[0].y || 0, z: cells[0].z || 0 };
-    const row = { anchor, cells, values:new Map() }; rows.set(group.id, row);
+    const history = cells.some(node => node.isEventCell);
+    const spacing = history ? 36 : 22;
+    const row = { anchor, cells, spacing, values:new Map() }; rows.set(group.id, row);
     const occurrences = new Map();
     cells.forEach((node,index) => {
       members.set(node.id,row);
@@ -167,9 +182,13 @@ export function arrangeSequences(nodes, sequences, previous = new Map()) {
       occurrences.get(id).push(index);
     });
     let valueIndex = 0;
+    const length = (cells.length - 1) * spacing;
+    const valueSpacing = history ? Math.max(36, ...[...occurrences.keys()].map(id => byId.get(id).label.length * 3.4 + 10)) : 0;
     for (const [id] of occurrences) {
-      const x = occurrences.size > 1 ? valueIndex * (cells.length - 1) * 22 / (occurrences.size - 1) : (cells.length - 1) * 11;
-      row.values.set(id,previous.get(group.id)?.values?.get(id) || {x,y:55,z:0});
+      const x = history ? length / 2 + (valueIndex - (occurrences.size - 1) / 2) * valueSpacing
+        : occurrences.size > 1 ? valueIndex * length / (occurrences.size - 1) : length / 2;
+      const previousOffset = history ? null : previous.get(group.id)?.values?.get(id);
+      row.values.set(id,previousOffset || {x,y:55,z:0});
       valueIndex++;
       valueOwners.set(id,row);
     }
@@ -177,7 +196,7 @@ export function arrangeSequences(nodes, sequences, previous = new Map()) {
     cells.forEach((node,index)=>{
       for(const value of node.sequenceValues||[]){
         if(!value.metadata||!byId.has(value.id)||valueOwners.has(value.id))continue;
-        row.values.set(value.id,previous.get(group.id)?.values?.get(value.id)||{x:index*22,y:-45,z:0});
+        row.values.set(value.id,previous.get(group.id)?.values?.get(value.id)||{x:index*spacing,y:-45,z:0});
         valueOwners.set(value.id,row);
       }
     });
@@ -271,11 +290,16 @@ async function createGraphView(container, {
     .nodeColor(node => (!node.sequenceValue && !node.isRelationship && thoughtColors[node.label]) || (getRootIds().has(node.id) ? palette.root : node.isRelationship ? palette.relationship : node.expanded ? palette.expanded : palette.node))
     .nodeThreeObject(node => showLabels && !node.sequenceValue ? makeLabel(node) : null).nodeThreeObjectExtend(true)
     .nodeLabel(() => '').linkLabel(() => '')
-    .linkColor(link => link.highlighted ? '#ff7a18' : link.structural ? palette.connector : palette.edge)
-    .linkOpacity(.95).linkWidth(link => link.structural ? 1.5 : 2)
+    .linkColor(link => link.highlighted ? '#ff7a18' : link.structural || link.eventSequence ? palette.connector : palette.edge)
+    .linkOpacity(.95).linkWidth(link => {
+      if (link.structural) return 1.5;
+      if (!Number.isFinite(link.weight)) return 2;
+      // Keep weak connections visible and cap width outside the usual 0–1 range.
+      return 1 + 2 * Math.min(1, Math.max(0, link.weight));
+    })
     .linkCurvature(link => link.curvature || 0).linkHoverPrecision(8)
     .linkDirectionalArrowLength(9).linkDirectionalArrowRelPos(.78)
-    .showPointerCursor(object => Boolean(object) && !object.structural)
+    .showPointerCursor(object => Boolean(object) && !object.structural && !object.isEvent)
     // Let the library finish its pointer/drag cleanup before a page changes
     // graph data or resizes the canvas in response to a click.
     .onNodeClick((node, event) => routeClick(event))
@@ -389,11 +413,13 @@ async function createGraphView(container, {
       const lanes = new Map();
       const sequenceStarts = new Set((data.sequences || []).map(row => row.elements[0]));
       const sequenceCells = new Set((data.sequences || []).flatMap(row => row.elements));
+      const eventCells = new Set(data.nodes.filter(node => node.isEventCell).map(node => node.id));
       for (const link of data.links) {
         const source = typeof link.source === 'object' ? link.source.id : link.source;
         const target = typeof link.target === 'object' ? link.target.id : link.target;
         link.sequenceReferrer = sequenceStarts.has(target) && !sequenceCells.has(source);
-        const key = JSON.stringify([Math.min(source, target), Math.max(source, target)]);
+        link.eventSequence = link.sequence && eventCells.has(source) && eventCells.has(target);
+        const key = JSON.stringify([source, target].sort());
         const lane = lanes.get(key) || 0;
         link.curvature = source === target ? .5 + lane * .18 : lane * .18;
         lanes.set(key, lane + 1);
@@ -473,7 +499,7 @@ export async function createUKSGraph(container, {
     const version = generation;
     pending.add(id);
     try {
-      const data = await read({ id, expand: true });
+      const data = await read({ label: id, expand: true });
       if (version !== generation) return false;
       if (expectedRelationship && (!data.nodes.find(node => node.id === id)?.isRelationship || !data.links.some(link => link.structural)))
         throw new Error('The selected edge did not resolve to a Relationship Thought.');
@@ -484,6 +510,7 @@ export async function createUKSGraph(container, {
   }
   async function toggleNode(node) {
     onInspect(node.description || node.label);
+    if (node.isEvent) return false;
     if (node.isRelationship && node.hasComponents) {
       collapsed.add(node.id);
       if(expansions.has(node.id))collapsedSnapshots.set(node.id,expansions.get(node.id));
@@ -513,23 +540,25 @@ export async function createUKSGraph(container, {
     async restoreState(state) {
       if (!state || !Array.isArray(state.roots)) return;
       const version=++generation;
-      const ids=state.roots.filter(Number.isSafeInteger).slice(0,256);
-      const data=await read({roots:ids.join(','),expand:!!state.expandRoots,sequenceValues:!!state.showSequenceValues});
+      const ids=state.roots.filter(isLabel).slice(0,256);
+      if (!ids.length && state.roots.length) return;
+      const data=ids.length ? await read(labelQuery('labels', ids,{expand:!!state.expandRoots,sequenceValues:!!state.showSequenceValues}))
+        : {roots:[],root:null,nodes:[],links:[],sequences:[]};
       if (version!==generation) return;
       rootSnapshot=data; rootIds=new Set(data.roots); rootId=data.root;
       rootLabel=typeof state.rootLabel==='string'?state.rootLabel:rootLabel;
       customRoot=!!state.customRoot; expandRoots=!!state.expandRoots; showSequenceValues=!!state.showSequenceValues;
       expansions.clear();collapsed.clear();collapsedSnapshots.clear();
-      for(const id of Array.isArray(state.collapsed)?state.collapsed:[])if(Number.isSafeInteger(id))collapsed.add(id);
-      const expanded=[...new Set([...(Array.isArray(state.expanded)?state.expanded.filter(Number.isSafeInteger):[]),...collapsed])];
-      for(let offset=0;offset<expanded.length;offset+=256) {
-        const packet=await read({ids:expanded.slice(offset,offset+256).join(','),sequenceValues:showSequenceValues});
+      for(const id of Array.isArray(state.collapsed)?state.collapsed:[])if(isLabel(id))collapsed.add(id);
+      const expanded=[...new Set([...(Array.isArray(state.expanded)?state.expanded.filter(isLabel):[]),...collapsed])];
+      for(let offset=0;offset<expanded.length;offset+=graphBatchSize) {
+        const packet=await read(labelQuery('ids',expanded.slice(offset,offset+graphBatchSize),{sequenceValues:showSequenceValues}));
         if(version!==generation)return;
         for(const snapshot of packet.snapshots)(collapsed.has(snapshot.root)?collapsedSnapshots:expansions).set(snapshot.root,snapshot);
       }
       view.resetLayout(); positions.clear();
       for(const node of Array.isArray(state.positions)?state.positions:[]) {
-        if(Number.isSafeInteger(node.id)&&['x','y','z'].every(axis=>Number.isFinite(node[axis])))positions.set(node.id,{...node});
+        if(isLabel(node.id)&&['x','y','z'].every(axis=>Number.isFinite(node[axis])))positions.set(node.id,{...node});
       }
       fitPending=false; signature=''; render(); view.restoreCamera(state.camera);
       if(rootIds.size===1)onRoot(rootLabel);
@@ -548,13 +577,13 @@ export async function createUKSGraph(container, {
     async loadThoughts(values, { expand = false, sequenceValues = false } = {}) {
       const version = ++generation;
       const data = !values.length ? {roots:[],root:null,nodes:[],links:[],sequences:[]}
-        : await read(typeof values[0] === 'number' ? {roots:values.join(','), expand, sequenceValues} : [...values.map(label => ['labels',label]), ['expand',String(expand)], ['sequenceValues',String(sequenceValues)]]);
+        : await read(labelQuery('labels',values,{expand,sequenceValues}));
       if (version !== generation) return false;
       expandRoots = expand; showSequenceValues = sequenceValues; evidenceSnapshot = null; highlightedLinks.clear();
       rootSnapshot = data; rootId = data.root; rootIds = new Set(data.roots);
       customRoot = true; expansions.clear(); collapsed.clear(); collapsedSnapshots.clear();
       if (data.roots.length === 1) {
-        rootLabel = data.nodes.find(node => node.id === data.root)?.label || rootLabel;
+        rootLabel = data.root || rootLabel;
         onRoot(rootLabel); onInspect('');
       }
       render(true);
@@ -564,7 +593,9 @@ export async function createUKSGraph(container, {
       const ids = [...new Set(attributes.flatMap(row => row.evidenceThoughtIds || []))];
       const selectedLinks = new Set(attributes.flatMap(row => row.evidenceLinkIds || []));
       const packets = [];
-      for (let offset = 0; offset < ids.length; offset += 256) packets.push(await read({roots:ids.slice(offset,offset+256).join(','),expand:true}, automatic));
+      for (let offset = 0; offset < ids.length; offset += graphBatchSize) {
+        packets.push(await read(labelQuery('labels',ids.slice(offset,offset+graphBatchSize),{expand:true}), automatic));
+      }
       if (version !== generation) return;
       const links = packets.flatMap(packet => packet.links).filter(link => selectedLinks.has(link.id));
       const endpoints = new Set(links.flatMap(link => [link.source,link.target]));
@@ -585,7 +616,7 @@ export async function createUKSGraph(container, {
       }
       seeds = snapshots; aliases = presetLabels;
       if (show) customRoot = false;
-      const rootNode = seeds.flatMap(snapshot => snapshot.nodes).find(node => node.label === rootLabel);
+      const rootNode = seeds.flatMap(snapshot => snapshot.nodes).find(node => node.id.toLowerCase() === rootLabel.toLowerCase());
       if (!customRoot && rootNode && rootIds.size <= 1) { rootId = rootNode.id; rootIds = new Set([rootId]);
         if (!rootSnapshot?.nodes.some(node => node.id === rootId)) rootSnapshot = { nodes: [rootNode], links: [] }; }
       render(fit);
@@ -594,13 +625,13 @@ export async function createUKSGraph(container, {
       if (pending.size) return;
       const version = generation;
       if (rootIds.size) {
-        const data = await read({roots:[...rootIds].join(','), expand: expandRoots, sequenceValues: showSequenceValues}, automatic);
+        const data = await read(labelQuery('labels',[...rootIds],{expand:expandRoots,sequenceValues:showSequenceValues}), automatic);
         if (version !== generation) return;
         rootSnapshot = data; rootId = data.root; rootIds = new Set(data.roots);
       }
       const ids = [...new Set([...expansions.keys(),...collapsedSnapshots.keys()])];
-      for (let offset = 0; offset < ids.length; offset += 256) {
-        const data = await read({ ids: ids.slice(offset, offset + 256).join(','), sequenceValues: showSequenceValues }, automatic);
+      for (let offset = 0; offset < ids.length; offset += graphBatchSize) {
+        const data = await read(labelQuery('ids',ids.slice(offset,offset+graphBatchSize),{sequenceValues:showSequenceValues}), automatic);
         if (version !== generation) return;
         for (const id of data.missingIds) {
           expansions.delete(id);collapsedSnapshots.delete(id);collapsed.delete(id);

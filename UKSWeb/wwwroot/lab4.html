@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fido’s Changing World · BrainSim Thought</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="experiments.css?v=20261115-attribute-details">
+</head>
+<body class="guided-demo relationship-demo">
+    <main>
+        <aside>
+            <div class="chapter">Fido’s Changing World</div>
+            <div class="progress" aria-label="Experiment progress"></div>
+            <p id="step-number" class="eyebrow"></p>
+            <div class="prompt-content"><h1 id="prompt-title"></h1><div id="prompt-copy"></div></div>
+            <div class="action-zone" role="region" aria-label="Experiment actions" tabindex="0">
+                <div id="choices" role="region" aria-label="Experiment content" tabindex="0"></div>
+            </div>
+            <p id="feedback" role="status" aria-live="polite">Connecting to the UKS…</p>
+            <div class="invitation" role="region" aria-label="Try this" tabindex="0">
+                <span>Try this</span><div id="try-this"></div>
+            </div>
+            <nav aria-label="Experiments">
+                <button id="back">← Back</button>
+                <span class="forward-actions"><button id="quit" type="button">Quit</button><button id="next" class="primary">Next →</button></span>
+            </nav>
+        </aside>
+        <section class="workspace" aria-label="Knowledge graph">
+            <div class="graph-toolbar">
+                <form id="root-form">
+                    <label for="root">Root</label>
+                    <input id="root" value="Fido" list="root-options" autocomplete="off" required>
+                    <datalist id="root-options"></datalist>
+                    <button id="load-root">Show</button>
+                </form>
+                <button id="fit" type="button">Fit view</button>
+                <button id="reset-content" type="button" title="Reset demo content and return to the first step">Reset Content</button>
+                <button id="help" type="button" aria-haspopup="dialog" aria-label="Graph help">
+                    <img src="help-icon.svg" width="20" height="20" alt="" aria-hidden="true" style="display:block">
+                </button>
+            </div>
+            <div class="canvas"><div id="graph" aria-label="Interactive knowledge graph"></div><div id="selection" role="status" aria-live="polite"></div></div>
+            <div class="graph-key" aria-label="Node color key">
+                <span><i class="gold"></i>Root</span><span><i class="blue"></i>Thought</span>
+                <span><i class="green"></i>Expanded</span><span><i class="purple"></i>Relationship</span><small id="counts"></small>
+            </div>
+        </section>
+    </main>
+    <dialog id="help-box" aria-labelledby="help-title"><p id="inactivity-note"></p></dialog>
+    <p id="sandbox-status" role="status"></p>
+    <select id="demo-select" hidden><option value="__choose">Choose</option><option value="">Standard UKS</option></select>
+    <script src="external/3d-force-graph-1.80.1.min.js"></script>
+
+
+
+
+    <script type="module">
+        import { startExperiment } from './experiments.js?v=20261115-lab4';
+
+        const facts = [
+            // 0–2. Competing locations used in experiments 1, 3, and 4.
+            { source: 'Fido', relationshipType: 'located', target: 'inside', caption: 'Fido is inside', assertOnly: true },
+            { source: 'Fido', relationshipType: 'located', target: 'outside', caption: 'Fido is outside', assertOnly: true },
+            { source: 'Fido', relationshipType: 'located', target: 'doghouse', caption: 'Fido is in his doghouse', assertOnly: true, requires: [6] },
+
+            // 3–6. Set up exclusivity before asserting the starting location.
+            { source: 'location', relationshipType: 'hasProperty', target: 'isExclusive' },
+            { source: 'inside', relationshipType: 'is-a', target: 'location' },
+            { source: 'outside', relationshipType: 'is-a', target: 'location' },
+            { source: 'doghouse', relationshipType: 'is-a', target: 'location' },
+
+            // 7–11. Build on the plays Relationship using it as a source.
+            { source: 'Fido', relationshipType: 'plays', target: 'fetch', caption: 'Fido plays fetch', assertOnly: true },
+            { source: '[Fido->plays->fetch]', relationshipType: 'located', target: 'outside', caption: 'Fido plays fetch outside' },
+            { sourceFact: 7, relationshipType: 'using', target: 'frisbee', caption: 'Fido plays fetch using a frisbee' },
+            { sourceFact: 7, relationshipType: 'with', target: 'Suzie', caption: 'Fido plays fetch with Suzie' },
+            { source: 'Fido', relationshipType: 'owned-by', target: 'Suzie', caption: 'Fido is owned by Suzie' },
+
+            // 12–15. Weather observations and the rule that uses them.
+            { source: 'weather', relationshipType: 'is', target: 'rainy', caption: 'Weather is rainy', assertOnly: true },
+            { source: 'weather', relationshipType: 'is.not', target: 'rainy', caption: 'Weather is not rainy', assertOnly: true },
+            { source: 'Fido', relationshipType: 'is.?', target: 'wet' },
+            { sourceFact: 14, relationshipType: 'IF', target: '[[Fido->located.?->outside] AND [weather->is.?->rainy]]', caption: 'Fido is wet if he is outside and the weather is rainy' },
+
+            // 16. Start recording displaced locations in Fido's event sequence.
+            { source: 'location', relationshipType: 'hasProperty', target: 'recordsHistory', caption: 'Record location changes' },
+
+            // 17–18. A fourth location for the history experiment.
+            { source: 'kitchen', relationshipType: 'is-a', target: 'location' },
+            { source: 'Fido', relationshipType: 'located', target: 'kitchen', caption: 'Fido is in the kitchen', assertOnly: true, requires: [17] }
+        ];
+
+        const locationChoices = [0, 1, 2];
+        const fidoAttributes = { component: 'attribute-results', subject: 'Fido', compareGroup: 'location' };
+
+        const steps = [
+            {
+                title: 'Where is Fido? Conflicting Information',
+                choices: [...locationChoices, { ...fidoAttributes, toggleLabel: 'Attributes of Fido' }],
+
+                copy: `Suppose we receive conflicting information about Fido's location.
+                    Since he can only be in one place at a time, which information should
+                    we believe? Atomic Thoughts can retain competing Relationships and use
+                    their relative weights to resolve conflicts.`,
+
+                try: `
+                    <ol>
+                        <li>Open Fido's attributes. Initially, Fido is inside.</li>
+                        <li>Assert that Fido is outside or in his doghouse.
+                            Notice that conflicting Relationships can remain in the graph.</li>
+                        <li>Repeat an assertion several times to increase its weight.
+                            Watch how this affects Fido's listed attributes.</li>
+                        <li>Reinforce a competing location until it prevails.</li>
+                    </ol>
+                    <p>Inside, outside, and doghouse are all kinds of
+                    <code>location</code>, which has the <code>isExclusive</code>
+                    property. The system uses this knowledge to resolve the conflict.
+                    Information need not be discarded just because other information
+                    is currently more convincing.</p>`
+            },
+            {
+                title: 'What Does Fido Do? Complex Relationships',
+                inheritChoices: false,
+                choices: [7, 8, 9, 10, 11, { ...fidoAttributes, toggleLabel: 'Attributes of Fido' }],
+
+                copy: `Fido plays fetch, but there is much more we could know about
+                    this activity. Where does he play? What does he play with?
+                    Who joins him? Because a Relationship is itself an Atomic Thought,
+                    we can attach additional Relationships to describe it in greater detail.`,
+
+                try: `
+                    <ol>
+                        <li>Add <strong>Fido plays fetch</strong> and examine
+                            the Relationship in the graph.</li>
+                        <li>Add where Fido plays, what he plays with, and who plays
+                            with him. Notice that these new Relationships are attached
+                            to the <code>plays</code> Relationship rather than to Fido.</li>
+                        <li>Add the fact that Suzie owns Fido. Why is this Relationship
+                            attached to Fido rather than to the activity?</li>
+                        <li>Open Fido's attributes and examine how the additional
+                            details are organized.</li>
+                    </ol>
+                    <p>There is no fixed limit to how much detail a Relationship can
+                    have. We could even add Relationships to these additional
+                    Relationships, all using the same Atomic Thought structure.</p>`
+            },
+            {
+                title: 'When Is Fido Wet? Conditions and Reasoning',
+                freshUKS: { root: 'Fido', facts: [3, 4, 5, 0] },
+                inheritChoices: false,
+                choices: [
+                    15, 0, 1, 12, 13,
+                    { ...fidoAttributes, toggleLabel: 'Attributes of Fido', showPendingRules: false },
+                    { component: 'condition-explanation', id: 'why', subject: 'Fido', relationshipType: 'is', target: 'wet' }
+                ],
+
+                copy: `Some knowledge is only applicable under certain conditions.
+                    Suppose Fido gets wet if he is outside AND it is raining.
+                    By representing the conditions explicitly, the system can not only
+                    determine when this knowledge applies but also explain why.`,
+
+                try: `
+                    <ol>
+                        <li>Add the conditional Relationship and open
+                            <strong>Attributes of Fido</strong> and
+                            <strong>Why? / Why not?</strong>.</li>
+                        <li>Initially, we know nothing about the weather.
+                            Examine the explanation. Not knowing whether it is raining
+                            is different from knowing that it is not raining.</li>
+                        <li>Make it rainy while Fido is inside. Then move Fido outside.
+                            Notice that <strong>wet</strong> appears among his attributes
+                            when both conditions are satisfied.</li>
+                        <li>Try different combinations of weather and location.
+                            Examine the explanation for each result.</li>
+                    </ol>
+                    <p>The <code>is.?</code> Relationship represents a possibility
+                    rather than an established fact. The conditional knowledge remains
+                    in the graph whether or not its conditions are satisfied.</p>
+                    <p>Also, failure to satisfy these conditions does not establish
+                    that Fido is dry — he might have been swimming!</p>`
+            },
+            {
+                title: 'Where Has Fido Been? Remembering Events',
+                freshUKS: { root: 'Fido', facts: [3, 4, 5, 6, 17, 0, 16] },
+                inheritChoices: false,
+                choices: [
+                    ...locationChoices, 18, 16,
+                    { component: 'event-history', subject: 'Fido' },
+                    fidoAttributes
+                ],
+
+                copy: `In Experiment 1, different locations represented conflicting
+                    information. But suppose Fido actually moves from one place to
+                    another. His previous locations are not incorrect; they are part
+                    of his history. We can represent this history using a sequence
+                    of Relationships.`,
+
+                try: `
+                    <ol>
+                        <li>Open Fido's attributes and event history. Move Fido among
+                            several locations, returning to some places more than once.</li>
+                        <li>Notice that only his current location appears as a
+                            <code>located</code> Relationship in his attributes.
+                            Previous locations become <code>was.located</code>
+                            Relationships in his event sequence.</li>
+                        <li>Explore the sequence in the graph. Follow the
+                            <code>NXT</code> Relationships to see the order in which
+                            previous locations are recorded.</li>
+                        <li>Follow the <code>VLU</code> Relationships to see the event
+                            represented by each sequence element. Notice that repeated
+                            visits to the same place reference the same Relationship.</li>
+                    </ol>
+                    <p>In Lab 3, the elements of our sequences were letters, colors,
+                    and musical notes. Here, the elements are entire Relationships.
+                    The very same sequence structure can represent a series of
+                    events or a memory of an experience.</p>`
+            }
+        ];
+
+        await startExperiment({
+            facts, steps, seedIfMissing: 'Fido', initialFacts: [3, 4, 5, 6, 0],
+            seedGroups: [{ thought: 'location', facts: [3, 4, 5] }]
+        });
+    </script>
+
+</body>
+</html>
