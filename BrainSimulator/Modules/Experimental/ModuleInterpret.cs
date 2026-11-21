@@ -6,324 +6,475 @@ using System.Collections.Generic;
 using System.Linq;
 using Pluralize.NET;
 using UKS;
-using KnowledgeStore = UKS.UKS;
 
 namespace BrainSimulator.Modules;
 
 public sealed class ModuleInterpret : ModuleBase
 {
+    #region Initialization
+
+    private Thought? hasWords;
+    private Thought? templateRoot;
+    private Thought? phraseRoot;
+    private Thought? patternRoot;
+    private Thought? vlu;
+    private Thought? means;
+    private Thought? templateSequenceSearch;
+    private Thought? matchesTemplate;
+    private Thought? isWildcard;
+    private Thought? wordType;
+    private Thought? unknownWordType;
+    private Thought? wordRoot;
+    private Thought? noun;
+    private Thought? classificationWrite;
+    private Thought? isA;
+    private Thought? spelled;
+
     public override void Fire() => Init();
 
-    public override void Initialize() => GetUKS();
+    public override void Initialize() => LoadLanguageKnowledge();
 
-    public Interpretation Interpret(string text)
+    public override void UKSInitializedNotification() => LoadLanguageKnowledge();
+
+    private void LoadLanguageKnowledge()
     {
         GetUKS();
-        Thought? classify = theUKS.Labeled("interpret:classify");
-        Thought? writeMarker = theUKS.Labeled("interpretWrite");
-        if (writeMarker is null || classify?.LinksTo.Any(link => link.LinkType == theUKS.Labeled("means") &&
-            link.To is Link output && output.LinkType?.HasAncestor(writeMarker) == true) != true)
+        string vocabularyFile = Path.Combine(AppContext.BaseDirectory, "UKSContent", "BasicWords.txt");
+        theUKS.ImportTextFile(vocabularyFile);
+        // theUKS.ImportTextFile(ContentPath("InterpretLanguage.txt"));
+
+        hasWords = theUKS.GetOrAddThought("hasWords", "LinkType");
+        means = theUKS.GetOrAddThought("means", "LinkType");
+        templateRoot = theUKS.GetOrAddThought("template", "LanguageElement");
+        phraseRoot = theUKS.GetOrAddThought("phrase", "LanguageElement");
+        // One selectable class for both fixed phrases and wildcard templates, separate from words.
+        patternRoot = theUKS.GetOrAddThought("languagePattern", "LanguageElement");
+        templateRoot.AddParent(patternRoot);
+        phraseRoot.AddParent(patternRoot);
+        vlu = theUKS.Labeled("VLU");
+        templateSequenceSearch = theUKS.GetOrAddThought("InterpretTemplateSearch", theUKS.Labeled("TemplateSequenceSearch"));
+        // A loaded network may predate this option. Initialization must create it, not just look it up.
+        templateSequenceSearch.AddLink("hasProperty", theUKS.GetOrAddThought("allowTrailingInput", "SearchOption"));
+        matchesTemplate = theUKS.GetOrAddThought("matchesTemplate", "LinkType");
+        isWildcard = theUKS.Labeled("isWildcard");
+        wordType = theUKS.Labeled("wordType");
+        unknownWordType = theUKS.Labeled("unknownWordType");
+        wordRoot = theUKS.Labeled("word");
+        noun = theUKS.Labeled("noun");
+        classificationWrite = theUKS.GetOrAddThought("is-a.!");
+        isA = theUKS.Labeled("is-a");
+        spelled = theUKS.Labeled("spelled");
+
+        // Repair older vocabulary entries with a redundant direct word parent.
+        foreach (Thought word in wordRoot!.Children.Where(word => word.GetTargetOfFirstLinkOfType(spelled) is not null).ToList())
         {
-            // Reload the supplied meanings if an older build installed action
-            // wrappers or parsed a nested MEANS target as an ordinary Thought.
-            if (classify is not null && theUKS.Labeled("means") is Thought means)
-                foreach (var category in new[] { "NounPhrase", "VerbPhrase", "Assertion", "Query", "Command" })
-                    foreach (var template in theUKS.Labeled(category)?.Descendants
-                        .Where(thought => thought.Label.StartsWith("interpret:", StringComparison.OrdinalIgnoreCase))
-                        .ToArray() ?? Array.Empty<Thought>())
-                        template.RemoveLinks(means);
-            if (classify is null) theUKS.ImportTextFile(ContentPath("BasicWords.txt"));
-            theUKS.ImportTextFile(ContentPath("InterpretLanguage.txt"));
+            if (word == wordType) continue;
+            if (!word.HasAncestor(wordType)) word.AddParent(unknownWordType!);
+            word.RemoveParent(wordRoot);
         }
-        return InterpretEnglish(theUKS, text);
-    }
 
-    public IReadOnlyList<Link> Execute(Interpretation interpretation)
-    {
-        GetUKS();
-        return ExecuteInterpretation(theUKS, interpretation);
-    }
+        // Move the previous experimental grouping when a saved network is reused.
+        foreach (string name in new[] { "nounPhrase", "verbPhrase", "sentenceTemplate" })
+            theUKS.Labeled(name)?.RemoveParent("phrase");
 
-    public void LoadExamples()
-    {
-        GetUKS();
-        theUKS.ImportTextFile(ContentPath("InterpretExamples.txt"));
-    }
-
-    private static string ContentPath(string name) => Path.Combine(AppContext.BaseDirectory, "UKSContent", name);
-
-    public enum InterpretationIntent { Assertion, Query, Command }
-
-    public sealed record Interpretation(
-        InterpretationIntent? Intent, IReadOnlyList<Link> Relationships,
-        IReadOnlyList<string> Trace, string? Diagnostic);
-
-    private static readonly char[] LanguagePunctuation = ".,;:!?\"'()[]{}".ToCharArray();
-    private static readonly char[] LanguageWordSeparators = { ' ', '\t', '\r', '\n' };
-
-    /// <summary>Extracts the surface words used by the UKS language modules.</summary>
-    private static IEnumerable<string> TokenizeLanguageInput(string text) =>
-        text.Split(LanguageWordSeparators, StringSplitOptions.RemoveEmptyEntries)
-            .Select(token => token.Trim(LanguagePunctuation).ToLowerInvariant())
-            .Where(token => token.Length > 0);
-
-    // A reading only lives during interpretation. Its symbol is a stored word
-    // or template Thought, so higher-level templates can match its ancestry.
-    private sealed record Reading(
-        Thought Symbol, Thought? Meaning, IReadOnlyList<Link> Relationships,
-        IReadOnlySet<Thought> CaptureSlots, IReadOnlyList<string> Trace);
-
-    private static bool AcceptsWildcard(Thought slot, Thought value)
-    {
-        var store = slot.Store;
-        // The interpreter uses singleton slots. The legacy Wildcard category
-        // groups the slots themselves and does not constrain their fillers.
-        var constraints = slot.AncestorsWithSelf.Where(item => item.HasProperty("isWildcard"))
-            .SelectMany(item => item.Parents)
-            .Where(parent => !parent.HasProperty("isWildcard") &&
-                !ReferenceEquals(parent, store.Labeled("Wildcard")) &&
-                !ReferenceEquals(parent, store.Labeled("Property")) &&
-                !ReferenceEquals(parent, store.Labeled("Thought")) &&
-                !ReferenceEquals(parent, store.Labeled("Unknown"))).ToArray();
-        return constraints.Length == 0 || constraints.Any(value.HasAncestor);
-    }
-
-    /// <summary>Recognizes hasWords templates and binds their means Relationships without executing them.</summary>
-    internal static Interpretation InterpretEnglish(KnowledgeStore store, string text)
-    {
-        var words = TokenizeLanguageInput(text ?? "").ToArray();
-        var trace = new List<string>();
-        Interpretation Failure(string message) => new(null, Array.Empty<Link>(), trace, message);
-        if (words.Length == 0) return Failure("Enter an English sentence.");
-        if (words.Length > 24) return Failure("This experiment supports up to 24 words per input.");
-        if (store.Labeled("hasWords") is not Thought hasWords || store.Labeled("means") is not Thought means)
-            return Failure("Load the language template file first.");
-
-        SequenceView[] Templates(string category) => store.Labeled(category) is Thought root
-            ? store.GetSequenceViews(root.Descendants).Where(view =>
-                view.LinkType == hasWords && view.Elements.Count > 0 &&
-                view.Owner.LinksTo.Any(link => link.LinkType == means)).ToArray()
-            : Array.Empty<SequenceView>();
-
-        var phraseTemplates = Templates("NounPhrase").Concat(Templates("VerbPhrase")).ToArray();
-        var sentences = new[]
+        // Phrase patterns, followed by a sentence composed of those phrases.
+        foreach (string definition in new[]
         {
-            (Intent: InterpretationIntent.Query, Templates: Templates("Query")),
-            (Intent: InterpretationIntent.Command, Templates: Templates("Command")),
-            (Intent: InterpretationIntent.Assertion, Templates: Templates("Assertion"))
-        };
-        var noCaptures = new HashSet<Thought>();
-        var chart = new List<Reading>[words.Length, words.Length + 1];
+            "[!->is-a->LinkType]",
+            "[!->hasProperty->setRelationship]",
+            "[nounPhrase->is-a->template]",
+            "[verbPhrase->is-a->template]",
+            "[nounPhrase1->is-a->nounPhrase]",
+            "[nounPhrase1->hasWords->^??.article ??.adjective ??.noun]",
+            "[nounPhrase1->means->??.noun]",
+            "[nounPhrase1->means->[??.noun->is.!->??.adjective]]",
+            "[nounPhrase2->is-a->nounPhrase]",
+            "[nounPhrase2->hasWords->^??.article ??.noun]",
+            "[nounPhrase2->means->??.noun]",
+            "[nounPhrase3->is-a->nounPhrase]",
+            "[nounPhrase3->hasWords->^??.noun]",
+            "[nounPhrase3->means->??.noun]",
+            "[verbPhrase1->is-a->verbPhrase]",
+            "[verbPhrase1->hasWords->^??.auxiliary ??.ongoingVerb]",
+            "[verbPhrase1->means->??.ongoingVerb]",
+            "[sentenceTemplate->is-a->template]",
+            "[sentenceTemplate->hasWords->^??.nounPhrase ??.verbPhrase ??.nounPhrase]",
+            "[classificationTemplate->is-a->template]",
+            "[classificationTemplate->hasWords->^??.nounPhrase ??.classificationPhrase ??.nounPhrase]",
+            "[copulaClassificationTemplate->is-a->template]",
+            "[copulaClassificationTemplate->hasWords->^??.nounPhrase ??.copula ??.nounPhrase]",
+            "[copulaAttributeTemplate->is-a->template]",
+            "[copulaAttributeTemplate->hasWords->^??.nounPhrase ??.copula ??.adjective]",
+            "[copulaAttributeTemplate->means->[??.nounPhrase->is.!->??.adjective]]",
+            "[possessionTemplate->is-a->template]",
+            "[possessionTemplate->hasWords->^??.nounPhrase ??.possessionVerb ??.nounPhrase]",
+            "[actionTemplate->is-a->template]",
+            "[actionTemplate->hasWords->^??.nounPhrase ??.actionVerb ??.nounPhrase]",
+            "[negativeAttributeTemplate->is-a->template]",
+            "[negativeAttributeTemplate->hasWords->^??.nounPhrase ??.copula ??.negationWord ??.adjective]",
+            "[negativeClassificationTemplate->is-a->template]",
+            "[negativeClassificationTemplate->hasWords->^??.nounPhrase ??.copula ??.negationWord ??.nounPhrase]",
+            "[attributeQueryTemplate->is-a->template]",
+            "[attributeQueryTemplate->hasWords->^??.copula ??.nounPhrase ??.adjective]",
+            "[classificationQueryTemplate->is-a->template]",
+            "[classificationQueryTemplate->hasWords->^??.copula ??.nounPhrase ??.nounPhrase]",
+            "[bareClassificationQueryTemplate->is-a->template]",
+            "[bareClassificationQueryTemplate->hasWords->^??.copula ??.noun ??.noun]",
+            "[wildcardAttributeQueryTemplate->is-a->template]",
+            "[wildcardAttributeQueryTemplate->hasWords->^w:what ??.copula ??.adjective]",
+            "[wildcardAttributeQueryTemplate->means->[??->is.?->??.adjective]]"
+        })
+            theUKS.ProcessSingleLine(definition);
+
+        // Positions distinguish subject and object even though both use ??.nounPhrase.
+        Thought sentenceTemplate = theUKS.Labeled("sentenceTemplate");
+        SeqElement pattern = (SeqElement)sentenceTemplate.GetTargetOfFirstLinkOfType("hasWords");
+        var meaning = new Link(pattern, pattern.NXT, pattern.NXT.NXT);
+        sentenceTemplate.AddLink(means, meaning);
+
+        foreach (string name in new[] { "classificationTemplate", "copulaClassificationTemplate" })
+        {
+            Thought classificationTemplate = theUKS.Labeled(name);
+            SeqElement classificationPattern = (SeqElement)classificationTemplate.GetTargetOfFirstLinkOfType("hasWords");
+            var classificationMeaning = new Link(classificationPattern, classificationWrite!, classificationPattern.NXT.NXT);
+            classificationTemplate.AddLink(means, classificationMeaning);
+        }
+
+        // These verbs supply their own executable relationship type through MEANS.
+        foreach (string name in new[] { "possessionTemplate", "actionTemplate" })
+        {
+            Thought template = theUKS.Labeled(name);
+            SeqElement head = (SeqElement)template.GetTargetOfFirstLinkOfType("hasWords");
+            template.AddLink(means, new Link(head, head.NXT, head.NXT.NXT));
+        }
+        foreach (string name in new[] { "negativeAttributeTemplate", "negativeClassificationTemplate",
+            "attributeQueryTemplate", "classificationQueryTemplate", "bareClassificationQueryTemplate" })
+        {
+            Thought template = theUKS.Labeled(name);
+            SeqElement head = (SeqElement)template.GetTargetOfFirstLinkOfType("hasWords");
+            bool negative = name.StartsWith("negative", StringComparison.Ordinal);
+            bool classification = name.Contains("Classification") || name == "classificationQueryTemplate";
+            Thought type = theUKS.GetOrAddThought((classification ? "is-a" : "is") + (negative ? ".not.!" : ".?"));
+            template.AddLink(means, negative
+                ? new Link(head, type, head.NXT.NXT.NXT)
+                : new Link(head.NXT, type, head.NXT.NXT));
+        }
+
+        // Initially teach the ten digit quantities explicitly. Each is ordinary UKS knowledge.
+        // This keeps quantity composition out of the interpretation code while we review it.
+        for (int quantity = 0; quantity <= 9; quantity++)
+        {
+            string name = "quantityPossession" + quantity;
+            theUKS.ProcessSingleLine($"[{name}->is-a->template]");
+            theUKS.ProcessSingleLine($"[{name}->hasWords->^??.nounPhrase ??.possessionVerb w:{quantity} ??.nounPhrase]");
+            Thought template = theUKS.Labeled(name);
+            SeqElement head = (SeqElement)template.GetTargetOfFirstLinkOfType("hasWords");
+            Thought type = theUKS.GetOrAddThought($"has.{quantity}.!");
+            template.AddLink(means, new Link(head, type, head.NXT.NXT.NXT));
+        }
+    }
+
+    #endregion
+
+    public string Input(string sentence, bool rememberUnknownWords = false)
+    {
+        try
+        {
+            Thought? sentenceThought = GetSequenceFromText(sentence, rememberUnknownWords);
+            if (sentenceThought is null) return "Enter a sentence.";
+
+            List<Thought> templates = GetTemplates(sentenceThought);
+            List<Thought> meanings = GetMeanings(sentenceThought);
+            List<Link> executed = Execute(meanings);
+            string words = "Sentence input: "+ sentenceThought.GetTargetOfFirstLinkOfType("hasWords");
+            string templateText = templates.Count == 0
+                ? "No matching templates."
+                : "Templates\n" + string.Join("\n", templates.Select(
+                    template => template.Label + "    " + template.GetTargetOfFirstLinkOfType("hasWords").ToString()));
+            SeqElement sequence = (SeqElement)sentenceThought.GetTargetOfFirstLinkOfType("hasWords");
+            string attachments = string.Join("\n", theUKS.EnumerateSequenceElements(sequence).Select(element =>
+                element.VLU.Label + "    " + string.Join(", ", element.LinksTo
+                    .Where(link => link.LinkType == matchesTemplate).Select(link => link.To.Label))));
+            string meaningText = string.Join("\n", meanings.Select(meaning => meaning.ToString()));
+            string output = words + "\n\n" + templateText + "\n\nWord attachments\n" + attachments +
+                "\n\nMeanings\n" + meaningText;
+            bool isQuery = meanings.OfType<Link>().Any(action => action.LinkType?.HasProperty("isPossible") == true);
+            if (executed.Count > 0 && !isQuery)
+                output += "\n\nExecuted relationships\n" + string.Join("\n", executed);
+            if (isQuery)
+                output += "\n\nQuery results\n" + (executed.Count == 0
+                    ? "No matching relationships." : string.Join("\n", executed));
+            return output;
+        }
+        catch (FormatException error)
+        {
+            return error.Message;
+        }
+    }
+
+    #region GetSequenceFromText
+
+    // Each successful input is retained under a new SentenceIn Thought for inspection.
+    public Thought? GetSequenceFromText(string sentence, bool rememberUnknownWords = false)
+    {
         var pluralizer = new Pluralizer();
+        var words = (sentence ?? "").Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(token => token.Trim('.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}'))
+            .Where(token => token.Length > 0)
+            .Select(token => token.ToLowerInvariant());
+        var wordThoughts = new List<Thought>();
+        var singularizedPositions = new List<int>();
         var unknown = new List<string>();
-        for (int i = 0; i < words.Length; i++)
-        {
-            string surface = words[i];
-            Thought? word = store.Labeled("w:" + surface);
-            // An explicit surface form takes precedence. Only use singularization
-            // to fall back to a known noun, so verb and modifier forms stay data-driven.
-            if (word is null && store.Labeled("w:" + pluralizer.Singularize(surface)) is Thought noun &&
-                noun.HasAncestor("noun")) word = noun;
-            if (word is null)
-            {
-                unknown.Add(surface);
-                trace.Add($"Unknown word  {surface}");
-                continue;
-            }
-            var meaning = word.GetTargetOfHighestWeightLinkOfType(means.Label);
-            trace.Add(meaning is null ? $"Word  {surface} → {word.Label}" :
-                $"Word  {surface} → {word.Label} → {meaning.Label}");
-            chart[i, i + 1] = new() { new Reading(word, meaning, Array.Empty<Link>(), noCaptures, Array.Empty<string>()) };
-        }
-        if (unknown.Count > 0) return Failure($"Unknown words: {string.Join(", ", unknown.Distinct())}.");
 
-        IEnumerable<Reading[]> Match(SequenceView template, int start, int end, bool phrase)
+        foreach (string spelling in words)
         {
-            var elements = template.Elements.ToArray();
-            var input = new Reading[elements.Length];
-            IEnumerable<Reading[]> Align(int slot, int position)
-            {
-                if (slot == input.Length)
+            Thought? word = ModuleWord.FindWordsBySpelling(theUKS, spelling).FirstOrDefault();
+            string rememberedSpelling = spelling;
+            bool singularized = false;
+            if (word is null || !word.Parents.Any(parent => parent != wordType &&
+                parent != unknownWordType && parent.HasAncestor(wordType)))
+            { // Try singularizing the word and looking again.
+                string singular = pluralizer.Singularize(spelling);
+                if (singular != spelling)
                 {
-                    if (position == end) yield return input.ToArray();
-                    yield break;
-                }
-                Thought element = elements[slot];
-                bool wildcard = element.HasProperty("isWildcard");
-                int firstUse = wildcard ? Array.IndexOf(elements, element, 0, slot) : -1;
-                int lastCut = end - (input.Length - slot - 1);
-                for (int cut = position + 1; cut <= lastCut; cut++)
-                {
-                    if (chart[position, cut] is not { } readings) continue;
-                    foreach (var reading in readings)
-                    {
-                        // Unary phrase templates consume words. Multi-part templates
-                        // consume shorter spans, so reductions cannot loop.
-                        if (phrase && input.Length == 1 && reading.Trace.Count != 0) continue;
-                        if (wildcard ? !AcceptsWildcard(element, reading.Symbol) : !ReferenceEquals(element, reading.Symbol))
-                            continue;
-                        if (firstUse >= 0 && (!ReferenceEquals(input[firstUse].Symbol, reading.Symbol) ||
-                            !ReferenceEquals(input[firstUse].Meaning, reading.Meaning))) continue;
-                        input[slot] = reading;
-                        foreach (var match in Align(slot + 1, cut)) yield return match;
-                    }
+                    word = ModuleWord.FindWordsBySpelling(theUKS, singular)
+                        .FirstOrDefault(candidate => candidate.HasAncestor(noun) ||
+                            !candidate.Parents.Any(parent => parent != wordType &&
+                                parent != unknownWordType && parent.HasAncestor(wordType)));
+                    rememberedSpelling = singular;
+                    singularized = true;
                 }
             }
-            return Align(0, start);
+            // Remember the spelling now. Grammatical classification is a separate action.
+            if (word is null && rememberUnknownWords) word = ModuleWord.RememberSpelling(theUKS, rememberedSpelling, out _);
+
+            if (word is not null && !word.Parents.Any(parent => parent != wordType &&
+                parent != unknownWordType && parent.HasAncestor(wordType)))
+            {
+                word.AddParent(unknownWordType!);
+                word.RemoveParent(wordRoot!);
+                word.RemoveParent(wordType!);
+            }
+
+            if (word is null) unknown.Add(spelling);
+            else
+            {
+                // Resolve spelling to a named concept at the text boundary. Recognition
+                // below works entirely with Thoughts, including a newly heard word.
+                if (word.GetTargetOfFirstLinkOfType(means) is null)
+                    word.AddLink(means!, theUKS.GetOrAddThought(rememberedSpelling));
+                if (singularized) singularizedPositions.Add(wordThoughts.Count);
+                wordThoughts.Add(word);
+            }
         }
 
-        Reading Compose(SequenceView template, Reading[] input, string description)
+        if (unknown.Count > 0) throw new FormatException($"Unknown words: {string.Join(", ", unknown.Distinct())}.");
+        if (wordThoughts.Count == 0) return null;
+
+        theUKS.GetOrAddThought("Sentence", "LanguageElement");
+        Thought sentenceThought = theUKS.GetOrAddThought("SentenceIn*", "Sentence");
+        SeqElement sequence = theUKS.AddSequenceAndLink(sentenceThought, hasWords, wordThoughts, allowCompression: false);
+        SeqElement element = sequence;
+        for (int position = 0; element is not null; position++, element = element.NXT)
+            if (singularizedPositions.Contains(position))
+                element.AddLink("hasProperty", theUKS.GetOrAddThought("singularized", "property"));
+
+        return sentenceThought;
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Search from the sentence itself. Words retain their original VLU links; recognized
+    /// phrases add a languagePattern VLU facet covering the same sentence elements.
+    /// Search can therefore use the word or its current recognized phrase without a copied input.
+    /// </summary>
+    public List<Thought> GetTemplates(Thought sentenceThought)
+    {
+        var templates = new List<Thought>(); // Diagnostic summary only, assembled from the UKS below.
+        if (patternRoot is null || vlu is null || matchesTemplate is null || templateSequenceSearch is null)
+            return templates;
+        if (sentenceThought.GetTargetOfFirstLinkOfType(hasWords) is not SeqElement first) return templates;
+
+        bool added;
+        do
         {
-            var bindings = new Dictionary<Thought, Thought>();
-            for (int i = 0; i < input.Length; i++)
-                if (input[i].Meaning is { } meaning && template.Elements[i].HasProperty("isWildcard"))
-                    bindings.TryAdd(template.Elements[i], meaning);
-            Thought? Resolve(Thought? thought) => thought is null ? null : bindings.GetValueOrDefault(thought, thought);
-            Link Bind(Link prototype, Thought? source = null)
+            added = false;
+            for (SeqElement? start = first; start is not null;)
             {
-                var type = Resolve(prototype.LinkType);
-                if (type is not null && (type.HasProperty("setRelationship") || type.HasProperty("isPossible")))
-                    type = store.GetActionRelationshipType(type);
-                return new Link(store) { From = source ?? Resolve(prototype.From), LinkType = type, To = Resolve(prototype.To) };
-            }
-
-            var meanings = template.Owner.LinksTo.Where(link => link.LinkType == means).Select(link => link.To).ToArray();
-            var relationships = meanings.OfType<Link>().Select(link => Bind(link)).ToList();
-            var classification = relationships.FirstOrDefault(link => link.LinkType == store.Labeled("is-a"));
-            foreach (var child in input)
-            {
-                foreach (var detail in child.Relationships)
+                // Keep the unprocessed search result visible in the debugger.
+                var sequenceMatches = theUKS.FindSequencesByActivation(start, templateSequenceSearch,
+                    alternativeClass: patternRoot, matchClass: patternRoot);
+                var matches = new List<Thought>();
+                int longest = 0;
+                foreach (var sequenceMatch in sequenceMatches)
                 {
-                    // In "Fido is a brown dog", the description of the class
-                    // phrase constrains Fido, the instance being classified.
-                    var source = classification is not null && child.Meaning is not null &&
-                        ReferenceEquals(classification.To, child.Meaning) && ReferenceEquals(detail.From, child.Meaning)
-                        ? classification.From : null;
-                    relationships.Add(Bind(detail, source));
+                    int length = theUKS.GetSequenceLength(sequenceMatch.seqNode);
+                    if (longest != 0 && length != longest) break;
+                    longest = length;
+                    var referringThoughts = theUKS.GetReferringThoughts(sequenceMatch.seqNode, hasWords!);
+                    foreach (Thought template in referringThoughts)
+                        if (template.HasAncestor(patternRoot) && !matches.Contains(template)) matches.Add(template);
                 }
-            }
-            var value = meanings.FirstOrDefault(thought => thought is not null && thought is not Link);
-            // Only slots in the chosen parse can be unfilled captures. Another
-            // learned template may use an answer wildcard as an input slot.
-            var captures = input.SelectMany(item => item.CaptureSlots)
-                .Concat(template.Elements.Where(thought => thought.HasProperty("isWildcard"))).ToHashSet();
-            return new Reading(template.Owner, Resolve(value), relationships, captures,
-                input.SelectMany(item => item.Trace).Append(description).ToArray());
-        }
-
-        for (int length = 1; length <= words.Length; length++)
-            for (int start = 0; start + length <= words.Length; start++)
-            {
-                int end = start + length;
-                var readings = chart[start, end] ??= new();
-                foreach (var template in phraseTemplates)
+                if (matches.Count == 0)
                 {
-                    var matches = Match(template, start, end, phrase: true)
-                        .Select(input => Compose(template, input,
-                            $"Phrase  {string.Join(" ", words[start..end])} → {template.Owner.Label}")).ToArray();
-                    readings.AddRange(matches);
-                }
-            }
-
-        string? incomplete = null;
-        IReadOnlyList<string>? incompleteTrace = null;
-        bool question = text?.TrimEnd().EndsWith('?') == true;
-        foreach (var group in sentences)
-        {
-            if (question && group.Intent != InterpretationIntent.Query) continue;
-            foreach (var template in group.Templates.OrderByDescending(template =>
-                template.Elements.Count(item => !item.HasProperty("isWildcard"))))
-            foreach (var input in Match(template, 0, words.Length, phrase: false))
-            {
-                var reading = Compose(template, input, $"Template  {template.Owner.Label}");
-                string? Unresolved(Thought? thought, string role)
-                {
-                    if (thought is null) return $"{role} has no meaning";
-                    if (reading.CaptureSlots.Contains(thought) ||
-                        group.Intent == InterpretationIntent.Assertion && thought.HasProperty("isWildcard"))
-                        return $"{role} {thought.Label}";
-                    return null;
-                }
-                var missing = reading.Relationships.SelectMany(link => new[]
-                    {
-                        Unresolved(link.From, "Source"), Unresolved(link.LinkType, "Relationship type"),
-                        Unresolved(link.To, "Target")
-                    }).OfType<string>().Distinct().ToArray();
-                if (reading.Relationships.Count == 0 || missing.Length != 0)
-                {
-                    if (incomplete is null)
-                    {
-                        incomplete = reading.Relationships.Count == 0
-                            ? $"Template {template.Owner.Label} matched but produced no Relationships."
-                            : $"Template {template.Owner.Label} matched with unresolved slots. {string.Join(", ", missing)}.";
-                        incompleteTrace = reading.Trace;
-                    }
+                    // Skip the complete phrase already recognized here, rather than entering its middle.
+                    Thought? phrase = theUKS.GetElementValue(start, patternRoot);
+                    while (phrase is not null && start.NXT is SeqElement next &&
+                        ReferenceEquals(theUKS.GetElementValue(next, patternRoot), phrase)) start = next;
+                    start = start.NXT;
                     continue;
                 }
-                trace.AddRange(reading.Trace);
-                return new Interpretation(group.Intent, reading.Relationships
-                    .DistinctBy(link => (link.From, link.LinkType, link.To)).ToArray(), trace, null);
+
+                bool changed = false;
+                SeqElement last = start;
+                foreach (Thought template in matches)
+                {
+                    SeqElement? input = start;
+                    SeqElement? position = template.GetTargetOfFirstLinkOfType(hasWords) as SeqElement;
+                    for (; position is not null && input is not null; position = position.NXT)
+                    {
+                        Thought? phrase = theUKS.GetElementValue(input, patternRoot);
+                        Thought value = phrase ?? input.VLU;
+                        last = input;
+                        while (phrase is not null && last.NXT is SeqElement next &&
+                            ReferenceEquals(theUKS.GetElementValue(next, patternRoot), phrase)) last = next;
+                        if (value.HasAncestor(unknownWordType) && position.VLU.HasProperty(isWildcard))
+                            foreach (Thought type in position.VLU.Parents.Where(parent => parent.HasAncestor(wordType)))
+                                value.AddLink(isA!, type);
+                        // Preserve every winning match on every covered original word.
+                        for (; input is not null; input = input.NXT)
+                        {
+                            int count = input.LinksTo.Count;
+                            input.AddLink(matchesTemplate, template);
+                            changed |= input.LinksTo.Count > count;
+                            if (ReferenceEquals(input, last)) { input = input.NXT; break; }
+                        }
+                    }
+                }
+                // Preserve the word facet, and select one tied winner as the current phrase facet.
+                for (SeqElement? element = start; element is not null; element = element.NXT)
+                {
+                    Thought word = element.VLU;
+                    if (word.Parents.Any(parent => parent != unknownWordType && parent.HasAncestor(wordType)))
+                    {
+                        word.RemoveParent(unknownWordType!);
+                        word.RemoveParent(wordRoot!);
+                    }
+                    if (!ReferenceEquals(theUKS.GetElementValue(element, patternRoot), matches[0]))
+                    {
+                        foreach (Link link in element.LinksTo.Where(link => link.LinkType == vlu && link.To.HasAncestor(patternRoot)))
+                            element.RemoveLink(link);
+                        element.AddLink(vlu, matches[0]);
+                        changed = true;
+                    }
+                    if (ReferenceEquals(element, last)) break;
+                }
+                added |= changed;
+                // Retry here immediately: the recognized subject may enable a whole sentence.
+                if (!changed) start = last.NXT;
             }
-        }
-        if (incomplete is not null)
+        } while (added);
+        for (SeqElement? element = first; element is not null; element = element.NXT)
+            foreach (Link link in element.LinksTo)
+                if (link.LinkType == matchesTemplate && !templates.Contains(link.To)) templates.Add(link.To);
+        return templates;
+    }
+    // Resolve each occurrence separately. Its matchesTemplate Relationship carries its MEANS results.
+    public List<Thought> GetMeanings(Thought sentenceThought)
+    {
+        var meanings = new List<Thought>();
+        if (means is null || matchesTemplate is null || isWildcard is null) return meanings;
+        if (sentenceThought.GetTargetOfFirstLinkOfType("hasWords") is not SeqElement first) return meanings;
+
+        bool added;
+        do
         {
-            trace.AddRange(incompleteTrace!);
-            return Failure(incomplete);
-        }
-        var longest = Enumerable.Range(0, words.Length)
-            .SelectMany(start => Enumerable.Range(start + 1, words.Length - start)
-                .SelectMany(end => chart[start, end].Select(reading => (Length: end - start, reading.Trace))))
-            .Where(match => match.Trace.Count > 0).OrderByDescending(match => match.Length).FirstOrDefault();
-        if (longest.Trace is not null) trace.AddRange(longest.Trace);
-        return Failure("Known words were recognized, but no sentence template matched the full input.");
+            added = false;
+            SeqElement? previous = null;
+            for (SeqElement? start = first; start is not null; previous = start, start = start.NXT)
+                foreach (Link match in start.LinksTo.Where(link => link.LinkType == matchesTemplate))
+                {
+                    // Work at the first word of this template's contiguous run.
+                    if (previous?.LinksTo.Any(link => link.LinkType == matchesTemplate && link.To == match.To) == true)
+                        continue;
+                    if (match.To.GetTargetOfFirstLinkOfType("hasWords") is not SeqElement pattern) continue;
+                    SeqElement last = start;
+                    while (last.NXT is SeqElement next &&
+                        next.LinksTo.Any(link => link.LinkType == matchesTemplate && link.To == match.To))
+                        last = next;
+
+                    var replacements = new List<Thought?>();
+                    SeqElement? input = start;
+                    SeqElement? position = pattern;
+                    for (; position is not null && input is not null && input != last.NXT; position = position.NXT)
+                    {
+                        Thought expected = position.VLU;
+                        var classes = expected.Parents.Where(parent => !parent.HasProperty(isWildcard)).ToList();
+                        bool acceptsWord = expected.HasProperty(isWildcard)
+                            ? classes.Count == 0 || classes.Any(input.VLU.HasAncestor)
+                            : ReferenceEquals(expected, input.VLU);
+                        Thought? value;
+                        if (acceptsWord)
+                        {
+                            value = input.VLU.LinksTo.FirstOrDefault(link => link.LinkType == means)?.To;
+                        }
+                        else
+                        {
+                            // A larger template consumes the meaning of an already resolved phrase.
+                            Link? child = input.LinksTo.FirstOrDefault(link => link.LinkType == matchesTemplate &&
+                                link.To != match.To && classes.Any(link.To.HasAncestor));
+                            value = child?.LinksTo.FirstOrDefault(link => link.LinkType == means && link.To is not Link)?.To;
+                            if (value is null) break;
+                            while (input != last && input.NXT is SeqElement phraseNext &&
+                                phraseNext.LinksTo.Any(link => link.LinkType == matchesTemplate && link.To == child!.To))
+                                input = phraseNext;
+                        }
+                        replacements.Add(value);
+                        input = input.NXT;
+                    }
+                    if (position is not null || !ReferenceEquals(input, last.NXT)) continue;
+
+                    // Substitute either a wildcard or an explicit template position in each MEANS pattern.
+                    foreach (Link definition in match.To.LinksTo.Where(link => link.LinkType == means))
+                    {
+                        var operands = definition.To is Link relationship
+                            ? new List<Thought?> { relationship.From, relationship.LinkType, relationship.To }
+                            : new List<Thought?> { definition.To };
+                        for (int operand = 0; operand < operands.Count; operand++)
+                        {
+                            int index = 0;
+                            for (SeqElement? templatePosition = pattern; templatePosition is not null;
+                                templatePosition = templatePosition.NXT, index++)
+                                if (ReferenceEquals(operands[operand], templatePosition) ||
+                                    ReferenceEquals(operands[operand], templatePosition.VLU))
+                                {
+                                    operands[operand] = index < replacements.Count ? replacements[index] : null;
+                                    break;
+                                }
+                        }
+                        if (operands.Any(value => value is null)) continue;
+                        Thought resolved = definition.To is Link
+                            ? new Link(operands[0]!, operands[1]!, operands[2]!)
+                            : operands[0]!;
+                        int count = match.LinksTo.Count;
+                        Link? result = match.AddLink(means, resolved);
+                        if (match.LinksTo.Count > count) added = true;
+                        if (result?.To is Thought meaning && !meanings.Any(existing => existing == meaning))
+                            meanings.Add(meaning);
+                    }
+                }
+        } while (added);
+
+        return meanings;
     }
 
-    /// <summary>Applies assertions or joins UKS query results on shared wildcard Thoughts.</summary>
-    internal static IReadOnlyList<Link> ExecuteInterpretation(KnowledgeStore store, Interpretation interpretation)
+    public List<Link> Execute(List<Thought> meanings)
     {
-        if (interpretation.Intent is null || interpretation.Diagnostic is not null) return Array.Empty<Link>();
-        if (interpretation.Relationships.Any(link => !ReferenceEquals(link.Store, store) ||
-            new[] { link.From, link.LinkType, link.To }.Any(thought =>
-                thought is null || !ReferenceEquals(store.Labeled(thought.Label), thought))))
-            throw new ArgumentException("The interpretation references Thoughts that are unavailable in the current UKS.",
-                nameof(interpretation));
-        if (interpretation.Intent == InterpretationIntent.Assertion)
-            return interpretation.Relationships.Select(link => store.AddStatement(link.From!, link.LinkType!, link.To))
-                .OfType<Link>().ToArray();
-
-        // SearchForRelationships supplies each result set. The join preserves the
-        // identity of a wildcard reused by more than one Relationship.
-        var rows = new List<(Dictionary<Thought, Thought> Bindings, List<Link> Links)> { (new(), new()) };
-        foreach (var pattern in interpretation.Relationships)
-        {
-            var next = new List<(Dictionary<Thought, Thought>, List<Link>)>();
-            foreach (var row in rows)
-            {
-                Thought Bound(Thought thought) => row.Bindings.GetValueOrDefault(thought, thought);
-                var query = new Link(Bound(pattern.From!), Bound(pattern.LinkType!), Bound(pattern.To!));
-                foreach (var found in store.SearchForRelationships(query))
-                {
-                    var values = new Dictionary<Thought, Thought>(row.Bindings);
-                    bool MatchPart(Thought slot, Thought? value, bool type = false)
-                    {
-                        if (value is null || value.HasProperty("isWildcard")) return false;
-                        if (!slot.HasProperty("isWildcard"))
-                            return type ? value.HasAncestor(slot) &&
-                                value.HasProperty("isNegative") == slot.HasProperty("isNegative") : value == slot;
-                        if (!AcceptsWildcard(slot, value)) return false;
-                        if (values.TryGetValue(slot, out var previous)) return previous == value;
-                        values.Add(slot, value);
-                        return true;
-                    }
-                    if (found.LinkType?.HasProperty("isPossible") == true || found.LinkType?.HasProperty("setRelationship") == true)
-                        continue;
-                    if (MatchPart(pattern.From!, found.From) && MatchPart(pattern.LinkType!, found.LinkType, type: true) &&
-                        MatchPart(pattern.To!, found.To))
-                        next.Add((values, new List<Link>(row.Links) { found }));
-                }
-            }
-            rows = next;
-        }
-        return rows.SelectMany(row => row.Links).DistinctBy(link => (link.From, link.LinkType, link.To)).ToArray();
+        var results = new List<Link>();
+        foreach (Thought meaning in meanings)
+            if (meaning is Link action)
+                results.AddRange(theUKS.ApplyTestOrSetAction(action));
+        return results;
     }
 }

@@ -51,6 +51,21 @@
 [w:bird->means->bird]
 [w:rover->means->rover]
 
+[w:the->spelled->^t h e]
+[w:are->spelled->^a r e]
+[w:which->spelled->^w h i c h]
+[w:not->spelled->^n o t]
+[w:show->spelled->^s h o w]
+[w:can->spelled->^c a n]
+[w:chase->spelled->^c h a s e]
+[w:chases->spelled->^c h a s e s]
+[w:chasing->spelled->^c h a s i n g]
+[w:bark->spelled->^b a r k]
+[w:barks->spelled->^b a r k s]
+[w:barking->spelled->^b a r k i n g]
+[w:bird->spelled->^b i r d]
+[w:rover->spelled->^r o v e r]
+
 # Pattern slots inherit from ?? and the class of eligible fillers.
 [slot:noun->is-a->??]
 [slot:noun->is-a->noun]

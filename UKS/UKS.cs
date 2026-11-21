@@ -396,9 +396,9 @@ public partial class UKS
                 }
                 else
                 {
-                    Thought? t1 = label1.StartsWith("w:")
+                    Thought? t1 = Labeled(label1) ?? (label1.StartsWith("w:")
                         ? GetOrAddThought(label1, "word")
-                        : GetOrAddThought(label1);
+                        : GetOrAddThought(label1));
                     if (t1 is not null) targets.Add(t1);
                 }
             }

@@ -254,16 +254,14 @@ public class ModuleText : ModuleBase
     {
         UKS.UKS uks = MainWindow.theUKS;
         Thought exemplarRoot = uks?.Labeled("ActionExemplar");
-        SequenceView phraseSequence = uks?.GetSequenceViews(phrase)
-            .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+        IEnumerable<Thought> phraseSequence = GetSequenceValues(phrase, "hasWords");
         if (exemplarRoot is null || phraseSequence is null) return null;
 
         Thought retVal = exemplarRoot.Children.FirstOrDefault(candidate =>
         {
-            SequenceView exemplarSequence = uks.GetSequenceViews(candidate)
-                .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+            IEnumerable<Thought> exemplarSequence = GetSequenceValues(candidate, "hasWords");
             bool sequencesMatch = exemplarSequence is not null &&
-                exemplarSequence.Elements.SequenceEqual(phraseSequence.Elements);
+                exemplarSequence.SequenceEqual(phraseSequence);
             return sequencesMatch;
         });
         return retVal;
@@ -335,11 +333,19 @@ public class ModuleText : ModuleBase
         return retVal;
     }
 
+    // Follow the UKS sequence links, including any reused subsequences.
+    private static IEnumerable<Thought> GetSequenceValues(Thought source, string relationshipType)
+    {
+        SeqElement target = source?.LinksTo.FirstOrDefault(link =>
+            link.LinkType?.Label == relationshipType && link.To is SeqElement)?.To as SeqElement;
+        if (target is null) return null;
+        return source.Store.EnumerateSequenceElements(target.FRST ?? target).Select(element => element.VLU).OfType<Thought>();
+    }
+
     private static IReadOnlyList<Thought> GetPhraseElements(Thought phrase)
     {
-        SequenceView sequence = MainWindow.theUKS.GetSequenceViews(phrase)
-            .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
-        IReadOnlyList<Thought> retVal = sequence?.Elements ?? Array.Empty<Thought>();
+        IEnumerable<Thought> sequence = GetSequenceValues(phrase, "hasWords");
+        IReadOnlyList<Thought> retVal = sequence?.ToList() ?? (IReadOnlyList<Thought>)Array.Empty<Thought>();
         return retVal;
     }
 
@@ -426,8 +432,7 @@ public class ModuleText : ModuleBase
     private static bool ActionExemplarHasWords(Thought exemplar)
     {
         if (exemplar is null) return false;
-        bool retVal = MainWindow.theUKS.GetSequenceViews(exemplar)
-            .Any(view => view.LinkType?.Label == "hasWords");
+        bool retVal = GetSequenceValues(exemplar, "hasWords") is not null;
         return retVal;
     }
 
@@ -459,7 +464,6 @@ public class ModuleText : ModuleBase
     {
         ingestedPhrase = null;
         var theUKS = MainWindow.theUKS;
-        Thought wordRoot = theUKS.Labeled("Word");
         if (string.IsNullOrEmpty(phrase))
         {
             string retVal = "Null input";
@@ -487,7 +491,7 @@ public class ModuleText : ModuleBase
                 // ModuleWord returns null while its attention/mental-model
                 // streaming path is active. ModuleText still needs a stable
                 // word value now so the observed phrase can be learned.
-                wordThought ??= theUKS.Labeled("w:" + clean) ?? theUKS.GetOrAddThought("w:" + clean, "Word");
+                wordThought ??= ModuleWord.RememberSpelling(theUKS, clean, out _);
                 if (wordThought is not null)
                 {
                     wordsInPhrase.Add(wordThought);
@@ -696,11 +700,10 @@ public class ModuleText : ModuleBase
         }
 
         Thought assertionRoot = GetLearnedTemplateCategory(query: false);
-        SequenceView querySequence = queryTemplate is null
+        IEnumerable<Thought> querySequence = queryTemplate is null
             ? null
-            : MainWindow.theUKS.GetSequenceViews(queryTemplate)
-                .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
-        HashSet<Thought> queryFixedWords = querySequence?.Elements
+            : GetSequenceValues(queryTemplate, "hasWords");
+        HashSet<Thought> queryFixedWords = querySequence?
             .Where(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty))
             .ToHashSet() ?? new HashSet<Thought>();
 
@@ -710,27 +713,26 @@ public class ModuleText : ModuleBase
                 Link operation = GetParameterizedTemplateOperation(template);
                 Thought operationRelationship = theUKS.GetActionRelationshipType(
                     operation?.LinkType);
-                SequenceView sequence = MainWindow.theUKS.GetSequenceViews(template)
-                    .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+                IEnumerable<Thought> sequence = GetSequenceValues(template, "hasWords");
                 if (operation?.From is null || operation.To is null || operationRelationship is null ||
                     relationship.LinkType.HasAncestor(operationRelationship) != true || sequence is null)
                     return default;
 
-                int sourcePosition = sequence.Elements.ToList().FindIndex(element => element == operation.From);
-                int targetPosition = sequence.Elements.ToList().FindIndex(element => element == operation.To);
+                int sourcePosition = sequence.ToList().FindIndex(element => element == operation.From);
+                int targetPosition = sequence.ToList().FindIndex(element => element == operation.To);
                 if (sourcePosition < 0 || targetPosition <= sourcePosition) return default;
 
                 bool sourceCompatible = SurfaceWordMatchesTemplateElement(
-                    sourceSurfaceWord, sequence.Elements[sourcePosition]);
-                int sharedFixedWords = sequence.Elements.Count(element =>
+                    sourceSurfaceWord, sequence.ElementAt(sourcePosition));
+                int sharedFixedWords = sequence.Count(element =>
                     !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty) &&
                     queryFixedWords.Contains(element));
                 int evidence = template.LinksTo.Count(link => link.LinkType?.Label == "evidence");
                 Thought targetWord = GetSurfaceWordForTemplateElement(
-                    relationship.To, sequence.Elements[targetPosition]);
+                    relationship.To, sequence.ElementAt(targetPosition));
                 bool targetCompatible = targetWord is not null &&
                     SurfaceWordMatchesTemplateElement(
-                        targetWord, sequence.Elements[targetPosition]);
+                        targetWord, sequence.ElementAt(targetPosition));
                 AnswerTemplateCandidate retVal = new(
                     template, sequence, sourcePosition, targetPosition,
                     sourceCompatible, targetCompatible, sharedFixedWords, evidence,
@@ -768,7 +770,7 @@ public class ModuleText : ModuleBase
         }
 
         List<string> words = new() { sourceText };
-        foreach (Thought connector in selected.Sequence.Elements
+        foreach (Thought connector in selected.Sequence
             .Skip(selected.SourcePosition + 1)
             .Take(selected.TargetPosition - selected.SourcePosition - 1))
         {
@@ -815,7 +817,8 @@ public class ModuleText : ModuleBase
             phrase?.GetTargetOfFirstLinkOfType("hasWords") as SeqElement;
         if (phraseSequence is not null)
         {
-            foreach (Thought phraseWord in uks.FlattenSequence(phraseSequence))
+            foreach (Thought phraseWord in uks.EnumerateSequenceElements(phraseSequence)
+                .Select(element => element.VLU).OfType<Thought>())
             {
                 words.Add(phraseWord.Label.StartsWith(
                     "w:", StringComparison.OrdinalIgnoreCase)
@@ -914,7 +917,7 @@ public class ModuleText : ModuleBase
 
     private sealed record AnswerTemplateCandidate(
         Thought Template,
-        SequenceView Sequence,
+        IEnumerable<Thought> Sequence,
         int SourcePosition,
         int TargetPosition,
         bool SourceCompatible,
@@ -1154,11 +1157,10 @@ public class ModuleText : ModuleBase
             return retVal;
         }
 
-        SequenceView additionSequence = theUKS.GetSequenceViews(pattern)
-            .FirstOrDefault(view => view.LinkType?.Label == "adds");
+        IEnumerable<Thought> additionSequence = GetSequenceValues(pattern, "adds");
         string sequenceText = additionSequence is null
             ? ""
-            : string.Concat(additionSequence.Elements.Select(element =>
+            : string.Concat(additionSequence.Select(element =>
                 element.Label.StartsWith(UKS.UKS.CharacterPrefix, StringComparison.OrdinalIgnoreCase)
                     ? element.Label[UKS.UKS.CharacterPrefix.Length..]
                     : element.Label));
@@ -1225,12 +1227,11 @@ public class ModuleText : ModuleBase
     private static string GetSpelling(Thought word)
     {
         var theUKS = MainWindow.theUKS;
-        SequenceView spelling = theUKS.GetSequenceViews(word)
-            .FirstOrDefault(view => view.LinkType?.Label == "spelled");
+        IEnumerable<Thought> spelling = GetSequenceValues(word, "spelled");
         string retVal;
         if (spelling is not null)
         {
-            retVal = string.Concat(spelling.Elements.Select(element =>
+            retVal = string.Concat(spelling.Select(element =>
                 element.Label.StartsWith(UKS.UKS.CharacterPrefix, StringComparison.OrdinalIgnoreCase)
                     ? element.Label[UKS.UKS.CharacterPrefix.Length..]
                     : element.Label));
@@ -1275,8 +1276,7 @@ public class ModuleText : ModuleBase
         if (phrase is null || templateRoot is null || learnedClassRoot is null)
             return null;
 
-        SequenceView phraseSequence = theUKS.GetSequenceViews(phrase)
-            .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+        IEnumerable<Thought> phraseSequence = GetSequenceValues(phrase, "hasWords");
         if (phraseSequence is null) return null;
 
         Thought searchOptions = theUKS.Labeled("TemplateLearningSearch");
@@ -1285,7 +1285,7 @@ public class ModuleText : ModuleBase
         Dictionary<Thought, float> matchingTemplates = new();
         foreach ((SeqElement seqNode, float confidence) in
             theUKS.FindSequencesByActivation(
-                phraseSequence.Elements.ToList(), searchOptions))
+                phraseSequence.ToList(), searchOptions))
         {
             foreach (Thought owner in seqNode.FRST.LinksFrom
                 .Where(link => link.LinkType?.Label == "hasWords" &&
@@ -1306,16 +1306,15 @@ public class ModuleText : ModuleBase
         Thought foundTemplate = matchingTemplates
             .Select(candidate =>
             {
-                SequenceView sequence = theUKS.GetSequenceViews(candidate.Key)
-                    .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
-                int classifiedMatches = sequence is null ? 0 : sequence.Elements
-                    .Select((element, position) => (element, position))
-                    .Count(item => item.position < phraseSequence.Elements.Count &&
-                        new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(item.element.HasProperty) &&
-                        item.element.Parents.Any(parent =>
+                IEnumerable<Thought> sequence = GetSequenceValues(candidate.Key, "hasWords");
+                int classifiedMatches = sequence is null ? 0 : sequence
+                    .Zip(phraseSequence)
+                    .Count(item =>
+                        new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(item.First.HasProperty) &&
+                        item.First.Parents.Any(parent =>
                             parent != theUKS.Labeled("Property") &&
-                            phraseSequence.Elements[item.position].HasAncestor(parent)));
-                int fixedElements = sequence?.Elements.Count(element =>
+                            item.Second.HasAncestor(parent)));
+                int fixedElements = sequence?.Count(element =>
                     !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) ?? 0;
                 int evidence = candidate.Key.LinksTo.Count(link =>
                     link.LinkType?.Label == "evidence");
@@ -1335,21 +1334,19 @@ public class ModuleText : ModuleBase
         if (foundTemplate is null) return null;
 
         Thought evidenceType = theUKS.Labeled("evidence");
-        SequenceView templateSequence = theUKS.GetSequenceViews(foundTemplate)
-            .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+        IEnumerable<Thought> templateSequence = GetSequenceValues(foundTemplate, "hasWords");
         if (templateSequence is null ||
-            templateSequence.Elements.Count != phraseSequence.Elements.Count)
+            templateSequence.Count() != phraseSequence.Count())
             return null;
 
-        for (int position = 0; position < templateSequence.Elements.Count; position++)
+        foreach (var (wildcard, value) in templateSequence.Zip(phraseSequence))
         {
-            Thought wildcard = templateSequence.Elements[position];
             if (!wildcard.HasProperty("isWildcard"))
                 continue;
             Thought valueClass = wildcard.Parents.FirstOrDefault(
                 parent => learnedClassRoot.Children.Contains(parent));
             if (valueClass is not null)
-                phraseSequence.Elements[position].AddParent(valueClass);
+                value.AddParent(valueClass);
         }
 
         theUKS.AddStatement(foundTemplate, evidenceType, phrase);
@@ -1441,11 +1438,10 @@ public class ModuleText : ModuleBase
 
         foreach (Thought template in templates)
         {
-            SequenceView sequence = theUKS.GetSequenceViews(template)
-                .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+            IEnumerable<Thought> sequence = GetSequenceValues(template, "hasWords");
             if (sequence is null) continue;
 
-            List<int> classSlots = sequence.Elements
+            List<int> classSlots = sequence
                 .Select((element, position) => (element, position))
                 .Where(item => GetWildcardClass(item.element, classRoot) is not null)
                 .Select(item => item.position)
@@ -1458,7 +1454,7 @@ public class ModuleText : ModuleBase
             int firstSlot = classSlots[0];
             if (firstSlot > 0)
             {
-                Thought boundary = sequence.Elements[firstSlot - 1];
+                Thought boundary = sequence.ElementAt(firstSlot - 1);
                 if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(boundary.HasProperty))
                 {
                     boundaryMembers.Add(boundary);
@@ -1471,8 +1467,8 @@ public class ModuleText : ModuleBase
                 int segmentStart = classSlots[slotIndex] + 1;
                 int segmentEnd = slotIndex + 1 < classSlots.Count
                     ? classSlots[slotIndex + 1]
-                    : sequence.Elements.Count;
-                List<Thought> fixedSegment = sequence.Elements
+                    : sequence.Count();
+                List<Thought> fixedSegment = sequence
                     .Skip(segmentStart)
                     .Take(segmentEnd - segmentStart)
                     .Where(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty))
@@ -1675,8 +1671,7 @@ public class ModuleText : ModuleBase
         {
             if (example.action.Label.Contains("21"))
             { }
-            SequenceView sequence = theUKS.GetSequenceViews(example.exemplar)
-                .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+            IEnumerable<Thought> sequence = GetSequenceValues(example.exemplar, "hasWords");
             RecordRelationshipPhraseEvidence(
                 sequence,
                 example.exemplar,
@@ -1714,11 +1709,10 @@ public class ModuleText : ModuleBase
 
             foreach (Thought template in templates)
             {
-                SequenceView templateSequence = theUKS.GetSequenceViews(template)
-                    .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+                IEnumerable<Thought> templateSequence = GetSequenceValues(template, "hasWords");
                 if (templateSequence is null) continue;
 
-                List<int> parameterPositions = templateSequence.Elements
+                List<int> parameterPositions = templateSequence
                     .Select((element, position) => (element, position))
                     .Where(item => item.element.HasProperty("isWildcard"))
                     .Select(item => item.position)
@@ -1750,13 +1744,13 @@ public class ModuleText : ModuleBase
                     relationshipParameterPositions);
                 if (targetPosition < 0 && relationshipParameterPositions.Count > 1)
                     targetPosition = relationshipParameterPositions[^1];
-                Thought sourceParameter = templateSequence.Elements[sourcePosition];
+                Thought sourceParameter = templateSequence.ElementAt(sourcePosition);
                 Thought targetParameter = targetPosition >= 0
-                    ? templateSequence.Elements[targetPosition]
+                    ? templateSequence.ElementAt(targetPosition)
                     : GetConstantActionTarget(templateExemplars);
                 if (targetParameter is null) continue;
                 Thought modifierParameter = modifierPosition >= 0
-                    ? templateSequence.Elements[modifierPosition]
+                    ? templateSequence.ElementAt(modifierPosition)
                     : null;
                 Thought filterParameter = actionGroup.Key.hasFilter
                     ? GetConstantActionFilterTarget(templateExemplars)
@@ -1787,8 +1781,7 @@ public class ModuleText : ModuleBase
                 {
                     Link concreteAction =
                         exemplar.GetTargetOfFirstLinkOfType("demonstrates") as Link;
-                    SequenceView exemplarSequence = theUKS.GetSequenceViews(exemplar)
-                        .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+                    IEnumerable<Thought> exemplarSequence = GetSequenceValues(exemplar, "hasWords");
                     if (concreteAction?.From is null || concreteAction.To is null ||
                         exemplarSequence is null)
                         continue;
@@ -1797,13 +1790,13 @@ public class ModuleText : ModuleBase
                     // interactive text input: w:X means X. Different exemplars may later
                     // teach multiple meanings without changing this structure.
                     AddEndpointMeaning(
-                        exemplarSequence.Elements[sourcePosition],
+                        exemplarSequence.ElementAt(sourcePosition),
                         concreteAction.From,
                         meansType);
                     if (targetPosition >= 0)
                     {
                         AddEndpointMeaning(
-                            exemplarSequence.Elements[targetPosition],
+                            exemplarSequence.ElementAt(targetPosition),
                             concreteAction.To,
                             meansType);
                     }
@@ -1813,7 +1806,7 @@ public class ModuleText : ModuleBase
                         if (modifier is not null)
                         {
                             theUKS.AddStatement(
-                                exemplarSequence.Elements[modifierPosition], meansType, modifier);
+                                exemplarSequence.ElementAt(modifierPosition), meansType, modifier);
                         }
                     }
                     theUKS.AddStatement(parameterizedAction, evidenceType, exemplar);
@@ -1838,24 +1831,22 @@ public class ModuleText : ModuleBase
         if (parameterizedAction?.From is null || parameterizedAction.To is null)
             return null;
 
-        SequenceView templateSequence = theUKS.GetSequenceViews(template)
-            .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
-        SequenceView phraseSequence = theUKS.GetSequenceViews(phrase)
-            .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+        IEnumerable<Thought> templateSequence = GetSequenceValues(template, "hasWords");
+        IEnumerable<Thought> phraseSequence = GetSequenceValues(phrase, "hasWords");
         if (templateSequence is null || phraseSequence is null ||
-            templateSequence.Elements.Count != phraseSequence.Elements.Count)
+            templateSequence.Count() != phraseSequence.Count())
             return null;
 
-        List<Thought> templateElements = templateSequence.Elements.ToList();
+        List<Thought> templateElements = templateSequence.ToList();
         int sourcePosition = templateElements.FindIndex(
             element => element == parameterizedAction.From);
         int targetPosition = templateElements.FindIndex(
             element => element == parameterizedAction.To);
         if (sourcePosition < 0) return null;
 
-        Thought source = GetOrCreateMeaning(phraseSequence.Elements[sourcePosition]);
+        Thought source = GetOrCreateMeaning(phraseSequence.ElementAt(sourcePosition));
         Thought target = targetPosition >= 0
-            ? GetOrCreateMeaning(phraseSequence.Elements[targetPosition])
+            ? GetOrCreateMeaning(phraseSequence.ElementAt(targetPosition))
             : parameterizedAction.To;
         if (source is null || target is null) return null;
         Thought actionType = parameterizedAction.LinkType;
@@ -1867,7 +1858,7 @@ public class ModuleText : ModuleBase
                 element => element == linkTypeParameter);
             if (modifierPosition < 0) return null;
             Thought modifier = GetOrCreateMeaning(
-                phraseSequence.Elements[modifierPosition]);
+                phraseSequence.ElementAt(modifierPosition));
             if (modifier is null) return null;
             Thought ordinaryType = theUKS.GetActionRelationshipType(actionType);
             if (ordinaryType is null) return null;
@@ -2191,7 +2182,7 @@ public class ModuleText : ModuleBase
     /// fallback only when the evidence has not grounded either surface form.
     /// </summary>
     private static int FindActionEndpointPosition(
-        SequenceView templateSequence,
+        IEnumerable<Thought> templateSequence,
         IReadOnlyCollection<Thought> exemplars,
         bool useSource,
         IReadOnlyCollection<int> candidatePositions)
@@ -2205,12 +2196,11 @@ public class ModuleText : ModuleBase
             {
                 Link action = exemplar.GetTargetOfFirstLinkOfType("demonstrates") as Link;
                 Thought endpoint = useSource ? action?.From : action?.To;
-                SequenceView sequence = MainWindow.theUKS.GetSequenceViews(exemplar)
-                    .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
-                if (endpoint is null || sequence is null || position >= sequence.Elements.Count)
+                IEnumerable<Thought> sequence = GetSequenceValues(exemplar, "hasWords");
+                if (endpoint is null || sequence is null || position >= sequence.Count())
                     continue;
 
-                Thought word = sequence.Elements[position];
+                Thought word = sequence.ElementAt(position);
                 string surface = word.Label.StartsWith(
                     "w:", StringComparison.OrdinalIgnoreCase)
                     ? word.Label[2..]
@@ -2262,7 +2252,7 @@ public class ModuleText : ModuleBase
     /// means is-a without assigning grammatical roles to either word.
     /// </summary>
     private static void RecordRelationshipPhraseEvidence(
-        SequenceView exemplarSequence,
+        IEnumerable<Thought> exemplarSequence,
         Thought exemplar,
         Link concreteAction,
         IDictionary<Thought, Dictionary<Thought, HashSet<Thought>>> evidence,
@@ -2286,7 +2276,7 @@ public class ModuleText : ModuleBase
         List<Thought> connectorWords = new();
         for (int position = first; position < last; position++)
         {
-            Thought word = exemplarSequence.Elements[position];
+            Thought word = exemplarSequence.ElementAt(position);
             if (word is not null) connectorWords.Add(word);
         }
         if (connectorWords.Count == 0) return;
@@ -2304,13 +2294,13 @@ public class ModuleText : ModuleBase
     }
 
     /// <summary>Finds the exemplar word position which most directly expresses one concrete action endpoint.</summary>
-    private static int FindExemplarEndpointPosition(SequenceView sequence, Thought endpoint)
+    private static int FindExemplarEndpointPosition(IEnumerable<Thought> sequence, Thought endpoint)
     {
         if (sequence is null || endpoint is null) return -1;
         Thought means = MainWindow.theUKS.Labeled("means");
-        for (int position = 0; position < sequence.Elements.Count; position++)
+        int position = 0;
+        foreach (Thought word in sequence)
         {
-            Thought word = sequence.Elements[position];
             string surface = word.Label.StartsWith(
                 "w:", StringComparison.OrdinalIgnoreCase)
                 ? word.Label[2..]
@@ -2319,6 +2309,7 @@ public class ModuleText : ModuleBase
                 (means is not null && word.HasLink(means, endpoint) is not null) ||
                 GetBestMeaning(word)?.To == endpoint)
                 return position;
+            position++;
         }
         return -1;
     }
@@ -2368,9 +2359,8 @@ public class ModuleText : ModuleBase
                 foreach (Thought exemplar in exemplars)
                     theUKS.AddStatement(phrase, evidenceType, exemplar);
 
-                SequenceView sequence = theUKS.GetSequenceViews(phrase)
-                    .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
-                foreach (Thought word in sequence?.Elements ?? Enumerable.Empty<Thought>())
+                IEnumerable<Thought> sequence = GetSequenceValues(phrase, "hasWords");
+                foreach (Thought word in sequence ?? Enumerable.Empty<Thought>())
                 {
                     Link oldWordMeaning = word.HasLink(meansType, relationship);
                     if (oldWordMeaning is not null)
@@ -2435,11 +2425,10 @@ public class ModuleText : ModuleBase
             Link concreteAction =
                 exemplar.GetTargetOfFirstLinkOfType("demonstrates") as Link;
             Thought modifier = GetNumericActionModifier(concreteAction?.LinkType);
-            SequenceView sequence = MainWindow.theUKS.GetSequenceViews(exemplar)
-                .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+            IEnumerable<Thought> sequence = GetSequenceValues(exemplar, "hasWords");
             if (modifier is null || sequence is null) return -1;
 
-            List<int> positions = sequence.Elements
+            List<int> positions = sequence
                 .Select((word, position) => (word, position))
                 .Where(item => GetObservedNumberMeaning(item.word) == modifier)
                 .Select(item => item.position)
@@ -2463,13 +2452,12 @@ public class ModuleText : ModuleBase
             Link concreteAction =
                 exemplar.GetTargetOfFirstLinkOfType("demonstrates") as Link;
             Thought modifier = GetNumericActionModifier(concreteAction?.LinkType);
-            SequenceView sequence = MainWindow.theUKS.GetSequenceViews(exemplar)
-                .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
+            IEnumerable<Thought> sequence = GetSequenceValues(exemplar, "hasWords");
             if (modifier is null || sequence is null ||
-                retVal >= sequence.Elements.Count)
+                retVal >= sequence.Count())
                 return -1;
 
-            Thought word = sequence.Elements[retVal];
+            Thought word = sequence.ElementAt(retVal);
             Thought existingMeaning = word.GetTargetOfFirstLinkOfType("means");
             if (existingMeaning != modifier)
             {

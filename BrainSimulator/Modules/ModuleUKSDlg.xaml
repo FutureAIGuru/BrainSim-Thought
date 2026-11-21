@@ -27,11 +27,14 @@
                   Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked"
                   FontSize="16" Height="19" VerticalAlignment="Top"/>
 
-        <Label Content="Root:" HorizontalAlignment="Left" Margin="242,3,0,0" Width="90" FontSize="16" Height="35" VerticalAlignment="Top"/>
+        <Button x:Name="RootBackButton" Content="←" ToolTip="Previous root" IsEnabled="False"
+                HorizontalAlignment="Left" Margin="242,7,0,0" Width="25" Height="25"
+                VerticalAlignment="Top" FontSize="16" AutomationProperties.Name="Previous root"/>
+        <Label Content="Root:" HorizontalAlignment="Left" Margin="270,3,0,0" Width="45" FontSize="16" Height="35" VerticalAlignment="Top"/>
         <ComboBox x:Name="comboRoot"
                   IsEditable="True"
                   HorizontalAlignment="Left"
-                  Margin="285,7,0,0"
+                  Margin="315,7,0,0"
                   Width="170"
                   FontSize="16"
                   Height="25"
@@ -43,8 +46,8 @@
                   PreviewKeyDown="TextBoxRoot_KeyDown"/>
         <Label Content="" x:Name="uksStatusLabel"  HorizontalAlignment="Left" Margin="242,32,0,0" Width="220" FontSize="16" Height="35" VerticalAlignment="Top"/>
         <Button x:Name="InitializeButton" Content="Initialize" VerticalAlignment="Top" Height="25" Click="InitializeButton_Click" Margin="10,7,0,0" FontSize="16" HorizontalAlignment="Left" Width="90"   />
-        <Button Content="Import" Height="25" HorizontalAlignment="Left" Margin="463,7,0,0" VerticalAlignment="Top" FontSize="16" Width="70" Click="ImportButton_Click"/>
-        <Button Content="Export" Height="25"  HorizontalAlignment="Left" Margin="463,38,0,0" VerticalAlignment="Top" FontSize="16" Width="70" Click="ExportButton_Click"/>
+        <Button Content="Import" Height="25" HorizontalAlignment="Left" Margin="493,7,0,0" VerticalAlignment="Top" FontSize="16" Width="70" Click="ImportButton_Click"/>
+        <Button Content="Export" Height="25"  HorizontalAlignment="Left" Margin="493,38,0,0" VerticalAlignment="Top" FontSize="16" Width="70" Click="ExportButton_Click"/>
         <Button x:Name="RefreshButton" Click="RefreshButton_Click" HorizontalAlignment="Left" Margin="74,36,0,0" Width="26" Height="26" VerticalAlignment="Top">
             <Image Width="22" Height="22" Source="/Resources/icons/refresh-3104.png" />
         </Button>

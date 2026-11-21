@@ -942,32 +942,76 @@ public partial class UKS
         public float Confidence = 1.0f;
     }
 
-    //matches with an existing sequence
+    /// <summary>
+    /// Searches directly from input sequence elements. valueClass selects a VLU facet
+    /// (for example, note or duration) in both input and stored sequences. alternativeClass
+    /// prefers an input VLU of that class and consumes its contiguous covered run as one value.
+    /// matchClass restricts results to sequences referred to by Thoughts of that class.
+    /// </summary>
     public List<(SeqElement seqNode, float confidence)> FindSequencesByActivation(
-    SeqElement sequence, Thought searchOptions = null, bool getFirstElements = true, SeqElement last = null)
+        SeqElement sequence, Thought searchOptions = null, bool getFirstElements = true, SeqElement last = null,
+        Thought valueClass = null, Thought alternativeClass = null, Thought matchClass = null)
     {
-        List<Thought> values;
-        if (last is null) values = FlattenSequence(sequence);
-        else
+        List<(SeqElement seqNode, float confidence)> results = new();
+        searchOptions ??= Labeled("ExactSequenceSearch");
+        if (sequence is null || searchOptions is null) return results;
+        if (!getFirstElements && (searchOptions.HasProperty("allowWildcards") || searchOptions.HasProperty("allowNestedSequences")))
+            throw new ArgumentException("Occurrence locations require a flat, literal search.", nameof(getFirstElements));
+
+        List<SequenceSearchState> active = null;
+        SeqElement skipThrough = null;
+        int count = 0;
+        var inputElements = EnumerateSequenceElements(sequence);
+        foreach (SeqElement input in inputElements)
         {
-            values = new();
-            for (SeqElement element = sequence; element is not null; element = element.NXT)
+            if (skipThrough is not null)
             {
-                values.Add(element.VLU);
-                if (ReferenceEquals(element, last)) break;
+                if (ReferenceEquals(input, skipThrough)) skipThrough = null;
+                continue;
             }
+            Thought value = GetElementValue(input, valueClass);
+            if (value is null && IsWildcardPatternElement(input.VLU, searchOptions)) value = input.VLU;
+            Thought alternative = alternativeClass is null ? null : GetElementValue(input, alternativeClass);
+            SeqElement coveredEnd = input;
+            if (alternative is not null)
+            {
+                value = alternative;
+                while (coveredEnd != last && coveredEnd.NXT is SeqElement next &&
+                    ReferenceEquals(GetElementValue(next, alternativeClass), alternative)) coveredEnd = next;
+                if (!ReferenceEquals(coveredEnd, input)) skipThrough = coveredEnd;
+            }
+            // Preserve the existing cardinality matcher for explicit wildcard input.
+            if (IsWildcardPatternElement(value, searchOptions))
+            {
+                var wildcardPattern = new List<Thought>();
+                var elements = EnumerateSequenceElements(sequence);
+                foreach (SeqElement element in elements)
+                {
+                    Thought selected = GetElementValue(element, valueClass);
+                    if (selected is null && IsWildcardPatternElement(element.VLU, searchOptions)) selected = element.VLU;
+                    wildcardPattern.Add(selected);
+                    if (ReferenceEquals(element, last)) break;
+                }
+                results = FindSequencesByActivation(wildcardPattern, searchOptions, getFirstElements, valueClass, matchClass);
+                return results;
+            }
+            if (active is null) active = InitializeSequenceSearchByActivation(value, 0, searchOptions, valueClass);
+            else active = ActivateNextSequenceElements(active, value, count, searchOptions, valueClass);
+            count++;
+            if (active.Count == 0 || ReferenceEquals(coveredEnd, last)) break;
         }
-        var results = FindSequencesByActivation(values, searchOptions, getFirstElements);
+        results = CollectSequenceSearchResults(active, searchOptions, count, getFirstElements, matchClass);
         return results;
     }
-
     /// <summary>
     /// Searches for pattern activation. Returns sequence roots, or individual stream positions when FRST is null.
     /// getFirstElements=false also returns individual positions within ordinary flat sequences.
+    /// The allowTrailingInput search property retains completed stored sequences when input continues.
+    /// With mustMatchFirst and mustMatchLast, this returns complete templates matching an input prefix.
     /// </summary>
     public List<(SeqElement seqNode, float confidence)> FindSequencesByActivation(
         List<Thought> pattern, Thought searchOptions = null,
-        bool getFirstElements = true)
+        bool getFirstElements = true, Thought valueClass = null, Thought matchClass = null)
     {
         List<(SeqElement seqNode, float confidence)> retVal = new();
         if (pattern is null || pattern.Count == 0) return retVal;
@@ -980,22 +1024,27 @@ public partial class UKS
 
         if (searchOptions.HasProperty("allowWildcards") &&
             pattern.Any(x => IsWildcardPatternElement(x, searchOptions)))
-            return FindExactWildcardMatches(pattern);
+        {
+            retVal = FindExactWildcardMatches(pattern, valueClass);
+            if (matchClass is not null)
+                retVal.RemoveAll(match => !match.seqNode.LinksFrom.Any(link => link.From?.HasAncestor(matchClass) == true));
+            return retVal;
+        }
 
         int seedPatternIndex = pattern.FindIndex(p => !IsWildcardPatternElement(p, searchOptions));
         if (seedPatternIndex < 0) return retVal;
 
         // Step 1: seed from the first non-wildcard pattern element.
-        List<SequenceSearchState> activeElements = InitializeSequenceSearchByActivation(pattern[seedPatternIndex], seedPatternIndex, searchOptions);
+        List<SequenceSearchState> activeElements = InitializeSequenceSearchByActivation(pattern[seedPatternIndex], seedPatternIndex, searchOptions, valueClass);
 
         // Step 2: propagate through NXT links for each remaining pattern element.
         for (int i = seedPatternIndex + 1; i < pattern.Count; i++)
         {
-            activeElements = ActivateNextSequenceElements(activeElements, pattern[i], i, searchOptions);
+            activeElements = ActivateNextSequenceElements(activeElements, pattern[i], i, searchOptions, valueClass);
             if (activeElements.Count == 0) break;
         }
         // Step 3: collect matching sequence starts and confidence values.
-        retVal = CollectSequenceSearchResults(activeElements, searchOptions, pattern, getFirstElements);
+        retVal = CollectSequenceSearchResults(activeElements, searchOptions, pattern.Count, getFirstElements, matchClass);
 
         return retVal;
     }
@@ -1033,7 +1082,7 @@ public partial class UKS
         return matches;
     }
 
-    private List<(SeqElement seqNode, float confidence)> FindExactWildcardMatches(List<Thought> pattern)
+    private List<(SeqElement seqNode, float confidence)> FindExactWildcardMatches(List<Thought> pattern, Thought valueClass = null)
     {
         Thought anchor = pattern
             .Where(x => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(x.HasProperty))
@@ -1048,10 +1097,17 @@ public partial class UKS
             AddEnclosingSequenceRoots(element.FRST, candidates);
         }
 
-        return candidates
-            .Where(candidate => ExactWildcardPatternMatches(pattern, FlattenSequence(candidate)))
-            .Select(candidate => (candidate, 1.0f))
-            .ToList();
+        var results = new List<(SeqElement seqNode, float confidence)>();
+        foreach (SeqElement candidate in candidates)
+        {
+            // The cardinality matcher already uses a list; select the requested VLU facet.
+            var sequence = new List<Thought>();
+            var elements = EnumerateSequenceElements(candidate);
+            foreach (SeqElement element in elements) sequence.Add(GetElementValue(element, valueClass));
+            bool matches = ExactWildcardPatternMatches(pattern, sequence);
+            if (matches) results.Add((candidate, 1.0f));
+        }
+        return results;
     }
 
     private void AddEnclosingSequenceRoots(SeqElement sequenceRoot, HashSet<SeqElement> candidates)
@@ -1132,7 +1188,7 @@ public partial class UKS
     /// Creates a search options Thought with specified properties for sequence searching.
     /// </summary>
     public Thought CreateSearchOptions(bool mustMatchFirst = false, bool mustMatchLast = false,
-        bool allowWildcard = false, bool allowNestedSequences = false)
+        bool allowWildcard = false, bool allowNestedSequences = false, bool allowTrailingInput = false)
     {
         Thought searchOptions = GetOrAddThought("SearchOption*", "SearchOption");
 
@@ -1144,11 +1200,13 @@ public partial class UKS
             searchOptions.AddLink("hasProperty", GetOrAddThought("allowWildcards"));
         if (allowNestedSequences)
             searchOptions.AddLink("hasProperty", GetOrAddThought("allowNestedSequences"));
+        if (allowTrailingInput)
+            searchOptions.AddLink("hasProperty", GetOrAddThought("allowTrailingInput", "SearchOption"));
 
         return searchOptions;
     }
 
-    private List<SequenceSearchState> InitializeSequenceSearchByActivation(Thought firstPatternElement, int patternIndex, Thought searchOptions)
+    private List<SequenceSearchState> InitializeSequenceSearchByActivation(Thought firstPatternElement, int patternIndex, Thought searchOptions, Thought valueClass = null)
     {
         List<SequenceSearchState> activeElements = new();
         if (firstPatternElement is null || searchOptions is null) return activeElements;
@@ -1156,10 +1214,37 @@ public partial class UKS
         bool mustMatchFirst = searchOptions.HasProperty("mustMatchFirst");
         bool allowNestedSequences = searchOptions.HasProperty("allowNestedSequences");
 
-        foreach (Link link in firstPatternElement.LinksFrom)
+        // Class wildcards are children of the input's classes. Property also
+        // contains unrestricted wildcards, which have no class parent to follow.
+        IEnumerable<Link> startingLinks = firstPatternElement.LinksFrom;
+        if (searchOptions.HasProperty("allowWildcards"))
+        {
+            IEnumerable<Thought> wildcardCandidates = firstPatternElement.AncestorsWithSelf
+                .Append(Labeled("Property")).OfType<Thought>()
+                .SelectMany(parent => parent.Children);
+            // An unclassified word has no noun/adjective/etc. ancestry yet.
+            // Follow declarations of the wildcard properties, wherever those Thoughts
+            // are grouped, rather than relying on Property parentage or scanning all Thoughts.
+            if (Labeled("unknownWordType") is Thought unknownWordType && firstPatternElement.HasAncestor(unknownWordType))
+                wildcardCandidates = wildcardCandidates.Concat(
+                    new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }
+                        .Select(Labeled).OfType<Thought>().SelectMany(property => property.LinksFrom)
+                        .Where(link => link.LinkType == Labeled("hasProperty") && link.From is not null)
+                        .SelectMany(link => link.From.Descendants.Prepend(link.From)));
+            startingLinks = startingLinks.Concat(wildcardCandidates
+                .Where(candidate => IsWildcardPatternElement(candidate, searchOptions) &&
+                    SequenceElementMatches(firstPatternElement, candidate, searchOptions))
+                .Distinct()
+                .SelectMany(candidate => candidate.LinksFrom));
+        }
+
+        foreach (Link link in startingLinks)
         {
             if (link.LinkType?.Label != "VLU") continue;
             if (link.From is not SeqElement seqElement) continue;
+            Thought selectedValue = GetElementValue(seqElement, valueClass);
+            if (selectedValue is null && IsWildcardPatternElement(seqElement.VLU, searchOptions)) selectedValue = seqElement.VLU;
+            if (!SequenceElementMatches(firstPatternElement, selectedValue, searchOptions)) continue;
             if (mustMatchFirst && patternIndex == 0 && !IsSequenceFirstElement(seqElement)) continue;
             SeqElement patternStart = GetPatternStartElement(seqElement, seqElement, patternIndex, searchOptions);
             if (patternStart != null)
@@ -1228,7 +1313,7 @@ public partial class UKS
     }
 
     private List<SequenceSearchState> ActivateNextSequenceElements(
-        List<SequenceSearchState> activeElements, Thought nextPatternElement, int patternIndex, Thought searchOptions)
+        List<SequenceSearchState> activeElements, Thought nextPatternElement, int patternIndex, Thought searchOptions, Thought valueClass = null)
     {
         if (activeElements is null || nextPatternElement is null || searchOptions is null) return activeElements;
 
@@ -1239,6 +1324,11 @@ public partial class UKS
         {
             SequenceSearchState activeElement = activeElements[i];
             if (activeElement.CurPos is null) continue; //protection for unremoved activeElement
+
+            // A finished template remains a result even if the sentence has more words.
+            // A nested sequence is finished only when all its callers are also at their ends.
+            if (searchOptions.HasProperty("allowTrailingInput") && IsSequenceLastElement(activeElement.CurPos) &&
+                activeElement.ReturnStack.All(IsSequenceLastElement)) continue;
 
             //CALL [must handle multiple pushes]
             activeElement.CurPos = activeElement.CurPos.NXT;
@@ -1251,7 +1341,8 @@ public partial class UKS
                 CheckForSubsequenceCall(searchOptions, activeElement);
             }
 
-            Thought nextValue = activeElement.CurPos?.VLU;
+            Thought nextValue = GetElementValue(activeElement.CurPos, valueClass);
+            if (nextValue is null && IsWildcardPatternElement(activeElement.CurPos?.VLU, searchOptions)) nextValue = activeElement.CurPos.VLU;
             if (!SequenceElementMatches(nextPatternElement, nextValue, searchOptions))
             {
                 activeElements.RemoveAt(i);
@@ -1320,6 +1411,16 @@ public partial class UKS
 
         if (WildcardMatchesValue(patternElement, sequenceElementValue) ||
             WildcardMatchesValue(sequenceElementValue, patternElement)) return true;
+        // Unknown word types can provisionally fill a word-class wildcard. This
+        // never changes the word's properties or accepts an unrelated class/literal.
+        if (Labeled("unknownWordType") is Thought unknownWordType && Labeled("wordType") is Thought wordType)
+        {
+            Thought wildcard = patternElement.HasAncestor(unknownWordType) ? sequenceElementValue
+                : sequenceElementValue.HasAncestor(unknownWordType) ? patternElement : null;
+            if (HasClassConstraint(wildcard) && wildcard.Parents
+                .Where(parent => !IsWildcardPatternElement(parent, searchOptions) && parent != Labeled("Property"))
+                .All(parent => parent.HasAncestor(wordType))) return true;
+        }
         // Manual template learning may propose a new member for the class
         // referenced by this particular wildcard. The value may already
         // belong to another learned class; that other observation must not
@@ -1352,14 +1453,15 @@ public partial class UKS
     }
 
     private List<(SeqElement seqNode, float confidence)> CollectSequenceSearchResults(
-        List<SequenceSearchState> activeElements, Thought searchOptions, List<Thought> pattern,
-        bool getFirstElements = true)
+        List<SequenceSearchState> activeElements, Thought searchOptions, int inputLength,
+        bool getFirstElements = true, Thought matchClass = null)
     {
         List<(SeqElement seqNode, float confidence)> retVal = new();
         if (activeElements is null || searchOptions is null) return retVal;
 
         bool mustMatchLast = searchOptions.HasProperty("mustMatchLast");
         bool mustMatchFirst = searchOptions.HasProperty("mustMatchFirst");
+        bool allowTrailingInput = searchOptions.HasProperty("allowTrailingInput");
 
         foreach (SequenceSearchState activeElement in activeElements)
         {
@@ -1370,8 +1472,9 @@ public partial class UKS
             if (!IsSequenceFirstElement(firstElement) && mustMatchFirst) continue;
 
             int sequenceLength = GetSequenceLength(firstElement);
-            float confidence = sequenceLength == 0 ? 0 : Math.Min(1.0f, (float)pattern.Count / sequenceLength);
+            float confidence = sequenceLength == 0 ? 0 : Math.Min(1.0f, (float)inputLength / sequenceLength);
             SeqElement result = getFirstElements ? firstElement.FRST ?? firstElement : firstElement;
+            if (matchClass is not null && !result.LinksFrom.Any(link => link.From?.HasAncestor(matchClass) == true)) continue;
             retVal.Add((result, confidence));
             if (searchOptions.HasProperty("allowNestedSequences"))
             {
@@ -1385,6 +1488,7 @@ public partial class UKS
             .GroupBy(x => x.seqNode)
             .Select(x => x.OrderByDescending(y => y.confidence).First())
             .OrderByDescending(x => x.confidence)
+            .ThenByDescending(x => allowTrailingInput ? GetSequenceLength(x.seqNode) : 0)
             .ToList();
     }
 

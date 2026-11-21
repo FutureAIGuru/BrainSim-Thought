@@ -1,0 +1,127 @@
+MODULEINTERPRET - TRIAL SENTENCES
+
+Open ModuleInterpret, enter one sentence, and press Show word sequence.
+The current development interface interprets AND executes the resulting directives.
+Inspect Templates, Word attachments, Meanings, and Executed relationships / Query results.
+Capitalization and a final period or question mark are optional.
+
+Start with a fresh UKS for a predictable demonstration. BasicWords already supplies
+fido is-a dog, dog/cat is-a animal, fido is brown/small, and some body-part facts.
+Some examples therefore reinforce existing relationships rather than create them.
+Assertions use .! in Meanings, while stored relationships have that directive removed.
+
+1. CLASSIFICATION AND ATTRIBUTES
+
+Sentence                              Expected stored relationship
+Fido is a dog.                        [fido->is-a->dog]
+Fido is an animal.                    [fido->is-a->animal]
+Dogs are animals.                     [dog->is-a->animal]
+Cats are animals.                     [cat->is-a->animal]
+Fido is brown.                        [fido->is->brown]
+Fido is green.                        [fido->is->green]
+Dogs are black.                       [dog->is->black]
+Cats are large.                       [cat->is->large]
+
+Notice that the noun and adjective target classes select different meanings for
+the same word "are". The separate plural spellings mean the same singular concept.
+
+2. NOUN PHRASES, VERBS, AND POSSESSION
+
+Sentence                              Expected stored relationship(s)
+The black dog is brown.               [dog->is->black], [dog->is->brown]
+A small cat is an animal.             [cat->is->small], [cat->is-a->animal]
+Dogs have tails.                      [dog->has->tail]
+Fido has fur.                         [fido->has->fur]
+Fido chases cats.                     [fido->chases->cat]
+Dogs chase animals.                   [dog->chases->animal]
+The dog is chasing the cat.           [dog->chases.ongoing->cat]
+
+The chase/chases spellings share a meaning. This is vocabulary knowledge, not a
+general verb conjugation library. Ongoing actions retain the ongoing modifier.
+
+3. NUMERIC QUANTITIES
+
+Sentence                              Expected stored relationship
+Dogs have 4 legs.                     [dog->has.4->leg]
+Fido has 3 legs.                      [fido->has.3->leg]
+Cats have 2 tails.                    [cat->has.2->tail]
+
+w:0 through w:9 inherit numberWord, which inherits adjective. Their meanings are
+the existing numeric Thoughts. Explicit quantity templates currently cover these
+ten digits and produce has.N.! directives. This is not yet general numeric
+composition. Words such as "three" and multi-digit quantities are not included.
+
+4. NEGATION
+
+Sentence                              Expected stored relationship
+Fido is not black.                    [fido->is.not->black]
+Cats are not large.                   [cat->is.not->large]
+Dogs are not cats.                    [dog->is-a.not->cat]
+Fido is not a cat.                    [fido->is-a.not->cat]
+
+These create explicit negative relationships through the existing isNegative
+property. Negation is not simply absence of a positive relationship.
+
+5. QUERIES
+
+Try these on the initial knowledge, before the preceding edits change it.
+
+Sentence                              Expected Query results
+Is Fido brown?                        [fido->is->brown]
+Is Fido a dog?                        [fido->is-a->dog]
+Are cats animals?                     [cat->is-a->animal]
+What is brown?                        Includes [fido->is->brown]
+Is Fido black?                        No matching relationships.
+
+Query meanings use is.? / is-a.? and the existing UKS query action mechanism.
+Execute returns its matching relationships. A yes/no query returns a matching
+relationship rather than a separate Boolean. No match is not proof of falsity.
+The wildcard query may return more results after additional assertions.
+
+6. LEARNING AN UNKNOWN NOUN
+
+With a fresh vocabulary, enter:
+Pigs are animals.                     Learns w:pig is-a noun and w:pig means pig,
+                                      then asserts [pig->is-a->animal].
+Pigs are brown.                       Asserts [pig->is->brown].
+
+The UI permits remembering unknown words. Their grammatical class is learned
+directly from the longest winning template. New interpreter words inherit
+unknownWordType (under wordType) until classified. A provisional sequence match
+can fill a word-class wildcard without making the word itself a wildcard.
+
+The hungry dog                       Learns w:hungry is-a adjective and means hungry,
+                                     then asserts [dog->is->hungry].
+
+The hungry dog ate dinner             Hungry becomes an adjective.
+The hungry should be fed              On a fresh UKS, hungry becomes a noun.
+
+The longer matching phrase wins over its shorter fragments. Try these two
+examples on separate fresh networks to observe their initial classifications.
+Classification replaces the temporary unknownWordType parent. Known words
+inherit word through their grammatical class, without a direct word parent.
+"The globular cluster" now matches article-adjective-noun and can classify both
+unknown words. This is a syntactic inference, not proof that it is a fixed phrase.
+
+TEMPLATE GUIDE (definitions remain in LoadLanguageKnowledge)
+
+nounPhrase1 / nounPhrase2 / nounPhrase3
+    article adjective noun / article noun / noun
+verbPhrase1 and sentenceTemplate
+    auxiliary ongoingVerb; nounPhrase verbPhrase nounPhrase
+classificationTemplate
+    nounPhrase classificationPhrase nounPhrase (fixed "is a" / "is an")
+copulaClassificationTemplate / copulaAttributeTemplate
+    nounPhrase copula nounPhrase / nounPhrase copula adjective
+possessionTemplate / actionTemplate
+    nounPhrase possessionVerb nounPhrase / nounPhrase actionVerb nounPhrase
+quantityPossession0 through quantityPossession9
+    nounPhrase possessionVerb the specified digit nounPhrase
+negativeAttributeTemplate / negativeClassificationTemplate
+    nounPhrase copula negationWord adjective / nounPhrase
+attributeQueryTemplate / classificationQueryTemplate
+    copula nounPhrase adjective / nounPhrase
+bareClassificationQueryTemplate
+    copula noun noun (handles adjacent bare nouns without merging their phrases)
+wildcardAttributeQueryTemplate
+    w:what copula adjective

@@ -405,7 +405,7 @@ public class ModuleTextNEW : ModuleBase
                 // ModuleWord returns null while its attention/mental-model
                 // streaming path is active. ModuleText still needs a stable
                 // word value now so the observed phrase can be learned.
-                wordThought ??= theUKS.Labeled("w:" + clean) ?? theUKS.GetOrAddThought("w:" + clean, "Word");
+                wordThought ??= ModuleWord.RememberSpelling(theUKS, clean, out _);
                 if (wordThought is not null)
                 {
                     wordsInPhrase.Add(wordThought);

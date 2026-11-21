@@ -8,6 +8,175 @@ namespace UKS.Tests;
 public class UKSSequenceTests
 {
     [Fact]
+    public void SequenceSearchSelectsNoteOrDurationFacetsAndFiltersTheLibrary()
+    {
+        var uks = CreateUKS();
+        Thought notes = uks.GetOrAddThought("note", "Abstract");
+        Thought durations = uks.GetOrAddThought("duration", "Abstract");
+        durations.AddProperty("isSequenceMetadata");
+        Thought c = uks.GetOrAddThought("C4", notes), d = uks.GetOrAddThought("D4", notes);
+        Thought one = uks.GetOrAddThought("delay1", durations), two = uks.GetOrAddThought("delay2", durations);
+        Thought three = uks.GetOrAddThought("delay3", durations);
+        Thought tunes = uks.GetOrAddThought("tune", "Thought");
+        SeqElement stored = uks.CreateFirstElement("tuneCells", c);
+        SeqElement storedLast = uks.AddElement(stored, d);
+        stored.AddLink("VLU", one);
+        storedLast.AddLink("VLU", two);
+        Thought sequenceType = uks.GetOrAddThought("hasSequence", "LinkType");
+        uks.GetOrAddThought("rememberedTune", tunes).AddLink(sequenceType, stored);
+        SeqElement unrelated = uks.CreateFirstElement("otherCells", c);
+        uks.AddElement(unrelated, d);
+        uks.GetOrAddThought("unrelatedWord", "word").AddLink(uks.GetOrAddThought("spelled", "LinkType"), unrelated);
+        SeqElement input = uks.CreateFirstElement("inputCells", c);
+        SeqElement inputLast = uks.AddElement(input, d);
+        input.AddLink("VLU", one);
+        inputLast.AddLink("VLU", three);
+        Thought options = uks.CreateSearchOptions(mustMatchFirst: true, mustMatchLast: true);
+
+        var noteMatches = uks.FindSequencesByActivation(input, options, valueClass: notes, matchClass: tunes);
+        var durationMatches = uks.FindSequencesByActivation(input, options, valueClass: durations, matchClass: tunes);
+        Assert.Contains(noteMatches, match => ReferenceEquals(match.seqNode, stored));
+        Assert.DoesNotContain(noteMatches, match => ReferenceEquals(match.seqNode, unrelated));
+        Assert.DoesNotContain(durationMatches, match => ReferenceEquals(match.seqNode, stored));
+        Assert.Same(c, input.VLU);
+        Assert.Same(one, uks.GetElementValue(input, durations));
+
+        inputLast.RemoveLink(uks.Labeled("VLU"), three);
+        inputLast.AddLink("VLU", two);
+        var matchingDurations = uks.FindSequencesByActivation(input, options, valueClass: durations, matchClass: tunes);
+        Assert.Contains(matchingDurations, match => ReferenceEquals(match.seqNode, stored));
+        Thought wildcard = uks.CreateWildcard("??.duration", new List<Thought> { durations });
+        options.AddProperty("allowWildcards");
+        var wildcardMatches = uks.FindSequencesByActivation(new List<Thought> { one, wildcard }, options,
+            valueClass: durations, matchClass: tunes);
+        Assert.Contains(wildcardMatches, match => ReferenceEquals(match.seqNode, stored));
+        SeqElement query = uks.CreateFirstElement("durationQuery", one);
+        uks.AddElement(query, uks.Labeled("??"));
+        var wildcardSequenceMatches = uks.FindSequencesByActivation(query, options, valueClass: durations, matchClass: tunes);
+        Assert.Contains(wildcardSequenceMatches, match => ReferenceEquals(match.seqNode, stored));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TrailingInputReturnsShorterCompletedPrefixes(bool sequenceInput)
+    {
+        var uks = CreateUKS();
+        Thought a = uks.Labeled("A"), b = uks.Labeled("B"), c = uks.Labeled("C"), x = uks.Labeled("X");
+        SeqElement one = uks.AddSequence("prefixOne", new List<Thought> { a }, allowCompression: false);
+        SeqElement two = uks.AddSequence("prefixTwo", new List<Thought> { a, b }, allowCompression: false);
+        SeqElement three = uks.AddSequence("prefixThree", new List<Thought> { a, b, c }, allowCompression: false);
+        SeqElement mismatch = uks.AddSequence("prefixMismatch", new List<Thought> { a, b, uks.Labeled("D") }, allowCompression: false);
+        SeqElement later = uks.AddSequence("laterPhrase", new List<Thought> { b, c }, allowCompression: false);
+        var input = new List<Thought> { a, b, c, x };
+        input.AddRange(Enumerable.Repeat(x, 100));
+        Thought strict = uks.CreateSearchOptions(mustMatchFirst: true, mustMatchLast: true);
+        Thought prefix = uks.CreateSearchOptions(mustMatchFirst: true, mustMatchLast: true, allowTrailingInput: true);
+        SeqElement sentence = sequenceInput ? uks.AddSequence("longInput", input, allowCompression: false) : null;
+
+        var exact = sequenceInput ? uks.FindSequencesByActivation(sentence, strict) : uks.FindSequencesByActivation(input, strict);
+        Assert.DoesNotContain(exact, match => ReferenceEquals(match.seqNode, one) ||
+            ReferenceEquals(match.seqNode, two) || ReferenceEquals(match.seqNode, three));
+        var matches = sequenceInput ? uks.FindSequencesByActivation(sentence, prefix) : uks.FindSequencesByActivation(input, prefix);
+        Assert.Contains(matches, match => ReferenceEquals(match.seqNode, one) && match.confidence == 1);
+        Assert.Contains(matches, match => ReferenceEquals(match.seqNode, two) && match.confidence == 1);
+        Assert.Contains(matches, match => ReferenceEquals(match.seqNode, three) && match.confidence == 1);
+        Assert.DoesNotContain(matches, match => ReferenceEquals(match.seqNode, mismatch) || ReferenceEquals(match.seqNode, later));
+        Assert.True(matches.FindIndex(match => ReferenceEquals(match.seqNode, three)) <
+            matches.FindIndex(match => ReferenceEquals(match.seqNode, two)));
+    }
+
+    [Fact]
+    public void TrailingInputDoesNotCompleteAnUnfinishedTemplate()
+    {
+        var uks = CreateUKS();
+        var input = new List<Thought> { uks.Labeled("A"), uks.Labeled("B") };
+        SeqElement template = uks.AddSequence("unfinished", new List<Thought> { input[0], input[1], uks.Labeled("C") }, allowCompression: false);
+        Thought options = uks.CreateSearchOptions(mustMatchFirst: true, mustMatchLast: true, allowTrailingInput: true);
+
+        Assert.DoesNotContain(uks.FindSequencesByActivation(input, options), match => ReferenceEquals(match.seqNode, template));
+    }
+
+    [Fact]
+    public void TrailingInputWaitsForTheEndOfNestedCallers()
+    {
+        var uks = CreateUKS();
+        Thought a = uks.Labeled("A"), b = uks.Labeled("B"), c = uks.Labeled("C"), x = uks.Labeled("X");
+        SeqElement inner = uks.AddSequence("prefixInner", new List<Thought> { a, b }, allowCompression: false);
+        SeqElement outer = uks.AddSequence("prefixOuter", new List<Thought> { inner, c }, allowCompression: false);
+        Thought options = uks.CreateSearchOptions(mustMatchFirst: true, mustMatchLast: true,
+            allowNestedSequences: true, allowTrailingInput: true);
+
+        var incomplete = uks.FindSequencesByActivation(new List<Thought> { a, b, x }, options);
+        Assert.Contains(incomplete, match => ReferenceEquals(match.seqNode, inner));
+        Assert.DoesNotContain(incomplete, match => ReferenceEquals(match.seqNode, outer));
+        var complete = uks.FindSequencesByActivation(new List<Thought> { a, b, c, x }, options);
+        Assert.Contains(complete, match => ReferenceEquals(match.seqNode, outer));
+    }
+
+    [Fact]
+    public void TrailingInputWorksWithStoredWordWildcards()
+    {
+        var uks = CreateUKS();
+        Thought noun = uks.GetOrAddThought("noun", "wordType");
+        Thought article = uks.GetOrAddThought("the", "word");
+        Thought dog = uks.GetOrAddThought("dog", noun);
+        Thought wildcard = uks.CreateWildcard("??.noun", new List<Thought> { noun });
+        SeqElement template = uks.AddSequence("nounPrefix", new List<Thought> { article, wildcard }, allowCompression: false);
+        Thought options = uks.CreateSearchOptions(mustMatchFirst: true, mustMatchLast: true,
+            allowWildcard: true, allowTrailingInput: true);
+
+        var matches = uks.FindSequencesByActivation(new List<Thought> { article, dog, uks.Labeled("X"), uks.Labeled("Y") }, options);
+
+        Assert.Contains(matches, match => ReferenceEquals(match.seqNode, template) && match.confidence == 1);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void UnknownWordTypeProvisionallyMatchesOnlyWordClassWildcards(int unknownPosition)
+    {
+        var uks = CreateUKS();
+        Thought word = uks.GetOrAddThought("word", "Thought");
+        Thought wordType = uks.GetOrAddThought("wordType", word);
+        Thought unknownType = uks.GetOrAddThought("unknownWordType", wordType);
+        var classes = new List<Thought>
+        {
+            uks.GetOrAddThought("article", wordType),
+            uks.GetOrAddThought("adjective", wordType),
+            uks.GetOrAddThought("noun", wordType)
+        };
+        var values = classes.Select((type, index) => uks.GetOrAddThought("known" + index, type)).ToList();
+        var wildcards = classes.Select(type => uks.CreateWildcard("??." + type.Label, new List<Thought> { type })).ToList();
+        SeqElement template = uks.AddSequence("unknownWordPattern", wildcards, allowCompression: false);
+        Thought unknown = uks.GetOrAddThought("unclassifiedWord", unknownType);
+        values[unknownPosition] = unknown;
+
+        Assert.Contains(uks.FindSequencesByActivation(values, uks.Labeled("TemplateSequenceSearch")),
+            match => ReferenceEquals(match.seqNode, template));
+        Assert.DoesNotContain(uks.FindSequencesByActivation(values, uks.Labeled("ExactSequenceSearch")),
+            match => ReferenceEquals(match.seqNode, template));
+        Assert.False(unknown.HasProperty("isWildcard"));
+        Assert.Same(unknownType, Assert.Single(unknown.Parents));
+
+        // Uncertainty about grammar does not mean an arbitrary literal or non-word class.
+        var literalValues = values.ToList();
+        literalValues[unknownPosition] = uks.GetOrAddThought("differentLiteral");
+        SeqElement literal = uks.AddSequence("literalPattern", literalValues, allowCompression: false);
+        var unrelatedValues = wildcards.ToList();
+        unrelatedValues[unknownPosition] = uks.CreateWildcard("??.unrelated", new List<Thought> { uks.GetOrAddThought("unrelated") });
+        SeqElement unrelated = uks.AddSequence("unrelatedPattern", unrelatedValues, allowCompression: false);
+        var matches = uks.FindSequencesByActivation(values, uks.Labeled("TemplateSequenceSearch"));
+        Assert.DoesNotContain(matches, match => ReferenceEquals(match.seqNode, literal) || ReferenceEquals(match.seqNode, unrelated));
+
+        unknown.RemoveParent(unknownType);
+        unknown.AddParent(classes[(unknownPosition + 1) % classes.Count]);
+        Assert.DoesNotContain(uks.FindSequencesByActivation(values, uks.Labeled("TemplateSequenceSearch")),
+            match => ReferenceEquals(match.seqNode, template));
+    }
+
+    [Fact]
     public void SequenceSearch_LastElementBoundsTheInputSpan()
     {
         var uks = CreateUKS();

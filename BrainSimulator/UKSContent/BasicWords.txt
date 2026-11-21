@@ -1,3 +1,4 @@
+# Language hierarchy and word classes.
 [Unknown->is-a->Thought] 1.00
 
 [languageElement->is-a->Thought] 1.00
@@ -5,13 +6,22 @@
 [phrase->is-a->languageElement] 1.00
 
 [wordType->is-a->word] 1.00
+[unknownWordType->is-a->wordType]
 [noun->is-a->wordType] 1.00
 [verb->is-a->wordType] 1.00
 [adjective->is-a->wordType] 1.00
 [article->is-a->wordType] 1.00
 [questionWord->is-a->wordType] 1.00
+[auxiliary->is-a->verb]
+[copula->is-a->auxiliary]
+[ongoingVerb->is-a->verb]
+[possessionVerb->is-a->verb]
+[actionVerb->is-a->verb]
+[negationWord->is-a->wordType]
+[numberWord->is-a->adjective]
 [plural->is-a->wordType] 1.00
 
+# Concepts and demonstration knowledge.
 [animal->is-a->Unknown] 1.00
 [bodyPart->is-a->Unknown] 1.00
 [color->is-a->Unknown] 1.00
@@ -28,6 +38,7 @@
 
 [brown->is-a->color] 1.00
 [black->is-a->color] 1.00
+[green->is-a->color] 1.00
 [small->is-a->size] 1.00
 [large->is-a->size] 1.00
 
@@ -43,31 +54,10 @@
 [fido->is->brown] 1.00
 [fido->is->small] 1.00
 
-[w:fido->is-a->word] 1.00
-[w:dog->is-a->word] 1.00
-[w:dogs->is-a->word] 1.00
-[w:cat->is-a->word] 1.00
-[w:cats->is-a->word] 1.00
-[w:animal->is-a->word] 1.00
-[w:animals->is-a->word] 1.00
-[w:tail->is-a->word] 1.00
-[w:tails->is-a->word] 1.00
-[w:leg->is-a->word] 1.00
-[w:legs->is-a->word] 1.00
-[w:fur->is-a->word] 1.00
-[w:brown->is-a->word] 1.00
-[w:black->is-a->word] 1.00
-[w:small->is-a->word] 1.00
-[w:large->is-a->word] 1.00
-[w:is->is-a->word] 1.00
-[w:a->is-a->word] 1.00
-[w:an->is-a->word] 1.00
-[w:has->is-a->word] 1.00
-[w:have->is-a->word] 1.00
-[w:what->is-a->word] 1.00
-[w:does->is-a->word] 1.00
-[w:do->is-a->word] 1.00
-
+# Word classifications. Membership in word is inherited through wordType.
+[w:the->is-a->article]
+[w:are->is-a->copula]
+[w:chasing->is-a->ongoingVerb]
 [w:fido->is-a->noun] 1.00
 [w:dog->is-a->noun] 1.00
 [w:dogs->is-a->noun] 1.00
@@ -86,14 +76,15 @@
 [w:legs->is-a->plural] 1.00
 [w:fur->is-a->noun] 1.00
 
-[w:is->is-a->verb] 1.00
-[w:has->is-a->verb] 1.00
-[w:have->is-a->verb] 1.00
+[w:is->is-a->copula] 1.00
+[w:has->is-a->possessionVerb] 1.00
+[w:have->is-a->possessionVerb] 1.00
 [w:does->is-a->verb] 1.00
 [w:do->is-a->verb] 1.00
 
 [w:brown->is-a->adjective] 1.00
 [w:black->is-a->adjective] 1.00
+[w:green->is-a->adjective] 1.00
 [w:small->is-a->adjective] 1.00
 [w:large->is-a->adjective] 1.00
 
@@ -101,6 +92,10 @@
 [w:an->is-a->article] 1.00
 [w:what->is-a->questionWord] 1.00
 
+# Language-independent meanings.
+[w:the->means->the]
+[w:are->means->is]
+[w:chasing->means->chases.ongoing.!]
 [w:fido->means->fido] 1.00
 [w:dog->means->dog] 1.00
 [w:dogs->means->dog] 1.00
@@ -115,18 +110,134 @@
 [w:fur->means->fur] 1.00
 [w:brown->means->brown] 1.00
 [w:black->means->black] 1.00
+[w:green->means->green] 1.00
 [w:small->means->small] 1.00
 [w:large->means->large] 1.00
 [w:is->means->is] 1.00
 [w:a->means->a] 1.00
 [w:an->means->a] 1.00
-[w:has->means->has] 1.00
-[w:have->means->has] 1.00
+[w:has->means->has.!] 1.00
+[w:have->means->has.!] 1.00
 [w:what->means->what] 1.00
 [w:does->means->do] 1.00
 [w:do->means->do] 1.00
 
+# Spellings for sequence-based word recognition.
+[w:the->spelled->^t h e]
+[w:are->spelled->^a r e]
+[w:chasing->spelled->^c h a s i n g]
+[w:fido->spelled->^f i d o]
+[w:dog->spelled->^d o g]
+[w:dogs->spelled->^d o g s]
+[w:cat->spelled->^c a t]
+[w:cats->spelled->^c a t s]
+[w:animal->spelled->^a n i m a l]
+[w:animals->spelled->^a n i m a l s]
+[w:tail->spelled->^t a i l]
+[w:tails->spelled->^t a i l s]
+[w:leg->spelled->^l e g]
+[w:legs->spelled->^l e g s]
+[w:fur->spelled->^f u r]
+[w:is->spelled->^i s]
+[w:has->spelled->^h a s]
+[w:have->spelled->^h a v e]
+[w:does->spelled->^d o e s]
+[w:do->spelled->^d o]
+[w:brown->spelled->^b r o w n]
+[w:black->spelled->^b l a c k]
+[w:green->spelled->^g r e e n]
+[w:small->spelled->^s m a l l]
+[w:large->spelled->^l a r g e]
+[w:a->spelled->^a]
+[w:an->spelled->^a n]
+[w:what->spelled->^w h a t]
+
+# Fixed phrases with a specific meaning.
+[classificationPhrase->is-a->phrase]
 [p:is_a->is-a->phrase] 1.00
+[p:is_a->is-a->classificationPhrase]
 [p:is_a->means->is-a] 1.00
 [p:is_a->hasWords->^w:is w:a] 1.00
+[p:is_an->is-a->classificationPhrase]
+[p:is_an->means->is-a]
+[p:is_an->hasWords->^w:is w:an]
 
+
+# Additional action and negation vocabulary.
+[w:chase->is-a->actionVerb]
+[w:chases->is-a->actionVerb]
+[w:not->is-a->negationWord]
+[w:chase->means->chases.!]
+[w:chases->means->chases.!]
+[w:not->means->not]
+[w:chase->spelled->^c h a s e]
+[w:chases->spelled->^c h a s e s]
+[w:not->spelled->^n o t]
+
+# Familiar context for the longest-match demonstrations.
+[w:ate->is-a->actionVerb]
+[w:ate->means->eats.past.!]
+[w:ate->spelled->^a t e]
+[w:dinner->is-a->noun]
+[w:dinner->means->dinner]
+[w:dinner->spelled->^d i n n e r]
+[w:should->is-a->auxiliary]
+[w:should->means->should]
+[w:should->spelled->^s h o u l d]
+[w:be->is-a->auxiliary]
+[w:be->means->is]
+[w:be->spelled->^b e]
+[w:fed->is-a->ongoingVerb]
+[w:fed->means->fed]
+[w:fed->spelled->^f e d]
+
+# Digit words are adjectives, with a more specific quantity class.
+[0->is-a->number]
+[w:0->is-a->numberWord]
+[w:0->means->0]
+[w:0->spelled->^0]
+
+[1->is-a->number]
+[w:1->is-a->numberWord]
+[w:1->means->1]
+[w:1->spelled->^1]
+
+[2->is-a->number]
+[w:2->is-a->numberWord]
+[w:2->means->2]
+[w:2->spelled->^2]
+
+[3->is-a->number]
+[w:3->is-a->numberWord]
+[w:3->means->3]
+[w:3->spelled->^3]
+
+[4->is-a->number]
+[w:4->is-a->numberWord]
+[w:4->means->4]
+[w:4->spelled->^4]
+
+[5->is-a->number]
+[w:5->is-a->numberWord]
+[w:5->means->5]
+[w:5->spelled->^5]
+
+[6->is-a->number]
+[w:6->is-a->numberWord]
+[w:6->means->6]
+[w:6->spelled->^6]
+
+[7->is-a->number]
+[w:7->is-a->numberWord]
+[w:7->means->7]
+[w:7->spelled->^7]
+
+[8->is-a->number]
+[w:8->is-a->numberWord]
+[w:8->means->8]
+[w:8->spelled->^8]
+
+[9->is-a->number]
+[w:9->is-a->numberWord]
+[w:9->means->9]
+[w:9->spelled->^9]

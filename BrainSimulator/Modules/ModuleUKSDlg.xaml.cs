@@ -14,6 +14,7 @@
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -39,8 +40,10 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
 
     private const int maxDepth = 20;
-    private const int rootHistoryLimit = 8;
-    private readonly List<string> _rootHistory = new();
+    private readonly ObservableCollection<string> _rootHistory = new();
+    private readonly List<string> _previousRoots = new();
+    private string _currentRoot = "";
+    private bool _goingBack;
     private int totalItemCount;
     private bool mouseInWindow; //prevent auto-update while the mouse is in the tree
     private bool busy;
@@ -65,6 +68,15 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         InitializeComponent();
         theUKS = MainWindow.theUKS;
         Closed += (_, _) => dt?.Stop();
+        RootBackButton.Click += (_, _) =>
+        {
+            if (_previousRoots.Count == 0) return;
+            string root = _previousRoots[^1];
+            _previousRoots.RemoveAt(_previousRoots.Count - 1);
+            _goingBack = true;
+            try { CommitRoot(root); }
+            finally { _goingBack = false; }
+        };
     }
     public override bool Draw(bool checkDrawTimer)
     {
@@ -746,11 +758,11 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             Thought tParent = (Thought)mi.GetValue(ThoughtObjectProperty);
             if (tParent is not null)
             {
-                comboRoot.Text = tParent.Label;
-                Refresh();
+                CommitRoot(tParent.Label);
+                return;
             }
             Thought t = (Thought)m.GetValue(ThoughtObjectProperty);
-            if (t is null)
+            if (t is null)  //we don't know what this case does.  But it deletes the link.
             {
                 Link r = m.GetValue(LinkObjectProperty) as Link;
                 (r.From as Thought).RemoveLink(r);
@@ -804,9 +816,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                         parentThought.RemoveChild(t);
                     break;
                 case "Make Root":
-                    comboRoot.Text = t.Label;
-                    AddRootToHistory(t.Label);
-                    Refresh();
+                    CommitRoot(t.Label);
                     break;
             }
             //force a repaint
@@ -847,7 +857,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         }
         if (e.Key == Key.Enter)
         {
-            AddRootToHistory(comboRoot.Text);
+            CommitRoot(comboRoot.Text);
             tb.SelectionLength = 0;
         }
     }
@@ -910,6 +920,23 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         ModuleUKS parent = ParentModule as ModuleUKS;
         if (parent is null) return;
 
+        // Keep visited roots in the menu, with a separate trail for repeated Back clicks.
+        Thought selectedRoot = theUKS?.Labeled(root);
+        if (selectedRoot is not null)
+        {
+            root = selectedRoot.Label;
+            if (!string.Equals(_currentRoot, root, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!_goingBack && !string.IsNullOrEmpty(_currentRoot))
+                    _previousRoots.Add(_currentRoot);
+                _currentRoot = root;
+            }
+            AddRootToHistory(root);
+        }
+        _isTextChangingInternally = true;
+        comboRoot.Text = root;
+        _isTextChangingInternally = false;
+        RootBackButton.IsEnabled = _previousRoots.Count > 0;
         parent.SetSavedDlgAttribute("Root", root);
         Refresh();
     }
@@ -1082,7 +1109,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         ModuleUKS parent = (ModuleUKS)ParentModule;
         LoadRootHistory(parent.GetSavedDlgAttribute("RootHistory"));
-        comboRoot.Text = parent.GetSavedDlgAttribute("Root");
+        string root = parent.GetSavedDlgAttribute("Root");
+        CommitRoot(string.IsNullOrEmpty(root) ? "Thought" : root);
         weightBarsCB.IsChecked =
             parent.GetSavedDlgAttribute("WeightBars") == "True";
     }
@@ -1188,34 +1216,59 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void LoadRootHistory(string raw)
     {
-        _rootHistory.Clear();
-        if (!string.IsNullOrEmpty(raw))
-            _rootHistory.AddRange(raw.Split('|').Where(x => !string.IsNullOrWhiteSpace(x)));
-        UpdateRootHistoryItems();
+        bool wasChanging = _isTextChangingInternally;
+        _isTextChangingInternally = true;
+        try
+        {
+            _rootHistory.Clear();
+            if (!string.IsNullOrEmpty(raw))
+                foreach (string root in raw.Split('|').Where(x => !string.IsNullOrWhiteSpace(x)))
+                    if (!_rootHistory.Contains(root)) _rootHistory.Add(root);
+            UpdateRootHistoryItems();
+        }
+        finally { _isTextChangingInternally = wasChanging; }
     }
 
     private void AddRootToHistory(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return;
-        var existing = _rootHistory.FindIndex(x => string.Equals(x, value, StringComparison.OrdinalIgnoreCase));
-        if (existing >= 0) _rootHistory.RemoveAt(existing);
-        _rootHistory.Insert(0, value);
-        if (_rootHistory.Count > rootHistoryLimit)
-            _rootHistory.RemoveRange(rootHistoryLimit, _rootHistory.Count - rootHistoryLimit);
-        UpdateRootHistoryItems();
+        int existing = -1;
+        for (int i = 0; i < _rootHistory.Count; i++)
+            if (string.Equals(_rootHistory[i], value, StringComparison.OrdinalIgnoreCase))
+            {
+                existing = i;
+                break;
+            }
+        if (existing == 0) return;
+        bool wasChanging = _isTextChangingInternally;
+        _isTextChangingInternally = true;
+        try
+        {
+            // Move the existing item without removing it from the ComboBox selection.
+            if (existing >= 0) _rootHistory.Move(existing, 0);
+            else _rootHistory.Insert(0, value);
+        }
+        finally { _isTextChangingInternally = wasChanging; }
         if (ParentModule is ModuleUKS parent)
             parent.SetSavedDlgAttribute("RootHistory", string.Join("|", _rootHistory));
     }
 
     private void UpdateRootHistoryItems()
     {
+        // Bind once. Replacing ItemsSource during SelectionChanged clears the selected
+        // item while WPF is still updating the editable text, which can blank the root.
+        if (ReferenceEquals(comboRoot.ItemsSource, _rootHistory)) return;
         string currentText = comboRoot.Text;
+        var editor = comboRoot.Template?.FindName("PART_EditableTextBox", comboRoot) as TextBox;
+        int selectionStart = editor?.SelectionStart ?? 0;
+        int selectionLength = editor?.SelectionLength ?? 0;
+        bool wasChanging = _isTextChangingInternally;
         _isTextChangingInternally = true;
-        comboRoot.ItemsSource = null;
-        comboRoot.ItemsSource = _rootHistory.ToList();
-        comboRoot.SelectedIndex = -1;
+        comboRoot.ItemsSource = _rootHistory;
         comboRoot.Text = currentText;
-        _isTextChangingInternally = false;
+        // Updating the menu must preserve the selected autocomplete suffix while typing.
+        editor?.Select(selectionStart, selectionLength);
+        _isTextChangingInternally = wasChanging;
     }
 
     private static bool IsDarkMode()

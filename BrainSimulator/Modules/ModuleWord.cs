@@ -87,9 +87,9 @@ public class ModuleWord : ModuleBase
 
         if (suggestions.Count > 0)
         {
-            var suggestionList = theUKS.FlattenSequence(suggestions[0].seqNode);
-            string suggestionString = string.Join("", suggestionList.Select(
-                x => x.Label[UKS.UKS.CharacterPrefix.Length..]));
+            string suggestionString = string.Concat(theUKS.EnumerateSequenceElements(suggestions[0].seqNode)
+                .Select(element => element.VLU).OfType<Thought>()
+                .Select(value => value.Label[UKS.UKS.CharacterPrefix.Length..]));
             retVal = suggestionString;
         }
         return retVal;
@@ -111,10 +111,8 @@ public class ModuleWord : ModuleBase
         // Get or create the word thought. Words are observations, so their
         // persistent weights are plastic. Letters and spelling sequences are
         // structural and retain their fixed weights.
-        Thought wordRoot = EnsureWordRoot();
-        Thought existingWord = theUKS.Labeled("w:" + word);
-        bool isNewWord = existingWord is null;
-        Thought wordThought = existingWord ?? theUKS.GetOrAddThought("w:" + word, wordRoot);
+        EnsureWordRoot();
+        Thought wordThought = RememberSpelling(theUKS, word, out bool isNewWord);
         bool wordWasRetained = ObserveWord(wordThought, isNewWord);
         Thought retVal = wordThought;
         if (!wordWasRetained)
@@ -122,14 +120,60 @@ public class ModuleWord : ModuleBase
             retVal = null;
             return retVal;
         }
-        if (wordThought.LinksTo.FindFirst(x => x.LinkType.Label == "spelled") is not null)
-        {
-            return retVal; // Spelling already exists, no need to add again
-        }
-        theUKS.CreateSpellingSequence(word, wordThought);
-        //wordThought.TimeToLive = TimeSpan.FromSeconds(10);
-
         return retVal;
+    }
+
+    // Exact sequence search returns spelling heads. A head can describe several words.
+    internal static IEnumerable<Thought> FindWordsBySpelling(UKS.UKS store, string spelling)
+    {
+        Thought spelled = store.Labeled("spelled");
+        Thought wordRoot = store.Labeled("word");
+        if (spelled is null || wordRoot is null || string.IsNullOrEmpty(spelling)) yield break;
+
+        var letters = new List<Thought>(spelling.Length);
+        foreach (char character in spelling)
+        {
+            Thought letter = store.Labeled(UKS.UKS.GetCharacterLabel(character));
+            if (letter is null) yield break;
+            letters.Add(letter);
+        }
+
+        foreach (var (head, confidence) in store.FindSequencesByActivation(letters, "ExactSequenceSearch"))
+        {
+            if (confidence < 1 || !store.EnumerateSequenceElements(head).Select(element => element.VLU).SequenceEqual(letters))
+                continue;
+            foreach (Thought word in store.GetReferringThoughts(head, spelled))
+                if (word.HasAncestor(wordRoot)) yield return word;
+        }
+    }
+
+    internal static Thought RememberSpelling(UKS.UKS store, string spelling, out bool isNewWord)
+    {
+        Thought word = FindWordsBySpelling(store, spelling).FirstOrDefault();
+        if (word is not null)
+        {
+            isNewWord = false;
+            return word;
+        }
+
+        // A saved vocabulary may already have a conventional label but no spelling.
+        string label = "w:" + spelling;
+        word = store.Labeled(label);
+        isNewWord = word is null;
+        word ??= store.GetOrAddThought(label, "word");
+        if (word.GetTargetOfFirstLinkOfType("spelled") is SeqElement existing)
+        {
+            // Minimal stores can lack the search options. Check the stored spelling
+            // before deciding the conventional label is a collision.
+            if (store.EnumerateSequenceElements(existing).Select(element => element.VLU?.Label)
+                .SequenceEqual(spelling.Select(UKS.UKS.GetCharacterLabel)))
+                return word;
+            // The label is taken by a word with a different spelling.
+            word = store.GetOrAddThought("w:*", "word");
+            isNewWord = true;
+        }
+        store.CreateSpellingSequence(spelling, word);
+        return word;
     }
 
     /// <summary>

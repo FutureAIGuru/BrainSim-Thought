@@ -12,15 +12,12 @@
         </Grid.RowDefinitions>
         <Label Content="_English input" Target="{Binding ElementName=EnglishInput}"/>
         <TextBox x:Name="EnglishInput" Grid.Row="1" Margin="0,3,0,8"
-                 Text="Which dogs are brown?" TextChanged="InputChanged" FontSize="16"/>
+                 Text="the black dog is chasing the cat" FontSize="16"/>
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button Content="_Interpret" IsDefault="True" Padding="10,3" Click="InterpretClick"/>
-            <Button x:Name="ExecuteButton" Content="E_xecute" IsEnabled="False"
-                    Padding="10,3" Margin="6,0" Click="ExecuteClick"/>
-            <Button Content="Load example facts" Padding="10,3" Click="ExamplesClick"/>
+            <Button Content="_Show word sequence" IsDefault="True" Padding="10,3" Click="ShowSequenceClick"/>
         </StackPanel>
         <TextBox x:Name="Output" Grid.Row="3" IsReadOnly="True" TextWrapping="Wrap" FontSize="16"
                  AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
-                 AutomationProperties.Name="Interpretation and trace"/>
+                 AutomationProperties.Name="Word sequence"/>
     </Grid>
 </modules:ModuleBaseDlg>

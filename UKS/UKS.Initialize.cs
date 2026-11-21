@@ -281,6 +281,7 @@ public partial class UKS
         AddStatement("allowOutOfOrder", "is-a", "SearchOption");
         AddStatement("preferFirstLast", "is-a", "SearchOption");
         AddStatement("allowPartialMatch", "is-a", "SearchOption");
+        AddStatement("allowTrailingInput", "is-a", "SearchOption");
         AddStatement("allowNewClassMembers", "is-a", "SearchOption");
         AddStatement("ExactSequenceSearch", "is-a", "SearchOption");
         AddStatement("TemplateSequenceSearch", "is-a", "ExactSequenceSearch");
