@@ -1,6 +1,6 @@
 MODULEINTERPRET - TRIAL SENTENCES
 
-Open ModuleInterpret, enter one sentence, and press Show word sequence.
+Open ModuleInterpret, enter one sentence, and press Enter.
 The current development interface interprets AND executes the resulting directives.
 Inspect Templates, Word attachments, Meanings, and Executed relationships / Query results.
 Capitalization and a final period or question mark are optional.
@@ -30,12 +30,17 @@ the same word "are". The separate plural spellings mean the same singular concep
 Sentence                              Expected stored relationship(s)
 The black dog is brown.               [dog->is->black], [dog->is->brown]
 A small cat is an animal.             [cat->is->small], [cat->is-a->animal]
+Rover is a small dog.                 [rover->is-a->dog], [rover->is->small]
+Rover is a big dog.                   [rover->is-a->dog], [rover->is->big]
+Dogs are small animals.               [dog->is-a->animal], [dog->is->small]
 Dogs have tails.                      [dog->has->tail]
 Fido has fur.                         [fido->has->fur]
 Fido chases cats.                     [fido->chases->cat]
 Dogs chase animals.                   [dog->chases->animal]
 The dog is chasing the cat.           [dog->chases.ongoing->cat]
 
+In "Rover is a small dog." the adjective describes Rover, not every dog, so it is
+part of the sentence template rather than of the noun phrase "small dog".
 The chase/chases spellings share a meaning. This is vocabulary knowledge, not a
 general verb conjugation library. Ongoing actions retain the ongoing modifier.
 
@@ -72,11 +77,24 @@ Is Fido a dog?                        [fido->is-a->dog]
 Are cats animals?                     [cat->is-a->animal]
 What is brown?                        Includes [fido->is->brown]
 Is Fido black?                        No matching relationships.
+What is Fido?                         [fido->is-a->dog]
+What is a dog?                        [dog->is-a->animal]
+What does Fido have?                  Includes [fido->has->tail], [fido->has.4->leg]
+Do dogs have tails?                   [dog->has->tail]
+Do cats have fur?                     [cat->has->fur]
+Is Fido not black?                    No matching relationships.
+Are dogs not cats?                    No matching relationships.
 
 Query meanings use is.? / is-a.? and the existing UKS query action mechanism.
 Execute returns its matching relationships. A yes/no query returns a matching
 relationship rather than a separate Boolean. No match is not proof of falsity.
 The wildcard query may return more results after additional assertions.
+
+"What does Fido have?" follows inheritance: Fido's tail and legs are inherited
+from dog. A yes/no query without a wildcard finds only a direct relationship, so
+"Does Fido have a tail?" currently reports no match. The negative queries match
+only an explicit negative relationship: enter "Fido is not black." (or "Dogs are
+not cats.") first, and the query then returns it.
 
 6. LEARNING AN UNKNOWN NOUN
 
@@ -103,7 +121,36 @@ inherit word through their grammatical class, without a direct word parent.
 "The globular cluster" now matches article-adjective-noun and can classify both
 unknown words. This is a syntactic inference, not proof that it is a fixed phrase.
 
+A new word is never learned into a closed class (article, auxiliary, negation and
+question words; closedClass in BasicWords.txt). An unknown word matched only on its
+own, such as "big" in "Rover is a big dog.", waits while an earlier template could
+still cover it; there it becomes an adjective of Rover rather than a bare noun.
+
+7. ANSWERS
+
+Each query result is turned back into English by running an assertion template in
+reverse (GenerateSentence). The reply appears in the Answer box; Details shows each
+stage. Answers use bare singular nouns. Free word choices (copula, auxiliary, "is a")
+prefer singular words, and must satisfy the word order constraints in BasicWords.txt:
+"a"/"an" before a consonant/vowel, an ongoing verb after a copula, and a plural noun
+after a digit other than 1.
+
+Sentence                              Expected Answer
+Is Fido brown?                        Fido is brown.
+Is Fido a dog?                        Fido is a dog.
+Are cats animals?                     Cat is an animal.
+What is Fido?                         Fido is a dog.
+What does Fido have?                  Fido has tail. / Fido has 4 legs.
+Do dogs have tails?                   Dog has tail.
+Is Fido black?                        I don't know.
+
+No match is not proof of falsity, so an empty result is answered "I don't know."
+A statement that is stored is answered "OK."
+
 TEMPLATE GUIDE (definitions remain in LoadLanguageKnowledge)
+
+Where a template uses one class twice, roles name its elements, e.g.
+??.nounPhrase.subjectRole and ??.nounPhrase.complementRole.
 
 nounPhrase1 / nounPhrase2 / nounPhrase3
     article adjective noun / article noun / noun
@@ -113,6 +160,9 @@ classificationTemplate
     nounPhrase classificationPhrase nounPhrase (fixed "is a" / "is an")
 copulaClassificationTemplate / copulaAttributeTemplate
     nounPhrase copula nounPhrase / nounPhrase copula adjective
+classificationAttributeTemplate / copulaClassificationAttributeTemplate
+    nounPhrase classificationPhrase adjective nounPhrase / nounPhrase copula adjective nounPhrase
+    (two meanings: the subject is-a the noun, and the subject is the adjective)
 possessionTemplate / actionTemplate
     nounPhrase possessionVerb nounPhrase / nounPhrase actionVerb nounPhrase
 quantityPossession0 through quantityPossession9
@@ -125,3 +175,9 @@ bareClassificationQueryTemplate
     copula noun noun (handles adjacent bare nouns without merging their phrases)
 wildcardAttributeQueryTemplate
     w:what copula adjective
+wildcardClassificationQueryTemplate / wildcardClassificationPhraseQueryTemplate
+    w:what copula nounPhrase / w:what classificationPhrase nounPhrase ("is a")
+wildcardPossessionQueryTemplate / possessionQueryTemplate
+    w:what doAuxiliary nounPhrase possessionVerb / doAuxiliary nounPhrase possessionVerb nounPhrase
+negativeAttributeQueryTemplate / negativeClassificationQueryTemplate
+    copula nounPhrase negationWord adjective / nounPhrase

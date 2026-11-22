@@ -1,4 +1,4 @@
-using System.Windows;
+using System.Windows.Input;
 
 namespace BrainSimulator.Modules;
 
@@ -6,9 +6,13 @@ public partial class ModuleInterpretDlg : ModuleBaseDlg
 {
     public ModuleInterpretDlg() => InitializeComponent();
 
-    private void ShowSequenceClick(object sender, RoutedEventArgs e)
+    // Enter interprets the sentence; the reply goes to Answer and each stage's results to Details.
+    private void EnglishInputKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
         var module = (ModuleInterpret)ParentModule;
         Output.Text = module.Input(EnglishInput.Text, rememberUnknownWords: true);
+        Answer.Text = module.Answer;
     }
 }

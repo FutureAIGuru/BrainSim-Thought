@@ -14,6 +14,7 @@
 [questionWord->is-a->wordType] 1.00
 [auxiliary->is-a->verb]
 [copula->is-a->auxiliary]
+[doAuxiliary->is-a->auxiliary]
 [ongoingVerb->is-a->verb]
 [possessionVerb->is-a->verb]
 [actionVerb->is-a->verb]
@@ -57,6 +58,7 @@
 # Word classifications. Membership in word is inherited through wordType.
 [w:the->is-a->article]
 [w:are->is-a->copula]
+[w:are->is-a->plural]
 [w:chasing->is-a->ongoingVerb]
 [w:fido->is-a->noun] 1.00
 [w:dog->is-a->noun] 1.00
@@ -79,8 +81,8 @@
 [w:is->is-a->copula] 1.00
 [w:has->is-a->possessionVerb] 1.00
 [w:have->is-a->possessionVerb] 1.00
-[w:does->is-a->verb] 1.00
-[w:do->is-a->verb] 1.00
+[w:does->is-a->doAuxiliary] 1.00
+[w:do->is-a->doAuxiliary] 1.00
 
 [w:brown->is-a->adjective] 1.00
 [w:black->is-a->adjective] 1.00
@@ -241,3 +243,64 @@
 [w:9->is-a->numberWord]
 [w:9->means->9]
 [w:9->spelled->^9]
+
+# Agreement. These verb forms agree with a plural subject ("dogs have");
+# generated sentences use singular subjects and so prefer the singular forms.
+[w:have->is-a->plural]
+[w:chase->is-a->plural]
+[w:do->is-a->plural]
+
+# Word order constraints between adjacent words, used when generating sentences.
+# A word (or its class) may precede only a word of a class, or a word starting with
+# a letter of a class, and may follow only a word of a class.
+[precedesWord->is-a->LinkType]
+[precedesWordStartingWith->is-a->LinkType]
+[followsWord->is-a->LinkType]
+[letterClass->is-a->Unknown]
+[vowel->is-a->letterClass]
+[consonant->is-a->letterClass]
+[c:A->is-a->vowel]
+[c:E->is-a->vowel]
+[c:I->is-a->vowel]
+[c:O->is-a->vowel]
+[c:U->is-a->vowel]
+[c:B->is-a->consonant]
+[c:C->is-a->consonant]
+[c:D->is-a->consonant]
+[c:F->is-a->consonant]
+[c:G->is-a->consonant]
+[c:H->is-a->consonant]
+[c:J->is-a->consonant]
+[c:K->is-a->consonant]
+[c:L->is-a->consonant]
+[c:M->is-a->consonant]
+[c:N->is-a->consonant]
+[c:P->is-a->consonant]
+[c:Q->is-a->consonant]
+[c:R->is-a->consonant]
+[c:S->is-a->consonant]
+[c:T->is-a->consonant]
+[c:V->is-a->consonant]
+[c:W->is-a->consonant]
+[c:X->is-a->consonant]
+[c:Y->is-a->consonant]
+[c:Z->is-a->consonant]
+[w:a->precedesWordStartingWith->consonant]
+[w:an->precedesWordStartingWith->vowel]
+[ongoingVerb->followsWord->copula]
+[w:0->precedesWord->plural]
+[w:2->precedesWord->plural]
+[w:3->precedesWord->plural]
+[w:4->precedesWord->plural]
+[w:5->precedesWord->plural]
+[w:6->precedesWord->plural]
+[w:7->precedesWord->plural]
+[w:8->precedesWord->plural]
+[w:9->precedesWord->plural]
+
+# Closed word classes: a fixed set of function words. A new word is never learned into one.
+[closedClass->is-a->Property]
+[article->hasProperty->closedClass]
+[auxiliary->hasProperty->closedClass]
+[negationWord->hasProperty->closedClass]
+[questionWord->hasProperty->closedClass]
