@@ -41,7 +41,7 @@ public sealed partial class ModuleInterpret
     /// The meanings of the readings that lost: those attached to rival matches, except any the
     /// winner means too. They are not acted on.
     /// </summary>
-    private HashSet<Thought> LosingMeanings(IEnumerable<Link> rivals, Link winner)
+    private HashSet<Thought> LosingMeanings(IEnumerable<Thought> rivals, Thought winner)
     {
         var won = new HashSet<Thought>(winner.LinksTo.Where(link => link.LinkType == means).Select(link => link.To));
         return new HashSet<Thought>(rivals.Where(rival => !ReferenceEquals(rival, winner))

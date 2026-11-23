@@ -32,19 +32,19 @@ public sealed partial class ModuleInterpret
     /// inner phrase) and the description about that head. Whether it picks out one thing or a kind
     /// depends on its words: a first word that isDefinite, and a head that is not plural, pick out one.
     /// </summary>
-    private List<Thought> DescribedReferent(List<Thought> meanings, Thought template, SeqElement pattern, SeqElement start, SeqElement last)
+    private List<Thought> DescribedReferent(List<Thought> meanings, Thought match, SeqElement pattern, SeqElement start, SeqElement last)
     {
         Thought? head = meanings.FirstOrDefault(meaning => meaning is not Link || IsReferentDescriptor(meaning));
         Link? description = meanings.OfType<Link>().FirstOrDefault(meaning => !IsReferentDescriptor(meaning) && ReferenceEquals(meaning.From, head));
         if (head is null || description is null) return meanings;
 
         // The element the head comes from, and whether any word filling it is plural.
-        Thought? headValue = template.LinksTo.FirstOrDefault(link => link.LinkType == means && link.To is not Link)?.To;
+        Thought? headValue = TemplateOf(match).LinksTo.FirstOrDefault(link => link.LinkType == means && link.To is not Link)?.To;
         SeqElement? headElement = pattern;
         while (headElement is not null && !ReferenceEquals(headElement.VLU, headValue)) headElement = headElement.NXT;
         bool isPlural = false;
         for (SeqElement? word = start; word is not null && word != last.NXT; word = word.NXT)
-            isPlural |= headElement is not null && word.LinksTo.Any(link => link.LinkType == fills && link.To == headElement) &&
+            isPlural |= headElement is not null && Fills(word, headElement, match) &&
                 ReferenceEquals(InflectionOf(word), plural);
         bool picksOne = start.VLU.HasProperty("isDefinite") && !isPlural;
 
@@ -136,8 +136,8 @@ public sealed partial class ModuleInterpret
 
     // When the winning reading is itself a describing phrase (the input is "The hungry dog"), the thing
     // it describes is found or introduced, and its description is what was stated.
-    private IEnumerable<Link> Introduced(Link covering) =>
-        covering.To.HasProperty("describesReferent") &&
+    private IEnumerable<Link> Introduced(Thought covering) =>
+        TemplateOf(covering).HasProperty("describesReferent") &&
         covering.LinksTo.FirstOrDefault(link => link.LinkType == means && IsReferentDescriptor(link.To))?.To is Link descriptor &&
         Referent(descriptor, question: false) is Thought referent
             ? DescriptionOf(referent, descriptor).ToList() : Enumerable.Empty<Link>();

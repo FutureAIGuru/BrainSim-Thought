@@ -372,10 +372,25 @@ public sealed partial class ModuleInterpret
                 .Select(letter => letter.VLU.Label[UKS.UKS.CharacterPrefix.Length..])).ToLowerInvariant()
             : word.Label;
 
+    // A sentence starts with a capital and ends with a period; a clause inside a sentence does neither.
+    // A proper noun is capitalized anywhere ("...if Fido is outside").
     private string Format(List<Thought> words)
     {
-        string text = string.Join(" ", words.Select(Spelling));
-        return char.ToUpperInvariant(text[0]) + text[1..] + ".";
+        string text = string.Join(" ", words.Select(word =>
+            word.HasAncestor(theUKS.Labeled("properNoun")) ? Capitalized(Spelling(word)) : Spelling(word)));
+        return formatAsClause ? text : Capitalized(text) + ".";
+    }
+
+    private static string Capitalized(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
+    private bool formatAsClause;
+
+    /// <summary>A relationship said as a clause of a larger sentence ("Fido is outside"), or null.</summary>
+    private string? GenerateClause(Link fact)
+    {
+        formatAsClause = true;
+        try { return GenerateSentence(fact); }
+        finally { formatAsClause = false; }
     }
 
     #endregion

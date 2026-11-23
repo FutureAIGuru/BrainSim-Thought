@@ -6,7 +6,8 @@ public partial class ModuleInterpretDlg : ModuleBaseDlg
 {
     public ModuleInterpretDlg() => InitializeComponent();
 
-    // Enter interprets the sentence; the reply goes to Answer and each stage's results to Details.
+    // Enter interprets the sentence (relationships, [a->b->c], explain one that was not understood);
+    // the reply goes to Answer and each stage's results to Details.
     private void EnglishInputKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter) return;

@@ -28,6 +28,7 @@ public sealed partial class ModuleInterpret
         patternRoot = theUKS.GetOrAddThought("languagePattern", "LanguageElement");
         templateRoot.AddParent(patternRoot);
         phraseRoot.AddParent(patternRoot);
+        clause = theUKS.GetOrAddThought("clause", templateRoot);
         vlu = theUKS.Labeled("VLU");
         templateSequenceSearch = theUKS.GetOrAddThought("InterpretTemplateSearch", theUKS.Labeled("TemplateSequenceSearch"));
         // A loaded network may predate this option. Initialization must create it, not just look it up.
@@ -40,6 +41,12 @@ public sealed partial class ModuleInterpret
         // A sentence word fills a template element: the binding a MEANS role is resolved through.
         // GetMeanings records it while confirming that a template covers its run of words.
         fills = theUKS.GetOrAddThought("fills", "LinkType");
+        // Each match of a template is a Thought of its own (Recognition: RecordMatch).
+        matchRoot = theUKS.GetOrAddThought("templateMatches", "LanguageElement");
+        matchOf = theUKS.GetOrAddThought("matchOf", "LinkType");
+        startsMatch = theUKS.GetOrAddThought("startsMatch", "LinkType");
+        endsAt = theUKS.GetOrAddThought("endsAt", "LinkType");
+        inMatch = theUKS.GetOrAddThought("inMatch", "LinkType");
         isA = theUKS.Labeled("is-a");
         spelled = theUKS.Labeled("spelled");
         hasInflection = theUKS.Labeled("hasInflection");
@@ -58,6 +65,7 @@ public sealed partial class ModuleInterpret
         precedesWordStartingWith = theUKS.Labeled("precedesWordStartingWith");
         followsWord = theUKS.Labeled("followsWord");
         closedClass = theUKS.Labeled("closedClass");
+        joinsClauses = theUKS.Labeled("joinsClauses");
 
         // Repair older vocabulary entries with a redundant direct word parent.
         foreach (Thought word in wordRoot!.Children.Where(word => word.GetTargetOfFirstLinkOfType(spelled) is not null).ToList())
@@ -89,6 +97,8 @@ public sealed partial class ModuleInterpret
         // which an is-a statement reads as the class plus the description (Execute).
         foreach (string name in new[] { "classificationAttributeTemplate", "copulaClassificationAttributeTemplate" })
             theUKS.Labeled(name)?.Delete();
+        // Three clauses had a template of their own until a compound could contain a compound.
+        theUKS.Labeled("compound3Template")?.Delete();
 
         // Move the previous experimental grouping when a saved network is reused.
         foreach (string name in new[] { "nounPhrase", "verbPhrase", "sentenceTemplate" })
@@ -202,6 +212,10 @@ public sealed partial class ModuleInterpret
             "[eventLocationAdverbTemplate->is-a->template]",
             "[eventLocationAdverbTemplate->hasWords->^??.nounPhrase.subjectRole ??.actionVerb ??.nounPhrase.complementRole ??.locativeAdverb]",
             "[eventLocationAdverbTemplate->means->[[??.nounPhrase.subjectRole->??.actionVerb->??.nounPhrase.complementRole]->located.!->??.locativeAdverb]]",
+            // "Fido went outside." A motion verb relates the subject to where it went.
+            "[motionTemplate->is-a->template]",
+            "[motionTemplate->hasWords->^??.nounPhrase.subjectRole ??.motionVerb ??.locativeAdverb]",
+            "[motionTemplate->means->[??.nounPhrase.subjectRole->??.motionVerb->??.locativeAdverb]]",
             "[negativeAttributeTemplate->is-a->template]",
             "[negativeAttributeTemplate->hasWords->^??.nounPhrase ??.copula ??.negationWord ??.adjective]",
             "[negativeAttributeTemplate->means->[??.nounPhrase->is.not.!->??.adjective]]",
@@ -243,6 +257,24 @@ public sealed partial class ModuleInterpret
             "[whereEventQueryTemplate->is-a->template]",
             "[whereEventQueryTemplate->hasWords->^w:where ??.doAuxiliary ??.nounPhrase.subjectRole ??.actionVerb ??.nounPhrase.complementRole]",
             "[whereEventQueryTemplate->means->[[??.nounPhrase.subjectRole->??.actionVerb->??.nounPhrase.complementRole]->located.?->??]]",
+            // "Where did Fido go?" (did lends the past: goes.past.?) / "Where has Fido gone?"
+            "[whereMotionQueryTemplate->is-a->template]",
+            "[whereMotionQueryTemplate->hasWords->^w:where ??.doAuxiliary ??.nounPhrase ??.motionVerb]",
+            "[whereMotionQueryTemplate->means->[??.nounPhrase->??.motionVerb->??]]",
+            "[whereMotionQueryTemplate->hasProperty->asksQuestion]",
+            "[wherePerfectMotionQueryTemplate->is-a->template]",
+            "[wherePerfectMotionQueryTemplate->hasWords->^w:where ??.perfectAuxiliary ??.nounPhrase ??.motionVerb.pastParticiple]",
+            "[wherePerfectMotionQueryTemplate->means->[??.nounPhrase->??.motionVerb.pastParticiple->??]]",
+            "[wherePerfectMotionQueryTemplate->hasProperty->asksQuestion]",
+            // "Did Fido go outside?" / "Has Fido gone outside?"
+            "[motionQueryTemplate->is-a->template]",
+            "[motionQueryTemplate->hasWords->^??.doAuxiliary ??.nounPhrase.subjectRole ??.motionVerb ??.locativeAdverb]",
+            "[motionQueryTemplate->means->[??.nounPhrase.subjectRole->??.motionVerb->??.locativeAdverb]]",
+            "[motionQueryTemplate->hasProperty->asksQuestion]",
+            "[perfectMotionQueryTemplate->is-a->template]",
+            "[perfectMotionQueryTemplate->hasWords->^??.perfectAuxiliary ??.nounPhrase.subjectRole ??.motionVerb.pastParticiple ??.locativeAdverb]",
+            "[perfectMotionQueryTemplate->means->[??.nounPhrase.subjectRole->??.motionVerb.pastParticiple->??.locativeAdverb]]",
+            "[perfectMotionQueryTemplate->hasProperty->asksQuestion]",
             "[classificationQueryTemplate->is-a->template]",
             "[classificationQueryTemplate->hasWords->^??.copula ??.nounPhrase.subjectRole ??.nounPhrase.complementRole]",
             "[classificationQueryTemplate->means->[??.nounPhrase.subjectRole->is-a.?->??.nounPhrase.complementRole]]",
@@ -287,6 +319,70 @@ public sealed partial class ModuleInterpret
             Define($"[{name}->hasWords->^??.nounPhrase.subjectRole ??.possessionVerb w:{digit} ??.nounPhrase.complementRole]");
             Define($"[{name}->means->[??.nounPhrase.subjectRole->has.{digit}.!->??.nounPhrase.complementRole]]");
         }
+
+        // Clauses: a statement template whose meaning is one relationship can also be a clause of a
+        // larger sentence, joined by a word that joinsClauses (BasicWords). A ??.clause element takes
+        // the clause's statement as its value.
+        foreach (string definition in new[]
+        {
+            "[firstClauseRole->is-a->templateRole]",
+            "[secondClauseRole->is-a->templateRole]",
+            "[resultRole->is-a->templateRole]",
+            "[conditionRole->is-a->templateRole]",
+            // "Fido is a dog and Fido is green." Both clauses are stated, and related: said together,
+            // they probably hold at the same time (the conjoinedWith that teaching also writes).
+            "[compoundTemplate->is-a->template]",
+            "[compoundTemplate->hasWords->^??.clause.firstClauseRole w:and ??.clause.secondClauseRole]",
+            "[compoundTemplate->means->[??.clause.firstClauseRole->conjoinedWith.!->??.clause.secondClauseRole]]",
+            // "A and B and C" is "(A and B) and C": a compound is a clause, so it can be the first clause
+            // of the next one (each match is recorded on its own; Recognition: RecordMatch).
+            // "Fido is cold if Fido is outside." A rule: neither clause is stated (Execute stores them
+            // as possibilities joined by IF, which the UKS evaluates when asked). conditionalOn is an
+            // ordinary relationship type here: in a definition, IF's operands would be read as patterns.
+            "[conditionalOn->is-a->LinkType]",
+            "[conditionalTemplate->is-a->template]",
+            "[conditionalTemplate->hasWords->^??.clause.resultRole w:if ??.clause.conditionRole]",
+            "[conditionalTemplate->means->[??.clause.resultRole->conditionalOn.!->??.clause.conditionRole]]",
+            // "If Fido is outside, Fido is cold." The comma is read as a word that joins clauses.
+            "[conditionFirstTemplate->is-a->template]",
+            "[conditionFirstTemplate->hasWords->^w:if ??.clause.conditionRole w:comma ??.clause.resultRole]",
+            "[conditionFirstTemplate->means->[??.clause.resultRole->conditionalOn.!->??.clause.conditionRole]]",
+        })
+            Define(definition);
+        // The clauses. compoundTemplate is one, so "A and B and C" nests, and in "A if B and C" the
+        // condition is "B and C". A rule is not a clause: "if" joins most loosely. The conjoined-subject
+        // templates mean two relationships, so they are not clauses yet; questions are not either.
+        foreach (string name in new[]
+        {
+            "sentenceTemplate", "classificationTemplate", "copulaClassificationTemplate", "copulaAttributeTemplate",
+            "locativeTemplate", "locativeAdverbTemplate", "possessionTemplate", "actionTemplate",
+            "eventLocationTemplate", "eventLocationAdverbTemplate", "motionTemplate", "negativeAttributeTemplate", "negativeClassificationTemplate",
+            "compoundTemplate",
+        }.Concat("0123456789".Select(digit => "quantityPossession" + digit)))
+            Define($"[{name}->is-a->clause]");
+        // "Is Fido green if Fido is outside?" A question asked on an assumption: Execute states the
+        // condition, then asks (a question's changes are always undone). The yes/no questions are
+        // question clauses, a class of their own so that "and" and a rule's result take statements only.
+        foreach (string definition in new[]
+        {
+            "[questionClause->is-a->template]",
+            "[assuming->is-a->LinkType]",
+            "[hypotheticalQueryTemplate->is-a->template]",
+            "[hypotheticalQueryTemplate->hasWords->^??.questionClause.resultRole w:if ??.clause.conditionRole]",
+            "[hypotheticalQueryTemplate->means->[??.questionClause.resultRole->assuming.?->??.clause.conditionRole]]",
+            "[hypotheticalQueryTemplate->hasProperty->asksQuestion]",
+        })
+            Define(definition);
+        foreach (string name in new[]
+        {
+            "attributeQueryTemplate", "locativeQueryTemplate", "ongoingActionQueryTemplate", "actionQueryTemplate", "motionQueryTemplate", "perfectMotionQueryTemplate",
+            "classificationQueryTemplate", "bareClassificationQueryTemplate", "possessionQueryTemplate",
+            "negativeAttributeQueryTemplate", "negativeClassificationQueryTemplate",
+        })
+            Define($"[{name}->is-a->questionClause]");
+        // A comma is read as a word; a text file can't spell it, so its spelling is made here.
+        if (theUKS.Labeled("w:comma") is Thought comma && comma.GetTargetOfFirstLinkOfType(spelled) is null)
+            theUKS.CreateSpellingSequence(",", comma);
     }
 
     /// <summary>

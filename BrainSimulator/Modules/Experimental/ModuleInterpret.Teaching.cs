@@ -25,7 +25,8 @@ public sealed partial class ModuleInterpret
     /// otherwise nothing changes and false is returned, so the input is read as new.
     /// </summary>
     /// <returns>True if the input was taken as the explanation (learned from, or found not to fit).</returns>
-    private bool TryToLearnFromExplanation(string unexplained, string explanation, bool rememberUnknownWords, out string report)
+    private bool TryToLearnFromExplanation(string unexplained, string explanation, bool rememberUnknownWords, out string report,
+        bool asRelationships = false)
     {
         report = "";
         // The same words again, only punctuated differently, are a correction of the input, not an
@@ -35,11 +36,22 @@ public sealed partial class ModuleInterpret
         bool keep = false;
         try
         {
-            // The explanation: one or more statements, each understood.
+            // The explanation: one or more statements, each understood, or typed as relationships.
             var statements = new List<Link>();
-            foreach (string part in SplitSentences(explanation))
+            if (asRelationships)
             {
-                if (Read(part, rememberUnknownWords) is not Link covering) return false;
+                statements = ParseRelationships(explanation, out string? notParsed);
+                if (notParsed is not null)
+                {
+                    pendingSentence = unexplained;
+                    Answer = notParsed;
+                    report = $"Explaining \"{unexplained}\" as \"{explanation}\"\n\nNot learned\n{notParsed}";
+                    return true;
+                }
+            }
+            else foreach (string part in SplitSentences(explanation))
+            {
+                if (Read(part, rememberUnknownWords) is not Thought covering) return false;
                 List<Link> said = covering.LinksTo.Where(link => link.LinkType == means)
                     .Select(link => link.To).OfType<Link>().ToList();
                 if (said.Count == 0 || said.Any(statement => statement.LinkType?.HasProperty("isPossible") == true)) return false;
@@ -47,8 +59,9 @@ public sealed partial class ModuleInterpret
             }
             if (statements.Count == 0) return false;
 
-            // The sentence it explains, read again for its words and phrases.
-            if (ReadSentence(unexplained, rememberUnknownWords) is not Thought sentence) return false;
+            // The sentence it explains, read again for its words and phrases. Not for clauses: a clause
+            // ("the cat chased fido" in "...and rover") would hide the phrases the explanation names.
+            if (ReadSentence(unexplained, rememberUnknownWords, lookForClauses: false) is not Thought sentence) return false;
             List<Unit> units = Units(sentence);
             // An input that shares nothing with the sentence is not an explanation of it.
             if (!units.Any(unit => unit.Meaning is not null && statements.Any(statement => Mentions(statement, unit.Meaning))))
@@ -67,7 +80,7 @@ public sealed partial class ModuleInterpret
 
             // The new template now covers the sentence: read it again and state what it says.
             if (ReadSentence(unexplained, rememberUnknownWords) is not Thought reread ||
-                Covering(reread) is not Link match || match.To != template)
+                Covering(reread) is not Thought match || TemplateOf(match) != template)
             {
                 Answer = "I still can't read it that way.";
                 report = header + "\n\nLearned template (not kept)\n" + string.Join("\n", definition);
@@ -76,7 +89,7 @@ public sealed partial class ModuleInterpret
             List<Link> executed = Execute(GetMeanings(reread));
             RecordSource(executed, template);
             keep = executed.Count > 0;
-            Answer = keep ? "Thanks, I understand now. (I'm still learning sentences like this one.)" : "I still can't read it that way.";
+            Answer = keep ? "Thanks, I understand now." + StillLearningNote : "I still can't read it that way.";
             report = header + "\n\nLearned template\n" + string.Join("\n", definition) +
                 $"\n\nWeight {template.Weight:0.00} (plastic); each successful use strengthens it." +
                 "\n\nExecuted relationships\n" + string.Join("\n", executed);
@@ -94,6 +107,94 @@ public sealed partial class ModuleInterpret
         }
     }
 
+    // Input written as relationships rather than English: brackets or arrows.
+    private static bool IsRelationshipText(string? text) =>
+        text is not null && (text.TrimStart().StartsWith('[') || text.Contains("->") || text.Contains('→'));
+
+    /// <summary>
+    /// The answer to "Can you say it another way?" given as relationships ([cat->chases.past->fido])
+    /// instead of sentences: they are the explanation's statements, taken as they are written.
+    /// </summary>
+    /// <returns>The report; the reply is in Answer.</returns>
+    private string ExplainWithRelationships(string relationships, bool rememberUnknownWords)
+    {
+        if (pendingSentence is not string unexplained)
+            return Answer = "Relationships explain a sentence I didn't understand, and none is waiting.";
+        pendingSentence = null;
+        if (TryToLearnFromExplanation(unexplained, relationships, rememberUnknownWords, out string report, asRelationships: true))
+            return report;
+        pendingSentence = unexplained;
+        Answer = $"Those relationships don't mention anything in \"{unexplained}\". Can you say it another way?";
+        return "Not learned\n" + Answer;
+    }
+
+    /// <summary>
+    /// Relationships typed as in a UKS text file, [from->type->to] (or →), several in one input, an
+    /// operand possibly itself a relationship. Operands name Thoughts by label. A type is taken as
+    /// stated (is-a becomes is-a.!, chases.past chases.past.!), as a sentence's meaning would be.
+    /// Nothing is written: these are only the statements an explanation makes.
+    /// </summary>
+    private List<Link> ParseRelationships(string text, out string? problem)
+    {
+        problem = null;
+        string source = text.Replace("→", "->");
+        var statements = new List<Link>();
+        for (int at = SkipSpaces(source, 0); at < source.Length; at = SkipSpaces(source, at))
+        {
+            if (source[at] != '[' || ParseOperand(source, ref at, ref problem) is not Link statement)
+            {
+                problem ??= $"Expected a relationship like [fido->is-a->dog] at \"{source[at..]}\".";
+                return new();
+            }
+            statements.Add(statement);
+        }
+        if (statements.Count == 0) problem = "Enter relationships like [fido->is-a->dog].";
+        return statements;
+    }
+
+    // One operand at a position in the text: a nested [from->type->to], or the label of a known Thought.
+    private Thought? ParseOperand(string source, ref int at, ref string? problem)
+    {
+        at = SkipSpaces(source, at);
+        if (at < source.Length && source[at] == '[')
+        {
+            at++;
+            Thought? from = ParseOperand(source, ref at, ref problem);
+            string? typeLabel = Expect(source, ref at, "->", ref problem) ? ReadLabel(source, ref at) : null;
+            Thought? to = typeLabel is not null && Expect(source, ref at, "->", ref problem) ? ParseOperand(source, ref at, ref problem) : null;
+            if (from is null || string.IsNullOrEmpty(typeLabel) || to is null || !Expect(source, ref at, "]", ref problem)) return null;
+            Thought type = typeLabel.EndsWith(".!") || typeLabel.EndsWith(".?")
+                ? theUKS.GetOrAddThought(typeLabel) : theUKS.GetOrAddThought(typeLabel + ".!");
+            return new Link(from, type, to);
+        }
+        // A Thought not known yet ("rover", whose word the sentence would teach) is made; if it is not
+        // in the sentence, lining up says so, and the transaction is undone.
+        string label = ReadLabel(source, ref at);
+        return label.Length == 0 ? null : theUKS.Labeled(label) ?? theUKS.GetOrAddThought(label);
+    }
+
+    private static string ReadLabel(string source, ref int at)
+    {
+        int start = at;
+        while (at < source.Length && source[at] != '[' && source[at] != ']' &&
+            !source.AsSpan(at).StartsWith("->")) at++;
+        return source[start..at].Trim();
+    }
+
+    private static bool Expect(string source, ref int at, string token, ref string? problem)
+    {
+        at = SkipSpaces(source, at);
+        if (source.AsSpan(at).StartsWith(token)) { at += token.Length; return true; }
+        problem ??= $"Expected \"{token}\" at \"{source[at..]}\".";
+        return false;
+    }
+
+    private static int SkipSpaces(string source, int at)
+    {
+        while (at < source.Length && char.IsWhiteSpace(source[at])) at++;
+        return at;
+    }
+
     // Sentences end with a period, question mark or exclamation mark.
     private static IEnumerable<string> SplitSentences(string text) =>
         Regex.Split(text ?? "", @"(?<=[.!?])\s+").Select(part => part.Trim()).Where(part => part.Length > 0);
@@ -102,14 +203,14 @@ public sealed partial class ModuleInterpret
         string.Join(" ", Regex.Split((text ?? "").ToLowerInvariant(), @"[^\p{L}\p{N}']+").Where(word => word.Length > 0));
 
     // Reads a sentence (without executing it); the match of the template covering it, or null.
-    private Link? Read(string text, bool rememberUnknownWords) =>
+    private Thought? Read(string text, bool rememberUnknownWords) =>
         ReadSentence(text, rememberUnknownWords) is Thought sentence ? Covering(sentence) : null;
 
-    private Thought? ReadSentence(string text, bool rememberUnknownWords)
+    private Thought? ReadSentence(string text, bool rememberUnknownWords, bool lookForClauses = true)
     {
         Thought? sentence = GetSequenceFromText(text, rememberUnknownWords);
         if (sentence is null) return null;
-        GetTemplates(sentence);
+        GetTemplates(sentence, lookForClauses);
         GetMeanings(sentence);
         return sentence;
     }
@@ -129,7 +230,7 @@ public sealed partial class ModuleInterpret
             if (phrase is not null)
             {
                 while (last.NXT is SeqElement next && ReferenceEquals(theUKS.GetElementValue(next, patternRoot), phrase)) last = next;
-                Thought? meaning = element.LinksTo.FirstOrDefault(link => link.LinkType == matchesTemplate && link.To == phrase)?
+                Thought? meaning = MatchesAt(element).FirstOrDefault(match => TemplateOf(match) == phrase && ReferenceEquals(EndOf(match), last))?
                     .LinksTo.FirstOrDefault(link => link.LinkType == means && link.To is not Link)?.To;
                 Thought phraseClass = phrase.Parents.FirstOrDefault(parent => parent != templateRoot && parent.HasAncestor(patternRoot)) ?? phrase;
                 units.Add(new Unit(element, last, phraseClass, meaning, null));

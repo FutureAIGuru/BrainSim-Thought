@@ -22,6 +22,11 @@ public class ModuleInterpretTests
             element.AddLink("matchesTemplate", nounPhrase);
             element.AddLink("VLU", nounPhrase);
         }
+        // The match itself, as GetTemplates records it: from its first word, of its template, to its last word.
+        Thought match = store.GetOrAddThought("templateMatch*", "templateMatches");
+        match.AddLink("matchOf", nounPhrase);
+        match.AddLink("endsAt", dog);
+        first.AddLink("startsMatch", match);
         Thought options = store.Labeled("InterpretTemplateSearch");
         SeqElement attributePattern = (SeqElement)store.Labeled("copulaAttributeTemplate").GetTargetOfFirstLinkOfType("hasWords");
 

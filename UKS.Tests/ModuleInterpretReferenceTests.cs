@@ -44,6 +44,23 @@ public class ModuleInterpretReferenceTests
         Assert.False(Is(store, store.Labeled("dog"), "brown"));
     }
 
+    // A noun phrase can contain an earlier match of its own template: (the cat in the kitchen) in the
+    // house. Both places describe the cat for now; attaching "in the house" to the kitchen is the
+    // right-nested reading, which recognition does not build yet.
+    [Fact]
+    public void ANounPhraseCanContainAnotherOfTheSameTemplate()
+    {
+        var (store, module) = FreshInterpreter();
+
+        string report = module.Input("The cat in the kitchen in the house is black.", rememberUnknownWords: true);
+
+        Assert.Equal("OK.", module.Answer);
+        Thought cat = Assert.Single(Made(store, "cat", "isInstance"));
+        Assert.True(Is(store, cat, "black"));
+        Assert.False(Is(store, store.Labeled("cat"), "black"));
+        Assert.Contains("[[cat→oneDescribedAs→[cat→located.!→kitchen]]→oneDescribedAs→", report);
+    }
+
     [Fact]
     public void TheSameDescriptionFindsTheSameDog()
     {
