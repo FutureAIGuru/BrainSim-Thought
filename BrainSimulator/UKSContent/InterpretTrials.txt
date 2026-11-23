@@ -23,24 +23,37 @@ Dogs are black.                       [dog->is->black]
 Cats are large.                       [cat->is->large]
 
 Notice that the noun and adjective target classes select different meanings for
-the same word "are". The separate plural spellings mean the same singular concept.
+the same word "are". Plural forms are stored words linked from their singular base word
+([w:dog->hasPlural->w:dogs], and for verb agreement [w:is->hasPlural->w:are]). A form has
+no meaning of its own: the sentence holds the base word marked plural (shown in Word
+attachments as "w:dog (plural)"), and the plural does not change the meaning.
 
 2. NOUN PHRASES, VERBS, AND POSSESSION
 
 Sentence                              Expected stored relationship(s)
-The black dog is brown.               [dog->is->black], [dog->is->brown]
-A small cat is an animal.             [cat->is->small], [cat->is-a->animal]
+The black dog is brown.               [dog0->is->black], [dog0->is->brown]
+A small cat is an animal.             [cat0->is->small], [cat0->is-a->animal]
 Rover is a small dog.                 [rover->is-a->dog], [rover->is->small]
 Rover is a big dog.                   [rover->is-a->dog], [rover->is->big]
 Dogs are small animals.               [dog->is-a->animal], [dog->is->small]
+Fido and Rover are dogs.              [fido->is-a->dog], [rover->is-a->dog]
+Fido and Rover are brown.             [fido->is->brown], [rover->is->brown]
+The dog and the cat are black.        [dog->is->black], [cat->is->black]
 Dogs have tails.                      [dog->has->tail]
 Fido has fur.                         [fido->has->fur]
 Fido chases cats.                     [fido->chases->cat]
 Dogs chase animals.                   [dog->chases->animal]
 The dog is chasing the cat.           [dog->chases.ongoing->cat]
 
-In "Rover is a small dog." the adjective describes Rover, not every dog, so it is
-part of the sentence template rather than of the noun phrase "small dog".
+A described noun phrase refers to something; it says nothing about its class. "The black dog"
+is an existing dog that is black, named or not (on a fresh UKS none is, so dog0 is introduced;
+"The brown dog" would be Fido, whom BasicWords makes brown). If several fit, the reply asks
+which. "A small cat" and "small cats" name a kind: an anonymous subclass of cat (cat0,
+isAnonymousClass), found or made. A description the whole class has tells nothing apart, so
+after "Dogs are black." "the black dog" is just the dog. Joining a described kind is joining
+its class with its description: in "Rover is a small dog." Rover is a dog and is small, and no
+subclass is made (an agent such as ModuleClassCreate may later gather members with attributes
+in common into one).
 The chase/chases spellings share a meaning. This is vocabulary knowledge, not a
 general verb conjugation library. Ongoing actions retain the ongoing modifier.
 
@@ -99,9 +112,12 @@ not cats.") first, and the query then returns it.
 6. LEARNING AN UNKNOWN NOUN
 
 With a fresh vocabulary, enter:
-Pigs are animals.                     Learns w:pig is-a noun and w:pig means pig,
-                                      then asserts [pig->is-a->animal].
-Pigs are brown.                       Asserts [pig->is->brown].
+Pigs are animals.                     Learns w:pigs is-a noun and w:pigs means pigs,
+                                      then asserts [pigs->is-a->animal].
+Pigs are brown.                       Asserts [pigs->is->brown].
+
+No spelling rule relates an unknown plural to its singular yet (the English-only
+singularizer was removed), so "pigs" is learned as a word with its own concept.
 
 The UI permits remembering unknown words. Their grammatical class is learned
 directly from the longest winning template. New interpreter words inherit
@@ -109,13 +125,16 @@ unknownWordType (under wordType) until classified. A provisional sequence match
 can fill a word-class wildcard without making the word itself a wildcard.
 
 The hungry dog                       Learns w:hungry is-a adjective and means hungry,
-                                     then asserts [dog->is->hungry].
+                                     then introduces a hungry dog: [dog0->is->hungry].
 
 The hungry dog ate dinner             Hungry becomes an adjective.
-The hungry should be fed              On a fresh UKS, hungry becomes a noun.
+The hungry should be fed              Not understood; hungry is not learned.
 
-The longer matching phrase wins over its shorter fragments. Try these two
-examples on separate fresh networks to observe their initial classifications.
+The longer matching phrase wins over its shorter fragments. A sentence that is not
+understood (no template covers it from its first word to its last) teaches nothing:
+each input is one UKS transaction, undone if it is not understood. So "The hungry
+should be fed" (there is no passive template), "Teh dog is brown." and "Rover is a
+big dgo." leave the UKS unchanged. A question leaves it unchanged too.
 Classification replaces the temporary unknownWordType parent. Known words
 inherit word through their grammatical class, without a direct word parent.
 "The globular cluster" now matches article-adjective-noun and can classify both
@@ -126,43 +145,185 @@ question words; closedClass in BasicWords.txt). An unknown word matched only on 
 own, such as "big" in "Rover is a big dog.", waits while an earlier template could
 still cover it; there it becomes an adjective of Rover rather than a bare noun.
 
+UNDO: the Undo button (ModuleInterpret.UndoLastInput) undoes the most recent statement
+that changed the UKS: what it stated, the words it taught, and any location history it
+recorded. Earlier statements can be undone in turn. The UKS records the changes
+(UKS.Journal.cs); weights and firing are not restored.
+
 7. ANSWERS
 
 Each query result is turned back into English by running an assertion template in
 reverse (GenerateSentence). The reply appears in the Answer box; Details shows each
-stage. Answers use bare singular nouns. Free word choices (copula, auxiliary, "is a")
-prefer singular words, and must satisfy the word order constraints in BasicWords.txt:
-"a"/"an" before a consonant/vowel, an ongoing verb after a copula, and a plural noun
-after a digit other than 1.
+stage. Each noun the question used is said as it was there: with the same article (or
+none) and the same number. Other nouns are singular where they can be, with "a"/"an" if
+they take an article: count nouns do, mass nouns (fur, dinner) and names (Fido) do not, and
+a newly learned noun does not. A verb agrees with the subject ("a dog has", "dogs have").
+Every answer must satisfy the word order constraints in BasicWords.txt: "a"/"an" before a
+consonant/vowel and only before a singular count noun, "the" before a common noun, a number
+before a noun, an ongoing verb after a copula, and a plural noun after a digit other than 1.
 
 Sentence                              Expected Answer
 Is Fido brown?                        Fido is brown.
 Is Fido a dog?                        Fido is a dog.
-Are cats animals?                     Cat is an animal.
+Are cats animals?                     Cats are animals.
 What is Fido?                         Fido is a dog.
-What does Fido have?                  Fido has tail. / Fido has 4 legs.
-Do dogs have tails?                   Dog has tail.
+What does Fido have?                  Fido has a tail. / Fido has 4 legs.
+Do dogs have tails?                   Dogs have tails.
+Does a dog have a tail?               A dog has a tail.
+Does the dog have a tail?             The dog has a tail.
+Do dogs have a tail?                  Dogs have a tail.
+Do cats have fur?                     Cats have fur.
 Is Fido black?                        I don't know.
 
 No match is not proof of falsity, so an empty result is answered "I don't know."
 A statement that is stored is answered "OK."
+
+8. INFLECTED FORMS
+
+Each word form is stored and linked from its base word, which alone has a meaning: singular,
+present tense (for a verb, the form used with "it": chases, eats, is, has). The sentence holds
+the base word marked with the form's inflection; Word attachments shows it, e.g.
+"w:chases (pastTense)". The plural adds no meaning. The past tense adds "past" and the present
+participle adds "ongoing" to the verb's meaning. The stored relationship can be said again.
+
+Sentence                              Expected stored relationship / regenerated sentence
+Fido chased the cat.                  [fido->chases.past->cat]       Fido chased a cat.
+Dogs chased cats.                     [dog->chases.past->cat]        A dog chased a cat.
+Fido ate dinner.                      [fido->eats.past->dinner]      Fido ate dinner.
+Fido eats dinner.                     [fido->eats->dinner]           Fido eats dinner.
+Dogs eat dinner.                      [dog->eats->dinner]            A dog eats dinner.
+The dogs are chasing the cats.        [dog->chases.ongoing->cat]     A dog is chasing a cat.
+The dog is eating dinner.             [dog->eats.ongoing->dinner]    A dog is eating dinner.
+The dog is chases the cat.            Not understood: "is ___" requires the present participle.
+
+The verb phrase "is chasing" is ??.auxiliary ??.actionVerb.presentParticiple: the element
+requires the inflection, and its meaning (chases.ongoing.!) is the verb's plus "ongoing".
+An element that names no inflection accepts any, so "Fido ate dinner." uses the ordinary
+action template, and "The dog chasing the cat." is also accepted, as chases.ongoing.
+Irregular forms (ate) are stored exactly like regular ones (chased); there are no spelling
+rules yet, so an unstored form is an unknown word.
+
+9. MORE QUESTIONS
+
+On a fresh UKS, first enter these statements:
+Dogs chase cats.
+Dogs eat dinner.
+Fido is in the yard.
+The cat is in the kitchen.
+Fido was black.
+Fido is chasing the cat.
+
+Question                              Expected Answer
+What do dogs do?                      Dogs chase a cat. / Dogs eat dinner.
+What does Fido do?                    Fido chases a cat. / Fido eats dinner. / Fido is chasing a cat.
+Do dogs chase cats?                   Dogs chase cats.
+Does Fido chase cats?                 Fido chases cats.
+Where is Fido?                        Fido is in a yard.
+Where are cats?                       Cats are in a kitchen.
+Is Fido in the yard?                  Fido is in the yard.
+Is Fido in the house?                 I don't know.
+Is Fido brown?                        Fido is brown.
+Was Fido black?                       Fido was black.
+Is Fido black?                        I don't know.
+Was Fido brown?                       I don't know.
+Is Fido chasing the cat?              Fido is chasing the cat.
+Fido was a dog.                       I don't understand.
+
+"What do dogs do?" asks for every relationship whose type is an action (BasicWords classifies
+chases and eats as actions). As in the UKSWeb labs, a location is a place (yard, house,
+doghouse, kitchen, inside, outside) and a thing is located at it: "Fido is in the doghouse."
+and "Fido is outside." both store [fido->located->...], and "Where is Fido?" asks located.?.
+Questions follow inheritance (Fido is a dog) and rules whose conditions are met, as GetAttributes
+does, so "Does Fido chase cats?" is answered from "Dogs chase cats." A yes/no question needs the
+relationship type it asks about: is.past does not answer "Is Fido black?".
+A question template that asksQuestion uses the relationship its own words supply, as a query:
+the copula supplies is.! or, in the past tense, is.past.!, so one template asks both "Is Fido
+brown?" and "Was Fido brown?". The present and the past are different relationships.
+A past-tense word must fill an element whose meaning the template uses: the classification
+templates say is-a whatever their copula, so "Fido was a dog." is not understood.
+
+Word attachments shows each word's classes and inflection, e.g. "w:is (copula, pastTense)".
+
+10. PREPOSITIONAL PHRASES AND LOCATION HISTORY
+
+A preposition says where: w:in means located.!, and on, under, near and behind mean dotted
+subtypes (located.under.!), so "Where is ...?" (located.?) finds them all. A prepositional
+phrase can complete a sentence, describe a noun, or place an event; an event is the source of
+its location, as in UKSWeb Lab 4 ([[Fido->plays->fetch]->located->outside]).
+
+Sentence                              Expected stored relationship(s)
+The cat is under the table.           [cat->located.under->table]
+The ball is near the bed.             [ball->located.near->bed]
+Fido is behind the house.             [fido->located.behind->house]
+Fido plays fetch outside.             [[fido->plays->fetch]->located->outside]
+Fido chased the cat in the yard.      [[fido->chases.past->cat]->located->yard]
+The dog in the kitchen is brown.      [dog0->located->kitchen], [dog0->is->brown]
+The cat in the kitchen chased the ball.  [cat0->located->kitchen], [cat0->chases.past->ball]
+
+A location is exclusive and records history (BasicWords), so a new location displaces the
+old one, which is kept as was.located at the head of the thing's events sequence, newest first.
+This is the Lab 4 mechanism, now in the UKS (UKS.History.cs), used by both UKSWeb and the
+interpreter. On a fresh UKS, first enter:
+Fido is in the yard.
+Fido is in the kitchen.
+The cat is under the table.
+Fido plays fetch outside.
+
+Question                              Expected Answer
+Where is Fido?                        Fido is in a kitchen.
+Is Fido in the kitchen?               Fido is in the kitchen.
+Is Fido in the yard?                  I don't know.
+Where is the cat?                     The cat is under a table.
+Is the cat on the table?              I don't know.
+Where does Fido play fetch?           Fido plays fetch outside.
+
+Fido's events now hold [fido->was.located->yard]. A present-tense question leaves historical
+relationships out of its answer.
+
+How a sentence is read: a sentence template describes the whole sentence, so it must start at
+the first word and end at the last; phrases can be anywhere. When readings compete, the one
+covering the sentence wins: "Fido chased the cat in the yard." places the chase (the event
+template covers every word first), while "Is the cat in the kitchen black?" asks about "the cat
+in the kitchen" (the locative question would leave "black" over). A question does not state
+what its noun phrases describe.
+
+11. TEACHING A NEW KIND OF SENTENCE
+
+When a sentence is not understood, the system asks "Can you say it another way?" The next
+input is taken as the answer unless it says otherwise (it is a question, it is not understood
+itself, or it shares nothing with the sentence; then it is read as new). On a fresh UKS:
+
+The cat chased Fido and Rover.        I don't understand. Can you say it another way?
+The cat chased Fido. The cat chased Rover.
+                                      Thanks, I understand now. (I'm still learning ...)
+
+The explanation's meanings are lined up with the sentence by reference: each Thought they
+mention (cat, chases.past, fido, rover) is the meaning of a phrase or word of the sentence,
+which becomes an element with a new role; "and" is left as a literal word. Details shows the
+learned template, as text like the definitions in LoadLanguageKnowledge. Statements made in
+one sentence are related, probably happening together, so each chase is conjoinedWith the
+other (a commutative relationship). If the explanation leaves something out, the reply says
+what ("Your explanation doesn't mention "rover"."), and it can be said again.
+
+A learned template starts weak (confidence 0.25) and each use moves it halfway to certainty;
+while below 0.8, the facts it stores take its confidence as their weight and the reply says it
+is still learning. The roles constrain only by class, so it already reads
+"The dog chased Fido and the cat." Undo forgets the template and everything it stored.
 
 TEMPLATE GUIDE (definitions remain in LoadLanguageKnowledge)
 
 Where a template uses one class twice, roles name its elements, e.g.
 ??.nounPhrase.subjectRole and ??.nounPhrase.complementRole.
 
-nounPhrase1 / nounPhrase2 / nounPhrase3
-    article adjective noun / article noun / noun
+nounPhrase1 / nounPhrase2 / nounPhrase3 / nounPhrase4 / nounPhrase5
+    article adjective noun / article noun / noun / nounPhrase preposition nounPhrase /
+    adjective noun (nounPhrase1, 4 and 5 describesReferent: they mean the thing described)
 verbPhrase1 and sentenceTemplate
-    auxiliary ongoingVerb; nounPhrase verbPhrase nounPhrase
+    auxiliary actionVerb.presentParticiple; nounPhrase verbPhrase nounPhrase
 classificationTemplate
     nounPhrase classificationPhrase nounPhrase (fixed "is a" / "is an")
 copulaClassificationTemplate / copulaAttributeTemplate
     nounPhrase copula nounPhrase / nounPhrase copula adjective
-classificationAttributeTemplate / copulaClassificationAttributeTemplate
-    nounPhrase classificationPhrase adjective nounPhrase / nounPhrase copula adjective nounPhrase
-    (two meanings: the subject is-a the noun, and the subject is the adjective)
 possessionTemplate / actionTemplate
     nounPhrase possessionVerb nounPhrase / nounPhrase actionVerb nounPhrase
 quantityPossession0 through quantityPossession9
@@ -181,3 +342,17 @@ wildcardPossessionQueryTemplate / possessionQueryTemplate
     w:what doAuxiliary nounPhrase possessionVerb / doAuxiliary nounPhrase possessionVerb nounPhrase
 negativeAttributeQueryTemplate / negativeClassificationQueryTemplate
     copula nounPhrase negationWord adjective / nounPhrase
+locativeTemplate / locativeQueryTemplate (asksQuestion)
+    nounPhrase copula preposition nounPhrase / copula nounPhrase preposition nounPhrase
+whereQueryTemplate / whereEventQueryTemplate
+    w:where copula nounPhrase / w:where doAuxiliary nounPhrase actionVerb nounPhrase (located.?)
+locativeAdverbTemplate
+    nounPhrase copula locativeAdverb
+eventLocationTemplate / eventLocationAdverbTemplate
+    nounPhrase actionVerb nounPhrase preposition nounPhrase / ... locativeAdverb
+ongoingActionQueryTemplate / actionQueryTemplate (asksQuestion)
+    copula nounPhrase actionVerb.presentParticiple nounPhrase / doAuxiliary nounPhrase actionVerb nounPhrase
+wildcardActionQueryTemplate
+    w:what doAuxiliary nounPhrase w:does (any action relationship)
+attributeQueryTemplate (asksQuestion) now takes its type from the copula, and
+copulaAttributeTemplate likewise, so both carry the copula's tense.

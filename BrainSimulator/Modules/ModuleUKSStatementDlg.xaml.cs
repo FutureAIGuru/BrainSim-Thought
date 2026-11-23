@@ -44,8 +44,15 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
     Thought tSource = null;
     Thought tTarget = null;
 
-    // BtnAddLink_Click is called when the AddLink button is clicked or ENTER is pressed in one of the textboxes
+    // BtnAddLink_Click is called when the AddLink button is clicked or ENTER is pressed in one of the textboxes.
+    // Whatever it changes is one undoable step.
     private void BtnAddLink_Click(object sender, RoutedEventArgs e)
+    {
+        ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
+        UKSStatement.theUKS.ChangeUndoably($"[{sourceText.Text}->{linkText.Text}->{targetText.Text}]", AddLink);
+    }
+
+    private void AddLink()
     {
         ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
         string fromString = sourceText.Text;
@@ -275,6 +282,12 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
     {
         if (sender is not ComboBoxItem cbi) return;
         ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
+        UKSStatement.theUKS.ChangeUndoably(cbi.Content.ToString(), () => SourceComboItem_Choose(cbi));
+    }
+
+    private void SourceComboItem_Choose(ComboBoxItem cbi)
+    {
+        ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
         sourceCombo.Visibility = Visibility.Hidden;
         if (cbi.Content.ToString() == "<New>")
         {
@@ -303,6 +316,12 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
     {
         if (sender is not ComboBoxItem cbi) return;
         ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
+        UKSStatement.theUKS.ChangeUndoably(cbi.Content.ToString(), () => TargetComboItem_Choose(cbi));
+    }
+
+    private void TargetComboItem_Choose(ComboBoxItem cbi)
+    {
+        ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
         targetCombo.Visibility = Visibility.Hidden;
         if (cbi.Content.ToString() == "<New>")
         {
@@ -326,6 +345,13 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             targetText.Text = cbi.Content.ToString();
             tTarget = (Thought)cbi.Content;
         }
+    }
+
+    // Undoes the most recent change to the UKS, made here or in another dialog.
+    private void BtnUndo_Click(object sender, RoutedEventArgs e)
+    {
+        ModuleUKSStatement UKSStatement = (ModuleUKSStatement)ParentModule;
+        SetStatus(UKSStatement.theUKS.UndoLast() is string undone ? $"Undone: {undone}" : "Nothing to undo.");
     }
 
     // Check for thought existence and set background color of the textbox and the error message accordingly.

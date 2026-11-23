@@ -34,11 +34,10 @@
     <Compile Include="..\Tests\NonUksP2FixesRegressionTests.cs" Link="NonUksP2FixesRegressionTests.cs" />
   </ItemGroup>
 
-  <!-- ModuleInterpret runs headlessly against ModuleBaseStub.cs; it needs only the UKS,
-       ModuleWord's spelling lookup, Pluralize.NET, and the vocabulary file. -->
+  <!-- ModuleInterpret (all its partial files) runs headlessly against ModuleBaseStub.cs; it needs
+       only the UKS, ModuleWord's spelling lookup, and the vocabulary file. -->
   <ItemGroup>
-    <PackageReference Include="Pluralize.NET" Version="1.0.2" />
-    <Compile Include="..\BrainSimulator\Modules\Experimental\ModuleInterpret.cs" Link="Modules\ModuleInterpret.cs" />
+    <Compile Include="..\BrainSimulator\Modules\Experimental\ModuleInterpret.cs;..\BrainSimulator\Modules\Experimental\ModuleInterpret.*.cs" Link="Modules\%(Filename)%(Extension)" />
     <Compile Include="..\BrainSimulator\Modules\ModuleWord.Spelling.cs" Link="Modules\ModuleWord.Spelling.cs" />
     <None Include="..\BrainSimulator\UKSContent\BasicWords.txt" Link="UKSContent\BasicWords.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\BrainSimulator\UKSContent\InterpretTrials.txt" Link="UKSContent\InterpretTrials.txt" CopyToOutputDirectory="PreserveNewest" />

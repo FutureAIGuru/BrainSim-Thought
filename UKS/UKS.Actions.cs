@@ -46,8 +46,17 @@ public partial class UKS
             new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(thought.HasProperty));
         if (!hasWildcard)
         {
-            Link? existing = GetLink(query);
-            if (existing is not null) retVal.Add(existing);
+            // is-a is not among a Thought's attributes; it is answered from the stored link.
+            if (relationshipType.Label == "is-a")
+            {
+                if (GetLink(query) is Link existing) retVal.Add(existing);
+                return retVal;
+            }
+            // Answered from everything known about the subject (inheritance, conflicts, rules whose
+            // conditions are met), not only a link stored on it. The type must be the one asked
+            // about: is.past is not an answer to is.
+            retVal.AddRange(GetAttributes(action.From).Where(link =>
+                link.To == action.To && link.LinkType == relationshipType));
             return retVal;
         }
 
@@ -87,7 +96,9 @@ public partial class UKS
         {
             if (newLinkType.HasProperty("isExclusive"))
                 action.From.RemoveLinks(newLinkType);
-            retVal = AddStatement(action.From, newLinkType, action.To);
+            // A value displacing one whose history is recorded archives it first (UKS.History.cs).
+            retVal = action.To is null ? AddStatement(action.From, newLinkType, action.To)
+                : AddStatementRecordingHistory(action.From, newLinkType, action.To);
         }
         return retVal;
     }

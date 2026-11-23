@@ -1018,6 +1018,13 @@ public partial class UKS
 
         searchOptions ??= Labeled("ExactSequenceSearch");
         if (searchOptions is null) return retVal;
+        if (searchOptions.HasProperty("allowOutOfOrder"))
+        {
+            retVal = FindSequencesOutOfOrder(pattern, searchOptions);
+            if (matchClass is not null)
+                retVal.RemoveAll(match => !match.seqNode.LinksFrom.Any(link => link.From?.HasAncestor(matchClass) == true));
+            return retVal;
+        }
         if (!getFirstElements &&
             (searchOptions.HasProperty("allowWildcards") || searchOptions.HasProperty("allowNestedSequences")))
             throw new ArgumentException("Occurrence locations require a flat, literal search.", nameof(getFirstElements));

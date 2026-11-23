@@ -36,15 +36,22 @@ public class ModuleInterpretTests
         module.GetTemplates(sentence);
         Assert.Same(store.Labeled("w:the"), store.GetElementValue(first, store.Labeled("word")));
         Assert.Same(store.Labeled("copulaAttributeTemplate"), store.GetElementValue(first, patterns));
+        // "the black dog" means the dog it describes, not dogs: its meaning is a descriptor.
         Assert.Contains(module.GetMeanings(sentence), meaning => meaning is Link link &&
-            link.From == store.Labeled("dog") && link.LinkType == store.Labeled("is.!") && link.To == store.Labeled("brown"));
+            Describes(store, link.From, "dog", "black") && link.LinkType == store.Labeled("is.!") && link.To == store.Labeled("brown"));
     }
+
+    // A referent descriptor [head->oneDescribedAs/kindDescribedAs->[head->is.!->attribute]].
+    private static bool Describes(UKS store, Thought meaning, string head, string attribute) =>
+        meaning is Link descriptor && descriptor.LinkType.HasAncestor(store.Labeled("referentDescriptor")) &&
+        descriptor.From == store.Labeled(head) && descriptor.To is Link description &&
+        description.LinkType == store.Labeled("is.!") && description.To == store.Labeled(attribute);
 
     [Theory]
     [InlineData("Rover is hungry.", "rover")]
     [InlineData("Fido is hungry.", "fido")]
     [InlineData("The dog is hungry.", "dog")]
-    [InlineData("The black dog is hungry.", "dog")]
+    [InlineData("The black dog is hungry.", "dog0")]
     public void NewlyRecognizedSubjectLetsTheLongerAttributeTemplateWin(string input, string subject)
     {
         var store = new UKS();
@@ -55,7 +62,7 @@ public class ModuleInterpretTests
         string output = module.Input(input, rememberUnknownWords: true);
 
         Assert.Same(store.Labeled("adjective"), Assert.Single(store.Labeled("w:hungry").Parents));
-        Assert.Contains($"[{subject}→is.!→hungry]", output);
+        Assert.Contains($"[{subject}→is→hungry]", output);
         Assert.NotNull(store.GetLink(store.Labeled(subject), store.Labeled("is"), store.Labeled("hungry")));
         Assert.DoesNotContain("verbPhrase1", output);
     }
@@ -237,8 +244,12 @@ public class ModuleInterpretTests
         Assert.True(store.Labeled("template").HasAncestor("LanguageElement"));
         Assert.True(store.Labeled("is.!").HasProperty("setRelationship"));
         Assert.Null(store.GetLink(store.Labeled("??.noun"), store.Labeled("is"), store.Labeled("??.adjective")));
-        Assert.Same(store.Labeled("chases.ongoing.!"), store.Labeled("w:chasing").GetTargetOfFirstLinkOfType("means"));
-        Assert.Equal(3, store.Labeled("nounPhrase").Children.Count(child => !child.HasProperty("isWildcard")));
+        // w:chasing is a form of w:chases; the present participle adds "ongoing" to its meaning.
+        Assert.Null(store.Labeled("w:chasing").GetTargetOfFirstLinkOfType("means"));
+        Assert.Same(store.Labeled("w:chasing"), store.Labeled("w:chases").GetTargetOfFirstLinkOfType("hasPresentParticiple"));
+        Assert.Same(store.Labeled("ongoing"), store.Labeled("presentParticiple").GetTargetOfFirstLinkOfType("addsMeaning"));
+        // nounPhrase1-3, nounPhrase4 with a prepositional phrase, and nounPhrase5 (adjective and noun).
+        Assert.Equal(5, store.Labeled("nounPhrase").Children.Count(child => !child.HasProperty("isWildcard")));
         Assert.Single(store.Labeled("verbPhrase").Children.Where(child => !child.HasProperty("isWildcard")));
         foreach (string name in new[] { "nounPhrase1", "nounPhrase2", "nounPhrase3", "verbPhrase1",
             "sentenceTemplate", "classificationTemplate", "copulaClassificationTemplate", "copulaAttributeTemplate" })
@@ -272,22 +283,14 @@ public class ModuleInterpretTests
         Thought sentenceTemplate = store.Labeled("sentenceTemplate");
         Assert.Contains(sentenceTemplate, templates);
         var meanings = module.GetMeanings(sentence);
-        Assert.Contains(store.Labeled("dog"), meanings);
-        Assert.Contains(store.Labeled("cat"), meanings);
+        // A described noun phrase means its referent, as a descriptor; a plain one means its class.
+        Assert.Contains(meanings, meaning => Describes(store, meaning, "dog", "black"));
+        bool IsCat(Thought meaning) => objectPhrase == "nounPhrase1" ? Describes(store, meaning, "cat", "brown") : meaning == store.Labeled("cat");
+        Assert.Contains(meanings, IsCat);
         Assert.Contains(store.Labeled("chases.ongoing.!"), meanings);
         Assert.Contains(meanings, meaning => meaning is Link relationship &&
-            relationship.From == store.Labeled("dog") &&
-            relationship.LinkType == store.Labeled("is.!") &&
-            relationship.To == store.Labeled("black"));
-        Assert.Contains(meanings, meaning => meaning is Link relationship &&
-            relationship.From == store.Labeled("dog") &&
-            relationship.LinkType == store.Labeled("chases.ongoing.!") &&
-            relationship.To == store.Labeled("cat"));
-        if (objectPhrase == "nounPhrase1")
-            Assert.Contains(meanings, meaning => meaning is Link relationship &&
-                relationship.From == store.Labeled("cat") &&
-                relationship.LinkType == store.Labeled("is.!") &&
-                relationship.To == store.Labeled("brown"));
+            Describes(store, relationship.From, "dog", "black") &&
+            relationship.LinkType == store.Labeled("chases.ongoing.!") && IsCat(relationship.To));
         Assert.DoesNotContain(meanings, meaning => meaning.HasProperty("isWildcard"));
         Assert.Null(store.GetLink(store.Labeled("dog"), store.Labeled("is"), store.Labeled("black")));
         int labelCount = ThoughtLabels.GetLabelCount();
@@ -321,11 +324,12 @@ public class ModuleInterpretTests
                 position.LinksTo.Count(link => link.LinkType == store.Labeled("matchesTemplate")));
 
         string output = module.Input(input);
-        Assert.Contains("Word attachments\nw:the    nounPhrase1, sentenceTemplate", output);
-        Assert.Contains("w:chasing    verbPhrase1, sentenceTemplate", output);
-        Assert.Contains($"w:cat    {objectPhrase}, sentenceTemplate", output);
-        Assert.Contains("[dog→chases.ongoing.!→cat]", output);
-        Assert.Contains("[dog→is.!→black]", output);
+        Assert.Contains("Word attachments\nw:the (article, isDefinite)    nounPhrase1, sentenceTemplate", output);
+        Assert.Contains("w:chases (actionVerb, presentParticiple)    verbPhrase1, sentenceTemplate", output);
+        Assert.Contains($"w:cat (countNoun)    {objectPhrase}, sentenceTemplate", output);
+        // The black dog is a dog that is black (dog0, introduced here); it is the one chasing.
+        Assert.Contains("[[dog→oneDescribedAs→[dog→is.!→black]]→chases.ongoing.!→", output);
+        Assert.Contains("[dog0→chases.ongoing→", output);
     }
 
     [Fact]
@@ -343,7 +347,7 @@ public class ModuleInterpretTests
         Thought sentence = module.GetSequenceFromText("the black dog is chasing the cat");
         Assert.Contains(store.Labeled("Sentence"), sentence.Parents);
         Assert.True(sentence.HasAncestor("LanguageElement"));
-        Assert.StartsWith("Sentence input: ^w:the w:black w:dog w:is w:chasing w:the w:cat", module.Input("the black dog is chasing the cat"));
+        Assert.StartsWith("Sentence input: ^w:the w:black w:dog w:is w:chases w:the w:cat", module.Input("the black dog is chasing the cat"));
         Assert.Equal(2, store.Labeled("Sentence").Children.Count);
 
         Thought remembered = module.GetSequenceFromText("quux", rememberUnknownWords: true);
@@ -377,8 +381,8 @@ public class ModuleInterpretTests
         Assert.DoesNotContain(store.Labeled("unknownWordType"), pig.Parents);
         Assert.Contains(store.Labeled("sentenceTemplate"), module.GetTemplates(sentence));
         Assert.Contains(module.GetMeanings(sentence), meaning => meaning is Link relationship &&
-            relationship.From == store.Labeled("dog") && relationship.LinkType == store.Labeled("chases.ongoing.!") &&
-            relationship.To == concept);
+            Describes(store, relationship.From, "dog", "black") && relationship.LinkType == store.Labeled("chases.ongoing.!") &&
+            (relationship.To == concept || Describes(store, relationship.To, "pig", "black")));
         module.GetTemplates(sentence);
         Assert.Single(pig.LinksTo.Where(link => link.LinkType == store.Labeled("means")));
         Assert.Contains("[pig→is-a.!→animal]", module.Input("pig is an animal."));
@@ -435,6 +439,11 @@ public class ModuleInterpretTests
         var module = new ModuleInterpret { theUKS = store };
         module.Initialize();
         module.Input("the dog is chasing the pig", rememberUnknownWords: true);
+        // No rule derives a plural; the form is stored, as BasicWords stores w:dogs.
+        Thought pigs = ModuleWord.RememberSpelling(store, "pigs", out _);
+        pigs.AddParent(store.Labeled("wordForm"));
+        pigs.RemoveParent(store.Labeled("word"));
+        store.Labeled("w:pig").AddLink(store.Labeled("hasPlural"), pigs);
 
         Thought sentence = module.GetSequenceFromText(input);
         var templates = module.GetTemplates(sentence);
@@ -451,7 +460,7 @@ public class ModuleInterpretTests
     [InlineData("pigs are animals", false, "is-a", "animal")]
     [InlineData("pigs are animals", true, "is-a", "animal")]
     [InlineData("pigs are brown", false, "is", "brown")]
-    public void FreshPluralInputLearnsTheSingularWordAndExecutesTheMeaning(
+    public void FreshPluralInputIsLearnedAsAWordOfItsOwnAndExecutesTheMeaning(
         string input, bool pluralAlreadyRemembered, string relationshipType, string target)
     {
         var store = new UKS();
@@ -460,20 +469,21 @@ public class ModuleInterpretTests
         module.Initialize();
         if (pluralAlreadyRemembered) ModuleWord.RememberSpelling(store, "pigs", out _);
 
+        // No (English-only) singularizer relates an unknown plural to a singular word.
         string output = module.Input(input, rememberUnknownWords: true);
-        Thought word = store.Labeled("w:pig");
+        Thought word = store.Labeled("w:pigs");
         Assert.NotNull(word);
         Assert.True(word.HasAncestor("noun"));
-        Assert.Same(store.Labeled("pig"), word.GetTargetOfFirstLinkOfType("means"));
-        Assert.StartsWith("Sentence input: ^w:pig w:are", output);
-        Assert.Contains($"[pig→{relationshipType}.!→{target}]", output);
-        Link result = Assert.IsType<Link>(store.GetLink(store.Labeled("pig"),
+        Assert.Same(store.Labeled("pigs"), word.GetTargetOfFirstLinkOfType("means"));
+        Assert.StartsWith("Sentence input: ^w:pigs w:is", output);
+        Assert.Contains($"[pigs→{relationshipType}.!→{target}]", output);
+        Link result = Assert.IsType<Link>(store.GetLink(store.Labeled("pigs"),
             store.Labeled(relationshipType), store.Labeled(target)));
         Assert.Contains($"Executed relationships\n{result}", output);
-        Assert.Null(store.Labeled("pigs"));
+        Assert.Null(store.Labeled("w:pig"));
 
         module.Input(input, rememberUnknownWords: true);
-        Assert.Same(result, store.GetLink(store.Labeled("pig"),
+        Assert.Same(result, store.GetLink(store.Labeled("pigs"),
             store.Labeled(relationshipType), store.Labeled(target)));
         Assert.Single(word.LinksTo.Where(link => link.LinkType == store.Labeled("means")));
     }
@@ -488,10 +498,10 @@ public class ModuleInterpretTests
     [InlineData("Fido is small.", "fido", "is", "small")]
     [InlineData("Dogs are black.", "dog", "is", "black")]
     [InlineData("Cats are large.", "cat", "is", "large")]
-    [InlineData("The black dog is brown.", "dog", "is", "brown")]
+    [InlineData("The black dog is brown.", "dog0", "is", "brown")]
     [InlineData("A small cat is an animal.", "cat", "is-a", "animal")]
-    [InlineData("Pigs are animals.", "pig", "is-a", "animal")]
-    [InlineData("Pigs are brown.", "pig", "is", "brown")]
+    [InlineData("Pigs are animals.", "pigs", "is-a", "animal")]
+    [InlineData("Pigs are brown.", "pigs", "is", "brown")]
     public void CurrentSentenceExamplesProduceStoredRelationships(
         string sentence, string source, string relationshipType, string target)
     {

@@ -8,6 +8,12 @@
 [wordType->is-a->word] 1.00
 [unknownWordType->is-a->wordType]
 [noun->is-a->wordType] 1.00
+# Kinds of noun, for articles: a count noun takes "a"/"an" when singular; a mass noun (fur)
+# or a name (Fido) takes none. A newly learned noun is just a noun, and gets no article.
+[commonNoun->is-a->noun]
+[countNoun->is-a->commonNoun]
+[massNoun->is-a->commonNoun]
+[properNoun->is-a->noun]
 [verb->is-a->wordType] 1.00
 [adjective->is-a->wordType] 1.00
 [article->is-a->wordType] 1.00
@@ -19,8 +25,32 @@
 [possessionVerb->is-a->verb]
 [actionVerb->is-a->verb]
 [negationWord->is-a->wordType]
-[numberWord->is-a->adjective]
-[plural->is-a->wordType] 1.00
+[numberWord->is-a->wordType]
+
+# Inflected word forms. Meanings belong to the base word: singular, present tense. A form is
+# linked from its base word by an inflection link type, which marks the inflection it adds
+# ([w:dog->hasPlural->w:dogs]). A form carries only its spelling; when read, the sentence holds
+# its base word marked with the inflection. Verb agreement is the plural of the verb ("dogs have").
+[inflection->is-a->languageElement]
+[plural->is-a->inflection]
+[wordForm->is-a->word]
+[hasInflection->is-a->LinkType]
+[marksInflection->is-a->LinkType]
+[inflectedAs->is-a->LinkType]
+[hasPlural->is-a->hasInflection]
+[hasPlural->marksInflection->plural]
+# Tenses and participles. An inflection that addsMeaning modifies its base word's meaning:
+# w:chases means chases.!, so w:chased (its past tense) means chases.past.!. The plural adds none.
+# A template element may require an inflection: ??.actionVerb.presentParticiple ("is chasing").
+[addsMeaning->is-a->LinkType]
+[pastTense->is-a->inflection]
+[pastTense->addsMeaning->past]
+[presentParticiple->is-a->inflection]
+[presentParticiple->addsMeaning->ongoing]
+[hasPastTense->is-a->hasInflection]
+[hasPastTense->marksInflection->pastTense]
+[hasPresentParticiple->is-a->hasInflection]
+[hasPresentParticiple->marksInflection->presentParticiple]
 
 # Concepts and demonstration knowledge.
 [animal->is-a->Unknown] 1.00
@@ -57,32 +87,37 @@
 
 # Word classifications. Membership in word is inherited through wordType.
 [w:the->is-a->article]
-[w:are->is-a->copula]
-[w:are->is-a->plural]
-[w:chasing->is-a->ongoingVerb]
-[w:fido->is-a->noun] 1.00
-[w:dog->is-a->noun] 1.00
-[w:dogs->is-a->noun] 1.00
-[w:dogs->is-a->plural] 1.00
-[w:cat->is-a->noun] 1.00
-[w:cats->is-a->noun] 1.00
-[w:cats->is-a->plural] 1.00
-[w:animal->is-a->noun] 1.00
-[w:animals->is-a->noun] 1.00
-[w:animals->is-a->plural] 1.00
-[w:tail->is-a->noun] 1.00
-[w:tails->is-a->noun] 1.00
-[w:tails->is-a->plural] 1.00
-[w:leg->is-a->noun] 1.00
-[w:legs->is-a->noun] 1.00
-[w:legs->is-a->plural] 1.00
-[w:fur->is-a->noun] 1.00
+[w:fido->is-a->properNoun] 1.00
+[w:dog->is-a->countNoun] 1.00
+[w:cat->is-a->countNoun] 1.00
+[w:animal->is-a->countNoun] 1.00
+[w:tail->is-a->countNoun] 1.00
+[w:leg->is-a->countNoun] 1.00
+[w:fur->is-a->massNoun] 1.00
 
 [w:is->is-a->copula] 1.00
 [w:has->is-a->possessionVerb] 1.00
-[w:have->is-a->possessionVerb] 1.00
 [w:does->is-a->doAuxiliary] 1.00
-[w:do->is-a->doAuxiliary] 1.00
+
+# Plural forms. Every form is stored; no spelling rule is applied (yet).
+[w:dogs->is-a->wordForm]
+[w:cats->is-a->wordForm]
+[w:animals->is-a->wordForm]
+[w:tails->is-a->wordForm]
+[w:legs->is-a->wordForm]
+[w:are->is-a->wordForm]
+[w:have->is-a->wordForm]
+[w:do->is-a->wordForm]
+[w:chase->is-a->wordForm]
+[w:dog->hasPlural->w:dogs]
+[w:cat->hasPlural->w:cats]
+[w:animal->hasPlural->w:animals]
+[w:tail->hasPlural->w:tails]
+[w:leg->hasPlural->w:legs]
+[w:is->hasPlural->w:are]
+[w:has->hasPlural->w:have]
+[w:does->hasPlural->w:do]
+[w:chases->hasPlural->w:chase]
 
 [w:brown->is-a->adjective] 1.00
 [w:black->is-a->adjective] 1.00
@@ -96,33 +131,26 @@
 
 # Language-independent meanings.
 [w:the->means->the]
-[w:are->means->is]
-[w:chasing->means->chases.ongoing.!]
+# "the" picks out a particular thing already known; "a" does not.
+[w:the->hasProperty->isDefinite]
 [w:fido->means->fido] 1.00
 [w:dog->means->dog] 1.00
-[w:dogs->means->dog] 1.00
 [w:cat->means->cat] 1.00
-[w:cats->means->cat] 1.00
 [w:animal->means->animal] 1.00
-[w:animals->means->animal] 1.00
 [w:tail->means->tail] 1.00
-[w:tails->means->tail] 1.00
 [w:leg->means->leg] 1.00
-[w:legs->means->leg] 1.00
 [w:fur->means->fur] 1.00
 [w:brown->means->brown] 1.00
 [w:black->means->black] 1.00
 [w:green->means->green] 1.00
 [w:small->means->small] 1.00
 [w:large->means->large] 1.00
-[w:is->means->is] 1.00
+[w:is->means->is.!] 1.00
 [w:a->means->a] 1.00
 [w:an->means->a] 1.00
 [w:has->means->has.!] 1.00
-[w:have->means->has.!] 1.00
 [w:what->means->what] 1.00
 [w:does->means->do] 1.00
-[w:do->means->do] 1.00
 
 # Spellings for sequence-based word recognition.
 [w:the->spelled->^t h e]
@@ -165,11 +193,136 @@
 [p:is_an->hasWords->^w:is w:an]
 
 
+# Copula tenses. w:is means is.!, so its past tense w:was means is.past.! ("Fido was brown").
+[w:was->is-a->wordForm]
+[w:were->is-a->wordForm]
+[w:is->hasPastTense->w:was]
+[w:is->hasPastTense->w:were]
+[w:was->spelled->^w a s]
+[w:were->spelled->^w e r e]
+
+# Kinds of relationship, so a question can ask for any relationship of a kind:
+# "What do dogs do?" asks for any action.
+[action->is-a->LinkType]
+[chases->is-a->action]
+[eats->is-a->action]
+
+# Where things are, as in the UKSWeb labs: a location is a place, and a thing is
+# located at a location ([fido->located->doghouse]). "Where is Fido?" asks located.?.
+[located->is-a->LinkType]
+[location->is-a->Unknown]
+# A thing has one location at a time; a new one displaces the old, which is kept in the
+# thing's events sequence as was.located (UKS.History.cs, as in UKSWeb Lab 4).
+[location->hasProperty->isExclusive]
+[location->hasProperty->recordsHistory]
+[yard->is-a->location]
+[house->is-a->location]
+[doghouse->is-a->location]
+[kitchen->is-a->location]
+[inside->is-a->location]
+[outside->is-a->location]
+[preposition->is-a->wordType]
+[preposition->hasProperty->closedClass]
+[w:in->is-a->preposition]
+[w:in->means->located.!]
+[w:in->spelled->^i n]
+# Other prepositions say more about where: a dotted subtype of located (as has.4 is of has),
+# so "Where is Fido?" (located.?) finds them too.
+[table->is-a->location]
+[bed->is-a->location]
+[w:on->is-a->preposition]
+[w:on->means->located.on.!]
+[w:on->spelled->^o n]
+[w:under->is-a->preposition]
+[w:under->means->located.under.!]
+[w:under->spelled->^u n d e r]
+[w:near->is-a->preposition]
+[w:near->means->located.near.!]
+[w:near->spelled->^n e a r]
+[w:behind->is-a->preposition]
+[w:behind->means->located.behind.!]
+[w:behind->spelled->^b e h i n d]
+[w:table->is-a->countNoun]
+[w:table->means->table]
+[w:table->spelled->^t a b l e]
+[w:bed->is-a->countNoun]
+[w:bed->means->bed]
+[w:bed->spelled->^b e d]
+# "Fido plays fetch outside." (UKSWeb Lab 4: [[Fido->plays->fetch]->located->outside])
+[plays->is-a->action]
+[w:plays->is-a->actionVerb]
+[w:plays->means->plays.!]
+[w:plays->spelled->^p l a y s]
+[w:play->is-a->wordForm]
+[w:played->is-a->wordForm]
+[w:playing->is-a->wordForm]
+[w:plays->hasPlural->w:play]
+[w:plays->hasPastTense->w:played]
+[w:plays->hasPresentParticiple->w:playing]
+[w:play->spelled->^p l a y]
+[w:played->spelled->^p l a y e d]
+[w:playing->spelled->^p l a y i n g]
+[w:fetch->is-a->massNoun]
+[w:fetch->means->fetch]
+[w:fetch->spelled->^f e t c h]
+[w:ball->is-a->countNoun]
+[w:ball->means->ball]
+[w:ball->spelled->^b a l l]
+# "Fido is outside." A locative adverb names the location itself.
+[locativeAdverb->is-a->wordType]
+# A small fixed set; "Fido is hungry." must not learn "hungry" as a place.
+[locativeAdverb->hasProperty->closedClass]
+[w:inside->is-a->locativeAdverb]
+[w:inside->means->inside]
+[w:inside->spelled->^i n s i d e]
+[w:outside->is-a->locativeAdverb]
+[w:outside->means->outside]
+[w:outside->spelled->^o u t s i d e]
+[w:who->is-a->questionWord]
+[w:who->means->who]
+[w:who->spelled->^w h o]
+[w:where->is-a->questionWord]
+[w:where->means->where]
+[w:where->spelled->^w h e r e]
+[w:yard->is-a->countNoun]
+[w:yard->means->yard]
+[w:yard->spelled->^y a r d]
+[w:house->is-a->countNoun]
+[w:house->means->house]
+[w:house->spelled->^h o u s e]
+[w:doghouse->is-a->countNoun]
+[w:doghouse->means->doghouse]
+[w:doghouse->spelled->^d o g h o u s e]
+[w:kitchen->is-a->countNoun]
+[w:kitchen->means->kitchen]
+[w:kitchen->spelled->^k i t c h e n]
+
 # Additional action and negation vocabulary.
-[w:chase->is-a->actionVerb]
 [w:chases->is-a->actionVerb]
+[w:chased->is-a->wordForm]
+[w:chasing->is-a->wordForm]
+[w:chases->hasPastTense->w:chased]
+[w:chases->hasPresentParticiple->w:chasing]
+[w:chased->spelled->^c h a s e d]
 [w:not->is-a->negationWord]
-[w:chase->means->chases.!]
+# Relationships stated together in one sentence are related (probably at the same time):
+# "The cat chased Fido and Rover." links each chase to the other.
+[conjoinedWith->is-a->LinkType]
+[conjoinedWith->hasProperty->isCommutative]
+# "Fido and Rover are dogs."
+[conjunction->is-a->wordType]
+[conjunction->hasProperty->closedClass]
+[w:and->is-a->conjunction]
+[w:and->spelled->^a n d]
+# Answers to a yes/no question the system asks ("Did you mean "fido"?").
+[replyWord->is-a->wordType]
+[replyWord->hasProperty->closedClass]
+[w:yes->is-a->replyWord]
+[w:yes->means->affirmative]
+[w:yes->spelled->^y e s]
+[w:no->is-a->replyWord]
+[w:no->means->negative]
+[w:no->spelled->^n o]
 [w:chases->means->chases.!]
 [w:not->means->not]
 [w:chase->spelled->^c h a s e]
@@ -177,10 +330,19 @@
 [w:not->spelled->^n o t]
 
 # Familiar context for the longest-match demonstrations.
-[w:ate->is-a->actionVerb]
-[w:ate->means->eats.past.!]
+[w:eats->is-a->actionVerb]
+[w:eats->means->eats.!]
+[w:eats->spelled->^e a t s]
+[w:eat->is-a->wordForm]
+[w:ate->is-a->wordForm]
+[w:eating->is-a->wordForm]
+[w:eats->hasPlural->w:eat]
+[w:eats->hasPastTense->w:ate]
+[w:eats->hasPresentParticiple->w:eating]
+[w:eat->spelled->^e a t]
 [w:ate->spelled->^a t e]
-[w:dinner->is-a->noun]
+[w:eating->spelled->^e a t i n g]
+[w:dinner->is-a->massNoun]
 [w:dinner->means->dinner]
 [w:dinner->spelled->^d i n n e r]
 [w:should->is-a->auxiliary]
@@ -244,12 +406,6 @@
 [w:9->means->9]
 [w:9->spelled->^9]
 
-# Agreement. These verb forms agree with a plural subject ("dogs have");
-# generated sentences use singular subjects and so prefer the singular forms.
-[w:have->is-a->plural]
-[w:chase->is-a->plural]
-[w:do->is-a->plural]
-
 # Word order constraints between adjacent words, used when generating sentences.
 # A word (or its class) may precede only a word of a class, or a word starting with
 # a letter of a class, and may follow only a word of a class.
@@ -287,7 +443,7 @@
 [c:Z->is-a->consonant]
 [w:a->precedesWordStartingWith->consonant]
 [w:an->precedesWordStartingWith->vowel]
-[ongoingVerb->followsWord->copula]
+[presentParticiple->followsWord->copula]
 [w:0->precedesWord->plural]
 [w:2->precedesWord->plural]
 [w:3->precedesWord->plural]
@@ -297,6 +453,22 @@
 [w:7->precedesWord->plural]
 [w:8->precedesWord->plural]
 [w:9->precedesWord->plural]
+# Articles and numbers come before nouns: "a"/"an" before a singular count noun, "the" before a
+# common noun, a number before a noun ("1 tail", not "1 a tail").
+[w:a->precedesWord->countNoun]
+[w:a->precedesWord->singular]
+[w:an->precedesWord->countNoun]
+[w:an->precedesWord->singular]
+[w:the->precedesWord->commonNoun]
+# precedesWord is about the next word that is not a modifier: "the" precedes a common noun in
+# "the black dog". precedesWordStartingWith is about the adjacent word: "a black dog", "an old dog".
+[adjective->hasProperty->isModifier]
+[numberWord->precedesWord->noun]
+# A base word is singular (a form adds plural). A verb agrees in number with the subject:
+# "a dog has", "dogs have".
+[singular->is-a->inflection]
+[agreesInNumber->is-a->Property]
+[verb->hasProperty->agreesInNumber]
 
 # Closed word classes: a fixed set of function words. A new word is never learned into one.
 [closedClass->is-a->Property]

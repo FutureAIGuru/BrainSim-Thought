@@ -29,6 +29,8 @@
         </ComboBox>
 
         <Button x:Name="BtnAddLink"   IsDefault="True" Content="Add/Update" Height="32" VerticalAlignment="Top" FontSize="16" Margin="78,143,0,0" Click="BtnAddLink_Click" HorizontalAlignment="Left" Width="159"/>
+        <Button x:Name="UndoButton" Content="_Undo" Height="32" VerticalAlignment="Top" FontSize="16" Margin="78,183,0,0" Click="BtnUndo_Click" HorizontalAlignment="Left" Width="159"
+                ToolTip="Undo the most recent change to the UKS, made here or in another dialog"/>
         <CheckBox x:Name="setConfCB" Content="Set Confidence/TTL" IsChecked="True" FontSize="16" Height="22" Margin="269,142,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="200"/>
         <CheckBox x:Name="eventCB" Content="This is an Event" IsChecked="False" FontSize="16" Height="22" Margin="269,164,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="200"/>
     </Grid>

@@ -15,7 +15,12 @@
         <Label Content="_English input (press Enter)" Target="{Binding ElementName=EnglishInput}"/>
         <TextBox x:Name="EnglishInput" Grid.Row="1" Margin="0,3,0,8"
                  Text="the black dog is chasing the cat" FontSize="16" KeyDown="EnglishInputKeyDown"/>
-        <Label Content="_Answer" Grid.Row="2" Target="{Binding ElementName=Answer}"/>
+        <DockPanel Grid.Row="2" LastChildFill="True">
+            <Button x:Name="UndoButton" Content="_Undo" DockPanel.Dock="Right" Padding="8,2"
+                    VerticalAlignment="Center" Click="UndoClick"
+                    ToolTip="Undo the most recent change to the UKS (a statement, with the words it taught, or an edit in another dialog)"/>
+            <Label Content="_Answer" Target="{Binding ElementName=Answer}"/>
+        </DockPanel>
         <TextBox x:Name="Answer" Grid.Row="3" Margin="0,3,0,8" IsReadOnly="True" TextWrapping="Wrap"
                  FontSize="16" FontWeight="SemiBold" AcceptsReturn="True" MaxHeight="96"
                  VerticalScrollBarVisibility="Auto"/>

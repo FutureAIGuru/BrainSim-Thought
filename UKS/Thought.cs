@@ -155,8 +155,14 @@ public partial class Thought
         {
             if (value == _label) return;
             bool wasUnlabeled = string.IsNullOrWhiteSpace(_label);
+            string oldLabel = _label;
             ThoughtLabels.RemoveThoughtLabel(_label, Store);
             _label = ThoughtLabels.AddThoughtLabel(value, this);
+            // A Thought is created when it is first labeled; an open transaction records it, or the relabel.
+            if (wasUnlabeled && !string.IsNullOrWhiteSpace(_label))
+                Store.Record(UKSTransaction.Change.ThoughtCreated, this);
+            else if (!wasUnlabeled && oldLabel != _label)
+                Store.Record(UKSTransaction.Change.ThoughtRelabeled, this, oldLabel);
             // A private pattern can become a stored Thought with existing links.
             if (wasUnlabeled && !string.IsNullOrWhiteSpace(_label) && _linksTo.Count != 0)
                 foreach (var link in LinksTo)
@@ -232,6 +238,7 @@ public partial class Thought
         ThoughtLabels.RemoveThoughtLabel(Label, Store);
         lock (Store.AtomicThoughts)
             Store.AtomicThoughts.Remove(this);
+        if (this is not Link) Store.Record(UKSTransaction.Change.ThoughtDeleted, this, Label);
     }
 
     private bool CheckExpiredAndMaybeDelete()
@@ -660,6 +667,7 @@ public partial class Thought
                 linkType._linksAsType.Add(r);
             }
         }
+        Store.Record(UKSTransaction.Change.LinkAdded, r);
         return r;
     }
 
@@ -721,6 +729,7 @@ public partial class Thought
             lock (storedLink.To._linksFrom)
                 storedLink.To._linksFrom.Remove(storedLink);
 
+        storedLink.Store.Record(UKSTransaction.Change.LinkRemoved, storedLink);
         storedLink.Delete();
     }
 

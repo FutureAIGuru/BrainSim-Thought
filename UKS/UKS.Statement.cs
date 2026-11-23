@@ -254,6 +254,7 @@ public partial class UKS
                     if (!lnk.LinkType.LinksAsTypeWriteable.Contains(lnk))
                         lnk.LinkType.LinksAsTypeWriteable.Add(lnk);
                 }
+            lnk.From.Store.Record(UKSTransaction.Change.LinkAdded, lnk);
         }
         else
         {
@@ -270,6 +271,7 @@ public partial class UKS
                         if (!lnk.To.LinksFromWriteable.Contains(lnk))
                             lnk.To.LinksFromWriteable.Add(lnk);
                     }
+            lnk.From.Store.Record(UKSTransaction.Change.LinkAdded, lnk);
         }
     }
 }

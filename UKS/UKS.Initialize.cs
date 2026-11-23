@@ -298,5 +298,10 @@ public partial class UKS
         AddStatement("OrderSearchOptions", "hasProperty", "mustMatchFirst");
         AddStatement("OrderSearchOptions", "hasProperty", "mustMatchLast");
         AddStatement("OrderSearchOptions", "hasProperty", "allowNestedSequences");
+        // Close to the pattern: elements in any order, some missing or extra (spelling correction).
+        AddStatement("ApproximateSequenceSearch", "is-a", "SearchOption");
+        AddStatement("ApproximateSequenceSearch", "hasProperty", "allowOutOfOrder");
+        AddStatement("ApproximateSequenceSearch", "hasProperty", "preferFirstLast");
+        AddStatement("ApproximateSequenceSearch", "hasProperty", "allowPartialMatch");
     }
 }

@@ -680,7 +680,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             tb.Background = new SolidColorBrush(Colors.DarkBlue);
             if (e.Key == Key.Enter)
             {
-                t.Label = tb.Text;
+                string oldLabel = t.Label;
+                theUKS.ChangeUndoably($"rename {oldLabel} to {tb.Text}", () => t.Label = tb.Text);
                 refreshAfterMenu = true;
                 //clear any time-to-live on this new image
                 if (t.LinksFrom.FindFirst(x => x.LinkType.Label == "is-a") is Link isALink)
@@ -765,7 +766,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             if (t is null)  //we don't know what this case does.  But it deletes the link.
             {
                 Link r = m.GetValue(LinkObjectProperty) as Link;
-                (r.From as Thought).RemoveLink(r);
+                theUKS.ChangeUndoably($"delete {r}", () => (r.From as Thought).RemoveLink(r));
                 //force a repaint
                 Refresh();
                 return;
@@ -802,7 +803,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     break;
                 case "Delete":
                     //theUKS.DeleteAllChildrenAndLinks(t);
-                    t.Delete();
+                    theUKS.ChangeUndoably($"delete {t.Label}", t.Delete);
                     break;
                 case "Delete Child":
                     //figure out which item (and its parent) clicked us
@@ -813,7 +814,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     Thought parentThought = (Thought)parent1?.GetValue(ThoughtObjectProperty);
                     //now delete the link
                     if (parentThought is not null && t is not null)
-                        parentThought.RemoveChild(t);
+                        theUKS.ChangeUndoably($"delete child {t.Label} of {parentThought.Label}", () => parentThought.RemoveChild(t));
                     break;
                 case "Make Root":
                     CommitRoot(t.Label);
@@ -1137,6 +1138,13 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             path = dlg.FileName;
         return path;
+    }
+
+    // Undoes the most recent change to the UKS, made here or in another dialog.
+    private void UndoButton_Click(object sender, RoutedEventArgs e)
+    {
+        SetStatus(theUKS.UndoLast() is string undone ? $"Undone: {undone}" : "Nothing to undo.");
+        Refresh();
     }
 
     private async void ImportButton_Click(object sender, RoutedEventArgs e)

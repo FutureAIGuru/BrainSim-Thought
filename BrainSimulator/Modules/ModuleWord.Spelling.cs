@@ -44,6 +44,29 @@ public partial class ModuleWord
         }
     }
 
+    /// <summary>
+    /// Words spelled close to a spelling that has no exact match: the same letters jumbled, or a
+    /// letter missing or extra (UKS ApproximateSequenceSearch). Best first, each with its confidence;
+    /// an exact spelling has confidence 1.
+    /// </summary>
+    internal static List<(Thought word, float confidence)> FindWordsCloseTo(UKS.UKS store, string spelling)
+    {
+        var found = new List<(Thought word, float confidence)>();
+        Thought spelled = store.Labeled("spelled");
+        Thought wordRoot = store.Labeled("word");
+        Thought options = store.Labeled("ApproximateSequenceSearch");
+        if (spelled is null || wordRoot is null || options is null || string.IsNullOrEmpty(spelling)) return found;
+
+        var letters = new List<Thought>(spelling.Length);
+        foreach (char character in spelling)
+            if (store.Labeled(UKS.UKS.GetCharacterLabel(character)) is Thought letter) letters.Add(letter);
+        foreach (var (head, confidence) in store.FindSequencesByActivation(letters, options))
+            foreach (Thought word in store.GetReferringThoughts(head, spelled))
+                if (word.HasAncestor(wordRoot) && !found.Any(entry => ReferenceEquals(entry.word, word)))
+                    found.Add((word, confidence));
+        return found.OrderByDescending(entry => entry.confidence).ToList();
+    }
+
     internal static Thought RememberSpelling(UKS.UKS store, string spelling, out bool isNewWord)
     {
         Thought word = FindWordsBySpelling(store, spelling).FirstOrDefault();

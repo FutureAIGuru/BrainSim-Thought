@@ -15,4 +15,12 @@ public partial class ModuleInterpretDlg : ModuleBaseDlg
         Output.Text = module.Input(EnglishInput.Text, rememberUnknownWords: true);
         Answer.Text = module.Answer;
     }
+
+    // Undoes the most recent statement that changed the UKS.
+    private void UndoClick(object sender, System.Windows.RoutedEventArgs e)
+    {
+        var module = (ModuleInterpret)ParentModule;
+        Answer.Text = module.UndoLastInput();
+        Output.Text = "";
+    }
 }
