@@ -12,7 +12,6 @@
  */
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Xml;
 using System.Xml.Serialization;
 
 namespace UKS;
@@ -99,7 +98,6 @@ public partial class UKS
         }
 
         string tempFilePath = Path.GetTempFileName();
-        //List<Type> extraTypes = GetTypesInUKS();
         Stream file = File.Create(tempFilePath);
         file.Position = 0;
         try
@@ -218,8 +216,7 @@ public partial class UKS
             return false;
         }
 
-        List<Type> extraTypes = new();
-        XmlSerializer reader1 = new XmlSerializer(UKSTemp.GetType(), extraTypes.ToArray());
+        XmlSerializer reader1 = new(UKSTemp.GetType());
         try
         {
             UKSTemp = (List<sThought>?)reader1.Deserialize(file) ?? new();
@@ -227,7 +224,7 @@ public partial class UKS
         catch (Exception e)
         {
             file.Close();
-            Debug.WriteLine("Network file load failed, a blank network will be opened. \r\n\r\n" + e.InnerException);//, "File Load Error",
+            Debug.WriteLine("Network file load failed, a blank network will be opened. \r\n\r\n" + e.InnerException);
             return false;
         }
         file.Close();
@@ -376,7 +373,7 @@ public partial class UKS
         ClearSequenceCache();
         Thought.ClearRecentlyFiredQueue();
         Thought.ClearRecentlyCreatedQueue();
-        // Allocate all Thoughts before wiring Relationships by their saved indices.
+        // Allocate all Thoughts before wiring links by their saved indices.
         //allocate all the thoughts
         foreach (sThought st in UKSTemp)
         {
@@ -404,7 +401,6 @@ public partial class UKS
                     V = st.V,
                 };
                 l.TimeToLive = TimeSpan.MaxValue;
-                //AtomicThoughts.Add(l);
             }
         }
         //add contents of links
@@ -432,7 +428,7 @@ public partial class UKS
                 theLink.TimeToLive = TimeSpan.MaxValue;
                 if (theLink.From is null || theLink.LinkType is null)
                     continue;
-                // Wire the deserialized Relationship itself. Creating another Link here
+                // Wire the deserialized link itself. Creating another Link here
                 // separates its endpoints from the IF/property metadata attached by label,
                 // and can turn a saved condition into an unconditional assertion.
                 WireLoadedLink(theLink, wired);

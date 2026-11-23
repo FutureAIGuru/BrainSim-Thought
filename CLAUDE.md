@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```powershell
 dotnet build "BrainSim Thought.sln"                     # UKS, BrainSim Thought (WPF app), Tests
-dotnet test UKS.Tests/UKS.Tests.csproj                  # headless, net8.0, no WPF (NOT in the .sln)
-dotnet test Tests/Tests.csproj                          # net8.0-windows, references the WPF app
+dotnet test UKS.Tests/UKS.Tests.csproj                  # headless, net10.0, no WPF (NOT in the .sln)
+dotnet test Tests/Tests.csproj                          # net10.0-windows, references the WPF app
 dotnet test Tests/Tests.csproj --filter "FullyQualifiedName~ModuleInterpretTests"
 dotnet test UKS.Tests/UKS.Tests.csproj --filter "FullyQualifiedName~ModuleInterpretTrialTests.Name"
 ```

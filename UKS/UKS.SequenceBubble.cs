@@ -316,7 +316,7 @@ public partial class UKS
 
     /// <summary>
     /// Finds and bubbles common sequence descriptions from the direct children
-    /// of a class. Observations are grouped by their relationship type, and the
+    /// of a class. Observations are grouped by their link type, and the
     /// original child sequences are retained.
     /// </summary>
     public bool BubbleSharedSequences(
@@ -351,7 +351,7 @@ public partial class UKS
                 .FirstOrDefault(view => view.LinkType == group.Key);
             if (existing is not null && existing.Elements.SequenceEqual(elements)) continue;
 
-            SeqElement sequence = AddSequenceAndLink(parent, group.Key, elements);
+            SeqElement? sequence = AddSequenceAndLink(parent, group.Key, elements);
             if (sequence is null) continue;
 
             Link? bubbledLink = GetLink(parent, group.Key, sequence);

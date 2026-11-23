@@ -14,7 +14,7 @@
 namespace UKS;
 
 /// <summary>
-/// A non-persistent view of a sequence and the relationship through which its
+/// A non-persistent view of a sequence and the link through which its
 /// owner describes it. The owner, rather than any <see cref="SeqElement"/>, is
 /// the item which can become a member of a learned class.
 /// </summary>
@@ -39,7 +39,7 @@ public partial class UKS
 {
     /// <summary>
     /// Gets every sequence directly described by an owner, regardless of the
-    /// relationship name. This provides the same view for phrases, spellings,
+    /// link name. This provides the same view for phrases, spellings,
     /// class descriptions, and other sequence-bearing Thoughts.
     /// </summary>
     public List<SequenceView> GetSequenceViews(Thought owner)

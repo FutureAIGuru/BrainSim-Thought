@@ -19,9 +19,8 @@ namespace UKS;
 public partial class UKS
 {
     /// <summary>
-    /// Export a neighborhood starting from <paramref name="root"/> to the bracketed txt file format.
-    /// Emits facts as [S,R,O] (or [S,R,O,N] when R is a numeric specialization like "has.4").
-    /// Optionally emits simple clause pairs if Thought exposes a Clauses collection.
+    /// Exports <paramref name="root"/>, its descendants and everything they link to, to the text file
+    /// format: one line per link, label[from->type->to] followed by weight, maxWeight and isPlastic.
     /// </summary>
     /// <param name="root">Label of the starting thought to export.</param>
     /// <param name="path">Destination file path for the exported text.</param>
@@ -77,7 +76,7 @@ public partial class UKS
 
                 foreach (Thought t in thoughtsToWrite)
                 {
-                    // A Relationship recreates its component Thoughts on import.
+                    // A link recreates its component Thoughts on import.
                     if (t is not Link && referenced.Contains(t) &&
                         t.V is null && t.Weight == 1 && t.maxWeight == 1 && !t.isPlastic) continue;
                     string s = FormatThought(t) + " " + t.Weight.ToString("F2") +
@@ -127,9 +126,6 @@ public partial class UKS
         return retVal;
     }
 
-    // int or decimal, optional leading minus
-    private static readonly Regex NumericRegex = new(@"^-?\d+(\.\d+)?$", RegexOptions.Compiled);
-
     /// <summary>
     /// Imports UKS content from a bracketed text file.
     /// </summary>
@@ -149,7 +145,7 @@ public partial class UKS
                     .Where(tokens => tokens.Count >= 2).ToList();
                 RemapGeneratedLabels(records);
 
-                // Preallocate only Relationship definitions that are referenced.
+                // Preallocate only link definitions that are referenced.
                 // Standalone metadata records describe ordinary Thoughts.
                 var definedLinkLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 HashSet<string> referencedLabels = new(StringComparer.OrdinalIgnoreCase);
@@ -220,7 +216,7 @@ public partial class UKS
             if (tokens[0].Length != 0) labels.Add(tokens[0]);
             if (!tokens[1].StartsWith("[")) continue;
             labels.UnionWith(TextReferences(tokens[1]));
-            if (tokens[0].Length != 0) definitions.TryAdd(tokens[0], ParseBracketStmt(tokens[1], 0));
+            if (tokens[0].Length != 0) definitions.TryAdd(tokens[0], ParseBracketStmt(tokens[1]));
         }
 
         foreach (var label in labels) ReserveGeneratedLabel(label);
@@ -237,8 +233,8 @@ public partial class UKS
             return string.Equals(aliases.GetValueOrDefault(label, label), thought?.Label, StringComparison.OrdinalIgnoreCase);
         }
 
-        // A renamed component can also change the identity of a Relationship that
-        // refers to it, even if that Relationship initially matched by label.
+        // A renamed component can also change the identity of a link that
+        // refers to it, even if that link initially matched by label.
         int previousCount;
         do
         {
@@ -256,7 +252,7 @@ public partial class UKS
         } while (aliases.Count != previousCount);
 
         if (aliases.Count == 0) return;
-        // A second import can reuse the Relationships installed under new labels
+        // A second import can reuse the links installed under new labels
         // by the first import. Resolve their sources before dependent annotations.
         var reusedLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         do
@@ -279,7 +275,7 @@ public partial class UKS
         } while (reusedLabels.Count != previousCount);
 
         string RemapPart(string part) => part.StartsWith("[")
-            ? "[" + string.Join("->", ParseBracketStmt(part, 0).Select(RemapPart)) + "]"
+            ? "[" + string.Join("->", ParseBracketStmt(part).Select(RemapPart)) + "]"
             : aliases.GetValueOrDefault(TextReferenceLabel(part), part);
 
         foreach (var tokens in records)
@@ -291,7 +287,7 @@ public partial class UKS
 
     private static IEnumerable<string> TextReferences(string bracket)
     {
-        foreach (string part in ParseBracketStmt(bracket, 0))
+        foreach (string part in ParseBracketStmt(bracket))
         {
             if (part.StartsWith("["))
             {
@@ -317,7 +313,7 @@ public partial class UKS
             return thoughtRetVal;
         }
 
-        var stmt = ParseBracketStmt(tokens[1], 0);
+        var stmt = ParseBracketStmt(tokens[1]);
         if (stmt.Count < 2) return null;
 
         if (stmt.Any(part => part.TrimStart().StartsWith("[")) ||
@@ -330,7 +326,6 @@ public partial class UKS
                 tokens.Count > 3 ? tokens[3] : null,
                 tokens.Count > 4 ? tokens[4] : null);
         }
-        //return AddLinkStmt(tokens[0], stmt, tokens.Count > 2 ? tokens[2] : null);
         Thought? linkRetVal = AddLinkStmt(
             tokens[0], stmt,
             tokens.Count > 2 ? tokens[2] : null,
@@ -368,13 +363,11 @@ public partial class UKS
         // Process 'to'
         //this might be a sequence
         Thought? to = ProcessThoughtOrLink(linkParts[2]) ?? CreateThoughtFromMultipleAttributes(linkParts[2], false, false);
-        //Thought to = GetOrAddThought(linkParts[2]);
 
         if (from is null || linkType is null) return null;
 
         Link? r = AddStatement(from, linkType, to, label);
         if (r is null) return null;
-        //Link r = from.AddLink(linkType, to);
         if (value != "")
             r.From!.V = value;
         if (label != "" && !label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase))
@@ -391,7 +384,6 @@ public partial class UKS
         ApplyPersistenceMetadata(r, sWeight, sMaxWeight, sIsPlastic);
         return r;
     }
-
 
     /// <summary>
     /// Processes a single line of UKS text format and creates the corresponding thought/link.
@@ -421,7 +413,7 @@ public partial class UKS
             return thoughtRetVal;
         }
 
-        var stmt = ParseBracketStmt(tokens[1], 0);
+        var stmt = ParseBracketStmt(tokens[1]);
         if (stmt.Count < 2) return null;
 
         Thought? linkRetVal = AddLinkStmtWithNesting(
@@ -487,19 +479,18 @@ public partial class UKS
         if (from is null || linkType is null) return null;
         if (structural && (from is not Link || to is not Link)) return null;
 
-        //        Link r = AddStatement(from, linkType, to, label);
         Link? r;
         if (asPattern || structural)
         {
             if (asPattern && !structural && !linkType.HasProperty("isPossible"))
             {
                 Thought ordinaryType = linkType;
-                linkType = GetOrAddThought(ordinaryType.Label + ".?");
+                linkType = GetOrAddThought(ordinaryType.Label + ".?")!;
                 linkType.AddParent(ordinaryType);
                 linkType.AddParent(GetOrAddThought("?", "Property"));
             }
             // Attach a clause to the existing possibility when the user has
-            // already entered it as an ordinary stored Relationship.
+            // already entered it as an ordinary stored link.
             if (asPattern && !structural && string.IsNullOrEmpty(label) &&
                 GetLink(from, linkType, to) is Link existingPattern)
                 return existingPattern;
@@ -546,7 +537,6 @@ public partial class UKS
     {
         if (string.IsNullOrWhiteSpace(part)) return null;
 
-
         string trimmed = part.Trim().Replace("→", "->");
         if (trimmed.StartsWith('"') && trimmed.EndsWith('"'))
         {
@@ -569,7 +559,7 @@ public partial class UKS
                 }
             }
             // Parse the nested link
-            var nestedStmt = ParseBracketStmt(trimmed, 0);
+            var nestedStmt = ParseBracketStmt(trimmed);
             if (nestedStmt.Count >= 2)
             {
                 // Recursively create the nested link (with empty label)
@@ -589,7 +579,7 @@ public partial class UKS
             Thought patternType = relationship.LinkType;
             if (!patternType.HasProperty("isPossible"))
             {
-                patternType = GetOrAddThought(relationship.LinkType.Label + ".?");
+                patternType = GetOrAddThought(relationship.LinkType.Label + ".?")!;
                 patternType.AddParent(relationship.LinkType);
                 patternType.AddParent(GetOrAddThought("?", "Property"));
             }
@@ -605,7 +595,7 @@ public partial class UKS
         {
             if (trimmed.Contains("->"))
             {
-                var nestedStmt = ParseBracketStmt("[" + trimmed + "]", 0);
+                var nestedStmt = ParseBracketStmt("[" + trimmed + "]");
                 if (nestedStmt.Count == 3)
                     return AddLinkStmtWithNesting("", nestedStmt, null, null, null, true);
             }
@@ -671,8 +661,8 @@ public partial class UKS
         ApplyPersistenceMetadata(thought, sWeight, sMaxWeight, sIsPlastic);
     }
 
-    // Parse "[F->L->T]" or "[S,R,O,N]" (comma separated, quotes allowed around items)
-    private static List<string> ParseBracketStmt(string s, int lineNo)
+    // Splits "[from->type->to]" into its parts at top-level arrows (nested brackets and quoted labels are kept whole).
+    private static List<string> ParseBracketStmt(string s)
     {
         var result = new List<string>();
         if (string.IsNullOrEmpty(s)) return result;
@@ -827,5 +817,4 @@ public partial class UKS
         return tokens;
     }
 }
-
 

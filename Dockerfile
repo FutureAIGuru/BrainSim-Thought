@@ -1,5 +1,5 @@
 # Build only the web service and its UKS dependency, not the desktop solution.
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY UKS/UKS.csproj UKS/
 COPY UKSWeb/UKSWeb.csproj UKSWeb/
@@ -9,7 +9,7 @@ COPY UKSWeb/ UKSWeb/
 COPY BrainSimulator/UKSContent/*.xml BrainSimulator/UKSContent/
 RUN dotnet publish UKSWeb/UKSWeb.csproj -c Release --no-restore -o /publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /publish .
 USER app

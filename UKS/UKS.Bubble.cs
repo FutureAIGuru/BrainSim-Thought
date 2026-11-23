@@ -1,3 +1,16 @@
+/*
+ * Brain Simulator Thought
+ *
+ * Copyright (c) 2026 Charles Simon
+ *
+ * This file is part of Brain Simulator Thought and is licensed under
+ * the MIT License. You may use, copy, modify, merge, publish, distribute,
+ * sublicense, and/or sell copies of this software under the terms of
+ * the MIT License.
+ *
+ * See the LICENSE file in the project root for full license information.
+ */
+
 namespace UKS;
 
 public partial class UKS
@@ -6,7 +19,7 @@ public partial class UKS
     /// Removes the least-supported direct child of a Thought.
     /// </summary>
     /// <param name="parent">The Thought whose children compete for retention.</param>
-    /// <param name="plasticOnly">    /// When true, only plastic children are eligible for removal.</param>
+    /// <param name="plasticOnly">When true, only plastic children are eligible for removal.</param>
     /// <returns>The removed child, or null when no eligible child exists.</returns>
     public Thought? PruneLowestScoringChild(
         Thought parent,
@@ -49,7 +62,7 @@ public partial class UKS
     /// <summary>
     /// Replaces every graph reference to <paramref name="redundantThought"/>
     /// with <paramref name="canonicalThought"/>, transfers the redundant
-    /// Thought's relationships and reinforcement, then removes it.
+    /// Thought's links and reinforcement, then removes it.
     /// </summary>
     /// <returns>The number of links which were redirected.</returns>
     public int ReplaceThoughtReferences(Thought redundantThought, Thought canonicalThought)
@@ -62,7 +75,7 @@ public partial class UKS
 
         // Links are stored on their source Thoughts. Scanning the atomic nodes
         // also finds sequence VLU links, wildcard constraints, memberships, and
-        // ordinary incoming/outgoing relationships.
+        // ordinary incoming/outgoing links.
 
         int replacedCount = 0;
         foreach (Link oldLink in redundantThought.LinksTo.Union(redundantThought.LinksFrom))
@@ -146,7 +159,7 @@ public partial class UKS
             }
             if (bestPair is null) break;
 
-            // Children are returned in relationship-creation order. Preserve
+            // Children are returned in link-creation order. Preserve
             // the first member of the selected pair as the canonical node.
             Thought first = bestPair.Value.first;
             Thought second = bestPair.Value.second;
@@ -186,7 +199,7 @@ public partial class UKS
                     continue;
 
                 var key = (link.LinkType, link.To);
-                if (!itemCounts.TryGetValue(key, out List<Link> links))
+                if (!itemCounts.TryGetValue(key, out List<Link>? links))
                 {
                     links = new List<Link>();
                     itemCounts.Add(key, links);
@@ -286,73 +299,4 @@ public partial class UKS
 
         return changed;
     }
-    /*
-    private void RecordBubble(string action, Thought parent, Thought linkType, Thought target)
-    {
-        bubbleLog.Add(new BubbleLogEntry
-        {
-            When = DateTime.UtcNow,
-            ParentLabel = parent.Label,
-            LinkTypeLabel = linkType.Label,
-            TargetLabel = target.Label,
-            Action = action
-        });
-        if (bubbleLog.Count > MaxBubbleLogEntries)
-            bubbleLog.RemoveAt(0);
-    }
-
-    private static bool BubbleLinksConflict(LinkDest r1, LinkDest r2)
-    {
-        if (r1.linkType == r2.linkType && r1.target == r2.target) return false;
-        if (r1.linkType == r2.linkType)
-        {
-            foreach (Thought parent in FindBubbleCommonParents(r1.target, r2.target))
-                if (parent.HasProperty("isExclusive") || parent.HasProperty("allowMultiple")) return true;
-        }
-        if (r1.target == r2.target)
-        {
-            IReadOnlyList<Thought> r1Attribs = r1.linkType.GetAttributes().Concat(r1.linkType.Parents).Distinct().ToList();
-            IReadOnlyList<Thought> r2Attribs = r2.linkType.GetAttributes().Concat(r2.linkType.Parents).Distinct().ToList();
-            if (r1.linkType.HasProperty("isNegative") != r2.linkType.HasProperty("isNegative")) return true;
-
-            foreach (Thought t1 in r1Attribs)
-            {
-                foreach (Thought t2 in r2Attribs)
-                {
-                    if (t1 == t2) continue;
-                    foreach (Thought t3 in FindBubbleCommonParents(t1, t2))
-                    {
-                        if (t3.HasProperty("isexclusive") || t3.HasProperty("allowMultiple"))
-                            return true;
-                    }
-                }
-            }
-
-            bool hasNumber1 = r1Attribs.Any(x => x.HasAncestor("number"));
-            bool hasNumber2 = r2Attribs.Any(x => x.HasAncestor("number"));
-            if (hasNumber1 || hasNumber2) return true;
-        }
-        return false;
-    }
-
-    private static List<Thought> FindBubbleCommonParents(Thought t, Thought t1)
-    {
-        List<Thought> common = new();
-        foreach (Thought p in t.Parents)
-            if (t1.Parents.Contains(p))
-                common.Add(p);
-        return common;
-    }
-
-    public static Thought GetBubbleInstanceType(Thought t)
-    {
-        Thought useLinkType = t;
-        while (useLinkType.Parents.Count > 0 &&
-               Regex.IsMatch(useLinkType.Label, @"\d+$") &&
-               !t.Label.Contains('.') &&
-               useLinkType.Label.StartsWith(useLinkType.Parents[0].Label))
-            useLinkType = useLinkType.Parents[0];
-        return useLinkType;
-    }
-    */
 }

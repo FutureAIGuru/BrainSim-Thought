@@ -11,8 +11,6 @@
  * See the LICENSE file in the project root for full license information.
  */
 
-using System.Collections.Frozen;
-
 namespace UKS;
 
 public partial class UKS
@@ -77,22 +75,16 @@ public partial class UKS
         result2 = result2.OrderByDescending(x => x.Weight).ToList();
     }
 
-    //This is used to store temporary activation during queries
+    // Temporary activation of one Thought reached during a query.
     private class ThoughtWithQueryParams
     {
         public Thought thought = null!;
         public int hopCount;
         public int haveCount = 1;
-        public int hitCount = 1;
         public float weight;
-        public Thought? reachedWith;
         public Thought? querySource;
-        public bool corner = false;
-        public override string ToString()
-        {
-            return (thought.Label + "  : " + hopCount + " : " + weight + "  Count: " +
-                haveCount + " Hits: " + hitCount + " Corner: " + corner);
-        }
+        public override string ToString() =>
+            thought.Label + "  : " + hopCount + " : " + weight + "  Count: " + haveCount;
     }
 
     // BFS along inheritable links (is-a chains, etc.) with a hop cap for transitive inheritance.
@@ -110,7 +102,6 @@ public partial class UKS
                 thought = t,
                 hopCount = 0,
                 weight = 1,
-                reachedWith = null,
                 querySource = t
             });
         }
@@ -128,32 +119,24 @@ public partial class UKS
             foreach (Link r in t.LinksTo)
             {
                 Thought? inheritable = Labeled("inheritable");
-                if (inheritable is null || r.LinkType?.HasProperty(inheritable) != true || r.To is null)
+                if (inheritable is null || r.LinkType is not Thought linkType || !linkType.HasProperty(inheritable) || r.To is null)
                     continue;
 
                 if (thoughtsToExamine.FindFirst(x => x.thought == r.To) is ThoughtWithQueryParams twgp)
                 {
-                    twgp.hitCount++;
                     if (nextHop < twgp.hopCount)
                         twgp.hopCount = nextHop;
                 }
                 else
                 {
-                    bool corner = entry.reachedWith is not null &&
-                        r.LinkType is not null &&
-                        !ThoughtInTree(r.LinkType, entry.reachedWith);
-                    entry.corner |= corner;
-                    ThoughtWithQueryParams thoughtToAdd = new()
+                    thoughtsToExamine.Add(new ThoughtWithQueryParams
                     {
                         thought = r.To,
                         hopCount = nextHop,
                         weight = entry.weight * r.Weight,
-                        reachedWith = r.LinkType,
                         querySource = entry.querySource ?? entry.thought,
-                    };
-                    int val = GetCount(r.LinkType);
-                    thoughtToAdd.haveCount = entry.haveCount * val;
-                    thoughtsToExamine.Add(thoughtToAdd);
+                        haveCount = entry.haveCount * GetCount(linkType),
+                    });
                     seen.Add(r.To);
                 }
             }
@@ -175,10 +158,10 @@ public partial class UKS
             {
                 if (r.LinkType == Labeled("is-a")) continue;
                 bool conditional = r.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true);
-                // A possible Relationship supplies no evidence unless a conditional
+                // A possible link supplies no evidence unless a conditional
                 // supports it as a conclusion. Premises cannot assert their own truth.
                 if (r.LinkType?.HasProperty("isPossible") == true && !conditional) continue;
-                //only add the new relationship to the list if it is not already in the list
+                //only add the new link to the list if it is not already in the list
                 bool ignoreSource = thoughtsToExamine[i].hopCount > 1;
                 Link? existing = result.FindFirst(x => LinksAreEqual(x, r, ignoreSource));
                 bool existingConditional = existing is not null && existing.LinksTo.Any(link =>
@@ -237,7 +220,7 @@ public partial class UKS
         return result;
     }
 
-    // Ch.5 exception rule: more-specific (lower inheritance depth) wins over inherited defaults.
+    // Exception rule: the more specific (lower inheritance depth) wins over inherited defaults.
     // Tie-break: link From on a query source, then higher Weight.
     private void RemoveConflictingResults(List<Link> result, List<Thought> querySources)
     {
@@ -278,8 +261,8 @@ public partial class UKS
         if (r1.InheritanceDepth != r2.InheritanceDepth)
             return r1.InheritanceDepth < r2.InheritanceDepth ? r1 : r2;
 
-        bool r1OnSource = querySources.Contains(r1.From);
-        bool r2OnSource = querySources.Contains(r2.From);
+        bool r1OnSource = r1.From is Thought from1 && querySources.Contains(from1);
+        bool r2OnSource = r2.From is Thought from2 && querySources.Contains(from2);
         if (r1OnSource != r2OnSource)
             return r1OnSource ? r1 : r2;
 
@@ -302,7 +285,7 @@ public partial class UKS
             }
             else
             {
-                // A satisfied possibility is returned as an ordinary Relationship;
+                // A satisfied possibility is returned as an ordinary link;
                 // this changes the query result, never the stored rule or its premise.
                 if (r1.LinkType?.HasProperty("isPossible") == true)
                 {
@@ -446,14 +429,11 @@ public partial class UKS
         return succeededConditions;
     }
 
-    Dictionary<Thought, float> searchCandidates = null!;
-
     /// <summary>
     /// Search for the Thought which most closely resembles the target Thought based on the attributes of the target.
     /// </summary>
     /// <param name="target">The links of this Thought are the attributes to search on.</param>
     /// <param name="root">All searching is done within the descendants of this Thought.</param>
-    /// <param name="confidence">Unused output parameter reserved for match quality (not currently assigned).</param>
     /// <returns>Ordered list of candidate thoughts with confidence scores.</returns>
     public List<(Thought t, float conf)> SearchByAttributes(Thought target, Thought root)
     {
@@ -462,7 +442,7 @@ public partial class UKS
         //initialize the search queues
         List<Thought> thoughtsToSearch = new();
         List<Thought> alreadySearched = new();
-        searchCandidates = new();
+        Dictionary<Thought, float> searchCandidates = new();
         //Nothing changes the UKS during a search, so these answers are computed once per Thought.
         //(They are asked for every link visited, and each answer walks the ancestors.)
         Dictionary<Thought, bool> inheritableLinkTypes = new(ReferenceEqualityComparer.Instance);
@@ -489,16 +469,10 @@ public partial class UKS
                 var x = FlattenSequence(s);  //if this is a sequence fragment, try to get the whole sequence
                 if (r.LinkType is null) continue;
 
-                // Use FindSequencesByActivation instead of HasSequence
-                Thought searchOptions = Labeled("ExactSequenceSearch");
-                var y = FindSequencesByActivation(x, searchOptions);
-                // Filter by the linkType from the link
-                if (r.LinkType is not null)
-                {
-                    y = y.Where(result => 
-                        result.seqNode.LinksFrom.Any(link => link.LinkType == r.LinkType))
-                        .ToList();
-                }
+                // Keep only stored sequences referred to through the same link type.
+                var y = FindSequencesByActivation(x, Labeled("ExactSequenceSearch"))
+                    .Where(result => result.seqNode.LinksFrom.Any(link => link.LinkType == r.LinkType))
+                    .ToList();
 
                 foreach (var z in y)
                 {
@@ -508,7 +482,7 @@ public partial class UKS
                         var existing = thoughtsToSearch.FindFirst(x => x == w.From);
                         if (r.LinkType is not null &&
                             (w.LinkType == r.LinkType || w.LinkType?.HasAncestor(r.LinkType) == true) &&
-                            r.To == r.To && existing is null)
+                            existing is null)
                         {
                             thoughtsToSearch.Add(w.From);
                             if (!searchCandidates.ContainsKey(w.From))
@@ -557,10 +531,7 @@ public partial class UKS
                 if (r.From == target || r.From is null) continue;
                 AddToQueues(t, r.From);
                 inheritedValueCount++;
-                //TODO fix this to handle isSimilarTo  (and transitive...?)
-                //var similarThoughts = GetListOfSimilarThoughts(r.source);
-                //foreach (Thought t1 in similarThoughts)
-                //    AddToQueues(t, t1);
+                // TODO: also follow isSimilarTo (and transitive) links.
             }
         }
 
@@ -607,7 +578,7 @@ public partial class UKS
     }
 
     /// <summary>
-    /// DEPRECATED: Helper for SearchForClosestMatch that gets the weight of the link between two Thoughts.
+    /// Gets the weight of the first link between two Thoughts (used by SearchByAttributes).
     /// </summary>
     /// <param name="t1">First thought.</param>
     /// <param name="t2">Second thought.</param>
@@ -656,9 +627,7 @@ public partial class UKS
     /// <summary>
     /// Searches for links matching the specified criteria. Null parameters act as wildcards.
     /// </summary>
-    /// <param name="from">The source thought, or null to match any source.</param>
-    /// <param name="linkType">The link type, or null to match any link type.</param>
-    /// <param name="to">The target thought, or null to match any target.</param>
+    /// <param name="l">Pattern link; a null or wildcard From, LinkType or To matches anything. A filterBy link on it restricts targets to descendants of its target.</param>
     /// <returns>List of links matching all specified (non-null) criteria.</returns>
     public List<Link> SearchForRelationships(Link l)
     {
@@ -689,7 +658,6 @@ public partial class UKS
                 if ((linkType is null || link.LinkType?.HasAncestor(linkType) == true) &&
                     (to is null || link.To == to))
                 {
-//                    results.Add(link);
                     results.Add(new Link(this)
                     {
                         From = from,

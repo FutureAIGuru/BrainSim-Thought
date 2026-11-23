@@ -5,14 +5,17 @@
  *
  * This file is part of Brain Simulator Thought and is licensed under
  * the MIT License. You may use, copy, modify, merge, publish, distribute,
- * sublicense, and/or sell copies of the Software, subject to the License.
+ * sublicense, and/or sell copies of this software under the terms of
+ * the MIT License.
+ *
+ * See the LICENSE file in the project root for full license information.
  */
 
 namespace UKS;
 
 public partial class UKS
 {
-    public Dictionary<Thought, Thought> GetSequenceBindings(SeqElement templateSequence,SeqElement concreteSequence)
+    public Dictionary<Thought, Thought>? GetSequenceBindings(SeqElement templateSequence,SeqElement concreteSequence)
     {
         Dictionary<Thought, Thought> bindings = new();
 
@@ -31,7 +34,7 @@ public partial class UKS
                 continue;
 
             // Repeated use of the same wildcard must bind consistently.
-            if (bindings.TryGetValue(t, out Thought previous))
+            if (bindings.TryGetValue(t, out Thought? previous))
             {
                 if (previous != c)
                     return null;
@@ -91,8 +94,8 @@ public partial class UKS
         bool lastWasWildcard = false;
         while (firstElement is not null && secondElement is not null)
         {
-            Thought firstValue = GetElementValue(firstElement);
-            Thought secondValue = GetElementValue(secondElement);
+            Thought firstValue = GetElementValue(firstElement)!; // checked non-null in the first pass
+            Thought secondValue = GetElementValue(secondElement)!;
             if (firstValue == secondValue)
             {
                 templateValues.Add(firstValue);
@@ -114,7 +117,7 @@ public partial class UKS
             firstElement = GetNextElement(firstElement);
             secondElement = GetNextElement(secondElement);
         }
-        retVal = GetOrAddThought("template*", templateRoot);
+        retVal = GetOrAddThought("template*", templateRoot)!;
         AddSequenceAndLink(retVal, "hasWords", templateValues);
         return retVal;
     }

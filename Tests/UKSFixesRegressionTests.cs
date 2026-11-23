@@ -28,7 +28,7 @@ public class UKSFixesRegressionTests
 
         Assert.NotNull(dogLegs);
         Assert.NotNull(catLegs);
-        Assert.True(uks.LinksAreExclusive_ForTests(dogLegs, catLegs));
+        Assert.True(uks.LinksAreExclusive(dogLegs, catLegs));
     }
 
     [Fact]

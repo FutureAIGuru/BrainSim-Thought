@@ -73,7 +73,7 @@ public partial class UKS
 
         foreach (var (first, elements) in activated)
         {
-            List<Thought> stored = EnumerateSequenceElements(first).Select(element => element.VLU).ToList();
+            List<Thought?> stored = EnumerateSequenceElements(first).Select(element => element.VLU).ToList();
             float coverage = (float)elements.Count / Math.Max(stored.Count, pattern.Count);
             if (!allowPartialMatch && coverage < 1) continue;
             float order = InOrderPairs(stored, pattern);
@@ -90,7 +90,7 @@ public partial class UKS
 
     // The share of the pattern's neighboring pairs that are neighbors, in that order, in the stored
     // sequence: 1 for the same order, lower as elements are swapped.
-    private static float InOrderPairs(List<Thought> stored, List<Thought> pattern)
+    private static float InOrderPairs(List<Thought?> stored, List<Thought> pattern)
     {
         if (pattern.Count < 2) return 1;
         var storedPairs = stored.Zip(stored.Skip(1)).ToList();

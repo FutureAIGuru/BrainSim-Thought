@@ -11,8 +11,6 @@
  * See the LICENSE file in the project root for full license information.
  */
 
-using System.Diagnostics;
-
 namespace UKS;
 
 public class Link : Thought
@@ -26,9 +24,9 @@ public class Link : Thought
     /// Creates a link with the specified source, link type, and target.
     /// </summary>
     /// <param name="from">Source thought.</param>
-    /// <param name="linkType">Relationship type thought.</param>
+    /// <param name="linkType">Link type thought.</param>
     /// <param name="to">Target thought.</param>
-    public Link(Thought from, Thought linkType, Thought to) : base((from ?? linkType ?? to)?.Store)
+    public Link(Thought? from, Thought? linkType, Thought? to) : base((from ?? linkType ?? to)?.Store)
     {
         From = from;
         LinkType = linkType;
@@ -49,7 +47,6 @@ public class Link : Thought
         else
             To = l.To;
     }
-
 
     private Thought? from;
     private Thought? linkType;
@@ -88,7 +85,7 @@ public class Link : Thought
     /// <summary>Query-time metadata: 0 = asserted on the query source; N = inherited via N is-a hops.</summary>
     public int InheritanceDepth { get; set; }
 
-    /// <summary>Ch.5 provenance: category Thought where an inherited link was found (e.g. dog for Fido→fur).</summary>
+    /// <summary>Query-time metadata: the class where an inherited link was found (e.g. dog for Fido→fur).</summary>
     public Thought? InheritedFromCategory { get; set; }
 
     /// <summary>
@@ -104,7 +101,6 @@ public class Link : Thought
         return retVal;
     }
 }
-
 
 /// <summary>
 /// A Thought is an atomic unit of thought. In the lexicon of graphs, a Thought is both a "node" and an Edge.  
@@ -129,8 +125,7 @@ public partial class Thought
     /// <summary>Unsafe writeable list of incoming links.</summary>
     public List<Link> LinksFromWriteable { get => _linksFrom; }
     internal List<Link> LinksAsTypeWriteable { get => _linksAsType; }
-    /// <summary>Safe snapshot of outgoing links.</summary>
-    //public IReadOnlyList<Link> LinksTo { get { lock (_linksTo) { return new List<Link>(_linksTo.AsReadOnly()); } } }
+    /// <summary>Safe snapshot of outgoing links. Expired links (and an expired Thought) are removed first.</summary>
     public IReadOnlyList<Link> LinksTo
     {
         get
@@ -140,7 +135,6 @@ public partial class Thought
         }
     }
     /// <summary>Safe snapshot of incoming links.</summary>
-    /// 
     public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return new List<Link>(_linksFrom.AsReadOnly()); } } }
     /// <summary>Direct parents (targets of outgoing is-a links).</summary>
     public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).OfType<Thought>().ToList(); } }
@@ -175,7 +169,6 @@ public partial class Thought
     }
 
     public bool HasGeneratedLabel => Label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase);
-
 
     public void Delete()
     {
@@ -252,7 +245,6 @@ public partial class Thought
         if (_timeToLive > DateTime.MaxValue - LastFiredTime) return false; // Effectively never expires
         if (LastFiredTime + _timeToLive > DateTime.Now) return false;
 
-        //Debug.WriteLine($"Thought forgotten: {this.ToString()}");
         // Expired: remove self
         if (this is Link l)
         {
@@ -593,19 +585,11 @@ public partial class Thought
             recentlyCreated.Clear();
     }
 
+    // Each firing extends the time to live by 20 seconds, saturating at TimeSpan.MaxValue.
     private void UpdateTimeToLive()
     {
-        float baseSeconds = 10;
-        float growthFactor = 2;
-        float maxSeconds = 60 * 60 * 24; //1 day
-        double ttlSeconds = baseSeconds * Math.Pow(growthFactor, 1);
-        ttlSeconds = Math.Min(ttlSeconds, maxSeconds);
-        // Prevent overflow of TimeSpan when extending
-        var increment = TimeSpan.FromSeconds(ttlSeconds);
-        var remainingToMax = TimeSpan.MaxValue - TimeToLive;
-        if (increment > remainingToMax) increment = remainingToMax;
-
-        TimeToLive += increment;
+        TimeSpan increment = TimeSpan.FromSeconds(20);
+        TimeToLive = TimeToLive > TimeSpan.MaxValue - increment ? TimeSpan.MaxValue : TimeToLive + increment;
     }
 
     // LINK OPERATIONS
@@ -613,7 +597,7 @@ public partial class Thought
     /// <summary>
     /// Adds a link to this thought if it does not already exist.
     /// </summary>
-    /// <param name="linkType">Relationship type thought.</param>
+    /// <param name="linkType">Link type thought.</param>
     /// <param name="to">Target thought.</param>
     /// <returns>The new or existing link.</returns>
     public Link? AddLink(string linkTypeLabel, Thought? to)
@@ -790,7 +774,7 @@ public partial class Thought
     /// Adds a parent link ("is-a") if not already present.
     /// </summary>
     /// <param name="newParent">Parent to add.</param>
-    public Link? AddParent(Thought newParent)
+    public Link? AddParent(Thought? newParent)
     {
         if (newParent is null) return null;
         if (!Parents.Contains(newParent))
@@ -849,7 +833,8 @@ public partial class Thought
         Thought? t = Store.Labeled(label);
         return t is not null && HasProperty(t);
     }
-    public Thought AddProperty(Thought t)
+    /// <summary>Adds a hasProperty link to the property unless this Thought already has it (directly or inherited).</summary>
+    public Thought? AddProperty(Thought? t)
     {
         if (t is not null && !HasProperty(t))
         {
@@ -905,7 +890,7 @@ public partial class Thought
 
             if (t is SeqElement s)
             {
-                do { EnqueueIfNew(s); s = s.NXT as SeqElement; } while (s is not null);
+                for (SeqElement? e = s; e is not null; e = e.NXT) EnqueueIfNew(e);
             }
             foreach (var isaLink in t.LinksFrom.Where(x => x.LinkType?.Label == "is-a"))
             {

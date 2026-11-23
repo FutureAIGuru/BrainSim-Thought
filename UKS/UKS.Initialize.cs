@@ -10,7 +10,6 @@
  *
  * See the LICENSE file in the project root for full license information.
  */
-using System.Xml;
 
 namespace UKS;
 
@@ -33,7 +32,6 @@ public partial class UKS
         GetOrAddThought("NXT", "LinkType");
         GetOrAddThought("FRST", "LinkType");
     }
-
 
     public void CreateInitialStructure()
     {
@@ -144,7 +142,7 @@ public partial class UKS
         AddStatement("white", "is-a", "color");
         AddStatement("gray", "is-a", "color");
 
-        // Ch.4 Fig 4.2 — discrete RGBI level Thoughts (analog→symbolic decode target)
+        // Discrete RGBI levels: the symbols that analog color values are decoded into
         AddStatement("isDiscreteLevel", "is-a", "Property");
         AddStatement("discrete-channel", "is-a", "Abstract");
         AddStatement("red-channel", "is-a", "discrete-channel");
@@ -206,7 +204,6 @@ public partial class UKS
         GetOrAddThought("isSimilarTo", "Comparison");
         AddStatement("isSimilarTo", "hasProperty", "isCommutative");
         AddStatement("hasDigit", "is-a", "has");
-
 
         //put in digits
         GetOrAddThought("some", "number");

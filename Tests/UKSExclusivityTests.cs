@@ -73,7 +73,7 @@ public class UKSExclusivityTests
         var l1 = uks.GetLink(uks.AddStatement("Mary", "is-a", "female"));
         var l2 = uks.GetLink(uks.AddStatement("Mary", "is-a", "male"));
 
-        Assert.True(uks.LinksAreExclusive_ForTests(l1, l2));
+        Assert.True(uks.LinksAreExclusive(l1, l2));
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class UKSExclusivityTests
         var fourLegs = uks.GetLink(uks.AddStatement("Fido", "has.4", "legs"));
         var threeLegs = uks.GetLink(uks.AddStatement("Fido", "has.3", "legs"));
 
-        Assert.True(uks.LinksAreExclusive_ForTests(fourLegs, threeLegs));
+        Assert.True(uks.LinksAreExclusive(fourLegs, threeLegs));
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class UKSExclusivityTests
         var positive = uks.GetLink(uks.AddStatement("Fido", "has.4", "legs"));
         var negative = uks.GetLink(uks.AddStatement("Fido", "NOT has.4", "legs"));
 
-        Assert.True(uks.LinksAreExclusive_ForTests(positive, negative));
+        Assert.True(uks.LinksAreExclusive(positive, negative));
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class UKSExclusivityTests
         var brown = uks.GetLink(uks.AddStatement("Fido", "is", "brown"));
         var black = uks.GetLink(uks.AddStatement("Fido", "is", "black"));
 
-        Assert.True(uks.LinksAreExclusive_ForTests(brown, black));
+        Assert.True(uks.LinksAreExclusive(brown, black));
     }
 
     [Fact]
@@ -121,7 +121,7 @@ public class UKSExclusivityTests
         var carHasEngine = uks.GetLink(uks.AddStatement("car", "has", "engine"));
         var fidoHasEars = uks.GetLink(uks.AddStatement("Fido", "has.2", "ears"));
 
-        Assert.False(uks.LinksAreExclusive_ForTests(carHasEngine, fidoHasEars));
+        Assert.False(uks.LinksAreExclusive(carHasEngine, fidoHasEars));
     }
 
     [Fact]
@@ -136,6 +136,6 @@ public class UKSExclusivityTests
         var negativeAssertion = new Link(fido, negativeIs, wet);
 
         Assert.True(conditionalIs.HasProperty("isPossible"));
-        Assert.False(uks.LinksAreExclusive_ForTests(conditionalClause, negativeAssertion));
+        Assert.False(uks.LinksAreExclusive(conditionalClause, negativeAssertion));
     }
 }

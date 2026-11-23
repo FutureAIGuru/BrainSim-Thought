@@ -158,7 +158,7 @@ public partial class UKS
         Thought? unknown = Labeled("Unknown");
         if (t.Parents.Count > 1 && unknown is not null)
             t.RemoveParent(unknown);
-        if (t.Parents.Count > 1 && !t.Parents.Contains("ActiveThought") || t.Parents.Count > 2)
+        if (t.Parents.Count > 1 && !t.Parents.Contains(Labeled("ActiveThought")!) || t.Parents.Count > 2)
             t.RemoveParent("Object");
         if (reconnectNeeded && !t.HasAncestor("Thought") && unknown is not null)
             t.AddParent(unknown);
@@ -227,7 +227,7 @@ public partial class UKS
         return commonParents;
     }
 
-    /// <summary>Ch.5 stable vs ephemeral: short TTL for link types marked isEphemeral.</summary>
+    /// <summary>Gives links whose type is isEphemeral a short time to live (30 s); other links are stable.</summary>
     private void ApplyDefaultTimeToLive(Link lnk)
     {
         Thought? ephemeral = Labeled("isEphemeral");

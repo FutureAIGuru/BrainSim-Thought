@@ -1,15 +1,28 @@
+/*
+ * Brain Simulator Thought
+ *
+ * Copyright (c) 2026 Charles Simon
+ *
+ * This file is part of Brain Simulator Thought and is licensed under
+ * the MIT License. You may use, copy, modify, merge, publish, distribute,
+ * sublicense, and/or sell copies of this software under the terms of
+ * the MIT License.
+ *
+ * See the LICENSE file in the project root for full license information.
+ */
+
 namespace UKS;
 
 public partial class UKS
 {
     /// <summary>
     /// Applies a write action or evaluates a query action. The operation and its
-    /// underlying relationship type are identified through inheritance.
+    /// underlying link type are identified through inheritance.
     /// </summary>
-    /// <returns>The written relationship for writes, or all matching relationships for ?.</returns>
+    /// <returns>The written link for writes, or all matching links for ?.</returns>
     public List<Link> ApplyTestOrSetAction(Link action)
     {
-        //THIS PROBABLY DOESN"T WORK ON COMPOUND ACTIONS, NEED TO TEST AND FIX
+        // TODO: compound (nested) actions are untested.
         ArgumentNullException.ThrowIfNull(action);
         List<Link> retVal = new();
         Thought? actionType = action.LinkType;
@@ -29,8 +42,8 @@ public partial class UKS
         return retVal;
     }
 
-    /// <summary>Evaluates an action whose relationship type inherits from ?.</summary>
-    /// <returns>All ordinary relationships which satisfy the query action.</returns>
+    /// <summary>Evaluates an action whose link type inherits from ?.</summary>
+    /// <returns>All ordinary links which satisfy the query action.</returns>
     private List<Link> ApplyTestAction(Link action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -71,10 +84,10 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Applies an action whose relationship type inherits from !. The
-    /// underlying relationship type is obtained from the action type's ancestry.
+    /// Applies an action whose link type inherits from !. The
+    /// underlying link type is obtained from the action type's ancestry.
     /// </summary>
-    /// <returns>The asserted or reinforced ordinary relationship.</returns>
+    /// <returns>The asserted or reinforced ordinary link.</returns>
     private Link? ApplySetAction(Link action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -103,7 +116,7 @@ public partial class UKS
         return retVal;
     }
 
-    /// <summary>Gets the ordinary relationship type inherited by a SET or query action type.</summary>
+    /// <summary>Gets the ordinary link type inherited by a SET or query action type.</summary>
     public Thought? GetActionRelationshipType(Thought? actionType)
     {
         Thought? retVal = null;

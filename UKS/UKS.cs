@@ -10,11 +10,10 @@
  *
  * See the LICENSE file in the project root for full license information.
  */
-namespace UKS;
 
 using Pluralize.NET;
 
-
+namespace UKS;
 
 /// <summary>
 /// Contains a collection of Thoughts linked by Links to implement Common Sense and general knowledge.
@@ -31,8 +30,8 @@ public partial class UKS
     internal readonly object RecentlyCreatedLock = new();
     private static readonly AsyncLocal<UKS?> currentUKS = new();
 
-    //This is a reformatted temporary copy of the UKS which used internally during the save and restore process to 
-    //break circular links by storing index values instead of actual links Note the use of SThought instead of Thought
+    // A flattened copy of the UKS used while saving and loading XML: circular references are
+    // broken by storing indexes into this list (sThought) instead of Thought references.
     private List<sThought> UKSTemp = new();
 
     /// <summary>
@@ -81,8 +80,6 @@ public partial class UKS
         if (parent is not null && !ReferenceEquals(parent.Store, this))
             throw new ArgumentException("Parent belongs to another UKS.", nameof(parent));
         theUKS = this;
-        if (label == "SET.EQ")
-        { }
         Thought newThought = new(this);
         newThought.Label = label;
         newThought.AddDefaultLabel();
@@ -132,7 +129,6 @@ public partial class UKS
         }
     }
 
-
     private bool HasProperty(Thought t, string propertyName)
     {
         if (t is null) return false;
@@ -167,7 +163,7 @@ public partial class UKS
     /// Gets an existing link matching the specified from/linkType/to triple, if present.
     /// </summary>
     /// <param name="from">Source thought of the link.</param>
-    /// <param name="linkType">Relationship type thought.</param>
+    /// <param name="linkType">Link type thought.</param>
     /// <param name="to">Target thought of the link.</param>
     /// <returns>The existing link Thought, or null if not found.</returns>
     public Link? GetLink(Thought from, Thought linkType, Thought? to)
@@ -223,7 +219,6 @@ public partial class UKS
             throw new ArgumentException("Thought belongs to another UKS.", nameof(t));
         if (t is not null)
         {
-            //List<Thought> subThoughts = t.EnumerateSubThoughts().ToList();
             List<Thought> descendants = t.Descendants.ToList();
             foreach (Link t1 in t.LinksTo)
             {
@@ -313,7 +308,7 @@ public partial class UKS
         {
             string[] attribs = label.Split(".");
             // Materialize the ordinary compound before adding execution capabilities.
-            // Thus is.not.? retains is.not as an identifiable Relationship type; execution
+            // Thus is.not.? retains is.not as an identifiable link type; execution
             // never has to strip punctuation or reconstruct a type from label text.
             List<Thought> components = new();
             foreach (string componentLabel in attribs)
@@ -350,9 +345,7 @@ public partial class UKS
             return instanceThought;
         }
 
-
         if (correctParent is null) return null;
-        //            throw new ArgumentException("GetOrAddThought: could not find parent");
 
         if (label.EndsWith("*"))
         {
@@ -403,8 +396,7 @@ public partial class UKS
                 }
             }
             string seqLabel = string.Join("", targetParts);
-            Thought r1 = (Thought)AddSequence(seqLabel, targets, false);
-            return r1;
+            return AddSequence(seqLabel, targets, false);
 
         }
         IPluralize pluralizer = new Pluralizer();
@@ -421,7 +413,6 @@ public partial class UKS
         {
             thoughtLabel = attributeParts[0];
             for (int i = 1; i < attributeParts.Length; i++)
-                //if (!string.IsNullOrEmpty(tempStringArray[i]))
                 thoughtLabel += "." + attributeParts[i];
         }
         else
@@ -429,11 +420,10 @@ public partial class UKS
             int last = attributeParts.Length - 1;
             thoughtLabel = attributeParts[last];
             for (int i = 0; i < last; i++)
-                //if (!string.IsNullOrEmpty(tempStringArray[i]))
                 thoughtLabel += "." + attributeParts[i];
         }
 
-        //find the base thing so we can assign the parent?  //this is handled in GetOrAddThought now, so we don't need to do it here
+        // GetOrAddThought assigns the parents of a dotted label.
         return GetOrAddThought(thoughtLabel);
     }
 }

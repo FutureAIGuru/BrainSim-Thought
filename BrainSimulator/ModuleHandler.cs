@@ -95,6 +95,17 @@ public class ModuleHandler
         return pythonFiles;
     }
 
+#pragma warning disable SYSLIB0011, SYSLIB0050 // IFormatter types are obsolete; this one never serializes anything
+    private sealed class NoopFormatter : System.Runtime.Serialization.IFormatter
+    {
+        public object Deserialize(Stream serializationStream) => null;
+        public void Serialize(Stream serializationStream, object graph) { }
+        public System.Runtime.Serialization.SerializationBinder Binder { get; set; }
+        public System.Runtime.Serialization.StreamingContext Context { get; set; }
+        public System.Runtime.Serialization.ISurrogateSelector SurrogateSelector { get; set; }
+    }
+#pragma warning restore SYSLIB0011, SYSLIB0050
+
     public bool ClosePythonEngine()
     {
         PythonEngine.Shutdown();
@@ -106,12 +117,14 @@ public class ModuleHandler
         {
             //Runtime.PythonDLL = @"/opt/anaconda3/envs/brainsim/bin/python";  // Yida's MAC
             Runtime.PythonDLL = PythonPath;//  @"python310";  // Charles's Windows
+            // PythonEngine.Shutdown() stashes state with BinaryFormatter, which .NET 9+ removed;
+            // the stash only serves AppDomain reloads, which .NET Core never does.
+            RuntimeData.FormatterFactory = () => new NoopFormatter();
             if (!PythonEngine.IsInitialized)
                 PythonEngine.Initialize();
             dynamic sys = Py.Import("sys");
             dynamic os = Py.Import("os");
-            string desiredPath = os.path.join(os.getcwd(), "./bin/Debug/net8.0/");
-            sys.path.append(desiredPath);  // enables finding scriptName module
+            sys.path.append(AppContext.BaseDirectory);  // enables finding scriptName module
             sys.path.append(os.getcwd() + "\\pythonModules");
             Console.WriteLine("PythonEngine init succeeded\n");
         }

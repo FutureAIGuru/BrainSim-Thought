@@ -18,11 +18,11 @@ public partial class UKS
 {
     /// <summary>
     /// Adds a statement, first recording the history of the values it displaces (UKSWeb Lab 4).
-    /// When the relationship type or the target has the recordsHistory property and the new statement
+    /// When the link type or the target has the recordsHistory property and the new statement
     /// is exclusive with statements the source holds, each displaced statement that is in effect is
-    /// archived as a was.TYPE Relationship (inheriting was, which isHistorical, and the original type)
+    /// archived as a was.TYPE link (inheriting was, which isHistorical, and the original type)
     /// at the head of the source's events sequence, newest first, with a validUntil time. A repeat
-    /// visit adds a new sequence cell pointing to the same archived Relationship. The conflicting
+    /// visit adds a new sequence cell pointing to the same archived link. The conflicting
     /// statements are then removed, so only the new value remains in effect.
     /// </summary>
     /// <returns>The added (or reinforced) statement.</returns>
@@ -66,7 +66,7 @@ public partial class UKS
                     }
                     foreach (var previous in displaced)
                     {
-                        // A repeat visit gets a new sequence cell pointing to the same Relationship.
+                        // A repeat visit gets a new sequence cell pointing to the same link.
                         var previousType = previous.LinkType!;
                         var pastType = GetOrAddThought($"was.{previousType.Label}", "LinkType")!;
                         pastType.AddParent(pastMarker);
