@@ -120,7 +120,7 @@ public sealed partial class ModuleInterpret
 
     /// <summary>
     /// "Rover is a small dog": Rover is-a dog and is small. No subclass is made for the kind; an agent
-    /// may later gather members with attributes in common into one (ModuleClassCreate).
+    /// may later gather members with attributes in common into one (the UKS CreateClasses agent).
     /// </summary>
     private List<Link> JoinKind(Thought member, Link kind)
     {

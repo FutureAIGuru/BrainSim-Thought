@@ -48,13 +48,12 @@ public class ModuleClassCreateTests
             dog.AddLink(hasImage, image);
         }
 
-        var classCreator = new ModuleClassCreate { theUKS = uks };
-        classCreator.DoTheWork();
+        uks.CreateClasses();
 
         List<Thought> anonymousClasses = objectRoot.Children.Where(child =>
             child.HasProperty("isAnonymousClass")).ToList();
         Assert.True(anonymousClasses.Count == 1,
-            classCreator.debugString + "\nObject children: " +
+            "Object children: " +
             string.Join(", ", objectRoot.Children.Select(child =>
                 $"{child.Label}[anonymous={child.HasProperty("isAnonymousClass")} children={child.Children.Count}]")));
         Thought anonymousClass = anonymousClasses.Single();
@@ -64,8 +63,7 @@ public class ModuleClassCreateTests
         Assert.Null(anonymousClass.HasLink(has, fur));
         Assert.DoesNotContain(objectRoot.Children, child => child.Label.StartsWith("Object."));
 
-        var bubbler = new ModuleAttributeBubble { theUKS = uks };
-        bubbler.DoTheWork();
+        uks.BubbleAttributes();
 
         Assert.NotNull(anonymousClass.HasLink(has, fur));
         Assert.NotNull(anonymousClass.HasLink(hasFour, leg));
@@ -79,7 +77,7 @@ public class ModuleClassCreateTests
             Assert.NotNull(dog.HasLink(hasImage));
         });
 
-        classCreator.DoTheWork();
+        uks.CreateClasses();
         Assert.DoesNotContain(anonymousClass.Children, child =>
             child.LinksTo.Any(link => link.LinkType?.Label == "hasProperty" &&
                 link.To?.Label == "isAnonymousClass"));
@@ -95,8 +93,7 @@ public class ModuleClassCreateTests
         uks.GetOrAddThought("Fido", objectRoot).AddLink(has, fur);
         uks.GetOrAddThought("Rover", objectRoot).AddLink(has, fur);
 
-        var classCreator = new ModuleClassCreate { theUKS = uks };
-        classCreator.DoTheWork();
+        uks.CreateClasses();
 
         Assert.DoesNotContain(objectRoot.Children, child =>
             child.HasProperty("isAnonymousClass"));

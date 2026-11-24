@@ -8,7 +8,7 @@ namespace BrainSimulator.Tests;
 public class ModuleAgentsTests
 {
     [Fact]
-    public void UnifiedModule_DiscoversAgentsAndRunsSelectedAgentOnce()
+    public void UnifiedModule_ListsAgentsAndRunsSelectedAgentOnce()
     {
         var uks = new UKS.UKS(clear: true);
         uks.CreateInitialStructure();
@@ -22,12 +22,10 @@ public class ModuleAgentsTests
 
         var agents = new ModuleAgents { theUKS = uks };
 
-        Assert.Contains(agents.Agents, agent => agent.AgentName == "Class Create");
-        Assert.Contains(agents.Agents, agent => agent.AgentName == "Attribute Bubble");
+        Assert.Contains("Class Create", agents.AgentNames);
+        Assert.Contains("Attribute Bubble", agents.AgentNames);
         Assert.Contains(Utils.GetListOfExistingCSharpModuleTypes(), type =>
             type == typeof(ModuleAgents));
-        Assert.DoesNotContain(Utils.GetListOfExistingCSharpModuleTypes(), type =>
-            typeof(IManualAgent).IsAssignableFrom(type));
         Assert.True(agents.RunAgent("Class Create"));
         Assert.Contains(objectRoot.Children, child => child.HasProperty("isAnonymousClass"));
     }

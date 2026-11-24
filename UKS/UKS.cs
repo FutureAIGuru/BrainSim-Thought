@@ -426,4 +426,63 @@ public partial class UKS
         // GetOrAddThought assigns the parents of a dotted label.
         return GetOrAddThought(thoughtLabel);
     }
+
+    /// <summary>
+    /// Merges <paramref name="redundantThought"/> into <paramref name="canonicalThought"/>:
+    /// every link from, to, or typed by the redundant Thought is redirected to the canonical
+    /// one, reinforcement is combined, and the redundant Thought is deleted.
+    /// </summary>
+    /// <returns>The number of links which were redirected.</returns>
+    public int ReplaceThoughtReferences(Thought redundantThought, Thought canonicalThought)
+    {
+        ArgumentNullException.ThrowIfNull(redundantThought);
+        ArgumentNullException.ThrowIfNull(canonicalThought);
+        if (!ReferenceEquals(redundantThought.Store, this) || !ReferenceEquals(canonicalThought.Store, this))
+            throw new ArgumentException("Cannot merge Thoughts from another UKS.");
+        if (ReferenceEquals(redundantThought, canonicalThought)) return 0;
+
+        Thought Redirect(Thought? t) => ReferenceEquals(t, redundantThought) ? canonicalThought : t!;
+
+        List<Link> typedLinks;
+        lock (redundantThought.LinksAsTypeWriteable)
+            typedLinks = redundantThought.LinksAsTypeWriteable.ToList();
+        List<Link> oldLinks = redundantThought.LinksTo
+            .Concat(redundantThought.LinksFrom)
+            .Concat(typedLinks)
+            .Distinct(ReferenceEqualityComparer.Instance).Cast<Link>()
+            .ToList();
+
+        int replacedCount = 0;
+        foreach (Link oldLink in oldLinks)
+        {
+            if (oldLink.From is null || oldLink.LinkType is null) continue;
+            Thought newSource = Redirect(oldLink.From);
+            Thought newType = Redirect(oldLink.LinkType);
+            Thought? newTarget = oldLink.To is null ? null : Redirect(oldLink.To);
+
+            // Merging a parent with its child would otherwise manufacture A is-a A.
+            bool selfInheritance = newType == Labeled("is-a") && ReferenceEquals(newSource, newTarget);
+            if (!selfInheritance && newSource.AddLink(newType, newTarget) is Link replacement)
+                CombineReinforcement(replacement, oldLink);
+
+            oldLink.From.RemoveLink(oldLink);
+            replacedCount++;
+        }
+
+        CombineReinforcement(canonicalThought, redundantThought);
+        canonicalThought.V ??= redundantThought.V;
+        ClearExtraneousParents(canonicalThought);
+        redundantThought.Delete();
+        return replacedCount;
+    }
+
+    // Keeps the stronger, more recent, longer-lived of two Thoughts' reinforcement.
+    private static void CombineReinforcement(Thought kept, Thought merged)
+    {
+        kept.Weight = Math.Max(kept.Weight, merged.Weight);
+        kept.maxWeight = Math.Max(kept.maxWeight, merged.maxWeight);
+        kept.isPlastic |= merged.isPlastic;
+        if (merged.LastFiredTime > kept.LastFiredTime) kept.LastFiredTime = merged.LastFiredTime;
+        if (merged.TimeToLive > kept.TimeToLive) kept.TimeToLive = merged.TimeToLive;
+    }
 }

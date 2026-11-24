@@ -1394,8 +1394,8 @@ public class ModuleText : ModuleBase
 
         Thought templateRoot = GetLearnedTemplateCategory(query);
         Thought fillerClassRoot = theUKS.GetOrAddThought(classRootLabel, "LanguageElement");
-        List<SequenceView> phraseObservations = theUKS.GetSequenceViews(phrases)
-            .Where(view => view.LinkType?.Label == "hasWords")
+        List<Link> phraseObservations = theUKS.GetSequenceLinks(phrases)
+            .Where(link => link.LinkType?.Label == "hasWords")
             .ToList();
         List<Thought> retVal = theUKS.DiscoverSequenceTemplates(
             phraseObservations,
@@ -1693,8 +1693,8 @@ public class ModuleText : ModuleBase
             HashSet<Thought> groupExemplars = actionGroup
                 .Select(item => item.exemplar)
                 .ToHashSet();
-            List<SequenceView> observations = theUKS.GetSequenceViews(groupExemplars)
-                .Where(view => view.LinkType?.Label == "hasWords")
+            List<Link> observations = theUKS.GetSequenceLinks(groupExemplars)
+                .Where(link => link.LinkType?.Label == "hasWords")
                 .ToList();
             if (observations.Count < minExamples) continue;
 
@@ -2622,7 +2622,7 @@ public class ModuleText : ModuleBase
         List<Thought> learnedTemplates = DiscoverPhraseTemplates(40, 1);
         Thought learnedClassRoot = MainWindow.theUKS.Labeled("LearnedClass");
         if (learnedClassRoot is not null)
-            MainWindow.theUKS.CoalesceSimilarClasses(learnedClassRoot);
+            CoalesceSimilarClasses(MainWindow.theUKS, learnedClassRoot);
         DiscoverTemplateTokenClasses();
         DiscoverQuestionTemplates();
         List<Thought> retVal = learnedTemplates;
@@ -2659,5 +2659,67 @@ public class ModuleText : ModuleBase
             consolidate = true;
         }
         if (consolidate) ConsolidatePhrasePatterns();
+    }
+
+    /// <summary>
+    /// Coalesces classes beneath one root when their ordinary direct-child sets
+    /// have strong reciprocal overlap. Wildcards and sequence implementation
+    /// nodes are excluded from the comparison.
+    /// </summary>
+    /// <returns>The number of redundant classes removed.</returns>
+    public static int CoalesceSimilarClasses(
+        UKS.UKS uks,
+        Thought classRoot,
+        float minOverlapFraction = 0.8f,
+        int minSharedChildren = 4)
+    {
+        ArgumentNullException.ThrowIfNull(classRoot);
+        if (minOverlapFraction <= 0 || minOverlapFraction > 1)
+            throw new ArgumentOutOfRangeException(nameof(minOverlapFraction));
+        if (minSharedChildren < 1)
+            throw new ArgumentOutOfRangeException(nameof(minSharedChildren));
+
+        int mergeCount = 0;
+        while (true)
+        {
+            List<Thought> classes = classRoot.Children.ToList();
+            (Thought first, Thought second, float similarity)? bestPair = null;
+            for (int firstIndex = 0; firstIndex < classes.Count - 1; firstIndex++)
+            {
+                HashSet<Thought> firstChildren = OrdinaryClassChildren(classes[firstIndex]);
+                for (int secondIndex = firstIndex + 1; secondIndex < classes.Count; secondIndex++)
+                {
+                    HashSet<Thought> secondChildren = OrdinaryClassChildren(classes[secondIndex]);
+                    int sharedCount = firstChildren.Intersect(secondChildren).Count();
+                    if (sharedCount < minSharedChildren) continue;
+
+                    // Dividing by the larger population requires both classes,
+                    // not merely the smaller one, to be substantially shared.
+                    float similarity = sharedCount /
+                        (float)Math.Max(firstChildren.Count, secondChildren.Count);
+                    if (similarity < minOverlapFraction) continue;
+                    if (bestPair is null || similarity > bestPair.Value.similarity)
+                        bestPair = (classes[firstIndex], classes[secondIndex], similarity);
+                }
+            }
+            if (bestPair is null) break;
+
+            // Children are returned in link-creation order. Preserve
+            // the first member of the selected pair as the canonical node.
+            Thought first = bestPair.Value.first;
+            Thought second = bestPair.Value.second;
+            Thought canonical = first;
+            Thought redundant = second;
+            uks.ReplaceThoughtReferences(redundant, canonical);
+            mergeCount++;
+        }
+        return mergeCount;
+    }
+
+    private static HashSet<Thought> OrdinaryClassChildren(Thought learnedClass)
+    {
+        return learnedClass.Children
+            .Where(child => child is not SeqElement && !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(child.HasProperty))
+            .ToHashSet();
     }
 }

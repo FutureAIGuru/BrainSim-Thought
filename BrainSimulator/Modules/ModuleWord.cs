@@ -151,7 +151,7 @@ public partial class ModuleWord : ModuleBase
         bool observedWordWasPruned = false;
         while (plasticChildCount > PlasticWordCapacity)
         {
-            Thought prunedChild = theUKS.PruneLowestScoringChild(wordRoot);
+            Thought prunedChild = PruneLowestScoringChild(wordRoot);
             if (prunedChild is null) break;
 
             if (prunedChild == observedWord)
@@ -244,5 +244,17 @@ public partial class ModuleWord : ModuleBase
         {
             letterQueue.Enqueue(theUKS.GetOrAddCharacter(c));
         }
+    }
+
+    // Deletes the plastic child with the lowest weight (the least recently fired among equals).
+    private static Thought PruneLowestScoringChild(Thought parent)
+    {
+        Thought weakest = parent.Children
+            .Where(child => child.isPlastic)
+            .OrderBy(child => float.IsNaN(child.Weight) ? float.MinValue : child.Weight)
+            .ThenBy(child => child.LastFiredTime)
+            .FirstOrDefault();
+        weakest?.Delete();
+        return weakest;
     }
 }

@@ -43,39 +43,13 @@ sealed class AgentsApi : ModuleApi
     public override string State(ModuleBase m)
     {
         var a = (ModuleAgents)m;
-        return Json(new AgentsState { Agents = a.Agents.Select(x => x.AgentName).ToList(), Status = a.Status }, ApiJson.Default.AgentsState);
+        return Json(new AgentsState { Agents = a.AgentNames.ToList(), Status = a.Status }, ApiJson.Default.AgentsState);
     }
 
     public override string Call(ModuleBase m, string op, ApiArgs args)
     {
         if (op != "run") return Unknown(op);
         ((ModuleAgents)m).RunAgent(args.Str("agent"));
-        return Done();
-    }
-}
-
-// ---------- ModuleAddCountsDlg, ModuleAttributeBubbleDlg, ModuleBalanceTreeDlg, ModuleClassCreateDlg, ModuleRemoveRedundancyDlg ----------
-
-public sealed class LogState
-{
-    public string Log { get; set; }
-}
-
-sealed class RunOnceAgentApi : ModuleApi
-{
-    public override string State(ModuleBase m) => Json(new LogState { Log = ((IManualAgent)m).DebugLog }, ApiJson.Default.LogState);
-
-    public override string Call(ModuleBase m, string op, ApiArgs args)
-    {
-        if (op != "run") return Unknown(op);
-        switch (m)
-        {
-            case ModuleAddCounts a: a.DoTheWork(); break;
-            case ModuleAttributeBubble a: a.DoTheWork(); break;
-            case ModuleBalanceTree a: a.DoTheWork(); break;
-            case ModuleClassCreate a: a.DoTheWork(); break;
-            case ModuleRemoveRedundancy a: a.DoTheWork(); break;
-        }
         return Done();
     }
 }

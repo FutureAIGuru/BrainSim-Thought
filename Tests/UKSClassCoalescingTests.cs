@@ -42,6 +42,23 @@ public class UKSClassCoalescingTests
     }
 
     [Fact]
+    public void ReplaceThoughtReferencesRedirectsLinksUsingTheThoughtAsTheirType()
+    {
+        UKS uks = CreateUKS();
+        Thought owns = uks.GetOrAddThought("owns", "LinkType");
+        Thought possesses = uks.GetOrAddThought("possesses", "LinkType");
+        Thought fido = uks.GetOrAddThought("Fido", "Object");
+        Thought bone = uks.GetOrAddThought("bone", "Object");
+        fido.AddLink(possesses, bone);
+
+        uks.ReplaceThoughtReferences(possesses, owns);
+
+        Assert.Null(uks.Labeled("possesses"));
+        Assert.NotNull(fido.HasLink(owns, bone));
+        Assert.DoesNotContain(fido.LinksTo, link => ReferenceEquals(link.LinkType, possesses));
+    }
+
+    [Fact]
     public void CoalesceSimilarClassesMergesStrongReciprocalOverlapButLeavesDistinctClass()
     {
         UKS uks = CreateUKS();
@@ -56,7 +73,7 @@ public class UKSClassCoalescingTests
         foreach (string label in new[] { "u", "v", "w", "x" })
             uks.GetOrAddThought(label, "Word").AddParent(classC);
 
-        int merged = uks.CoalesceSimilarClasses(root);
+        int merged = BrainSimulator.Modules.ModuleText.CoalesceSimilarClasses(uks, root);
 
         Assert.Equal(1, merged);
         Assert.Null(uks.Labeled("classB"));

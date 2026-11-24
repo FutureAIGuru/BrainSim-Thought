@@ -220,12 +220,12 @@ public class ModuleTextNEW : ModuleBase
                 }
             }
             //special case for 2
-            if (count == 2  && phrases[0].wordBindings.Count == 1) 
+            if (count == 2  && phrases[0].wordBindings?.Count == 1) 
             {
                 if (phrases[0].theAction.From != phrases[1].theAction.From)
                 {
                     phrases[0].wordBindings.First().Value.AddLink("means", phrases[0].theAction.From);
-                    phrases[1].wordBindings.First().Value.AddLink("means", phrases[1].theAction.From);
+                    phrases[1].wordBindings?.First().Value.AddLink("means", phrases[1].theAction.From);
                 }
             }
 

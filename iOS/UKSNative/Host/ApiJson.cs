@@ -9,7 +9,6 @@ namespace BrainSimulator.Modules;
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(ActionState))]
 [JsonSerializable(typeof(AgentsState))]
-[JsonSerializable(typeof(LogState))]
 [JsonSerializable(typeof(WellBeingState))]
 [JsonSerializable(typeof(AttentionState))]
 [JsonSerializable(typeof(SoundOutState))]

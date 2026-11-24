@@ -48,7 +48,7 @@ public class InheritanceCh5PhaseERegressionTests
         cat.AddLink(has, fur).Weight = 1f;
         bird.AddLink(has, fur).Weight = 1f;
 
-        Assert.True(uks.BubbleSharedAttributes(animal));
+        Assert.Contains(animal, uks.BubbleAttributes());
         Assert.NotNull(animal.HasLink(has, fur));
         Assert.Null(dog.HasLink(has, fur));
     }

@@ -10,10 +10,10 @@ public static class Utils
 {
     /// <summary>
     /// The module types that can be added, like the desktop's (which finds them by reflection;
-    /// NativeAOT can't, so they come from <see cref="ModuleRegistry"/>). Manual agents are left out.
+    /// NativeAOT can't, so they come from <see cref="ModuleRegistry"/>).
     /// </summary>
     public static List<Type> GetListOfExistingCSharpModuleTypes() =>
-        ModuleRegistry.Types.Where(t => !typeof(IManualAgent).IsAssignableFrom(t)).OrderBy(t => t.Name).ToList();
+        ModuleRegistry.Types.OrderBy(t => t.Name).ToList();
 
     public static int ColorToInt(System.Windows.Media.Color c) => c.A << 24 | c.R << 16 | c.G << 8 | c.B;
     public static System.Windows.Media.Color IntToColor(int i) =>

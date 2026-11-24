@@ -47,8 +47,7 @@ public class GroundedDogsDemoTests
         Assert.DoesNotContain(uks.AtomicThoughts.OfType<Link>(), link =>
             link.LinkType?.Label == "_mm:contains");
 
-        var classCreator = new ModuleClassCreate { theUKS = uks };
-        classCreator.DoTheWork();
+        uks.CreateClasses();
 
         Thought learnedClass = uks.Labeled("Object")!.Children.Single(child =>
             child.LinksTo.Any(link => link.LinkType?.Label == "hasProperty" &&
@@ -57,8 +56,7 @@ public class GroundedDogsDemoTests
             new[] { fido, rover, spot }.ToHashSet(),
             learnedClass.Children.ToHashSet());
 
-        var bubbler = new ModuleAttributeBubble { theUKS = uks };
-        bubbler.DoTheWork();
+        uks.BubbleAttributes();
 
         Assert.NotNull(learnedClass.HasLink(uks.Labeled("has")!, uks.Labeled("fur")));
         Assert.NotNull(learnedClass.HasLink(uks.Labeled("has.4")!, uks.Labeled("leg")));

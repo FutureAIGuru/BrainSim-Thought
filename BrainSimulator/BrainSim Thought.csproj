@@ -28,6 +28,11 @@
     <InternalsVisibleTo Include="Tests" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Modules no saved UKSContent file uses; kept for reference, not built (iOS still compiles them). -->
+    <Compile Remove="Modules\Obsolete\**" />
+    <Page Remove="Modules\Obsolete\**" />
+    <None Include="Modules\Obsolete\**" />
+
     <Compile Remove="GlobalSuppressions.cs" />
     <Compile Remove="ImgUtils.cs" />
 

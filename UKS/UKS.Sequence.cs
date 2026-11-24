@@ -514,10 +514,10 @@ public partial class UKS
     /// <summary>
     /// Flatten a sequence into a list of leaf Thoughts (letters). Handles nested sequences via VLU.
     /// </summary>
-    public List<Thought> FlattenSequence(SeqElement? sequenceStart, bool skipPlusValues = false)
+    public List<Thought> FlattenSequence(Thought? sequenceStart, bool skipPlusValues = false)
     {
         List<Thought> result = new();
-        foreach (SeqElement element in EnumerateSequenceElements(sequenceStart))
+        foreach (SeqElement element in EnumerateSequenceElements(sequenceStart as SeqElement))
             if (GetElementValue(element) is Thought value)
                 result.Add(value);
         return result;

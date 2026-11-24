@@ -99,8 +99,8 @@ public class ModuleTextInteractionTests
             "How is Mary related to John", "[Mary->?.??->John]");
         var wordModule = new ModuleWord { theUKS = uks };
 
-        List<SequenceView> initialSequences = uks.GetSequenceViews(exemplar)
-            .Where(view => view.LinkType?.Label == "hasWords")
+        List<Link> initialSequences = uks.GetSequenceLinks(exemplar)
+            .Where(link => link.LinkType?.Label == "hasWords")
             .ToList();
         Assert.True(initialSequences.Count == 1,
             "Exemplar links: " + string.Join("; ", exemplar.LinksTo.Select(link => link.ToString())));
@@ -109,16 +109,16 @@ public class ModuleTextInteractionTests
         for (int index = 0; index < 60; index++)
         {
             wordModule.AddWordSpelling("filler" + index);
-            bool retained = uks.GetSequenceViews(exemplar).Any(view => view.LinkType?.Label == "hasWords");
+            bool retained = uks.GetSequenceLinks(exemplar).Any(link => link.LinkType?.Label == "hasWords");
             if (!retained && firstMissingIndex < 0) firstMissingIndex = index;
         }
 
         Assert.True(firstMissingIndex < 0, $"The exemplar sequence disappeared after filler{firstMissingIndex}.");
-        SequenceView sequence = Assert.Single(uks.GetSequenceViews(exemplar)
-            .Where(view => view.LinkType?.Label == "hasWords"));
-        Assert.Contains(mary, sequence.Elements);
-        Assert.Contains(john, sequence.Elements);
-        Assert.DoesNotContain(sequence.Elements, word => word.Label == "--");
+        Link sequence = Assert.Single(uks.GetSequenceLinks(exemplar)
+            .Where(link => link.LinkType?.Label == "hasWords"));
+        Assert.Contains(mary, uks.FlattenSequence(sequence.To));
+        Assert.Contains(john, uks.FlattenSequence(sequence.To));
+        Assert.DoesNotContain(uks.FlattenSequence(sequence.To), word => word.Label == "--");
         Assert.Same(mary, uks.Labeled("w:mary"));
         Assert.Same(john, uks.Labeled("w:john"));
     }

@@ -40,10 +40,10 @@ public class ModuleTextSequenceBubbleEvaluationTests
         Assert.NotEmpty(learnedTemplates);
         Assert.All(learnedTemplates, learnedTemplate =>
         {
-            SequenceView description = Assert.Single(uks.GetSequenceViews(learnedTemplate)
-                .Where(view => view.LinkType?.Label == "hasWords"));
-            Assert.True(description.Elements.Count(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) >= 1);
-            Assert.All(description.Elements.Where(element => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)), wildcard =>
+            Link description = Assert.Single(uks.GetSequenceLinks(learnedTemplate)
+                .Where(link => link.LinkType?.Label == "hasWords"));
+            Assert.True(uks.FlattenSequence(description.To).Count(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) >= 1);
+            Assert.All(uks.FlattenSequence(description.To).Where(element => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)), wildcard =>
             {
                 Assert.True(wildcard.HasProperty("isWildcard"));
                 Assert.StartsWith("??class", wildcard.Label);
@@ -60,12 +60,12 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         foreach (Thought learnedTemplate in learnedTemplates.Take(20))
         {
-            SequenceView description = uks.GetSequenceViews(learnedTemplate)
-                .Single(view => view.LinkType?.Label == "hasWords");
+            Link description = uks.GetSequenceLinks(learnedTemplate)
+                .Single(link => link.LinkType?.Label == "hasWords");
             int evidenceCount = learnedTemplate.LinksTo.Count(link => link.LinkType?.Label == "evidence");
             output.WriteLine(
                 $"{learnedTemplate.Label} ({evidenceCount} phrases): " +
-                string.Join(' ', description.Elements.Select(x => x.Label)));
+                string.Join(' ', uks.FlattenSequence(description.To).Select(x => x.Label)));
         }
 
         List<Thought> tokenClasses = ModuleText.DiscoverTemplateTokenClasses();
@@ -370,8 +370,8 @@ public class ModuleTextSequenceBubbleEvaluationTests
             Assert.InRange(uks.Labeled("Assertion").Children.Count, 1, 3);
             Assert.NotEmpty(uks.Labeled("LearnedClass").Children);
             Assert.Contains(uks.Labeled("Assertion").Children, template =>
-                uks.GetSequenceViews(template).Any(sequence =>
-                    sequence.Elements.Count(element => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) == 2));
+                uks.GetSequenceLinks(template).Any(sequence =>
+                    uks.FlattenSequence(sequence.To).Count(element => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) == 2));
         }
         finally
         {
@@ -453,10 +453,10 @@ public class ModuleTextSequenceBubbleEvaluationTests
         ModuleText.LearnActionsFromExemplars();
 
         Thought connector = Assert.Single(uks.Labeled("MeaningPhrase").Children);
-        SequenceView words = Assert.Single(uks.GetSequenceViews(connector)
-            .Where(view => view.LinkType?.Label == "hasWords"));
+        Link words = Assert.Single(uks.GetSequenceLinks(connector)
+            .Where(link => link.LinkType?.Label == "hasWords"));
         Assert.Equal(new[] { "w:is", "w:a" },
-            words.Elements.Select(word => word.Label));
+            uks.FlattenSequence(words.To).Select(word => word.Label));
         Assert.NotNull(uks.GetLink(connector, means, uks.Labeled("is-a")));
         Assert.Null(uks.GetLink(uks.Labeled("w:is"), means, uks.Labeled("is-a")));
         Assert.Null(uks.GetLink(uks.Labeled("w:a"), means, uks.Labeled("is-a")));
@@ -488,9 +488,6 @@ public class ModuleTextSequenceBubbleEvaluationTests
     {
         var uks = CreateTextUKS();
 
-        uks.LoadUKSfromXMLFile(Path.Combine(
-            FindRepositoryRoot(), "BrainSimulator", "UKSContent",
-            "DemoDogs.xml"));
         string corpusPath = Path.Combine(
             FindRepositoryRoot(), "BrainSimulator", "WordFIles",
             "bst_true_template_corpus.txt");
@@ -601,93 +598,23 @@ public class ModuleTextSequenceBubbleEvaluationTests
             Thought MProot = uks.Labeled("MeaningPhrase");
             Thought phrase = MProot.Children.FirstOrDefault(candidate =>
             {
-                SequenceView sequence = uks.GetSequenceViews(candidate)
-                    .FirstOrDefault(view => view.LinkType?.Label == "hasWords");
-                return sequence is not null && sequence.Elements
+                Link sequence = uks.GetSequenceLinks(candidate)
+                    .FirstOrDefault(link => link.LinkType?.Label == "hasWords");
+                return sequence is not null && uks.FlattenSequence(sequence.To)
                     .Select(word => word.Label)
                     .SequenceEqual(expectedWords);
             });
             Assert.True(phrase is not null,
                 "Meaning phrases: " + string.Join(" | ",
                     uks.Labeled("MeaningPhrase").Children.Select(candidate =>
-                        string.Join(" ", uks.GetSequenceViews(candidate)
-                            .First(view => view.LinkType?.Label == "hasWords")
-                            .Elements.Select(word => word.Label)) + " -> " +
+                        string.Join(" ", uks.FlattenSequence(uks.GetSequenceLinks(candidate)
+                            .First(link => link.LinkType?.Label == "hasWords").To)
+                            .Select(word => word.Label)) + " -> " +
                         string.Join(",", candidate.LinksTo
                             .Where(link => link.LinkType == meansRelationship)
                             .Select(link => link.To?.Label)))));
             Assert.NotNull(uks.GetLink(phrase, meansRelationship, meaning));
         }
-    }
-
-    [Fact]
-    public void DemoDogsCorpusLearnsTheProperNameQueryForm()
-    {
-        var uks = new UKS.UKS(clear: true);
-        MainWindow.theUKS = uks;
-        string repositoryRoot = FindRepositoryRoot();
-        uks.LoadUKSfromXMLFile(Path.Combine(
-            repositoryRoot, "BrainSimulator", "UKSContent", "DemoDogs.xml"));
-        var module = new ModuleText { theUKS = uks };
-        module.LoadTextFromFile(Path.Combine(
-            repositoryRoot, "BrainSimulator", "WordFIles",
-            "bst_true_template_corpus.txt"), 1000);
-        Thought fido = ModuleText.GetBestMeaning(uks.Labeled("w:fido"))?.To;
-
-        string answer = module.SubmitText("What is Fido?");
-
-        Assert.False(string.IsNullOrWhiteSpace(answer), module.LastStatus);
-        Assert.Same(fido, module.LastRelationship?.From);
-        Assert.True(module.LastTemplate?.HasAncestor("Query") == true);
-
-        Thought dog = uks.Labeled("class0");
-        Thought rover = uks.Labeled("rover");
-        Thought can = uks.Labeled("can");
-        Assert.Null(uks.GetLink(dog, can, rover));
-        string capabilityAnswer = module.SubmitText("What can a dog do?");
-        Assert.Contains("dog can bark", capabilityAnswer,
-            StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("rover", capabilityAnswer,
-            StringComparison.OrdinalIgnoreCase);
-
-        module.SubmitText("An animal is an object.");
-        Assert.True(module.LastTemplate?.HasAncestor("Assertion") == true,
-            module.LastStatus);
-        Assert.Same(uks.Labeled("animal"), module.LastRelationship?.From);
-        Assert.Same(uks.Labeled("is-a"), module.LastRelationship?.LinkType);
-        Assert.Same(uks.Labeled("Object"), module.LastRelationship?.To);
-    }
-
-    [Fact]
-    public void DemoDogsCorpusRetainsEveryAnnotatedExemplarSequence()
-    {
-        var uks = new UKS.UKS(clear: true);
-        MainWindow.theUKS = uks;
-        string repositoryRoot = FindRepositoryRoot();
-        uks.LoadUKSfromXMLFile(Path.Combine(repositoryRoot, "BrainSimulator", "UKSContent", "DemoDogs.xml"));
-        string corpusPath = Path.Combine(
-            repositoryRoot, "BrainSimulator", "WordFIles", "bst_true_template_corpus.txt");
-        var module = new ModuleText { theUKS = uks };
-
-        module.LoadTextFromFile(corpusPath, 1000);
-
-        List<string> expected = File.ReadLines(corpusPath)
-            .Where(line => line.Contains('\t'))
-            .Select(line => line[..line.IndexOf('\t')])
-            .Select(phrase => string.Join(" ", phrase
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Select(word => "w:" + word.Trim('.', ',', ';', ':', '!', '?').ToLowerInvariant())))
-            .ToList();
-        Thought exemplarRoot = uks.Labeled("ActionExemplar");
-        List<string> actual = uks.GetSequenceViews(exemplarRoot.Children)
-            .Where(view => view.LinkType?.Label == "hasWords")
-            .Select(view => string.Join(" ", view.Elements.Select(word => word.Label)))
-            .ToList();
-        List<string> missing = expected.Except(actual).ToList();
-
-        Assert.Equal(expected.Count, exemplarRoot.Children.Count);
-        Assert.Equal(expected.Count, actual.Count);
-        Assert.True(missing.Count == 0, "Missing exemplar sequences: " + string.Join("; ", missing));
     }
 
     [Fact]
@@ -700,11 +627,11 @@ public class ModuleTextSequenceBubbleEvaluationTests
         string result = ModuleText.AddPhrase("stop");
 
         Thought phrase = Assert.Single(ModuleText.GetPhrasesOfKind("Statement"));
-        SequenceView words = Assert.Single(uks.GetSequenceViews(phrase)
-            .Where(view => view.LinkType?.Label == "hasWords"));
+        Link words = Assert.Single(uks.GetSequenceLinks(phrase)
+            .Where(link => link.LinkType?.Label == "hasWords"));
         Assert.False(result.StartsWith("Error:", StringComparison.Ordinal));
         Assert.Equal(new[] { "w:stop" },
-            words.Elements.Select(element => element.Label));
+            uks.FlattenSequence(words.To).Select(element => element.Label));
     }
 
     [Fact]
@@ -810,7 +737,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
         });
 
         List<List<string>> patterns = learnedTemplates
-            .Select(template => uks.GetSequenceViews(template).Single().Elements
+            .Select(template => uks.FlattenSequence(uks.GetSequenceLinks(template).Single().To)
                 .Select(element => element.Label)
                 .ToList())
             .ToList();
@@ -821,11 +748,11 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         foreach (Thought template in learnedTemplates.Take(20))
         {
-            SequenceView description = uks.GetSequenceViews(template).Single();
+            Link description = uks.GetSequenceLinks(template).Single();
             int evidenceCount = template.LinksTo.Count(link => link.LinkType?.Label == "evidence");
             output.WriteLine(
                 $"{template.Label} ({evidenceCount} phrases): " +
-                string.Join(' ', description.Elements.Select(element => element.Label)));
+                string.Join(' ', uks.FlattenSequence(description.To).Select(element => element.Label)));
         }
     }
 

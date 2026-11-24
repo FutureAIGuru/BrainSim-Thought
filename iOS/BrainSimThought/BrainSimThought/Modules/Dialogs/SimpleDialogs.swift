@@ -51,26 +51,6 @@ struct AgentsDialog: View {
     }
 }
 
-// MARK: - ModuleAddCountsDlg, ModuleAttributeBubbleDlg, ModuleBalanceTreeDlg, ModuleClassCreateDlg, ModuleRemoveRedundancyDlg
-
-struct LogState: Decodable {
-    let log: String?
-}
-
-struct RunOnceAgentDialog: View {
-    @State private var module: ModuleLink<LogState>
-    init(label: String) { _module = State(initialValue: ModuleLink(label)) }
-
-    var body: some View {
-        ModuleForm(module: module) { s in
-            Section {
-                WideButton("Run Once", prominent: true) { module.call("run") }
-                LogView(title: "Messages", text: s.log ?? "")
-            }
-        }
-    }
-}
-
 // MARK: - ModuleWellBeingDlg
 
 struct WellBeingState: Decodable {

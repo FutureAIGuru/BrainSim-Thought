@@ -19,7 +19,6 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Forms.Design;
 using UKS;
-using static BrainSimulator.Modules.ModuleOnlineInfo;
 
 namespace BrainSimulator.Modules;
 

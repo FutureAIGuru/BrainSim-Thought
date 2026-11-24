@@ -39,8 +39,6 @@ struct ModuleDialog: View {
         case "ModuleText", "ModuleTextIn", "ModuleTextNEW": TextDialog(label: label)
         case "ModuleAction": ActionDialog(label: label)
         case "ModuleAgents": AgentsDialog(label: label)
-        case "ModuleAddCounts", "ModuleAttributeBubble", "ModuleBalanceTree", "ModuleClassCreate", "ModuleRemoveRedundancy":
-            RunOnceAgentDialog(label: label)
         case "ModuleWellBeing": WellBeingDialog(label: label)
         case "ModuleAttention": AttentionDialog(label: label)
         case "ModuleSoundOut": SoundOutDialog(label: label)

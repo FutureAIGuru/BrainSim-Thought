@@ -21,7 +21,6 @@ public class ModuleAttributeBubbleTests
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var animal = uks.GetOrAddThought("Animal", "Object");
         var dog = uks.GetOrAddThought("Dog", animal);
@@ -36,7 +35,7 @@ public class ModuleAttributeBubbleTests
         bird.AddLink(breathes, air).Weight = 1.0f;
 
         // Act
-        module.DoTheWork();
+        uks.BubbleAttributes();
 
         // Assert
         var animalBreathes = animal.LinksTo.FirstOrDefault(l => 
@@ -55,9 +54,7 @@ public class ModuleAttributeBubbleTests
         var fur = uks.GetOrAddThought("fur", "Object");
         fido.AddLink(has, fur).Weight = 1.0f;
 
-        bool changed = uks.BubbleSharedAttributes(parent);
-
-        Assert.False(changed);
+        Assert.DoesNotContain(parent, uks.BubbleAttributes());
         Assert.Null(parent.HasLink(has, fur));
         Assert.NotNull(fido.HasLink(has, fur));
     }
@@ -67,7 +64,6 @@ public class ModuleAttributeBubbleTests
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var vehicle = uks.GetOrAddThought("Vehicle", "Object");
         var car = uks.GetOrAddThought("Car", vehicle);
@@ -83,7 +79,7 @@ public class ModuleAttributeBubbleTests
         boat.AddLink(hasEngine, engine).Weight = 1.0f;
 
         // Act
-        module.DoTheWork();
+        uks.BubbleAttributes();
 
         // Assert
         var vehicleHasEngine = vehicle.LinksTo.FirstOrDefault(l => 
@@ -96,7 +92,6 @@ public class ModuleAttributeBubbleTests
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var shape = uks.GetOrAddThought("Shape", "Object");
         var circle = uks.GetOrAddThought("Circle", shape);
@@ -113,7 +108,7 @@ public class ModuleAttributeBubbleTests
         square.AddLink(hasCorners, four).Weight = 1.0f;
 
         // Act
-        module.DoTheWork();
+        uks.BubbleAttributes();
 
         // Assert
         var shapeCorners = shape.LinksTo.Where(l => l.LinkType == hasCorners).ToList();
@@ -125,7 +120,6 @@ public class ModuleAttributeBubbleTests
     {
         // Arrange
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks };
         
         var animal = uks.GetOrAddThought("Animal", "Object");
         var dog = uks.GetOrAddThought("Dog", animal);
@@ -138,7 +132,7 @@ public class ModuleAttributeBubbleTests
         cat.AddLink(breathes, air).Weight = 1.0f;
 
         // Act
-        module.DoTheWork();
+        uks.BubbleAttributes();
 
         // Assert
         Assert.DoesNotContain(dog.LinksTo, l => l.LinkType == breathes && l.To == air);
@@ -152,7 +146,6 @@ public class ModuleAttributeBubbleTests
     public void BubbleChildAttributes_ExistingParentAttributeStillRemovesChildCopies()
     {
         var uks = CreateUKS();
-        var module = new ModuleAttributeBubble { theUKS = uks };
         var animal = uks.GetOrAddThought("Animal", "Object");
         var dog = uks.GetOrAddThought("Dog", animal);
         var cat = uks.GetOrAddThought("Cat", animal);
@@ -163,7 +156,7 @@ public class ModuleAttributeBubbleTests
         dog.AddLink(breathes, air).Weight = 1.0f;
         cat.AddLink(breathes, air).Weight = 1.0f;
 
-        module.DoTheWork();
+        uks.BubbleAttributes();
 
         Assert.NotNull(animal.HasLink(breathes, air));
         Assert.Null(dog.HasLink(breathes, air));

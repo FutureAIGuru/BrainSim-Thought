@@ -26,12 +26,12 @@ public partial class ModuleAgentsDlg : ModuleBaseDlg
         if (!_buttonsBuilt)
         {
             AgentButtons.Children.Clear();
-            foreach (IManualAgent agent in module.Agents)
+            foreach (string agentName in module.AgentNames)
             {
                 var button = new Button
                 {
-                    Content = agent.AgentName,
-                    Tag = agent.AgentName,
+                    Content = agentName,
+                    Tag = agentName,
                     MinWidth = 105,
                     Height = 32,
                     Margin = new Thickness(3),

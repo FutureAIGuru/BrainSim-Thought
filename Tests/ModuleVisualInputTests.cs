@@ -314,14 +314,12 @@ public class ModuleVisualInputTests
             Assert.NotNull(visualInput.PresentSelected(1, mentalModel));
         }
 
-        var classCreator = new ModuleClassCreate { theUKS = uks };
-        classCreator.DoTheWork();
+        uks.CreateClasses();
         Thought dogClass = objectRoot.Children.Single(child =>
             child.LinksTo.Any(link => link.LinkType?.Label == "hasProperty" &&
                 link.To?.Label == "isAnonymousClass"));
 
-        var bubbler = new ModuleAttributeBubble { theUKS = uks };
-        bubbler.DoTheWork();
+        uks.BubbleAttributes();
 
         Thought existing = uks.Labeled("O2")!;
         Assert.Contains(dogClass, existing.Parents);

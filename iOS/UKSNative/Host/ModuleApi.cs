@@ -166,7 +166,6 @@ public static class ModuleApis
             m => m.CancelIncrementalLoad()),
         ModuleAction => new ActionApi(),
         ModuleAgents => new AgentsApi(),
-        ModuleAddCounts or ModuleAttributeBubble or ModuleBalanceTree or ModuleClassCreate or ModuleRemoveRedundancy => new RunOnceAgentApi(),
         ModuleWellBeing => new WellBeingApi(),
         ModuleAttention => new AttentionApi(),
         ModuleSoundOut => new SoundOutApi(),
