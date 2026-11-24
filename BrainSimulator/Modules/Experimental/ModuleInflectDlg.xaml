@@ -1,0 +1,18 @@
+<modules:ModuleBaseDlg x:Class="BrainSimulator.Modules.ModuleInflectDlg"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:modules="clr-namespace:BrainSimulator.Modules"
+    Title="Inflect" Width="560" Height="460" MinWidth="360" MinHeight="260" Background="DarkGray" ShowInTaskbar="False">
+    <Grid Margin="12,12,12,40" >
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Label Content="_Word (press Enter)" Target="{Binding ElementName=WordInput}"/>
+        <TextBox x:Name="WordInput" Grid.Row="1" Margin="0,3,0,8" Text="chased" FontSize="16" KeyDown="WordInputKeyDown"/>
+        <TextBox x:Name="Output" Grid.Row="2" IsReadOnly="True" TextWrapping="Wrap" FontSize="14" FontFamily="Consolas"
+                 AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                 AutomationProperties.Name="Inflection results"/>
+    </Grid>
+</modules:ModuleBaseDlg>

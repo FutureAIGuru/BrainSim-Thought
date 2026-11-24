@@ -1,0 +1,289 @@
+# Inflection rules (ModuleInflect). A regular word is stored once, in its base form: a noun
+# singular, a verb its bare stem, an adjective plain. Its regular forms come from these rules;
+# only exceptions are stored, as forms ([w:goes->hasPastTense->w:went]), and a stored form
+# blocks every rule. Closed-class words (is, has, does, ...) take stored forms only.
+#
+# A rule replaces the end of the base spelling (baseEnding; none = nothing) with formEnding.
+# A letter-class wildcard (??.consonant) in both endings is the same letter, bound by reference
+# as a template's roles are; where a class repeats, a role tells the letters apart.
+#
+# The rules form an is-a tree under each default rule. A child rule is an exception to its parent:
+# it inherits what the parent forms (formsInflection; formsInflection.not overrides) and its
+# backward preference (readsBackward, exclusive, so a child's own overrides). Its endings are its
+# own. Forward, the deepest rule whose base ending the word has wins. Backward, every rule whose
+# form ending the spelling has gives a candidate base; a candidate counts only if the rules run
+# forward give the spelling back, and it is credited to the rule that did. Of a new word's
+# candidates, a preferred rule's comes before an avoided one's, then a child rule's before its
+# ancestor's. Preferences matter only for unknown words: a known base word is found regardless.
+#
+# Loaded after BasicWords.txt, which defines the letters, vowel/consonant and the inflections
+# plural, pastTense, pastParticiple, presentParticiple.
+
+[inflectionRule->is-a->languageElement]
+[formsInflection->is-a->LinkType]
+[baseEnding->is-a->LinkType]
+[formEnding->is-a->LinkType]
+[inflects->is-a->LinkType]
+[lacksInflection->is-a->LinkType]
+[letterRole->is-a->languageElement]
+[letterRole->hasProperty->isWildcard]
+[letterRole1->is-a->letterRole]
+[letterRole2->is-a->letterRole]
+[letterRole3->is-a->letterRole]
+[readsBackward->is-a->LinkType]
+[backwardPreference->is-a->languageElement]
+[backwardPreference->hasProperty->isExclusive]
+[preferred->is-a->backwardPreference]
+[avoided->is-a->backwardPreference]
+[inflectionRule->readsBackward->preferred]
+
+# Letter classes the rules need besides vowel and consonant.
+[sibilant->is-a->letterClass]
+[c:S->is-a->sibilant]
+[c:X->is-a->sibilant]
+[c:Z->is-a->sibilant]
+# A final consonant that doubles after a single vowel (big -> bigger, trek -> trekked); c, h, j, q, w, x and y never do.
+[doublingConsonant->is-a->letterClass]
+[c:B->is-a->doublingConsonant]
+[c:D->is-a->doublingConsonant]
+[c:G->is-a->doublingConsonant]
+[c:M->is-a->doublingConsonant]
+[c:N->is-a->doublingConsonant]
+[c:P->is-a->doublingConsonant]
+[c:T->is-a->doublingConsonant]
+[c:F->is-a->doublingConsonant]
+[c:K->is-a->doublingConsonant]
+[c:L->is-a->doublingConsonant]
+[c:R->is-a->doublingConsonant]
+[c:S->is-a->doublingConsonant]
+[c:V->is-a->doublingConsonant]
+[c:Z->is-a->doublingConsonant]
+# Short one-syllable words end in ff, ll, ss, zz (stuff, tall, kiss, buzz: the "floss" rule), so a
+# doubled f, l, s or z reads back as part of the base (taller: tall, not tal; quiz is an exception).
+[flossConsonant->is-a->letterClass]
+[c:F->is-a->flossConsonant]
+[c:L->is-a->flossConsonant]
+[c:S->is-a->flossConsonant]
+[c:Z->is-a->flossConsonant]
+# A consonant a silent final e follows after a vowel (hope, like, smile, rose); not h, j, q, w, x, y.
+[silentEConsonant->is-a->letterClass]
+[c:B->is-a->silentEConsonant]
+[c:C->is-a->silentEConsonant]
+[c:D->is-a->silentEConsonant]
+[c:F->is-a->silentEConsonant]
+[c:G->is-a->silentEConsonant]
+[c:K->is-a->silentEConsonant]
+[c:L->is-a->silentEConsonant]
+[c:M->is-a->silentEConsonant]
+[c:N->is-a->silentEConsonant]
+[c:P->is-a->silentEConsonant]
+[c:R->is-a->silentEConsonant]
+[c:S->is-a->silentEConsonant]
+[c:T->is-a->silentEConsonant]
+[c:V->is-a->silentEConsonant]
+[c:Z->is-a->silentEConsonant]
+
+# Which inflections a word class takes. A class that lacks one never takes it.
+[plural->inflects->noun]
+[massNoun->lacksInflection->plural]
+[properNoun->lacksInflection->plural]
+[pronoun->lacksInflection->plural]
+[thirdPersonSingular->is-a->inflection]
+[hasThirdPersonSingular->is-a->hasInflection]
+[hasThirdPersonSingular->marksInflection->thirdPersonSingular]
+[thirdPersonSingular->inflects->verb]
+[pastTense->inflects->verb]
+[pastParticiple->inflects->verb]
+[presentParticiple->inflects->verb]
+[comparative->is-a->inflection]
+[hasComparative->is-a->hasInflection]
+[hasComparative->marksInflection->comparative]
+[comparative->inflects->adjective]
+[superlative->is-a->inflection]
+[hasSuperlative->is-a->hasInflection]
+[hasSuperlative->marksInflection->superlative]
+[superlative->inflects->adjective]
+
+# -s: the noun plural and the verb's third person singular share their spelling rules.
+[sDefault->is-a->inflectionRule]
+[sDefault->formsInflection->plural]
+[sDefault->formsInflection->thirdPersonSingular]
+[sDefault->formEnding->^s]
+[sAfterSibilant->is-a->sDefault]
+[sAfterSibilant->baseEnding->^??.sibilant]
+[sAfterSibilant->formEnding->^??.sibilant e s]
+# A base ending in one s is rare (bus, gas), one in -se common: horses, roses read as horse, rose.
+[sAfterS->is-a->sAfterSibilant]
+[sAfterS->baseEnding->^s]
+[sAfterS->formEnding->^s e s]
+[sAfterS->readsBackward->avoided]
+# ... but -ss is common: kisses reads as kiss.
+[sAfterSS->is-a->sAfterS]
+[sAfterSS->baseEnding->^s s]
+[sAfterSS->formEnding->^s s e s]
+[sAfterSS->readsBackward->preferred]
+[sAfterCH->is-a->sDefault]
+[sAfterCH->baseEnding->^c h]
+[sAfterCH->formEnding->^c h e s]
+[sAfterSH->is-a->sDefault]
+[sAfterSH->baseEnding->^s h]
+[sAfterSH->formEnding->^s h e s]
+[sAfterConsonantY->is-a->sDefault]
+[sAfterConsonantY->baseEnding->^??.consonant y]
+[sAfterConsonantY->formEnding->^??.consonant i e s]
+# goes, does; a noun's -o varies (photos, potatoes), so not the plural: those are stored.
+[sAfterO->is-a->sDefault]
+[sAfterO->formsInflection.not->plural]
+[sAfterO->baseEnding->^o]
+[sAfterO->formEnding->^o e s]
+
+# -ed: the past tense and the past participle share their spelling rules.
+[edDefault->is-a->inflectionRule]
+[edDefault->formsInflection->pastTense]
+[edDefault->formsInflection->pastParticiple]
+[edDefault->formEnding->^e d]
+# A base ending in consonant-consonant-e is rare: walked reads as walk, not walke.
+[edAfterE->is-a->edDefault]
+[edAfterE->baseEnding->^e]
+[edAfterE->formEnding->^e d]
+[edAfterE->readsBackward->avoided]
+# ... but consonant-vowel-consonant-e is common: smiled reads as smile, not smil (cooled: cool, not coole).
+[edAfterVowelConsonantE->is-a->edAfterE]
+[edAfterVowelConsonantE->baseEnding->^??.consonant ??.vowel ??.silentEConsonant e]
+[edAfterVowelConsonantE->formEnding->^??.consonant ??.vowel ??.silentEConsonant e d]
+[edAfterVowelConsonantE->readsBackward->preferred]
+[edAfterConsonantY->is-a->edDefault]
+[edAfterConsonantY->baseEnding->^??.consonant y]
+[edAfterConsonantY->formEnding->^??.consonant i e d]
+# stop -> stopped. Also fires on visit and open (stress decides; spelling can't show it).
+[edDoubling->is-a->edDefault]
+[edDoubling->baseEnding->^??.consonant.letterRole1 ??.vowel ??.doublingConsonant.letterRole3]
+[edDoubling->formEnding->^??.consonant.letterRole1 ??.vowel ??.doublingConsonant.letterRole3 ??.doublingConsonant.letterRole3 e d]
+[edDoublingFloss->is-a->edDoubling]
+[edDoublingFloss->baseEnding->^??.consonant ??.vowel ??.flossConsonant.letterRole3]
+[edDoublingFloss->formEnding->^??.consonant ??.vowel ??.flossConsonant.letterRole3 ??.flossConsonant.letterRole3 e d]
+[edDoublingFloss->readsBackward->avoided]
+
+# -ing
+[ingDefault->is-a->inflectionRule]
+[ingDefault->formsInflection->presentParticiple]
+[ingDefault->formEnding->^i n g]
+[ingAfterConsonantE->is-a->ingDefault]
+[ingAfterConsonantE->baseEnding->^??.consonant e]
+[ingAfterConsonantE->formEnding->^??.consonant i n g]
+[ingAfterConsonantE->readsBackward->avoided]
+[ingAfterVowelConsonantE->is-a->ingAfterConsonantE]
+[ingAfterVowelConsonantE->baseEnding->^??.consonant ??.vowel ??.silentEConsonant e]
+[ingAfterVowelConsonantE->formEnding->^??.consonant ??.vowel ??.silentEConsonant i n g]
+[ingAfterVowelConsonantE->readsBackward->preferred]
+# lie, die, tie: few, so flying reads as fly, not flie.
+[ingAfterIE->is-a->ingDefault]
+[ingAfterIE->baseEnding->^??.consonant i e]
+[ingAfterIE->formEnding->^??.consonant y i n g]
+[ingAfterIE->readsBackward->avoided]
+[ingDoubling->is-a->ingDefault]
+[ingDoubling->baseEnding->^??.consonant.letterRole1 ??.vowel ??.doublingConsonant.letterRole3]
+[ingDoubling->formEnding->^??.consonant.letterRole1 ??.vowel ??.doublingConsonant.letterRole3 ??.doublingConsonant.letterRole3 i n g]
+[ingDoublingFloss->is-a->ingDoubling]
+[ingDoublingFloss->baseEnding->^??.consonant ??.vowel ??.flossConsonant.letterRole3]
+[ingDoublingFloss->formEnding->^??.consonant ??.vowel ??.flossConsonant.letterRole3 ??.flossConsonant.letterRole3 i n g]
+[ingDoublingFloss->readsBackward->avoided]
+
+# -er, -est
+[erDefault->is-a->inflectionRule]
+[erDefault->formsInflection->comparative]
+[erDefault->formEnding->^e r]
+[erAfterE->is-a->erDefault]
+[erAfterE->baseEnding->^e]
+[erAfterE->formEnding->^e r]
+[erAfterE->readsBackward->avoided]
+[erAfterVowelConsonantE->is-a->erAfterE]
+[erAfterVowelConsonantE->baseEnding->^??.consonant ??.vowel ??.silentEConsonant e]
+[erAfterVowelConsonantE->formEnding->^??.consonant ??.vowel ??.silentEConsonant e r]
+[erAfterVowelConsonantE->readsBackward->preferred]
+[erAfterConsonantY->is-a->erDefault]
+[erAfterConsonantY->baseEnding->^??.consonant y]
+[erAfterConsonantY->formEnding->^??.consonant i e r]
+[erDoubling->is-a->erDefault]
+[erDoubling->baseEnding->^??.consonant.letterRole1 ??.vowel ??.doublingConsonant.letterRole3]
+[erDoubling->formEnding->^??.consonant.letterRole1 ??.vowel ??.doublingConsonant.letterRole3 ??.doublingConsonant.letterRole3 e r]
+[erDoublingFloss->is-a->erDoubling]
+[erDoublingFloss->baseEnding->^??.consonant ??.vowel ??.flossConsonant.letterRole3]
+[erDoublingFloss->formEnding->^??.consonant ??.vowel ??.flossConsonant.letterRole3 ??.flossConsonant.letterRole3 e r]
+[erDoublingFloss->readsBackward->avoided]
+[estDefault->is-a->inflectionRule]
+[estDefault->formsInflection->superlative]
+[estDefault->formEnding->^e s t]
+[estAfterE->is-a->estDefault]
+[estAfterE->baseEnding->^e]
+[estAfterE->formEnding->^e s t]
+[estAfterE->readsBackward->avoided]
+[estAfterVowelConsonantE->is-a->estAfterE]
+[estAfterVowelConsonantE->baseEnding->^??.consonant ??.vowel ??.silentEConsonant e]
+[estAfterVowelConsonantE->formEnding->^??.consonant ??.vowel ??.silentEConsonant e s t]
+[estAfterVowelConsonantE->readsBackward->preferred]
+[estAfterConsonantY->is-a->estDefault]
+[estAfterConsonantY->baseEnding->^??.consonant y]
+[estAfterConsonantY->formEnding->^??.consonant i e s t]
+[estDoubling->is-a->estDefault]
+[estDoubling->baseEnding->^??.consonant.letterRole1 ??.vowel ??.doublingConsonant.letterRole3]
+[estDoubling->formEnding->^??.consonant.letterRole1 ??.vowel ??.doublingConsonant.letterRole3 ??.doublingConsonant.letterRole3 e s t]
+[estDoublingFloss->is-a->estDoubling]
+[estDoublingFloss->baseEnding->^??.consonant ??.vowel ??.flossConsonant.letterRole3]
+[estDoublingFloss->formEnding->^??.consonant ??.vowel ??.flossConsonant.letterRole3 ??.flossConsonant.letterRole3 e s t]
+[estDoublingFloss->readsBackward->avoided]
+
+# Exceptions are stored with the words (BasicWords.txt: went, gone, ate, was, were, are, ...).
+
+# Derivations: an inflection that makes a word of another class (derives). It is applied to the
+# class it inflects, as any inflection is, and spelled by rules the same way. A derived word
+# whose meaning drifts (hardly, lately, shortly) is stored as a word with its own meaning; the
+# base then stores its real adverb ([w:hard->hasAdverbial->...] spelled hard), which blocks the
+# rule, so "hardly" is not read as "in a hard manner".
+[derives->is-a->LinkType]
+[derivation->is-a->inflection]
+[adverb->is-a->wordType]
+[mannerAdverb->is-a->adverb]
+[adverbial->is-a->derivation]
+[adverbial->inflects->adjective]
+[adverbial->derives->mannerAdverb]
+[hasAdverbial->is-a->hasInflection]
+[hasAdverbial->marksInflection->adverbial]
+
+# -ly
+[lyDefault->is-a->inflectionRule]
+[lyDefault->formsInflection->adverbial]
+[lyDefault->formEnding->^l y]
+# happy -> happily (shy -> shyly, dry -> dryly are stored)
+[lyAfterConsonantY->is-a->lyDefault]
+[lyAfterConsonantY->baseEnding->^??.consonant y]
+[lyAfterConsonantY->formEnding->^??.consonant i l y]
+# gentle -> gently, simple -> simply (whole -> wholly is stored)
+[lyAfterConsonantLE->is-a->lyDefault]
+[lyAfterConsonantLE->baseEnding->^??.consonant l e]
+[lyAfterConsonantLE->formEnding->^??.consonant l y]
+# A base ending in consonant-l-e is rarer than "-ly" after a consonant (quickly: quick, not quickle) ...
+[lyAfterConsonantLE->readsBackward->avoided]
+# ... except after b, d, g, p, t: humbly, idly, singly, simply, gently.
+[stopConsonant->is-a->letterClass]
+[c:B->is-a->stopConsonant]
+[c:D->is-a->stopConsonant]
+[c:G->is-a->stopConsonant]
+[c:P->is-a->stopConsonant]
+[c:T->is-a->stopConsonant]
+[lyAfterStopLE->is-a->lyAfterConsonantLE]
+[lyAfterStopLE->baseEnding->^??.stopConsonant l e]
+[lyAfterStopLE->formEnding->^??.stopConsonant l y]
+[lyAfterStopLE->readsBackward->preferred]
+# true -> truly, due -> duly
+[lyAfterUE->is-a->lyDefault]
+[lyAfterUE->baseEnding->^u e]
+[lyAfterUE->formEnding->^u l y]
+# full -> fully
+[lyAfterLL->is-a->lyDefault]
+[lyAfterLL->baseEnding->^l l]
+[lyAfterLL->formEnding->^l l y]
+# basic -> basically (public -> publicly is stored)
+[lyAfterIC->is-a->lyDefault]
+[lyAfterIC->baseEnding->^i c]
+[lyAfterIC->formEnding->^i c a l l y]

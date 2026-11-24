@@ -40,7 +40,10 @@
   <ItemGroup>
     <Compile Include="..\BrainSimulator\Modules\Experimental\ModuleInterpret.cs;..\BrainSimulator\Modules\Experimental\ModuleInterpret.*.cs" Link="Modules\%(Filename)%(Extension)" />
     <Compile Include="..\BrainSimulator\Modules\ModuleWord.Spelling.cs" Link="Modules\ModuleWord.Spelling.cs" />
+    <Compile Include="..\BrainSimulator\Modules\Experimental\ModuleInflect.cs" Link="Modules\ModuleInflect.cs" />
     <None Include="..\BrainSimulator\UKSContent\BasicWords.txt" Link="UKSContent\BasicWords.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\BrainSimulator\UKSContent\Inflections.txt" Link="UKSContent\Inflections.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\BrainSimulator\UKSContent\WordNetWords.txt" Link="UKSContent\WordNetWords.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\BrainSimulator\UKSContent\InterpretTrials.txt" Link="UKSContent\InterpretTrials.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
