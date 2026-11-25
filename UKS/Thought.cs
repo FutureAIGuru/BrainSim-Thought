@@ -110,8 +110,6 @@ public partial class Thought
 {
     /// <summary>The independent UKS containing this Thought; never changes after construction.</summary>
     public UKS Store { get; }
-    private static Queue<Thought> recentlyCreated => UKS.theUKS.RecentlyCreated;
-    private static object recentlyCreatedLock => UKS.theUKS.RecentlyCreatedLock;
 
     public static Thought IsA => ThoughtLabels.GetThought("is-a")!;  // Shortcut in the currently selected UKS; instance operations use Store.Labeled.
     private readonly List<Link> _linksTo = new();   // links to "has", "is", is-a, many others
@@ -123,17 +121,15 @@ public partial class Thought
     /// <summary>Unsafe writeable list of incoming links.</summary>
     public List<Link> LinksFromWriteable { get => _linksFrom; }
     internal List<Link> LinksAsTypeWriteable { get => _linksAsType; }
-    /// <summary>Safe snapshot of outgoing links. Expired links (and an expired Thought) are removed first.</summary>
+    /// <summary>Safe snapshot of outgoing links.</summary>
     public IReadOnlyList<Link> LinksTo
     {
-        get
-        { 
-            if (CheckExpiredAndMaybeDelete()) return Array.Empty<Link>();
-            lock (_linksTo) { return new List<Link>(_linksTo.AsReadOnly()); }
-        }
+        get { lock (_linksTo) return new List<Link>(_linksTo); }
     }
     /// <summary>Safe snapshot of incoming links.</summary>
     public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return new List<Link>(_linksFrom.AsReadOnly()); } } }
+    /// <summary>Safe snapshot of the links which use this Thought as their LinkType.</summary>
+    public IReadOnlyList<Link> LinksAsType { get { lock (_linksAsType) return new List<Link>(_linksAsType); } }
     /// <summary>Direct parents (targets of outgoing is-a links).</summary>
     public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).OfType<Thought>().ToList(); } }
     /// <summary>Direct children (sources of incoming is-a links).</summary>
@@ -224,48 +220,44 @@ public partial class Thought
                 child.AddParent(unknown);
         }
 
-        DeleteFromRecentlyCreated(this);
+        Store.TrackMortality(this, forget: true);
         ThoughtLabels.RemoveThoughtLabel(Label, Store);
         lock (Store.AtomicThoughts)
             Store.AtomicThoughts.Remove(this);
         if (this is not Link) Store.Record(UKSTransaction.Change.ThoughtDeleted, this, Label);
     }
 
-    private bool CheckExpiredAndMaybeDelete()
-    {
-        for (int i = 0; i < _linksTo.Count; i++)
-        {
-            if (_linksTo[i].CheckExpiredAndMaybeDelete())
-                i --;
-        }
-        if (_timeToLive == TimeSpan.MaxValue) return false;
-        if (_timeToLive > DateTime.MaxValue - LastFiredTime) return false; // Effectively never expires
-        if (LastFiredTime + _timeToLive > DateTime.Now) return false;
+    /// <summary>The <see cref="UKS.Cycle"/> at which this Thought last fired; 0 if it never has.</summary>
+    public long LastFiredCycle;
+    /// <summary>True if this Thought fired within the last <paramref name="cycles"/> cycles.</summary>
+    public bool FiredWithin(long cycles) => LastFiredCycle != 0 && Store.Cycle - LastFiredCycle < cycles;
+    /// <summary>The <see cref="UKS.Cycle"/> at which this Thought was created.</summary>
+    public long CreatedCycle { get; }
 
-        // Expired: remove self
-        if (this is Link l)
-        {
-            l.From?.RemoveLink(l);
-        }
-        else
-        {
-            Delete();
-        }
-        return true;
-    }
+    /// <summary>A <see cref="TimeToLive"/> of -1: the Thought never expires.</summary>
+    public const long Forever = -1;
 
-    public DateTime LastFiredTime = DateTime.MinValue;
-    public DateTime CreatedTime { get; } = DateTime.Now;
-
-    private TimeSpan _timeToLive = TimeSpan.MaxValue;
-    /// <summary>Makes a Thought transient when set to a finite time.</summary>
-    public TimeSpan TimeToLive
+    private long _timeToLive = Forever;
+    /// <summary>
+    /// Cycles left before this Thought (or Link) is deleted, counted down by <see cref="UKS.AdvanceCycle"/>;
+    /// <see cref="Forever"/> (-1, the default) means it never expires.
+    /// </summary>
+    public long TimeToLive
     {
         get => _timeToLive;
         set
         {
-            _timeToLive = value;
+            _timeToLive = value < 0 ? Forever : value;
+            Store.TrackMortality(this);
         }
+    }
+
+    // One cycle passes: true when the time to live has run out.
+    internal bool CountDown()
+    {
+        if (_timeToLive == Forever) return false;
+        if (_timeToLive > 0) _timeToLive--;
+        return _timeToLive == 0;
     }
 
     private object? _value;
@@ -304,7 +296,7 @@ public partial class Thought
     public Thought(UKS? store = null)
     {
         Store = store ?? UKS.theUKS;
-        AddToRecentlyCreated();
+        CreatedCycle = Store.Cycle;
     }
 
     /// <summary>
@@ -465,60 +457,16 @@ public partial class Thought
     }
 
     /// <summary>
-    /// Fires the Thought: records the time, extends its time to live, and raises <see cref="UKS.ThoughtFired"/>.
+    /// Fires the Thought: records the cycle, extends a finite time to live, and raises <see cref="UKS.ThoughtFired"/>.
     /// </summary>
     public void Fire()
     {
         if (Store.SuppressFiring)
             return;
             
-        LastFiredTime = DateTime.Now;
-        UpdateTimeToLive();
+        LastFiredCycle = Store.Cycle;
+        if (TimeToLive != Forever) TimeToLive += 20 * UKS.CyclesPerSecond;
         Store.RaiseThoughtFired(this);
-    }
-
-    private void AddToRecentlyCreated()
-    {
-        const int maxCount = 100;
-        lock (Store.RecentlyCreatedLock)
-        {
-            Store.RecentlyCreated.Enqueue(this);
-            while (Store.RecentlyCreated.Count > maxCount) _ = Store.RecentlyCreated.Dequeue();
-        }
-    }
-
-    public static void DeleteFromRecentlyCreated(Thought thought)
-    {
-        lock (thought.Store.RecentlyCreatedLock)
-        {
-            List<Thought> remaining = thought.Store.RecentlyCreated
-                .Where(item => !ReferenceEquals(item, thought)).ToList();
-            thought.Store.RecentlyCreated.Clear();
-            foreach (Thought item in remaining) thought.Store.RecentlyCreated.Enqueue(item);
-        }
-    }
-
-    public static IReadOnlyList<Thought> GetRecentlyCreatedThoughts(TimeSpan recency)
-    {
-        DateTime cutoff = DateTime.MinValue;
-        if (recency < DateTime.Now - DateTime.MinValue) cutoff = DateTime.Now - recency;
-        Thought[] retVal;
-        lock (recentlyCreatedLock)
-            retVal = recentlyCreated.Where(thought => thought.CreatedTime > cutoff).ToArray();
-        return retVal;
-    }
-
-    public static void ClearRecentlyCreatedQueue()
-    {
-        lock (recentlyCreatedLock)
-            recentlyCreated.Clear();
-    }
-
-    // Each firing extends the time to live by 20 seconds, saturating at TimeSpan.MaxValue.
-    private void UpdateTimeToLive()
-    {
-        TimeSpan increment = TimeSpan.FromSeconds(20);
-        TimeToLive = TimeToLive > TimeSpan.MaxValue - increment ? TimeSpan.MaxValue : TimeToLive + increment;
     }
 
     // LINK OPERATIONS
@@ -551,7 +499,7 @@ public partial class Thought
             LinkType = linkType,
             From = this,
             To = to,
-            LastFiredTime = DateTime.Now,
+            LastFiredCycle = Store.Cycle,
         };
         // Unlabeled prototypes can build a private pattern without indexing it.
         if (!string.IsNullOrEmpty(Label))

@@ -246,6 +246,22 @@ public partial class UKS
     }
 
     /// <summary>
+    /// An independent copy of this store's saved content (what <see cref="SaveUKStoXMLFile"/> would write),
+    /// e.g. to try a change and inspect the result without touching the original. Like a saved file,
+    /// it keeps labels, links, weights and string values, but not firing or time to live.
+    /// </summary>
+    public UKS Copy()
+    {
+        UKS previous = theUKS;
+        theUKS = this;
+        List<sThought> snapshot = CaptureSaveSnapshot(); // before the copy is selected as theUKS
+        UKS copy = new();
+        copy.RestoreFromUkTempSnapshot(snapshot);
+        theUKS = previous;
+        return copy;
+    }
+
+    /// <summary>
     /// Rehydrates a UKS from a cached snapshot (caller must pass a deep copy per test).
     /// </summary>
     internal void RestoreFromUkTempSnapshot(List<sThought> snapshot)
@@ -367,11 +383,7 @@ public partial class UKS
 
     private void DeFormatContentAfterLoading()
     {
-        theUKS = this;
-        AtomicThoughts.Clear();
-        ThoughtLabels.ClearLabelList();
-        ClearSequenceCache();
-        Thought.ClearRecentlyCreatedQueue();
+        Reset();
         // Allocate all Thoughts before wiring links by their saved indices.
         //allocate all the thoughts
         foreach (sThought st in UKSTemp)
@@ -386,7 +398,6 @@ public partial class UKS
                     isPlastic = st.isPlastic,
                     V = st.V,
                 };
-                t.TimeToLive = TimeSpan.MaxValue;
                 AtomicThoughts.Add(t);
             }
             else //this must be a link
@@ -399,7 +410,6 @@ public partial class UKS
                     isPlastic = st.isPlastic,
                     V = st.V,
                 };
-                l.TimeToLive = TimeSpan.MaxValue;
             }
         }
         //add contents of links
@@ -424,7 +434,6 @@ public partial class UKS
                 theLink.maxWeight = st.maxWeight;
                 theLink.isPlastic = st.isPlastic;
                 theLink.V = st.V;
-                theLink.TimeToLive = TimeSpan.MaxValue;
                 if (theLink.From is null || theLink.LinkType is null)
                     continue;
                 // Wire the deserialized link itself. Creating another Link here

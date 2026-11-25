@@ -136,14 +136,11 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         }
         else //search for unattached Thoughts
         {
-            foreach (Thought t1 in theUKS.AtomicThoughts)
+            foreach (Thought t1 in theUKS.Roots())
             {
-                if (t1.Parents.Count == 0 && t1 is not Link)
-                {
-                    TreeViewItem tvi = new() { Header = CreateThoughtHeader(t1, t1.Label) };
-                    tvi.ContextMenu = GetContextMenu(t1, tvi);
-                    theTreeView.Items.Add(tvi);
-                }
+                TreeViewItem tvi = new() { Header = CreateThoughtHeader(t1, t1.Label) };
+                tvi.ContextMenu = GetContextMenu(t1, tvi);
+                theTreeView.Items.Add(tvi);
             }
         }
     }
@@ -309,9 +306,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
         //change color of thoughts which just fired or are about to expire
         tviChild.SetValue(ThoughtObjectProperty, child);
-        if (child.LastFiredTime > DateTime.Now - TimeSpan.FromMilliseconds(500))
+        if (child.FiredWithin(UKS.UKS.CyclesPerSecond / 2))
             tviChild.Background = new SolidColorBrush(Colors.LightGreen);
-        if (child.TimeToLive != TimeSpan.MaxValue && child.LastFiredTime + child.TimeToLive < DateTime.Now + TimeSpan.FromSeconds(3))
+        if (child.TimeToLive != Thought.Forever && child.TimeToLive < 3 * UKS.UKS.CyclesPerSecond)
             tviChild.Background = new SolidColorBrush(Colors.LightYellow);
 
         //is this expanded?
@@ -462,7 +459,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         List<Thought> plasticSiblings = learnedParent.Children
             .Where(sibling => sibling.isPlastic)
             .OrderBy(sibling => sibling.Weight)
-            .ThenBy(sibling => sibling.LastFiredTime)
+            .ThenBy(sibling => sibling.LastFiredCycle)
             .ToList();
         bool isLowestScoring = plasticSiblings.Count > 1 &&
             ReferenceEquals(plasticSiblings[0], thought);
@@ -485,13 +482,17 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         return retVal;
     }
 
+    // A Thought's time to live as mm:ss at the intended cycle rate; ∞ if it never expires.
+    private static string TimeLeft(Thought t) => t.TimeToLive == Thought.Forever ? "∞" :
+        TimeSpan.FromSeconds((double)t.TimeToLive / UKS.UKS.CyclesPerSecond).ToString(@"mm\:ss");
+
     //if the "details" box is checked, add the details
     private string AddDetails(Thought t, string header)
     {
 
         if (detailsCB.IsChecked == false) return header;
-        string timeToLive = (t.TimeToLive == TimeSpan.MaxValue ? "∞" : (t.LastFiredTime + t.TimeToLive - DateTime.Now).ToString(@"mm\:ss"));
-        if (t.Weight != 1f || t.TimeToLive != TimeSpan.MaxValue)
+        string timeToLive = TimeLeft(t);
+        if (t.Weight != 1f || t.TimeToLive != Thought.Forever)
             header = $"<{t.Weight.ToString("f2")}, {timeToLive}> " + header;
         if (t is Link r)
         {
@@ -685,7 +686,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 refreshAfterMenu = true;
                 //clear any time-to-live on this new image
                 if (t.LinksFrom.FindFirst(x => x.LinkType.Label == "is-a") is Link isALink)
-                    isALink.TimeToLive = TimeSpan.MaxValue;
+                    isALink.TimeToLive = Thought.Forever;
                 cm.IsOpen = false;
             }
             if (e.Key == Key.Escape)
@@ -705,7 +706,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         menu.Items.Add(mi);
 
         mi = new();
-        string timeToLive = (r.TimeToLive == TimeSpan.MaxValue ? "∞" : (r.LastFiredTime + r.TimeToLive - DateTime.Now).ToString(@"mm\:ss"));
+        string timeToLive = TimeLeft(r);
         mi.Header = $"TTL: {timeToLive}";
         mi.IsEnabled = false;
         menu.Items.Add(mi);

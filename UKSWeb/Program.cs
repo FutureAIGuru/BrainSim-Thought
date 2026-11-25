@@ -29,24 +29,10 @@ if (Directory.Exists(demoDirectory))
         demoFiles.TryAdd(Path.GetFileName(path), (path, id));
         demoCatalog.Add(new { id, label = name, file = Path.GetFileName(path) });
     }
-var initialThoughts = new System.Runtime.CompilerServices.ConditionalWeakTable<UKS.Thought, object>();
-
-// Links are Thoughts too, and not every Link is in AtomicThoughts. Walk their
-// stored structure to count additions, excluding activity queues and query prototypes.
-Func<UKS.UKS, HashSet<UKS.Thought>> storedThoughts = store =>
-{
-    var result = new HashSet<UKS.Thought>(store.AtomicThoughts, ReferenceEqualityComparer.Instance);
-    var pending = new Queue<UKS.Thought>(result);
-    while (pending.TryDequeue(out var thought))
-    {
-        foreach (var link in thought.LinksTo)
-            if (result.Add(link)) pending.Enqueue(link);
-        if (thought is not UKS.Link relationship) continue;
-        foreach (var endpoint in new[] { relationship.From, relationship.LinkType, relationship.To })
-            if (endpoint is not null && result.Add(endpoint)) pending.Enqueue(endpoint);
-    }
-    return result;
-};
+// The quota counts Thoughts and links added since the session's UKS was created.
+var initialSizes = new System.Runtime.CompilerServices.ConditionalWeakTable<UKS.UKS, System.Runtime.CompilerServices.StrongBox<int>>();
+int storeSize(UKS.UKS store) => store.ThoughtCount() + store.LinkCount() + store.SequenceElementCount();
+int addedSoFar(UKS.UKS store) => storeSize(store) - (initialSizes.TryGetValue(store, out var initial) ? initial.Value : 0);
 // A graph ID is the stored label within the selected UKS. A node's caption
 // can render the Relationship's structure without changing that lookup key.
 string graphId(UKS.Thought thought) => thought.Label;
@@ -292,7 +278,7 @@ app.MapPost("/api/sandboxes", (string? demo, HttpContext context) =>
                 return Results.Problem("The XML demo could not be loaded.");
         }
         else store.CreateInitialStructure();
-        foreach (var thought in storedThoughts(store)) initialThoughts.Add(thought, new object());
+        initialSizes.Add(store, new System.Runtime.CompilerServices.StrongBox<int>(storeSize(store)));
         var id = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16))
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
         if (!sandboxes.TryAdd(id, (store, new object(), selectedDemo.Id,
@@ -317,53 +303,21 @@ app.MapGet("/api/sandbox", (HttpContext context) =>
     return Results.Ok(new { id, demo = sandbox.Demo, thoughtLimit, idleTimeoutMinutes = idleMinutes, hasChanges = Volatile.Read(ref sandbox.HasChanges.Value) });
 });
 
-Func<UKS.UKS, UKS.UKS> sequencePreview = store =>
-{
-    var preview = new UKS.UKS();
-    var copies = new Dictionary<UKS.Thought, UKS.Thought>(ReferenceEqualityComparer.Instance);
-    foreach (var thought in storedThoughts(store))
-    {
-        UKS.Thought copy = thought is UKS.SeqElement ? new UKS.SeqElement(preview)
-            : thought is UKS.Link ? new UKS.Link(preview) : new UKS.Thought(preview);
-        copies.Add(thought, copy);
-        copy.Label = thought.Label;
-        copy.Weight = thought.Weight;
-        copy.maxWeight = thought.maxWeight;
-        copy.isPlastic = thought.isPlastic;
-        copy.V = thought.V;
-        copy.LastFiredTime = thought.LastFiredTime;
-        copy.TimeToLive = thought.TimeToLive;
-    }
-    foreach (var storedRelationship in copies.Keys.OfType<UKS.Link>())
-    {
-        var copy = (UKS.Link)copies[storedRelationship];
-        copy.From = storedRelationship.From is null ? null : copies[storedRelationship.From];
-        copy.LinkType = storedRelationship.LinkType is null ? null : copies[storedRelationship.LinkType];
-        copy.To = storedRelationship.To is null ? null : copies[storedRelationship.To];
-        // A Relationship stored as an exemplar is not an asserted fact.
-        if (storedRelationship.From?.LinksTo.Any(link => ReferenceEquals(link, storedRelationship)) == true)
-            UKS.UKS.WriteTheLink(copy);
-    }
-    preview.AtomicThoughts.UnionWith(store.AtomicThoughts.Select(thought => copies[thought]));
-    return preview;
-};
-// Export a snapshot outside the session lock. Import previews the merge and quota.
+// Import previews the merge and quota on a copy.
 app.MapGet("/api/text-export", (string? root, HttpContext context) =>
 {
     if (string.IsNullOrWhiteSpace(root)) return Results.BadRequest(new { error = "Select a root Thought to save." });
     var sandbox = sandboxes[(string)context.Items["session"]!];
-    UKS.UKS snapshot;
-    lock (sandbox.Sync)
-    {
-        if (sandbox.Store.Labeled(root) is null) return Results.NotFound(new { error = "That root Thought does not exist." });
-        var previous = UKS.UKS.theUKS;
-        try { snapshot = sequencePreview(sandbox.Store); }
-        finally { UKS.UKS.theUKS = previous; }
-    }
     var path = Path.GetTempFileName();
     try
     {
-        snapshot.ExportTextFile(root, path);
+        lock (sandbox.Sync)
+        {
+            if (sandbox.Store.Labeled(root) is null) return Results.NotFound(new { error = "That root Thought does not exist." });
+            var previous = UKS.UKS.theUKS;
+            try { sandbox.Store.ExportTextFile(root, path); }
+            finally { UKS.UKS.theUKS = previous; }
+        }
         var content = File.ReadAllText(path);
         var filename = string.Concat(root.Select(character => char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '_'));
         return Results.Ok(new { filename = filename + ".txt", content });
@@ -410,12 +364,12 @@ app.MapPost("/api/text-import", async (HttpContext context) =>
         lock (sandbox.Sync)
         {
             var previous = UKS.UKS.theUKS;
-            int before = storedThoughts(uks).Count;
+            int before = storeSize(uks);
             try
             {
-                var preview = sequencePreview(uks); preview.ImportTextFile(path);
-                int baseline = storedThoughts(uks).Count(thought => initialThoughts.TryGetValue(thought, out _));
-                if (storedThoughts(preview).Count - baseline > thoughtLimit)
+                var preview = uks.Copy(); int previewBefore = storeSize(preview);
+                preview.ImportTextFile(path);
+                if (addedSoFar(uks) + storeSize(preview) - previewBefore > thoughtLimit)
                     return Results.Json(new { error = $"This import would exceed the limit of {thoughtLimit} added Thoughts, including relationships." }, statusCode: 409);
                 UKS.UKS.theUKS = uks;
                 uks.ImportTextFile(path);
@@ -424,7 +378,7 @@ app.MapPost("/api/text-import", async (HttpContext context) =>
             { return Results.BadRequest(new { error = "The text file could not be imported: " + error.Message }); }
             finally { UKS.UKS.theUKS = previous; }
             Volatile.Write(ref sandbox.HasChanges.Value, true);
-            return Results.Ok(new { added = storedThoughts(uks).Count - before });
+            return Results.Ok(new { added = storeSize(uks) - before });
         }
     }
     finally { File.Delete(path); }
@@ -500,18 +454,16 @@ app.MapPost("/api/sequence-input", (System.Text.Json.JsonElement input, HttpCont
         // Keep handles stable when restoring a page or toggling VLU visibility.
         if (previous.Select(cell => cell.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled("VLU"))?.To?.Label).SequenceEqual(values))
             return Results.Ok(new { startId = previous.Count == 0 ? null : graphId(previous[0]) });
-        var oldStructure = previous.SelectMany(cell => cell.LinksTo.Cast<UKS.Thought>().Append(cell))
-            .ToHashSet(ReferenceEqualityComparer.Instance);
         var cells = new List<UKS.Thought>();
         foreach (var color in colors)
         {
-            var cell = new UKS.Thought(uks); uks.AtomicThoughts.Add(cell);
+            var cell = new UKS.Thought(uks); // unlabeled: a private pattern, not stored knowledge
             cell.AddLink(uks.Labeled("VLU")!, color);
             if (cells.Count > 0) cells[^1].AddLink(uks.Labeled("NXT")!, cell);
             cells.Add(cell);
         }
-        // Count the replacement, excluding the previous input that will be removed.
-        if (storedThoughts(uks).Count(thought => !oldStructure.Contains(thought) && !initialThoughts.TryGetValue(thought, out _)) > thoughtLimit)
+        // Count the replacement (the previous input will be removed).
+        if (addedSoFar(uks) + cells.Count + cells.Sum(cell => cell.LinksTo.Count) > thoughtLimit)
         {
             foreach (var cell in cells) cell.Delete();
             return Results.Json(new { error = $"This demo is limited to {thoughtLimit} added Thoughts, including relationships." }, statusCode: 409);
@@ -577,10 +529,9 @@ app.MapPost("/api/sequences", (System.Text.Json.JsonElement input, HttpContext c
         var previous = UKS.UKS.theUKS;
         try
         {
-            var preview = sequencePreview(uks);
+            var preview = uks.Copy(); int previewBefore = storeSize(preview);
             storeDemoSequence(preview, kind, label, values, delays);
-            var baseline = storedThoughts(uks).Count(thought => initialThoughts.TryGetValue(thought, out _));
-            if (storedThoughts(preview).Count - baseline > thoughtLimit)
+            if (addedSoFar(uks) + storeSize(preview) - previewBefore > thoughtLimit)
                 return Results.Json(new { error = $"This demo is limited to {thoughtLimit} added Thoughts, including relationships." }, statusCode: 409);
         }
         finally { UKS.UKS.theUKS = previous; }
@@ -663,40 +614,11 @@ app.MapPost("/api/statements", (StatementInput input, HttpContext context) =>
         // Preview the write in an in-memory copy. A rejected addition must
         // not weaken existing relationships or leave partly-created content.
         // This stays in the web host; the UKS library has no user/quota rules.
-        var before = storedThoughts(uks);
-        var preview = new UKS.UKS();
+        var preview = uks.Copy(); int previewBefore = storeSize(preview);
         try
         {
-            var copies = new Dictionary<UKS.Thought, UKS.Thought>(ReferenceEqualityComparer.Instance);
-            foreach (var thought in before)
-            {
-                UKS.Thought copy = thought is UKS.SeqElement ? new UKS.SeqElement(preview)
-                    : thought is UKS.Link ? new UKS.Link(preview) : new UKS.Thought(preview);
-                copies.Add(thought, copy);
-                copy.Label = thought.Label;
-                copy.Weight = thought.Weight;
-                copy.maxWeight = thought.maxWeight;
-                copy.isPlastic = thought.isPlastic;
-                copy.V = thought.V;
-                copy.LastFiredTime = thought.LastFiredTime;
-                copy.TimeToLive = thought.TimeToLive;
-            }
-            foreach (var storedRelationship in before.OfType<UKS.Link>())
-            {
-                var copy = (UKS.Link)copies[storedRelationship];
-                copy.From = storedRelationship.From is null ? null : copies[storedRelationship.From];
-                copy.LinkType = storedRelationship.LinkType is null ? null : copies[storedRelationship.LinkType];
-                copy.To = storedRelationship.To is null ? null : copies[storedRelationship.To];
-                // A Relationship stored as an exemplar is not an asserted fact.
-                if (storedRelationship.From?.LinksTo.Any(link => ReferenceEquals(link, storedRelationship)) == true)
-                    UKS.UKS.WriteTheLink(copy);
-            }
-            preview.AtomicThoughts.UnionWith(uks.AtomicThoughts.Select(thought => copies[thought]));
-            var previewInitial = new HashSet<UKS.Thought>(copies
-                .Where(pair => initialThoughts.TryGetValue(pair.Key, out _)).Select(pair => pair.Value),
-                ReferenceEqualityComparer.Instance);
             UKSWeb.StatementInputParser.Add(preview, input.Source, input.RelationshipType, input.Target);
-            if (storedThoughts(preview).Count(thought => !previewInitial.Contains(thought)) > thoughtLimit)
+            if (addedSoFar(uks) + storeSize(preview) - previewBefore > thoughtLimit)
                 return Results.Json(new { error = $"This demo is limited to {thoughtLimit} added Thoughts, including relationships. Delete some content before adding more.", limit = thoughtLimit }, statusCode: 409);
         }
         catch (Exception error) when (error is FormatException or ArgumentException or System.Text.Json.JsonException)

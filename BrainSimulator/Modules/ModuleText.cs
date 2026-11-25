@@ -601,7 +601,7 @@ public class ModuleText : ModuleBase
     {
         if (phraseRoot is null) return;
         List<Thought> phrases = phraseRoot.Children.Where(phrase => phrase.isPlastic && !HasMeaning(phrase))
-            .OrderBy(phrase => phrase.Weight).ThenBy(phrase => phrase.LastFiredTime).ToList();
+            .OrderBy(phrase => phrase.Weight).ThenBy(phrase => phrase.LastFiredCycle).ToList();
         int deleteCount = phrases.Count - PlasticPhraseCapacity + 1;
         for (int index = 0; index < deleteCount; index++)
         {

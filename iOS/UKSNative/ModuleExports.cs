@@ -133,15 +133,26 @@ public static partial class Exports
             {
                 lock (gate)
                 {
-                    try { UseShared(); Host.Tick(); }
+                    try { UseShared(); FollowClock(BrainSimulator.MainWindow.theUKS); Host.Tick(); }
                     catch (Exception e) { HostNotices.Post("Engine", e.Message); }
                 }
                 Interlocked.Increment(ref engineTicks);
                 Thread.Sleep(engineIntervalMs);
             }
+            FollowClock(null); // stopping the engine pauses the UKS clock
             engineThread = null;
         }) { IsBackground = true, Name = "BrainSim engine" };
         engineThread.Start();
+    }
+
+    // The UKS clock runs on its own thread while the engine runs, on the current store (clearing replaces it).
+    static UKS.UKS clockedUKS;
+    static void FollowClock(UKS.UKS store)
+    {
+        if (ReferenceEquals(clockedUKS, store)) return;
+        clockedUKS?.StopClock();
+        clockedUKS = store;
+        clockedUKS?.StartClock();
     }
 
     /// <summary>Engine cycles so far; the UI refreshes when it changes.</summary>

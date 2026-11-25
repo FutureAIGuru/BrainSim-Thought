@@ -32,12 +32,21 @@ public sealed class UKSTransaction
     {
         lock (Changes) return Changes.Any(change => change.Kind == Change.LinkAdded && ReferenceEquals(change.Thought, link));
     }
+
+    /// <summary>True if this transaction created the Thought (rather than finding it already there).</summary>
+    public bool Created(Thought thought)
+    {
+        lock (Changes) return Changes.Any(change => change.Kind == Change.ThoughtCreated && ReferenceEquals(change.Thought, thought));
+    }
 }
 
 public partial class UKS
 {
     private UKSTransaction? journal;
     private bool undoing;
+
+    /// <summary>The open transaction, or null if none is recording.</summary>
+    public UKSTransaction? CurrentTransaction => journal;
 
     /// <summary>
     /// Starts recording structural changes. Transactions do not nest: end (or undo) one before
@@ -92,6 +101,12 @@ public partial class UKS
     /// <summary>True if there is a remembered change to undo.</summary>
     public bool CanUndo { get { lock (undoHistory) return undoHistory.Count > 0; } }
 
+    private void ClearUndoHistory()
+    {
+        lock (undoHistory) undoHistory.Clear();
+        journal = null;
+    }
+
     /// <summary>
     /// Undoes the most recent remembered change, from whichever source made it (the interpreter, a
     /// dialog). Earlier changes can be undone in turn.
@@ -138,6 +153,7 @@ public partial class UKS
                         if (!string.IsNullOrEmpty(oldLabel) && Labeled(oldLabel) is null)
                             ThoughtLabels.AddThoughtLabel(oldLabel, thought);
                         lock (AtomicThoughts) AtomicThoughts.Add(thought);
+                        TrackMortality(thought);
                         break;
                     case UKSTransaction.Change.LinkAdded when thought is Link added:
                         added.From?.RemoveLink(added);
@@ -146,6 +162,7 @@ public partial class UKS
                         WriteTheLink(removed);
                         if (!string.IsNullOrEmpty(removed.Label) && Labeled(removed.Label) is null)
                             ThoughtLabels.AddThoughtLabel(removed.Label, removed);
+                        TrackMortality(removed);
                         break;
                     case UKSTransaction.Change.ThoughtCreated:
                         if (thought is Link link) ThoughtLabels.RemoveThoughtLabel(link.Label, this);

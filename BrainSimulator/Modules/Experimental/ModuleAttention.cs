@@ -163,12 +163,12 @@ public class ModuleAttention : ModuleBase
         ModuleMentalModel mm = GetMentalModel();
         if (mm is null) return null;
 
-        PruneAttentionQueue(DateTime.Now, mm);
+        PruneAttentionQueue(theUKS.Cycle, mm);
 
         var pool = new List<(Thought item, Thought target, double weight)>();
         foreach (var (item, target) in EnumerateQueueItems())
         {
-            float salience = ComputeSalience(target, mm, 0, item.LastFiredTime);
+            float salience = ComputeSalience(target, mm, 0, item.LastFiredCycle);
             item.Weight = salience;
             double adjusted = salience;
             if (_lastFocus == target) adjusted *= SameTargetPenalty;
@@ -206,23 +206,21 @@ public class ModuleAttention : ModuleBase
             item.AddLink(_ltQueued, t);
         }
 
-        item.LastFiredTime = DateTime.Now;
-        item.Weight = ComputeSalience(t, mm, surprise, item.LastFiredTime);
+        item.LastFiredCycle = theUKS.Cycle;
+        item.Weight = ComputeSalience(t, mm, surprise, item.LastFiredCycle);
         return item;
     }
 
-    private void PruneAttentionQueue(DateTime now, ModuleMentalModel mm)
+    private void PruneAttentionQueue(long now, ModuleMentalModel mm)
     {
         EnsureLinkTypes();
         foreach (var (item, target) in EnumerateQueueItems().ToList())
         {
-            bool expired =
-                target.TimeToLive != TimeSpan.MaxValue &&
-                target.LastFiredTime + target.TimeToLive < now;
+            bool expired = target.TimeToLive == 0; // its time ran out and the UKS deleted it
 
-            double sal = ComputeSalience(target, mm, 0, item.LastFiredTime);
+            double sal = ComputeSalience(target, mm, 0, item.LastFiredCycle);
             bool tooLow = sal < SalienceFloor;
-            bool stale = (now - item.LastFiredTime).TotalSeconds > AttentionStaleSeconds;
+            bool stale = now - item.LastFiredCycle > AttentionStaleSeconds * UKS.UKS.CyclesPerSecond;
 
             if (expired || tooLow || stale)
                 RemoveQueueItem(item);
@@ -263,7 +261,7 @@ public class ModuleAttention : ModuleBase
         item.Delete();
     }
 
-    private float ComputeSalience(Thought t, ModuleMentalModel mm, double surprise, DateTime lastSeen)
+    private float ComputeSalience(Thought t, ModuleMentalModel mm, double surprise, long lastSeenCycle)
     {
         return .5f;
     }

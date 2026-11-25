@@ -53,7 +53,7 @@ public class ModuleObjectRecognizer : ModuleBase
     /// <summary>Unrecognized looks become Thing1, Thing2… (otherwise they wait to be named).</summary>
     public bool LearnUnknownObjects { get; set; } = true;
     public string AnonymousObjectPrefix { get; set; } = "Thing";
-    public TimeSpan PresentationLifetime { get; set; } = TimeSpan.FromSeconds(10);
+    public long PresentationLifetime { get; set; } = 10 * UKS.UKS.CyclesPerSecond;
 
     public const int ShapeGrid = 6;
     public const int ToneGrid = 8;

@@ -252,7 +252,7 @@ public partial class ModuleWord : ModuleBase
         Thought weakest = parent.Children
             .Where(child => child.isPlastic)
             .OrderBy(child => float.IsNaN(child.Weight) ? float.MinValue : child.Weight)
-            .ThenBy(child => child.LastFiredTime)
+            .ThenBy(child => child.LastFiredCycle)
             .FirstOrDefault();
         weakest?.Delete();
         return weakest;

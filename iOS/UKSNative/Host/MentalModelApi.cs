@@ -97,7 +97,7 @@ sealed class MentalModelApi : ModuleApi
         if (cells is null || cells.Length == 0) return state;
 
         List<double> edges = ElevationEdges(mm, cells.Length);
-        DateTime now = DateTime.Now;
+        long now = mm.theUKS.Cycle;
         for (int r = 0; r < cells.Length; r++)
         {
             if (cells[r] is null || cells[r].Length == 0) continue;
@@ -114,7 +114,7 @@ sealed class MentalModelApi : ModuleApi
                     InView = mm.IsInVisualField(t),
                     IsCenter = t == mm.Center,
                 };
-                double firedAgo = (now - t.LastFiredTime).TotalSeconds;
+                double firedAgo = (double)(now - t.LastFiredCycle) / UKS.UKS.CyclesPerSecond;
                 if (firedAgo >= 0 && firedAgo < 5) cell.FiredAgo = firedAgo;
                 var contains = t.LinksTo.Where(x => x.LinkType?.Label == "_mm:contains").ToList();
                 cell.Attended = contains.Any(l => l.To?.Label == "attention");
@@ -128,13 +128,13 @@ sealed class MentalModelApi : ModuleApi
         return state;
     }
 
-    static MentalContentDto Content(ModuleMentalModel parent, Link containsLink, DateTime now)
+    static MentalContentDto Content(ModuleMentalModel parent, Link containsLink, long now)
     {
         Thought content = containsLink.To;
         string imagePath = GroundedImageResolver.ResolveImagePath(content);
         double? secondsLeft = null;
-        if (containsLink.TimeToLive < TimeSpan.MaxValue && containsLink.TimeToLive <= DateTime.MaxValue - containsLink.LastFiredTime)
-            secondsLeft = Math.Max(0, (containsLink.LastFiredTime + containsLink.TimeToLive - now).TotalSeconds);
+        if (containsLink.TimeToLive != Thought.Forever)
+            secondsLeft = (double)containsLink.TimeToLive / UKS.UKS.CyclesPerSecond;
         return new MentalContentDto
         {
             Label = content.Label,

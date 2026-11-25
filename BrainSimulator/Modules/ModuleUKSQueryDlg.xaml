@@ -49,8 +49,6 @@
                     <Button x:Name="BtnNew" IsDefault="True" Content="New" Height="32" VerticalAlignment="Top" FontSize="16" Margin="0,21,102,0" Click="BtnLinks_Click" HorizontalAlignment="Right" Width="63" />
                     <Button x:Name="BtnAdd" IsDefault="True" Content="Add" Height="32" VerticalAlignment="Top" FontSize="16" Margin="0,21,38,0" Click="BtnLinks_Click" HorizontalAlignment="Right" Width="63" />
                     <Button x:Name="BtnClear" Content="Clear" Height="32" VerticalAlignment="Top" FontSize="16" Margin="0,72,36,0" Click="BtnLinks_Click" HorizontalAlignment="Right" Width="127" />
-                    <!--<Button x:Name="BtnLearn" Content="Learn" Height="32" VerticalAlignment="Top" FontSize="16" Margin="0,121,103,0" Click="BtnLearn_Click" HorizontalAlignment="Right" Width="60" />
-                    <Button x:Name="BtnNo" Content="No" Height="32" VerticalAlignment="Top" FontSize="16" Margin="0,121,38,0" Click="BtnNo_Click" HorizontalAlignment="Right" Width="60" />-->
                 </Grid>
             </TabItem>
         </TabControl>

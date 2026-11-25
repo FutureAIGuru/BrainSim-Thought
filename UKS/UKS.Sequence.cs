@@ -321,11 +321,12 @@ public partial class UKS
 
     internal void ReplaceDeletedSequenceValues(Thought value)
     {
-        Thought unknownSequenceValue = GetOrAddThought("--")!;
         List<SeqElement> affectedElements = value.LinksFrom
             .Where(link => link.LinkType?.Label == "VLU" && link.From is SeqElement)
             .Select(link => (SeqElement)link.From!)
             .ToList();
+        if (affectedElements.Count == 0) return;
+        Thought unknownSequenceValue = GetOrAddThought("--")!;
 
         HashSet<SeqElement> affectedSequences = new(ReferenceEqualityComparer.Instance);
         foreach (SeqElement element in affectedElements)

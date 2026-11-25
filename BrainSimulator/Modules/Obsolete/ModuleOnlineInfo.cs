@@ -314,12 +314,13 @@ namespace BrainSimulator.Modules
                                 Thought r1 = theUKS.AddStatement(source, "is-a", target);
                                 if (r1 is not null)
                                 {
-                                    if (r1.TimeToLive == TimeSpan.MaxValue)
-                                        r1.TimeToLive = TimeSpan.FromSeconds(1130);
-                                    else if (r1.TimeToLive > TimeSpan.FromSeconds(30))
-                                        r1.TimeToLive = TimeSpan.FromDays(1);
+                                    const long cps = UKS.UKS.CyclesPerSecond;
+                                    if (r1.TimeToLive == Thought.Forever)
+                                        r1.TimeToLive = 1130 * cps;
+                                    else if (r1.TimeToLive > 30 * cps)
+                                        r1.TimeToLive = 86400 * cps;
                                     else
-                                        r1.TimeToLive += TimeSpan.FromSeconds(90);
+                                        r1.TimeToLive += 90 * cps;
                                 }
                                 else
                                 { }

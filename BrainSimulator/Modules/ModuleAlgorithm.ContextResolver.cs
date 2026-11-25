@@ -95,9 +95,12 @@ public partial class ModuleAlgorithm
             if (testType is null) continue;
 
             bool matched = false;
-            IEnumerable<Link> candidates = src.HasProperty("isWildcard")
-                ? theUKS.AtomicThoughts.SelectMany(thought => thought.LinksTo)
-                : src.LinksTo;
+            // Start from a fixed part of the pattern; only an all-wildcard pattern walks the whole hierarchy.
+            IEnumerable<Link> candidates =
+                !src.HasProperty("isWildcard") ? src.LinksTo
+                : !testType.HasProperty("isWildcard") ? testType.LinksAsType
+                : !target.HasProperty("isWildcard") ? target.LinksFrom
+                : theUKS.Roots().SelectMany(root => root.Descendants.Prepend(root)).SelectMany(thought => thought.LinksTo);
             foreach (Link candidate in candidates)
             {
                 if (candidate.From is null || candidate.LinkType is null || candidate.To is null ||

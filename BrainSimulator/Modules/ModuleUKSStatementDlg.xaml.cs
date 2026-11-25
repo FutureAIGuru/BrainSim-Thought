@@ -78,16 +78,17 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
 
         if (!CheckAddLinkFieldsFilled()) return;
 
-        TimeSpan timeToLive = TimeSpan.MaxValue;
+        const long cps = UKS.UKS.CyclesPerSecond;
+        long timeToLive = Thought.Forever;
         string timeToLiveText = ((ComboBoxItem)timeToLiveCombo.SelectedItem).Content.ToString();
         switch (timeToLiveText)
         {
-            case "Eternal": timeToLive = TimeSpan.MaxValue; break;
-            case "1 hr": timeToLive = TimeSpan.FromHours(1); break;
-            case "5 min": timeToLive = TimeSpan.FromMinutes(5); break;
-            case "1 min": timeToLive = TimeSpan.FromMinutes(1); break;
-            case "30 sec": timeToLive = TimeSpan.FromSeconds(30); break;
-            case "10 sec": timeToLive = TimeSpan.FromSeconds(10); break;
+            case "Eternal": timeToLive = Thought.Forever; break;
+            case "1 hr": timeToLive = 3600 * cps; break;
+            case "5 min": timeToLive = 300 * cps; break;
+            case "1 min": timeToLive = 60 * cps; break;
+            case "30 sec": timeToLive = 30 * cps; break;
+            case "10 sec": timeToLive = 10 * cps; break;
         }
         float confidence = (float)confidenceSlider.Value;
 
@@ -234,9 +235,11 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         }
 
         bool isNewStatement = UKSStatement.theUKS.GetLink(tSource, tLink, tTarget) is null;
-        bool sourceWasNeverFired = tSource.LastFiredTime == DateTime.MinValue;
-        bool linkTypeWasNeverFired = tLink.LastFiredTime == DateTime.MinValue;
-        bool targetWasNeverFired = tTarget?.LastFiredTime == DateTime.MinValue;
+        // Thoughts this statement created share its time to live (AddLink runs as one transaction).
+        UKSTransaction change = UKSStatement.theUKS.CurrentTransaction;
+        bool sourceIsNew = change?.Created(tSource) == true;
+        bool linkTypeIsNew = change?.Created(tLink) == true;
+        bool targetIsNew = tTarget is not null && change?.Created(tTarget) == true;
         var r1 = UKSStatement.theUKS.AddStatement(tSource, tLink, tTarget);
         //Link r1 = UKSStatement.AddTheLink(tSource, linkTypeString, toString);
 
@@ -248,9 +251,9 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
                 r1.Weight = confidence;
                 r1.TimeToLive = timeToLive;
             }
-            if (sourceWasNeverFired) r1.From.TimeToLive = timeToLive;
-            if (linkTypeWasNeverFired) r1.LinkType.TimeToLive = timeToLive;
-            if (targetWasNeverFired && r1.To is not null) r1.To.TimeToLive = timeToLive;
+            if (sourceIsNew) r1.From.TimeToLive = timeToLive;
+            if (linkTypeIsNew) r1.LinkType.TimeToLive = timeToLive;
+            if (targetIsNew && r1.To is not null) r1.To.TimeToLive = timeToLive;
         }
         if (r1 is not null && eventCB.IsChecked == true)
         {

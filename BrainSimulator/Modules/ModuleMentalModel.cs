@@ -93,17 +93,17 @@ public class ModuleMentalModel : ModuleBase
         if (existingLinks.Count == 1 && existingLink is not null)
         {
             SetActivationState(t, imagined);
-            if (existingLink.TimeToLive != TimeSpan.MaxValue)
-                existingLink.TimeToLive += TimeSpan.FromSeconds(5);
+            if (existingLink.TimeToLive != Thought.Forever)
+                existingLink.TimeToLive += 5 * UKS.UKS.CyclesPerSecond;
             return existingLink;
         }
         foreach (Link oldBinding in existingLinks)
             oldBinding.From?.RemoveLink(_ltContains, t);
         Link l = mmPosition.AddLink(_ltContains, t);
         l.Weight = weight;
-        l.TimeToLive = TimeSpan.FromSeconds(100);
+        l.TimeToLive = 100 * UKS.UKS.CyclesPerSecond;
         if (t.Label == "attention")
-            l.TimeToLive = TimeSpan.FromSeconds(3);
+            l.TimeToLive = 3 * UKS.UKS.CyclesPerSecond;
         SetActivationState(t, imagined);
 //        Debug.WriteLine("Binding: " + t.Label);
         return l;
@@ -125,14 +125,14 @@ public class ModuleMentalModel : ModuleBase
         if (existing is not null)
         {
             SetActivationState(thought, imagined);
-            if (existing.TimeToLive != TimeSpan.MaxValue)
-                existing.TimeToLive += TimeSpan.FromSeconds(5);
+            if (existing.TimeToLive != Thought.Forever)
+                existing.TimeToLive += 5 * UKS.UKS.CyclesPerSecond;
             return existing;
         }
 
         Link binding = mmPosition.AddLink(_ltContains, thought);
         binding.Weight = weight;
-        binding.TimeToLive = TimeSpan.FromSeconds(100);
+        binding.TimeToLive = 100 * UKS.UKS.CyclesPerSecond;
         SetActivationState(thought, imagined);
         return binding;
     }
@@ -151,7 +151,7 @@ public class ModuleMentalModel : ModuleBase
             thought.RemoveLink("is-a", "imaginedThought");
             activationLink = thought.AddLink("is-a", "activeThought");
         }
-        if (activationLink is not null) activationLink.TimeToLive = TimeSpan.MaxValue;
+        if (activationLink is not null) activationLink.TimeToLive = Thought.Forever;
     }
     public Link ImagineThought(Thought t, Thought mmPosition, float weight = 1f)
     {
@@ -167,7 +167,7 @@ public class ModuleMentalModel : ModuleBase
         t.RemoveLink("is-a", "activeThought");
         t.RemoveLink("is-a", "imaginedThought");
         Link l = t.AddLink("is-a", "inActiveThought");
-        l.TimeToLive = TimeSpan.FromSeconds(1);
+        l.TimeToLive = 1 * UKS.UKS.CyclesPerSecond;
     }
 
     /// <summary>
@@ -217,7 +217,7 @@ public class ModuleMentalModel : ModuleBase
     /// </summary>
     public IReadOnlyList<Link> ReplaceCurrentContents(
         IEnumerable<Thought> contents,
-        TimeSpan? timeToLive = null,
+        long? timeToLive = null,
         Thought location = null)
     {
         if (Center is null) return Array.Empty<Link>();
@@ -256,7 +256,7 @@ public class ModuleMentalModel : ModuleBase
 
         Thought attention = theUKS.GetOrAddThought("attention", "Abstract");
         Link binding = BindThoughtToMentalModel(attention, targetCell);
-        binding.TimeToLive = TimeSpan.MaxValue;
+        binding.TimeToLive = Thought.Forever;
         AttentionCell = targetCell;
         return targetCell;
     }
@@ -304,16 +304,18 @@ public class ModuleMentalModel : ModuleBase
     }
 
     /// <summary>
-    /// Seeing a scene entry again renews its volatile Mental Model binding.
-    /// Once it is outside the visual field, renewal stops and its normal TTL
-    /// removes it. Attention is persistent and does not need renewal.
+    /// Seeing a scene entry again renews its volatile Mental Model binding: while visible it keeps
+    /// at least <see cref="VisibleBindingLifetime"/>. Once it is outside the visual field, renewal
+    /// stops and its time to live runs out. Attention is persistent and does not need renewal.
     /// </summary>
+    /// <summary>Cycles a visible binding is kept alive after it was last seen (10 s).</summary>
+    public const long VisibleBindingLifetime = 10 * UKS.UKS.CyclesPerSecond;
+
     internal void RefreshVisibleContents()
     {
         if (_ltContains is null || _cells.Length == 0)
             return;
 
-        DateTime now = DateTime.Now;
         HashSet<Thought> boundContents = new();
         HashSet<Thought> perceivedContents = new();
         foreach (Thought cell in _cells.SelectMany(ring => ring ?? Array.Empty<Thought>()))
@@ -326,8 +328,8 @@ public class ModuleMentalModel : ModuleBase
                 if (binding.To.Label.Equals("attention", StringComparison.OrdinalIgnoreCase)) continue;
                 if (!IsInVisualField(cell) || IsImaginedThought(binding.To)) continue;
                 perceivedContents.Add(binding.To);
-                if (binding.TimeToLive != TimeSpan.MaxValue)
-                    binding.LastFiredTime = now;
+                if (binding.TimeToLive != Thought.Forever)
+                    binding.TimeToLive = Math.Max(binding.TimeToLive, VisibleBindingLifetime);
             }
         }
 
@@ -563,7 +565,7 @@ public class ModuleMentalModel : ModuleBase
         Thought allCells = theUKS.Labeled("_mm:cell");
         if (allCells is null) return;
 
-        var moves = new List<(Thought fromCell, Thought obj, TimeSpan ttl, float weight, Thought distThought)>();
+        var moves = new List<(Thought fromCell, Thought obj, long ttl, float weight, Thought distThought)>();
 
         foreach (var cell in allCells.Children)
         {
@@ -611,7 +613,7 @@ public class ModuleMentalModel : ModuleBase
         Thought allCells = theUKS.Labeled("_mm:cell");
         if (allCells is null || distanceForward == 0f) return;
 
-        var moves = new List<(Thought fromCell, Thought obj, TimeSpan ttl, float weight, double dist)>();
+        var moves = new List<(Thought fromCell, Thought obj, long ttl, float weight, double dist)>();
 
         foreach (var cell in allCells.Children)
         {

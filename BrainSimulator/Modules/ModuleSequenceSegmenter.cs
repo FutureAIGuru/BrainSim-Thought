@@ -31,7 +31,8 @@ public class ModuleSequenceSegmenter : ModuleBase
     private Thought _inputOccurrenceOptions;
     private DateTime _lastInputTrim;
 
-    public TimeSpan InputQueueLifetime { get; set; } = TimeSpan.FromSeconds(5);
+    /// <summary>Cycles an input stays in the queue (5 s).</summary>
+    public long InputQueueLifetime { get; set; } = 5 * UKS.UKS.CyclesPerSecond;
     public SeqElement InputQueueHead { get { return _inputQueueHead; } }
     public SeqElement CurrentPointer { get { return _currentPointer; } }
     public Thought InputPause { get { return _inputPause; } }
@@ -62,11 +63,11 @@ public class ModuleSequenceSegmenter : ModuleBase
     }
 
     /// <summary>Pops expired elements from the head; starts a fresh queue if all have expired.</summary>
-    public void TrimInputQueue(DateTime? now = null)
+    public void TrimInputQueue(long? nowCycle = null)
     {
-        DateTime cutoff = (now ?? DateTime.Now) - InputQueueLifetime;
+        long cutoff = (nowCycle ?? theUKS.Cycle) - InputQueueLifetime;
         SeqElement oldHead = _inputQueueHead;
-        while (_inputQueueHead is not null && _inputQueueHead.CreatedTime < cutoff)
+        while (_inputQueueHead is not null && _inputQueueHead.CreatedCycle < cutoff)
         {
             if (ReferenceEquals(_inputQueueHead, _currentPointer)) _currentPointer = _inputQueueHead.NXT;
             if (ReferenceEquals(_inputQueueHead, _learnerSpanStart)) _learnerSpanStart = null;
@@ -89,7 +90,7 @@ public class ModuleSequenceSegmenter : ModuleBase
 
     public void ClearInputQueue()
     {
-        TrimInputQueue(DateTime.MaxValue);
+        TrimInputQueue(long.MaxValue);
     }
 
     private void ResetInputQueueState()
@@ -138,7 +139,7 @@ public class ModuleSequenceSegmenter : ModuleBase
             if (now - _lastInputTrim >= TimeSpan.FromSeconds(1))
             {
                 _lastInputTrim = now;
-                TrimInputQueue(now);
+                TrimInputQueue();
             }
             if (_currentPointer is not null) ProcessQueuedInput();
         }

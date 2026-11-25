@@ -81,11 +81,11 @@ public class ModuleVisualInput : ModuleBase
     public static string ImageLabel { get; set; } = "Image";
     public static string HasImageLabel { get; set; } = "hasImage";
 
-    public TimeSpan PresentationLifetime { get; set; } = TimeSpan.FromSeconds(10);
+    public long PresentationLifetime { get; set; } = 10 * UKS.UKS.CyclesPerSecond;
     public double LessonStepIntervalSeconds { get; set; } = 0.1;
 
     public string AnonymousObjectPrefix { get; set; } = "O";
-    public TimeSpan ImaginationLifetime { get; set; } = TimeSpan.FromSeconds(10);
+    public long ImaginationLifetime { get; set; } = 10 * UKS.UKS.CyclesPerSecond;
     public ISet<string> BlockedMeaningLabels => ModuleText.BlockedMeaningLabels;
     private static string SubjectHeader => "# subject:";
     private readonly List<LessonEvent> _lessonEvents = new();
@@ -1121,7 +1121,8 @@ public class ModuleVisualInput : ModuleBase
 
     private string GetNextAnonymousObjectLabel()
     {
-        int highest = theUKS.AtomicThoughts
+        // Anonymous objects are made under Object (and may later join its subclasses).
+        int highest = (theUKS.Labeled("Object")?.Descendants ?? Enumerable.Empty<Thought>())
             .Where(IsAnonymousObject)
             .Select(thought => int.TryParse(
                     thought.Label[AnonymousObjectPrefix.Length..],

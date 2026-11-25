@@ -329,11 +329,11 @@ public class ModuleVisualInputTests
 
         visualInput.ClearPresentation(mentalModel);
         visualInput.SelectObservationFile("O2.txt");
-        DateTime lastFiredBeforeRecognition = existing.LastFiredTime;
+        existing.LastFiredCycle = 0;
         Thought replayed = visualInput.PresentSelected(1, mentalModel)!;
 
         Assert.Same(existing, replayed);
-        Assert.True(existing.LastFiredTime > lastFiredBeforeRecognition);
+        Assert.NotEqual(0, existing.LastFiredCycle); // recognition fired it
         Assert.Null(uks.Labeled("O4"));
         Assert.Null(existing.HasLink(uks.Labeled("has")!, uks.Labeled("fur")));
         Assert.Null(existing.HasLink(uks.Labeled("has.4")!, uks.Labeled("leg")));

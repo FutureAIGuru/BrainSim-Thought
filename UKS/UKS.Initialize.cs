@@ -17,11 +17,7 @@ public partial class UKS
 {
     public void CreateMinimumStructureForTests()
     {
-        theUKS = this;
-        AtomicThoughts.Clear();
-        ClearSequenceCache();
-        ThoughtLabels.ClearLabelList();
-        Thought.ClearRecentlyCreatedQueue();
+        Reset();
         AddThought("Thought", null);
         Thought isA = AddThought("is-a", null);
         Thought linkType = AddThought("LinkType", "Thought");
@@ -50,7 +46,6 @@ public partial class UKS
         //This deletes all the labels then adds back in the ones still in the AtomicThoughts list
 
         ThoughtLabels.ClearLabelList();
-        Thought.ClearRecentlyCreatedQueue();
         foreach (Thought t in AtomicThoughts)
             ThoughtLabels.AddThoughtLabel(t.Label, t);
         ClearSequenceCache();

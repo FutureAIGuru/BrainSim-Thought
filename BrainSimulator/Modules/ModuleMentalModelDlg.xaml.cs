@@ -116,7 +116,7 @@ public partial class ModuleMentalModelDlg : ModuleBaseDlg
                     rect.Fill = Brushes.SteelBlue;
                 if (cells[r][k] == parent.Center)
                     rect.Fill = Brushes.Pink;
-                if (t.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(1))
+                if (t.FiredWithin(UKS.UKS.CyclesPerSecond))
                     rect.Fill = Brushes.AliceBlue;
                 var containsLinks = t.LinksTo
                     .Where(x => x.LinkType.Label == "_mm:contains")
@@ -277,13 +277,12 @@ public partial class ModuleMentalModelDlg : ModuleBaseDlg
         double imaginedOpacity)
     {
         double opacity = imagined ? Math.Clamp(imaginedOpacity, 0, 1) : 1;
-        if (containsLink.TimeToLive >= TimeSpan.MaxValue)
+        if (containsLink.TimeToLive == Thought.Forever)
             return opacity;
 
-        TimeSpan remaining = containsLink.LastFiredTime +
-            containsLink.TimeToLive - DateTime.Now;
-        if (remaining < TimeSpan.FromSeconds(5))
-            opacity *= Math.Clamp(remaining.TotalSeconds / 5.0, 0, 1);
+        // Fades out over the last 5 seconds of its time to live.
+        double fadeCycles = 5.0 * UKS.UKS.CyclesPerSecond;
+        opacity *= Math.Clamp(containsLink.TimeToLive / fadeCycles, 0, 1);
         return opacity;
     }
 

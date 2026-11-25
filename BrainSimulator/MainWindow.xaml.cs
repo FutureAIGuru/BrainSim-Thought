@@ -151,8 +151,7 @@ namespace BrainSimulator
 
         public void CreateEmptyUKS()
         {
-            theUKS.AtomicThoughts.Clear();
-            theUKS = new UKS.UKS();
+            theUKS.Reset();
             theUKS.CreateInitialStructure();  //creates the "thought" substructure
 
             if (theUKS.Labeled("BrainSim") is null)
@@ -301,8 +300,16 @@ namespace BrainSimulator
         }
 
         //THIS IS THE MAIN ENGINE LOOP
+        private UKS.UKS clockedUKS;
         private void Dt_Tick(object sender, EventArgs e)
         {
+            // The UKS clock runs on its own thread; keep it on the current store (loading a file replaces it).
+            if (!ReferenceEquals(clockedUKS, theUKS))
+            {
+                clockedUKS?.StopClock();
+                clockedUKS = theUKS;
+                clockedUKS.StartClock();
+            }
             Thought activeModuleParent = theUKS.Labeled("ActiveModule");
             if (activeModuleParent is null) return;
             foreach (Thought module in activeModuleParent.Children)

@@ -779,7 +779,7 @@ sealed class GPTInfoApi : ModuleApi
         output = "Verifying all is-a links";
         int count = 0;
         var pending = new List<Task>();
-        foreach (Thought t in m.theUKS.AtomicThoughts.ToList())
+        foreach (Thought t in m.theUKS.Roots().SelectMany(root => root.Descendants.Prepend(root)).ToList())
         {
             if (t.Parents.FirstOrDefault(x => x.Label == "Unknown") is not null) continue;
             if (!t.Label.StartsWith('.') || t.Label == ".") continue;

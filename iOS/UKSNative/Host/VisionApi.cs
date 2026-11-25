@@ -90,10 +90,10 @@ sealed class VisionApi : ModuleApi
                     bits[y * state.BoundaryWidth + x] = boundary[x, y] ? '1' : '0';
             state.Boundary = new string(bits);
 
-            DateTime now = DateTime.Now;
-            foreach (Thought t in Fired(uks, "patch", now - TimeSpan.FromSeconds(10), StringComparison.OrdinalIgnoreCase))
+            long now = uks.Cycle;
+            foreach (Thought t in Fired(uks, "patch", now - 10 * UKS.UKS.CyclesPerSecond))
                 if (Patch(t, now) is { } patch) state.Patches.Add(patch);
-            foreach (Thought t in Fired(uks, "corner", new DateTime(1), StringComparison.Ordinal))
+            foreach (Thought t in Fired(uks, "corner", 1))
                 if (Position(t.Label) is var (x, y))
                     state.Corners.Add(new CornerDto { Label = t.Label, X = x, Y = y, Weight = t.Weight });
         }
@@ -129,11 +129,11 @@ sealed class VisionApi : ModuleApi
     }
 
     /// <summary>
-    /// Thoughts whose label starts with `prefix` that fired at or after `since`. Checks the
-    /// time first: this runs on every poll over the whole UKS, and few Thoughts fired.
+    /// The members of one of Vision's classes (patch, corner) that fired at or after cycle `since`.
     /// </summary>
-    static List<Thought> Fired(UKS.UKS uks, string prefix, DateTime since, StringComparison comparison) =>
-        uks.AtomicThoughts.Where(x => x.LastFiredTime >= since && x.Label.StartsWith(prefix, comparison)).ToList();
+    static List<Thought> Fired(UKS.UKS uks, string className, long since) =>
+        (uks.Labeled(className)?.Descendants ?? Enumerable.Empty<Thought>())
+            .Where(x => x.LastFiredCycle >= since).ToList();
 
     /// <summary>"patch_07_03_2" or "Pt_07_03" → (7, 3).</summary>
     static (int x, int y)? Position(string label)
@@ -142,10 +142,11 @@ sealed class VisionApi : ModuleApi
         return parts.Length >= 3 && int.TryParse(parts[1], out int x) && int.TryParse(parts[2], out int y) ? (x, y) : null;
     }
 
-    static PatchDto Patch(Thought t, DateTime now)
+    static PatchDto Patch(Thought t, long now)
     {
         if (t.Label.Split('_').Length < 4 || Position(t.Label) is not var (x, y)) return null;
-        var patch = new PatchDto { Label = t.Label, X = x, Y = y, Weight = t.Weight, FiredAgo = (now - t.LastFiredTime).TotalSeconds };
+        double firedAgo = (double)(now - t.LastFiredCycle) / UKS.UKS.CyclesPerSecond;
+        var patch = new PatchDto { Label = t.Label, X = x, Y = y, Weight = t.Weight, FiredAgo = firedAgo };
         foreach (Link pt in t.LinksTo.Where(l => l.LinkType?.Label == "hasBoundary"))
             if (pt.To is not null && Position(pt.To.Label) is var (bx, by))
                 patch.Boundary.Add(new WeightedPointDto { X = bx, Y = by, Weight = pt.Weight, MaxWeight = pt.maxWeight });

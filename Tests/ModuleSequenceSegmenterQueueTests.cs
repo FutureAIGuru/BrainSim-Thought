@@ -50,12 +50,12 @@ public partial class ModuleSequenceSegmenterTests
     {
         var uks = CreateUKS();
         var module = CreateInitializedSegmenter(uks);
-        module.InputQueueLifetime = TimeSpan.FromSeconds(5);
+        module.InputQueueLifetime = 5 * UKS.UKS.CyclesPerSecond;
         Thought a = uks.GetOrAddThought("queue:a");
         module.QueueInput(new[] { a, a, a });
         SeqElement next = module.InputQueueHead.NXT;
         var before = uks.FlattenSequence(module.InputQueueHead);
-        module.TrimInputQueue(DateTime.Now);
+        module.TrimInputQueue(uks.Cycle);
         Assert.Same(next, module.InputQueueHead.NXT);
         Assert.Equal(before, uks.FlattenSequence(module.InputQueueHead));
     }
@@ -70,7 +70,7 @@ public partial class ModuleSequenceSegmenterTests
         module.QueueInput(new[] { a, b });
         SeqElement oldHead = module.InputQueueHead;
         SeqElement expired = oldHead.NXT;
-        module.TrimInputQueue(DateTime.Now.AddSeconds(6));
+        module.TrimInputQueue(uks.Cycle + 6 * UKS.UKS.CyclesPerSecond);
         Assert.NotSame(oldHead, module.InputQueueHead);
         Assert.DoesNotContain(oldHead, uks.AtomicThoughts);
         Assert.DoesNotContain(expired, uks.AtomicThoughts);
@@ -94,8 +94,9 @@ public partial class ModuleSequenceSegmenterTests
         module.QueueInput(new[] { a, a });
         SeqElement oldHead = module.InputQueueHead;
         SeqElement oldTail = uks.GetLastlement(oldHead);
-        DateTime cutoff = DateTime.Now.AddTicks(1);
-        System.Threading.Thread.Sleep(15);
+        long cutoff = uks.Cycle + 1;
+        uks.AdvanceCycle();
+        uks.AdvanceCycle();
         module.QueueInput(new[] { b, b });
         SeqElement recent = oldTail.NXT;
         module.TrimInputQueue(cutoff + module.InputQueueLifetime);
@@ -113,13 +114,13 @@ public partial class ModuleSequenceSegmenterTests
         var uks = CreateUKS();
         var sound = CreateInitializedSegmenter(uks);
         var sight = CreateInitializedSegmenter(uks);
-        sound.InputQueueLifetime = TimeSpan.FromSeconds(1);
-        sight.InputQueueLifetime = TimeSpan.FromSeconds(10);
+        sound.InputQueueLifetime = 1 * UKS.UKS.CyclesPerSecond;
+        sight.InputQueueLifetime = 10 * UKS.UKS.CyclesPerSecond;
         Thought a = uks.GetOrAddThought("queue:a");
         sound.QueueInput(new[] { a, a });
         sight.QueueInput(new[] { a, sight.InputPause });
         SeqElement sightPointer = sight.CurrentPointer;
-        sound.TrimInputQueue(DateTime.Now.AddSeconds(2));
+        sound.TrimInputQueue(uks.Cycle + 2 * UKS.UKS.CyclesPerSecond);
         Assert.Equal(new[] { sound.InputPause }, ReadQueue(sound));
         Assert.Null(sound.CurrentPointer);
         Assert.Same(sightPointer, sight.CurrentPointer);
@@ -163,7 +164,7 @@ public partial class ModuleSequenceSegmenterTests
         Thought a = uks.GetOrAddThought("queue:a");
         SeqElement value = uks.CreateFirstElement("queue-value", a);
         module.QueueInput(new Thought[] { value, a, a });
-        module.TrimInputQueue(DateTime.Now.AddSeconds(6));
+        module.TrimInputQueue(uks.Cycle + 6 * UKS.UKS.CyclesPerSecond);
         Assert.Same(a, value.VLU);
         Assert.Same(value, uks.Labeled(value.Label));
         module.QueueInput(new Thought[] { value });

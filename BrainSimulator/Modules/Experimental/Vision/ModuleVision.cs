@@ -459,10 +459,10 @@ public partial class ModuleVision : ModuleBase
         List<Thought> displayed = DisplayedThoughts();
         bool dontClearBoundaryImage = false;
         foreach (var t in displayed)
-            if (t.LastFiredTime > DateTime.Now - TimeSpan.FromSeconds(10)) dontClearBoundaryImage = true;
+            if (t.FiredWithin(10 * UKS.UKS.CyclesPerSecond)) dontClearBoundaryImage = true;
 
         foreach (var t in displayed) t.Weight = 0;
-        foreach (var t in displayed) t.LastFiredTime = new DateTime(0);
+        foreach (var t in displayed) t.LastFiredCycle = 0;
 
         //if (dontClearBoundaryImage || boundaryArray == null)
         //    return;
@@ -934,7 +934,7 @@ public partial class ModuleVision : ModuleBase
 
         //here we parse
         //objects out of the Xml stream
-        foreach (Thought t in theUKS.AtomicThoughts)
+        foreach (Thought t in theUKS.Roots().SelectMany(root => root.Descendants.Prepend(root)))
         {
             if (t.V is System.Xml.XmlNode[] nodes)
             {

@@ -20,10 +20,10 @@ namespace BrainSimulator.Modules;
 
 public partial class ModuleAlgorithm : ModuleBase
 {
-    private TimeSpan linkTimeToLive = TimeSpan.FromSeconds(5);
+    private long linkTimeToLive = 5 * UKS.UKS.CyclesPerSecond;
     // Working Relationships must survive engine delays and pauses in single-step mode.
     // Their normal lifetimes resume once execution ends.
-    private readonly Dictionary<Link, TimeSpan> taskLinkLifetimes = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<Link, long> taskLinkLifetimes = new(ReferenceEqualityComparer.Instance);
     //private SeqElement currentStep = null;
     private DateTime lastCycle = DateTime.Now;
 
@@ -95,10 +95,7 @@ public partial class ModuleAlgorithm : ModuleBase
         if (activeSteps.Count == 0)
         {
             foreach (var entry in taskLinkLifetimes)
-            {
-                entry.Key.LastFiredTime = DateTime.Now;
                 entry.Key.TimeToLive = entry.Value;
-            }
             taskLinkLifetimes.Clear();
             LastAction = $"TASK COMPLETE ({CycleCount} cycles): {LastLinkWritten?.ToString()}";
             return false;
@@ -253,24 +250,19 @@ public partial class ModuleAlgorithm : ModuleBase
                     Link newLink = theUKS.AddStatement(newFrom, newLinkType, newTarget);
                     if (newLink is null) return false;
                     taskLinkLifetimes[newLink] = linkTimeToLive;
-                    newLink.TimeToLive = TimeSpan.MaxValue;
+                    newLink.TimeToLive = Thought.Forever;
                     LastLinkWritten = newLink; // <-- Save the last link written for UI
                     LastAction = $"STEP {CycleCount}: {newLink.ToString()}"; //also for UI
                 }
                 else //extend the TLL of an existing link.  This should become an inherent property of Thoughts
                 {
-                    if (taskLinkLifetimes.TryGetValue(existingLink, out TimeSpan savedLifetime))
-                    {
-                        existingLink.LastFiredTime = DateTime.Now;
+                    if (taskLinkLifetimes.TryGetValue(existingLink, out long savedLifetime))
                         existingLink.TimeToLive = savedLifetime;
-                    }
                     existingLink.Fire();
-                    if (existingLink.TimeToLive < TimeSpan.MaxValue / 2)
-                        existingLink.TimeToLive *= 2;
-                    if (existingLink.TimeToLive != TimeSpan.MaxValue)
+                    if (existingLink.TimeToLive != Thought.Forever)
                     {
-                        taskLinkLifetimes[existingLink] = existingLink.TimeToLive;
-                        existingLink.TimeToLive = TimeSpan.MaxValue;
+                        taskLinkLifetimes[existingLink] = existingLink.TimeToLive * 2;
+                        existingLink.TimeToLive = Thought.Forever;
                     }
                     LastLinkWritten = existingLink; // <-- Save as the last link written
                     LastAction = $"STEP {CycleCount}: {existingLink.ToString()}";
@@ -341,7 +333,7 @@ public partial class ModuleAlgorithm : ModuleBase
         HandleFiringNeurons();
         // Set link time-to-live based on execution mode
         // Single-step mode gets longer TTL since user is manually stepping through
-        linkTimeToLive = IsSingleStepMode ? TimeSpan.FromSeconds(60) : TimeSpan.FromSeconds(30);
+        linkTimeToLive = (IsSingleStepMode ? 60 : 30) * UKS.UKS.CyclesPerSecond;
         LastLinkWritten = null;
         CycleCount = 0;
         LastAction = "";

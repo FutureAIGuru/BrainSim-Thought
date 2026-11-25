@@ -658,7 +658,7 @@ public partial class ModuleSequenceSegmenterTests
         var uks = CreateUKS();
         var module = CreateInitializedSegmenter(uks);
         ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
-        module.TrimInputQueue(System.DateTime.Now.AddSeconds(6));
+        module.TrimInputQueue(uks.Cycle + 6 * UKS.UKS.CyclesPerSecond);
         ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
         Assert.Empty(module.PatternRoot.Children);
     }

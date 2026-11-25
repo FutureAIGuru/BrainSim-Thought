@@ -101,8 +101,8 @@ public class InheritanceCh5PhaseDRegressionTests
         Link located = uks.AddStatement("Fido", "located-in", "yard");
         Link stable = uks.AddStatement("Fido", "is-a", "dog");
 
-        Assert.Equal(TimeSpan.FromSeconds(30), located.TimeToLive);
-        Assert.Equal(TimeSpan.MaxValue, stable.TimeToLive);
+        Assert.Equal(30 * global::UKS.UKS.CyclesPerSecond, located.TimeToLive);
+        Assert.Equal(Thought.Forever, stable.TimeToLive);
     }
 
     [Fact]

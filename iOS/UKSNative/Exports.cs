@@ -209,8 +209,7 @@ public static partial class Exports
         InheritedFrom = l.InheritedFromCategory?.Label,
         IsConditional = UKS.UKS.IsConditionalLinkType(l.LinkType),
         Text = Format(l),
-        TimeToLive = l.TimeToLive == TimeSpan.MaxValue || l.TimeToLive > DateTime.MaxValue - l.LastFiredTime
-            ? null : Math.Max(0, (l.LastFiredTime + l.TimeToLive - DateTime.Now).TotalSeconds),
+        TimeToLive = l.TimeToLive == Thought.Forever ? null : (double)l.TimeToLive / UKS.UKS.CyclesPerSecond,
     };
 
     // Same rules as the desktop ModuleUKSStatement
@@ -290,7 +289,7 @@ public static partial class Exports
                     if (clear != 0) shared = new UKS.UKS(true);
                     CreateEmptyUKS();
                 }
-                return Store.AtomicThoughts.Count;
+                return Store.ThoughtCount();
             }
             catch { return -1; }
         }
@@ -300,7 +299,7 @@ public static partial class Exports
     public static int ThoughtCount()
     {
         // Lock-free: reading a count is safe, and the app asks for it from the main thread.
-        return (shared ?? Store).AtomicThoughts.Count;
+        return (shared ?? Store).ThoughtCount();
     }
 
     // ---------- statements ----------
@@ -368,7 +367,7 @@ public static partial class Exports
         if (existing is not null && !ReferenceEquals(existing, t)) throw new ArgumentException($"'{newLabel}' is already used.");
         t.Label = newLabel;
         // clear any time-to-live on this newly named Thought
-        if (t.LinksFrom.FirstOrDefault(x => x.LinkType?.Label == "is-a") is Link isALink) isALink.TimeToLive = TimeSpan.MaxValue;
+        if (t.LinksFrom.FirstOrDefault(x => x.LinkType?.Label == "is-a") is Link isALink) isALink.TimeToLive = Thought.Forever;
         return Ok(t.Label);
     });
 
@@ -416,8 +415,8 @@ public static partial class Exports
     /// <summary>Thoughts with no parents (the tree roots, e.g. Thought, BrainSim).</summary>
     [UnmanagedCallersOnly(EntryPoint = "uks_roots")]
     public static IntPtr Roots() => Guard(() =>
-        Json(Store.AtomicThoughts
-            .Where(t => t is not Link && t.Label != "" && t.Parents.Count == 0)
+        Json(Store.Roots()
+            .Where(t => t.Label != "")
             .Select(t => t.Label)
             .OrderBy(l => l != "Thought")
             .ThenBy(l => l, StringComparer.OrdinalIgnoreCase)
@@ -457,7 +456,7 @@ public static partial class Exports
 
         if (rootLabel == "")
         {
-            foreach (Thought t in uks.AtomicThoughts.Where(t => t is not Link))
+            foreach (Thought t in uks.Roots().SelectMany(root => root.Descendants.Prepend(root)))
             {
                 if (depthOf.Count >= maxNodes) { graph.Truncated = true; break; }
                 depthOf[t] = 0;
@@ -724,7 +723,7 @@ public static partial class Exports
         bool loaded = Store.LoadUKSfromXMLFile(In(pPath));
         AfterLoad();
         return loaded
-            ? Ok($"Loaded {Store.AtomicThoughts.Count} Thoughts")
+            ? Ok($"Loaded {Store.ThoughtCount()} Thoughts")
             : throw new IOException("Load failed (file missing or not a UKS XML file).");
     });
 
@@ -732,7 +731,7 @@ public static partial class Exports
     public static IntPtr ImportText(IntPtr pPath) => Guard(() =>
     {
         Store.ImportTextFile(In(pPath));
-        return Ok($"Imported; {Store.AtomicThoughts.Count} Thoughts");
+        return Ok($"Imported; {Store.ThoughtCount()} Thoughts");
     });
 
     [UnmanagedCallersOnly(EntryPoint = "uks_export_text")]

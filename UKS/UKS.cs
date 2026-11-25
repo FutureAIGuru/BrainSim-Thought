@@ -27,8 +27,6 @@ public partial class UKS
     /// <summary>Raised whenever a Thought in this UKS fires. Handlers run on the firing thread and should be brief.</summary>
     public event Action<Thought>? ThoughtFired;
     internal void RaiseThoughtFired(Thought thought) => ThoughtFired?.Invoke(thought);
-    internal readonly Queue<Thought> RecentlyCreated = new();
-    internal readonly object RecentlyCreatedLock = new();
     private static readonly AsyncLocal<UKS?> currentUKS = new();
 
     // A flattened copy of the UKS used while saving and loading XML: circular references are
@@ -36,10 +34,31 @@ public partial class UKS
     private List<sThought> UKSTemp = new();
 
     /// <summary>
-    /// Occasionally a set of all the atomic Thoughts in the UKS is needed.
+    /// Every Thought in the store, for the UKS's own use (and its tests). Outside code reaches
+    /// Thoughts through labels, links, <see cref="Roots"/> and the counts.
     /// Membership uses object identity so changing a label cannot invalidate an entry.
     /// </summary>
-    public HashSet<Thought> AtomicThoughts { get => uKSList; }
+    internal HashSet<Thought> AtomicThoughts { get => uKSList; }
+
+    // Every stored Thought, link and sequence element has a label (only private, unlabeled patterns
+    // don't), so the counts come from the label index, which is safe to read while other threads write.
+
+    /// <summary>The number of Thoughts in the store, not counting links or sequence elements.</summary>
+    public int ThoughtCount() => Labels.Values.Count(thought => thought is not Link && thought is not SeqElement);
+
+    /// <summary>The number of links in the store, including those within sequences.</summary>
+    public int LinkCount() => Labels.Values.Count(thought => thought is Link);
+
+    /// <summary>The number of sequence elements in the store.</summary>
+    public int SequenceElementCount() => Labels.Values.Count(thought => thought is SeqElement);
+
+    /// <summary>The Thoughts with no parents, the tops of the hierarchy (e.g. Thought, BrainSim).</summary>
+    public List<Thought> Roots()
+    {
+        List<Thought> thoughts;
+        lock (AtomicThoughts) thoughts = AtomicThoughts.Where(thought => thought is not Link).ToList();
+        return thoughts.Where(thought => thought.Parents.Count == 0).ToList();
+    }
 
     /// <summary>
     /// Current UKS for implicit string conversion and legacy static helpers.
@@ -59,12 +78,23 @@ public partial class UKS
     public UKS(bool clear = false)
     {
         theUKS = this;
-        if (AtomicThoughts.Count == 0 || clear)
-        {
-            AtomicThoughts.Clear();
-            Labels.Clear();
-        }
-        UKSTemp.Clear();
+    }
+
+    /// <summary>
+    /// Empties the store: every Thought and label, the sequence cache, the undo history and
+    /// everything counting down, and the cycle starts again at 1. Selects this store.
+    /// Call <see cref="CreateInitialStructure"/> afterward for the core types.
+    /// </summary>
+    public void Reset()
+    {
+        theUKS = this;
+        lock (AtomicThoughts) AtomicThoughts.Clear();
+        Labels.Clear();
+        nextGeneratedLabel = 999;
+        ClearSequenceCache();
+        ClearMortalThoughts();
+        ClearUndoHistory();
+        Cycle = 1;
     }
 
     // Handy for temporarily suppressing firing during bulk updates or similar operations
@@ -483,7 +513,9 @@ public partial class UKS
         kept.Weight = Math.Max(kept.Weight, merged.Weight);
         kept.maxWeight = Math.Max(kept.maxWeight, merged.maxWeight);
         kept.isPlastic |= merged.isPlastic;
-        if (merged.LastFiredTime > kept.LastFiredTime) kept.LastFiredTime = merged.LastFiredTime;
-        if (merged.TimeToLive > kept.TimeToLive) kept.TimeToLive = merged.TimeToLive;
+        kept.LastFiredCycle = Math.Max(kept.LastFiredCycle, merged.LastFiredCycle);
+        if (kept.TimeToLive != Thought.Forever &&
+            (merged.TimeToLive == Thought.Forever || merged.TimeToLive > kept.TimeToLive))
+            kept.TimeToLive = merged.TimeToLive;
     }
 }

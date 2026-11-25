@@ -232,7 +232,7 @@ public partial class UKS
     {
         Thought? ephemeral = Labeled("isEphemeral");
         if (ephemeral is not null && lnk.LinkType?.HasProperty(ephemeral) == true)
-            lnk.TimeToLive = TimeSpan.FromSeconds(30);
+            lnk.TimeToLive = 30 * CyclesPerSecond;
     }
 
     public static void WriteTheLink(Link lnk)

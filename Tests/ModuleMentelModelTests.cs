@@ -31,7 +31,7 @@ public class ModuleMentelModelTests
         Assert.Contains(uks.Labeled("activeThought")!, attention.Parents);
         Link activation = Assert.Single(attention.LinksTo.Where(link =>
             link.LinkType == Thought.IsA && link.To == uks.Labeled("activeThought")));
-        Assert.Equal(TimeSpan.MaxValue, activation.TimeToLive);
+        Assert.Equal(Thought.Forever, activation.TimeToLive);
         Link location = Assert.Single(attention.LinksFrom.Where(link => link.LinkType?.Label == "_mm:contains"));
         Assert.Same(module.AttentionCell, location.From);
     }
@@ -114,14 +114,13 @@ public class ModuleMentelModelTests
         Thought perceived = uks.GetOrAddThought("perceived", "Object");
         Link imaginedBinding = module.ImagineThought(imagined, module.Center);
         Link perceivedBinding = module.BindThoughtToMentalModel(perceived, module.Center);
-        DateTime oldTime = DateTime.Now - TimeSpan.FromSeconds(3);
-        imaginedBinding.LastFiredTime = oldTime;
-        perceivedBinding.LastFiredTime = oldTime;
+        imaginedBinding.TimeToLive = 5;
+        perceivedBinding.TimeToLive = 5;
 
         module.RefreshVisibleContents();
 
-        Assert.Equal(oldTime, imaginedBinding.LastFiredTime);
-        Assert.True(perceivedBinding.LastFiredTime > oldTime);
+        Assert.Equal(5, imaginedBinding.TimeToLive);
+        Assert.Equal(ModuleMentalModel.VisibleBindingLifetime, perceivedBinding.TimeToLive);
     }
 
     [Fact]
@@ -132,8 +131,8 @@ public class ModuleMentelModelTests
         module.UKSInitializedNotification();
         Thought imagined = uks.GetOrAddThought("imagined", "Object");
         Link binding = module.ImagineThought(imagined, module.Center);
-        binding.TimeToLive = TimeSpan.FromMilliseconds(10);
-        binding.LastFiredTime = DateTime.Now - TimeSpan.FromSeconds(1);
+        binding.TimeToLive = 1;
+        uks.AdvanceCycle();
 
         module.RefreshVisibleContents();
 
