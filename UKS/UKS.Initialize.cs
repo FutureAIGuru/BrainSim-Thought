@@ -21,7 +21,6 @@ public partial class UKS
         AtomicThoughts.Clear();
         ClearSequenceCache();
         ThoughtLabels.ClearLabelList();
-        Thought.ClearRecentlyFiredQueue();
         Thought.ClearRecentlyCreatedQueue();
         AddThought("Thought", null);
         Thought isA = AddThought("is-a", null);
@@ -51,7 +50,6 @@ public partial class UKS
         //This deletes all the labels then adds back in the ones still in the AtomicThoughts list
 
         ThoughtLabels.ClearLabelList();
-        Thought.ClearRecentlyFiredQueue();
         Thought.ClearRecentlyCreatedQueue();
         foreach (Thought t in AtomicThoughts)
             ThoughtLabels.AddThoughtLabel(t.Label, t);

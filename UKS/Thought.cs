@@ -110,8 +110,6 @@ public partial class Thought
 {
     /// <summary>The independent UKS containing this Thought; never changes after construction.</summary>
     public UKS Store { get; }
-    private static Queue<Thought> recentlyFired => UKS.theUKS.RecentlyFired;
-    private static object recentlyFiredLock => UKS.theUKS.RecentlyFiredLock;
     private static Queue<Thought> recentlyCreated => UKS.theUKS.RecentlyCreated;
     private static object recentlyCreatedLock => UKS.theUKS.RecentlyCreatedLock;
 
@@ -226,7 +224,6 @@ public partial class Thought
                 child.AddParent(unknown);
         }
 
-        DeleteFromRecentlyFired(this);
         DeleteFromRecentlyCreated(this);
         ThoughtLabels.RemoveThoughtLabel(Label, Store);
         lock (Store.AtomicThoughts)
@@ -468,7 +465,7 @@ public partial class Thought
     }
 
     /// <summary>
-    /// Updates the last-fired time on a Thought.
+    /// Fires the Thought: records the time, extends its time to live, and raises <see cref="UKS.ThoughtFired"/>.
     /// </summary>
     public void Fire()
     {
@@ -476,76 +473,8 @@ public partial class Thought
             return;
             
         LastFiredTime = DateTime.Now;
-        AddToRecentlyFired();
         UpdateTimeToLive();
-    }
-
-    private void AddToRecentlyFired()
-    {
-        int maxCount = 100;
-        lock (Store.RecentlyFiredLock)
-        {
-            Store.RecentlyFired.Enqueue(this);
-            while (Store.RecentlyFired.Count > maxCount) _ = Store.RecentlyFired.Dequeue();
-        }
-    }
-    public static void DeleteFromRecentlyFired(Thought t)
-    {
-        lock (t.Store.RecentlyFiredLock)
-        {
-            var tempList = t.Store.RecentlyFired.Where(x => x != t).ToList();
-            t.Store.RecentlyFired.Clear();
-            foreach (var item in tempList)
-                t.Store.RecentlyFired.Enqueue(item);
-        }
-    }
-    public static IReadOnlyList<Thought> GetRecentlyFiredThoughts(TimeSpan recency)
-    {
-        //remove duplicates while preserving order (keeping the most recent occurrence of each Thought)
-        DateTime cutoff = DateTime.MinValue;
-        if (recency < DateTime.Now-DateTime.MinValue) cutoff =    DateTime.Now - recency;
-        Thought[] snapshot;
-        lock (recentlyFiredLock)
-            snapshot = recentlyFired.Where(x=>x.LastFiredTime > cutoff).ToArray();
-        var seen = new HashSet<Thought>();
-        var resultRev = new List<Thought>();
-        foreach (var item in snapshot.Reverse())
-        {
-            if (seen.Add(item))
-                resultRev.Add(item); // keep first time we see it from the back (i.e., the last occurrence)
-        }
-        return resultRev;
-    }
-    public static void FireAllRecentlyFiredThoughts(TimeSpan recency)
-    {
-        DateTime cutoff = DateTime.Now - recency;
-        List<Thought> resultRev;
-        lock (recentlyFiredLock)
-        {
-            var snapshot = recentlyFired.ToArray();
-            var seen = new HashSet<Thought>();
-            resultRev = new List<Thought>();
-
-            foreach (var item in snapshot.Reverse())
-            {
-                if (seen.Add(item))
-                    resultRev.Add(item);
-            }
-            resultRev.Reverse();
-            recentlyFired.Clear();
-            foreach (var item in resultRev)
-                recentlyFired.Enqueue(item);
-        }
-
-        foreach (Thought t in resultRev.Where(x => x.LastFiredTime > cutoff))
-        {
-            t.Fire();
-        }
-    }
-    public static void ClearRecentlyFiredQueue()
-    {
-        lock (recentlyFiredLock)
-            recentlyFired.Clear();
+        Store.RaiseThoughtFired(this);
     }
 
     private void AddToRecentlyCreated()

@@ -24,8 +24,9 @@ public partial class UKS
     private readonly HashSet<Thought> uKSList = new(ReferenceEqualityComparer.Instance);
     internal readonly System.Collections.Concurrent.ConcurrentDictionary<string, Thought> Labels = new();
     private long nextGeneratedLabel = 999;
-    internal readonly Queue<Thought> RecentlyFired = new();
-    internal readonly object RecentlyFiredLock = new();
+    /// <summary>Raised whenever a Thought in this UKS fires. Handlers run on the firing thread and should be brief.</summary>
+    public event Action<Thought>? ThoughtFired;
+    internal void RaiseThoughtFired(Thought thought) => ThoughtFired?.Invoke(thought);
     internal readonly Queue<Thought> RecentlyCreated = new();
     internal readonly object RecentlyCreatedLock = new();
     private static readonly AsyncLocal<UKS?> currentUKS = new();

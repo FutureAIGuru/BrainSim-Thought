@@ -371,7 +371,6 @@ public partial class UKS
         AtomicThoughts.Clear();
         ThoughtLabels.ClearLabelList();
         ClearSequenceCache();
-        Thought.ClearRecentlyFiredQueue();
         Thought.ClearRecentlyCreatedQueue();
         // Allocate all Thoughts before wiring links by their saved indices.
         //allocate all the thoughts

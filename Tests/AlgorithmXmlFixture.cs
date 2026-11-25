@@ -29,7 +29,6 @@ public sealed class AlgorithmXmlFixture
     {
         var uks = new UKS(clear: true);
         UKS.theUKS = uks;
-        Thought.ClearRecentlyFiredQueue();
 
         uks.RestoreFromUkTempSnapshot(CloneSnapshot(snapshot));
 

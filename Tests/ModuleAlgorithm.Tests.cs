@@ -28,7 +28,6 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
         uks = new UKS(clear: true);
         uks.CreateInitialStructure();
         UKS.theUKS = uks;
-        Thought.ClearRecentlyFiredQueue();
 
         module = new ModuleAlgorithm();
         module.theUKS = uks;

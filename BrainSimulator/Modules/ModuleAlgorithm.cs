@@ -46,6 +46,11 @@ public partial class ModuleAlgorithm : ModuleBase
     public string LastAction = "";
     public int CycleCount = 0;
 
+    // Thoughts fired since the last cycle (oldest first), collected from the UKS ThoughtFired event.
+    private const int maxFiredThoughts = 100;
+    private readonly Queue<Thought> firedThoughts = new();
+    private UKS.UKS listeningTo;
+
     // Fill this method in with code which will execute
     // once for each cycle of the engine
     public override void Fire()
@@ -55,6 +60,7 @@ public partial class ModuleAlgorithm : ModuleBase
         {
             if (theUKS.SuppressFiring) return;
             Init();
+            ListenForFiring();
             if (DateTime.Now < lastCycle + TimeSpan.FromMilliseconds(250))
                 return;
             lastCycle = DateTime.Now;
@@ -71,20 +77,12 @@ public partial class ModuleAlgorithm : ModuleBase
     private bool HandleFiringNeurons()
     {
         //return false;
-        var activeSteps = Thought.GetRecentlyFiredThoughts(TimeSpan.MaxValue); //for debug, no timeout
-        Thought.ClearRecentlyFiredQueue();
+        List<Thought> activeSteps = TakeFiredThoughts();
         foreach (var activeStep in activeSteps)
         {
-            Thought.DeleteFromRecentlyFired(activeStep); //ensure we detect thought firing only once
-            // Data sequences (including Paths) are not Instruction Blocks.
+            ForgetFiring(activeStep); //ensure we detect thought firing only once
             if (activeStep is SeqElement step)
-            {
-                SeqElement first = step.FRST ?? step;
-                Thought stepsType = theUKS.Labeled("steps");
-                if (!first.LinksFrom.Any(link => ReferenceEquals(link.LinkType, stepsType)))
-                    continue;
                 LastExecutedStep = step;
-            }
             CycleCount++;
             FireNextStatement(activeStep);
             //Cases: EntryPoint, Call, Context, Assignment
@@ -108,6 +106,61 @@ public partial class ModuleAlgorithm : ModuleBase
         return true;
     }
 
+    // Follows the current UKS's firing; a newly loaded UKS starts with nothing pending.
+    private void ListenForFiring()
+    {
+        if (ReferenceEquals(listeningTo, theUKS)) return;
+        if (listeningTo is not null) listeningTo.ThoughtFired -= OnThoughtFired;
+        listeningTo = theUKS;
+        if (listeningTo is not null) listeningTo.ThoughtFired += OnThoughtFired;
+        ClearFiredThoughts();
+    }
+
+    // Queues only firings the interpreter acts on; the rest of the UKS fires constantly.
+    private void OnThoughtFired(Thought thought)
+    {
+        if (!IsExecutable(thought)) return;
+        lock (firedThoughts)
+        {
+            firedThoughts.Enqueue(thought);
+            while (firedThoughts.Count > maxFiredThoughts) firedThoughts.Dequeue();
+        }
+    }
+
+    private void ClearFiredThoughts()
+    {
+        lock (firedThoughts) firedThoughts.Clear();
+    }
+
+    private void ForgetFiring(Thought thought)
+    {
+        lock (firedThoughts)
+        {
+            List<Thought> remaining = firedThoughts.Where(t => !ReferenceEquals(t, thought)).ToList();
+            firedThoughts.Clear();
+            foreach (Thought t in remaining) firedThoughts.Enqueue(t);
+        }
+    }
+
+    // Removes and returns the pending firings, most recent first, each Thought once.
+    private List<Thought> TakeFiredThoughts()
+    {
+        Thought[] pending;
+        lock (firedThoughts)
+        {
+            pending = firedThoughts.ToArray();
+            firedThoughts.Clear();
+        }
+        HashSet<Thought> seen = new(ReferenceEqualityComparer.Instance);
+        return pending.Reverse().Where(seen.Add).ToList();
+    }
+
+    private bool IsExecutable(Thought t) => IsEntryPoint(t) || IsStep(t) || IsAssignment(t) || IsContext(t);
+
+    // Step: an element of a sequence that is some Thought's "steps" (data sequences such as Paths are not).
+    private bool IsStep(Thought t) => t is SeqElement step &&
+        (step.FRST ?? step).LinksFrom.Any(link => ReferenceEquals(link.LinkType, theUKS.Labeled("steps")));
+
     // Entry point: Thought with a "steps" link to a SeqElement
     private bool IsEntryPoint(Thought t)
     {
@@ -124,9 +177,7 @@ public partial class ModuleAlgorithm : ModuleBase
     private void FireNextStatement(Thought activeStep)
     {
         if (IsEntryPoint(activeStep)) { activeStep.GetTargetOfFirstLinkOfType("steps").Fire(); return; }
-        if (activeStep is SeqElement step && !(step.FRST ?? step).LinksFrom.Any(link =>
-            ReferenceEquals(link.LinkType, theUKS.Labeled("steps")))) return;
-        if (activeStep is SeqElement s)
+        if (activeStep is SeqElement s && IsStep(s))
         {
             //do NOT step next if this is a CALL or a CONTEXT
             if (IsCall(s.VLU)) { SetReturn(s.VLU.GetTargetOfFirstLinkOfType("steps"), s.NXT); s.VLU.Fire(); return; }
@@ -250,6 +301,9 @@ public partial class ModuleAlgorithm : ModuleBase
     // called whenever the UKS performs an Initialize()
     public override void UKSInitializedNotification()
     {
+        // Pending firings may refer to Thoughts the re-initialization deleted.
+        ListenForFiring();
+        ClearFiredThoughts();
         // Configure the capability Thoughts used by the algorithm editor and interpreter.
         foreach (string property in new[] { "followPath", "isPossible", "setRelationship", "isEqual", "isWildcard" })
             theUKS.GetOrAddThought(property, "Property");
@@ -283,7 +337,7 @@ public partial class ModuleAlgorithm : ModuleBase
             return false;
         }
         // Starting another task also releases the previous task's protected lifetimes.
-        Thought.ClearRecentlyFiredQueue();
+        ClearFiredThoughts();
         HandleFiringNeurons();
         // Set link time-to-live based on execution mode
         // Single-step mode gets longer TTL since user is manually stepping through
@@ -294,7 +348,7 @@ public partial class ModuleAlgorithm : ModuleBase
 
         if (theUKS == null) return false;
         UKSInitializedNotification();
-        Thought.ClearRecentlyFiredQueue();
+        ClearFiredThoughts();
 
         // Get or create param1 and param2 thoughts
         Thought param1Thought = theUKS.GetOrAddThought("param1", "Variable");
@@ -368,7 +422,7 @@ public partial class ModuleAlgorithm : ModuleBase
         {
             if (CycleCount > maxCycles)
             {
-                Thought.ClearRecentlyFiredQueue();
+                ClearFiredThoughts();
                 HandleFiringNeurons();
                 LastAction = $"TASK ABORTED (>{maxCycles} cycles): possible interpreter loop";
                 return false;

@@ -77,10 +77,10 @@ public partial class UKS
     /// </summary>
     public Thought GetOrCreateThoughtClass(Thought classRoot, IEnumerable<Thought> members, string classLabel = "class*")
     {
-        static bool IsMember(Thought? t) => t is not null and not SeqElement && !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(t.HasProperty);
+        static bool IsMember(Thought? t) => 
+            /usaget is not null and not SeqElement && !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(t.HasProperty);
 
-//        HashSet<Thought> memberSet = members.Where(IsMember).ToHashSet();
-        HashSet<Thought> memberSet = members.ToHashSet();
+        HashSet<Thought> memberSet = members.Where(IsMember).ToHashSet();
         if (memberSet.Count == 0)
             throw new ArgumentException("A learned class requires at least one ordinary Thought.", nameof(members));
 
