@@ -142,7 +142,7 @@ public class ModuleBaseDlg : Window
     {
         string theModuleType = this.GetType().Name.ToString();
         string cwd = System.IO.Directory.GetCurrentDirectory();
-        cwd = cwd.ToLower().Replace("bin\\debug\\net8.0-windows", "") + @"modules\";
+        cwd = cwd.ToLower().Replace("bin\\debug\\net10.0-windows", "") + @"modules\";
         string dlgFilePath = FindFile(cwd, theModuleType + ".xaml.cs");
         string csFilePath = FindFile(cwd, theModuleType.Substring(0, theModuleType.Length - 3) + ".cs");
         csFilePath = "\"" + csFilePath + "\"";

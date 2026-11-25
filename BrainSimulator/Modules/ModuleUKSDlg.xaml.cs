@@ -47,6 +47,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     private int totalItemCount;
     private bool mouseInWindow; //prevent auto-update while the mouse is in the tree
     private bool busy;
+    // A command (context menu, root change) changed what the tree shows: rebuild it once, even while paused.
+    private bool updateRequested;
     private bool contextMenuOpen;
     private bool refreshQueued;
     private bool refreshAfterMenu;
@@ -116,7 +118,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         string root = parent.GetSavedDlgAttribute("Root");
         Thought Root = theUKS.Labeled(root);
 
-        if (Root is null) Root = (Thought)"Thought";
+        // Look labels up in this dialog's store: an implicit string → Thought conversion uses the
+        // ambient UKS.theUKS, which a click handler may not have (it then gets a new, empty store).
+        if (Root is null) Root = theUKS.Labeled("Thought");
         if (Root is null) return;
         string sizeString = parent.GetSavedDlgAttribute("fontSize");
         int.TryParse(sizeString, out int fontSize);
@@ -316,7 +320,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         currentLabel = currentLabel.Replace("||", "|"); //parentLabel may or may not have a leading '|'
         if (expandedItems.Contains(currentLabel))
             tviChild.IsExpanded = true;
-        if (child.AncestorsWithSelf.Contains(expandAll) &&
+        if (theUKS.Labeled(expandAll) is Thought expandRoot && child.AncestorsWithSelf.Contains(expandRoot) &&
             (child.Label == "" || !parentLabel.Contains("|" + child.Label)))
             tviChild.IsExpanded = true;
         // A collapsed item needs a placeholder child for WPF to show its expansion handle.
@@ -683,6 +687,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             {
                 string oldLabel = t.Label;
                 theUKS.ChangeUndoably($"rename {oldLabel} to {tb.Text}", () => t.Label = tb.Text);
+                updateRequested = true;
                 refreshAfterMenu = true;
                 //clear any time-to-live on this new image
                 if (t.LinksFrom.FindFirst(x => x.LinkType.Label == "is-a") is Link isALink)
@@ -768,8 +773,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             {
                 Link r = m.GetValue(LinkObjectProperty) as Link;
                 theUKS.ChangeUndoably($"delete {r}", () => (r.From as Thought).RemoveLink(r));
-                //force a repaint
-                Refresh();
+                RequestUpdate();
                 return;
             }
             ModuleUKS parent = (ModuleUKS)ParentModule;
@@ -821,9 +825,16 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     CommitRoot(t.Label);
                     break;
             }
-            //force a repaint
-            Refresh();
+            RequestUpdate();
         }
+    }
+
+    // Shows a command's result once while the tree is paused. The rebuild happens now if it can;
+    // if the menu is still closing, the next timer tick does it.
+    private void RequestUpdate()
+    {
+        updateRequested = true;
+        Refresh();
     }
 
     //EVENTS
@@ -940,7 +951,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         _isTextChangingInternally = false;
         RootBackButton.IsEnabled = _previousRoots.Count > 0;
         parent.SetSavedDlgAttribute("Root", root);
-        Refresh();
+        RequestUpdate();
     }
 
     //using the mouse-wheel while pressing ctrl key changes the font size
@@ -980,7 +991,9 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         if (checkBoxAuto.IsChecked != true || !IsVisible) return;
         if (contextMenuOpen) return;
-        if (!mouseInWindow)
+        if (updateRequested)
+            Refresh();
+        else if (!mouseInWindow)
             Draw(true);
         else if (weightBarsCB?.IsChecked == true)
             UpdateWeightDisplays();
@@ -1060,10 +1073,14 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             _weightDisplays.Clear();
             theTreeView.Items.Clear();
             LoadContentToTreeView();
+            updateRequested = false;
         }
-        catch
+        catch (Exception e)
         {
+            // Show why a rebuild failed instead of leaving a half-built tree silently.
             updateFailed = true;
+            SetStatus($"Refresh failed: {e.GetType().Name}: {e.Message}");
+            System.Diagnostics.Debug.WriteLine($"ModuleUKSDlg.Refresh failed (expandAll={expandAll}): {e}");
         }
         finally
         {
