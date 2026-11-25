@@ -93,10 +93,12 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         if (checkDrawTimer)
         {
             if (mouseInWindow || theTreeView.IsMouseOver || refreshQueued) return false;
-            // Module-driven Draw calls can arrive above input priority. Defer and
-            // coalesce rebuilding so pending mouse/menu events are handled first.
+            // Module-driven Draw calls can arrive above input priority. Defer and coalesce rebuilding
+            // at ApplicationIdle, below ContextIdle, where WPF purges its weak-event tables. Every
+            // rebuild leaves entries there for the discarded items; at Background a refresh was
+            // always pending, the purge never ran, and the heap grew ~60 MB every 5 s.
             refreshQueued = true;
-            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
             {
                 refreshQueued = false;
                 if (!IsVisible || checkBoxAuto.IsChecked != true || contextMenuOpen ||
@@ -131,7 +133,6 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         {
             totalItemCount = 0;
             TreeViewItem tvi = new() { Header = CreateThoughtHeader(Root, Root.ToString()) };
-            tvi.ContextMenu = GetContextMenu(Root, tvi);
             tvi.IsExpanded = true; //always expand the top-level item
             theTreeView.Items.Add(tvi);
             tvi.SetValue(ThoughtObjectProperty, Root);
@@ -143,7 +144,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             foreach (Thought t1 in theUKS.Roots())
             {
                 TreeViewItem tvi = new() { Header = CreateThoughtHeader(t1, t1.Label) };
-                tvi.ContextMenu = GetContextMenu(t1, tvi);
+                tvi.SetValue(ThoughtObjectProperty, t1);
                 theTreeView.Items.Add(tvi);
             }
         }
@@ -165,7 +166,6 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             var child = l.From;
             TreeViewItem tviChild = GetTreeChildFormatted(parentLabel, child);
             tvi.Items.Add(tviChild);
-            tviChild.ContextMenu = GetContextMenu(child, tviChild);
 
             if (l.LinksTo.Count > 0)  //there is provenance on this is-a link
                 AddLinks(l, tviChild, 1, parentLabel);
@@ -202,7 +202,6 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 if (l.LinkType?.HasProperty("isPossible") == true || l.LinkType?.HasProperty("isConditional") == true ||
                     l.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true)) continue;
             TreeViewItem tviLink = GetTreeChildFormatted(currentLabel, l);
-            tviLink.ContextMenu = GetLinkContextMenu(l);
             tvi.Items.Add(tviLink);
 
             if (tviLink.IsExpanded && l.LinksTo.Count > 0) //get provenance, etc. on this link
@@ -231,7 +230,6 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     r.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true)) continue;
 
             TreeViewItem tviLink = GetTreeChildFormatted(parentLabel, r);
-            tviLink.ContextMenu = GetLinkContextMenu(r);
             tvi.Items.Add(tviLink);
         }
     }
@@ -339,7 +337,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
         //WPF displays an expansion handle only when the item already has content.
         //Use an empty child as a placeholder until the real content is loaded.
-        if (!tviChild.IsExpanded && HasExpandableContent(child))
+        if (!tviChild.IsExpanded && tviChild.Items.Count == 0 && HasExpandableContent(child))
             tviChild.Items.Add(new TreeViewItem());
 
         totalItemCount++;
@@ -561,6 +559,22 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     }
 
     //Context Menu creation and handling
+    // The menu is built when an item is right-clicked, not for every tree line on every rebuild
+    // (the tree is rebuilt several times a second, and each menu is a dozen WPF objects).
+    private void TheTreeView_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        DependencyObject source = e.OriginalSource as DependencyObject;
+        while (source is not null && source is not TreeViewItem)
+            source = source is Visual or System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(source)
+                : LogicalTreeHelper.GetParent(source);
+        if (source is not TreeViewItem tvi || tvi.GetValue(ThoughtObjectProperty) is not Thought t) return;
+        ContextMenu menu = t is Link link ? GetLinkContextMenu(link) : GetContextMenu(t, tvi);
+        menu.PlacementTarget = tvi;
+        menu.IsOpen = true;
+        e.Handled = true;
+    }
+
     private ContextMenu GetContextMenu(Thought t, TreeViewItem tvi)
     {
         ContextMenu menu = new ContextMenu();
@@ -978,7 +992,8 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         if (dt is null)
         {
-            dt = new DispatcherTimer
+            // ApplicationIdle, not the default Background: see Draw (WPF's idle-time cleanup must get a turn).
+            dt = new DispatcherTimer(DispatcherPriority.ApplicationIdle)
             {
                 Interval = new TimeSpan(0, 0, 0, 0, 200)
             };
@@ -1297,6 +1312,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         _isTextChangingInternally = wasChanging;
     }
 
+    private readonly bool darkMode = IsDarkMode();   // read once: the registry read was per menu
     private static bool IsDarkMode()
     {
         const string personalize = @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
@@ -1306,7 +1322,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void ApplyContextMenuTheme(ContextMenu menu)
     {
-        if (menu is null || !IsDarkMode()) return;
+        if (menu is null || !darkMode) return;
 
         var bg = new SolidColorBrush(Color.FromRgb(45, 45, 48));
         var fg = Brushes.White;

@@ -14,6 +14,7 @@
                   MouseEnter="TheTreeView_MouseEnter" 
                   MouseLeave="TheTreeView_MouseLeave"
                   PreviewMouseWheel="theTreeView_MouseWheel"
+                  MouseRightButtonUp="TheTreeView_MouseRightButtonUp"
                   VirtualizingPanel.IsVirtualizing="True"
                     VirtualizingPanel.VirtualizationMode="Recycling"
                   >
