@@ -140,10 +140,9 @@ public class ModuleInterpretTests
     }
 
     [Theory]
-    [InlineData("the hungry dog ate dinner", "adjective", "nounPhrase1", "nounPhrase2")]
-    [InlineData("the hungry should be fed", "noun", "nounPhrase2", "nounPhrase1")]
-    public void LongestMatchClassifiesHungryFromTheWinningPhrase(
-        string input, string expectedClass, string winner, string shorter)
+    [InlineData("the hungry dog ate dinner", "adjective", "nounPhrase1")]
+    [InlineData("the hungry should be fed", "noun", "nounPhrase2")]
+    public void TheWinningReadingClassifiesHungry(string input, string expectedClass, string winner)
     {
         var store = new UKS();
         store.CreateInitialStructure();
@@ -157,8 +156,8 @@ public class ModuleInterpretTests
         Assert.Same(store.Labeled(expectedClass), Assert.Single(store.Labeled("w:hungry").Parents));
         Assert.Contains(first.LinksTo, link => link.LinkType == store.Labeled("matchesTemplate") &&
             link.To == store.Labeled(winner));
-        Assert.DoesNotContain(first.LinksTo, link => link.LinkType == store.Labeled("matchesTemplate") &&
-            link.To == store.Labeled(shorter));
+        // Other readings are kept too ("the hungry" in the first sentence), but only the winning one
+        // classifies hungry (the single parent above).
     }
 
     [Fact]
@@ -272,6 +271,8 @@ public class ModuleInterpretTests
     }
 
     [Theory]
+    // Every reading is kept, so the shorter phrases inside the longer ones are listed too, except
+    // the bare "dog" and "black dog": a singular count noun needs its article (lacksDeterminer).
     [InlineData("the black dog is chasing the cat", "nounPhrase2", 4)]
     [InlineData("the black dog is chasing the brown cat", "nounPhrase1", 3)]
     public void GetTemplatesCombinesThePhraseMatchesIntoASentence(string input, string objectPhrase, int templateCount)
@@ -309,7 +310,6 @@ public class ModuleInterpretTests
         })
         {
             var attachments = element.LinksTo.Where(link => link.LinkType == store.Labeled("matchesTemplate")).ToList();
-            Assert.Equal(2, attachments.Count);
             Assert.Contains(attachments, link => link.To == store.Labeled(name));
             Assert.Contains(attachments, link => link.To == sentenceTemplate);
             element = element.NXT;
@@ -317,21 +317,24 @@ public class ModuleInterpretTests
         for (; element is not null; element = element.NXT)
         {
             var attachments = element.LinksTo.Where(link => link.LinkType == store.Labeled("matchesTemplate")).ToList();
-            Assert.Equal(2, attachments.Count);
             Assert.Contains(attachments, link => link.To == store.Labeled(objectPhrase));
             Assert.Contains(attachments, link => link.To == sentenceTemplate);
         }
 
         // A second call preserves the same attachments.
+        var before = store.EnumerateSequenceElements(first)
+            .Select(position => position.LinksTo.Count(link => link.LinkType == store.Labeled("matchesTemplate"))).ToList();
         module.GetTemplates(sentence);
-        foreach (SeqElement position in store.EnumerateSequenceElements(first))
-            Assert.Equal(2,
-                position.LinksTo.Count(link => link.LinkType == store.Labeled("matchesTemplate")));
+        Assert.Equal(before, store.EnumerateSequenceElements(first)
+            .Select(position => position.LinksTo.Count(link => link.LinkType == store.Labeled("matchesTemplate"))).ToList());
 
         string output = module.Input(input);
         Assert.Contains("Word attachments\nw:the (article, isDefinite)    nounPhrase1, sentenceTemplate", output);
         Assert.Contains("w:chases (actionVerb, presentParticiple)    verbPhrase1, sentenceTemplate", output);
-        Assert.Contains($"w:cat (countNoun)    {objectPhrase}, sentenceTemplate", output);
+        // Every reading is kept, so the line also lists the shorter phrases inside the object phrase.
+        string catLine = output.Split('\n').Single(line => line.StartsWith("w:cat (countNoun)    "));
+        Assert.Contains(objectPhrase, catLine);
+        Assert.EndsWith("sentenceTemplate", catLine);
         // The black dog is a dog that is black (dog0, introduced here); it is the one chasing.
         Assert.Contains("[[dog→oneDescribedAs→[dog→is.!→black]]→chases.ongoing.!→", output);
         Assert.Contains("[dog0→chases.ongoing→", output);

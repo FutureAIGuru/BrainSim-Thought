@@ -11,18 +11,23 @@ namespace BrainSimulator.Modules;
 public sealed partial class ModuleInterpret
 {
     /// <summary>
-    /// Search from the sentence itself. Words retain their original VLU links; recognized
-    /// phrases add a languagePattern VLU facet covering the same sentence elements.
-    /// Search can therefore use the word or its current recognized phrase without a copied input.
-    /// When nothing covers the sentence, sentence templates are also matched as its clauses (between
-    /// words that join clauses), unless lookForClauses is false.
+    /// Finds every match of every template in the sentence: every reading is kept, and only whole
+    /// sentence readings compete (CoveringMatches). A template element can be filled by a word of its
+    /// class or by any match already recorded at that word whose template is of its class (Walks), so
+    /// a wrong local reading ("in" as a bare noun phrase) no longer hides the word's other classes.
+    /// Matches are only added, so repeating until nothing changes gives the same set whatever order
+    /// they are found in. When nothing covers the sentence, sentence templates are also matched as its
+    /// clauses (between words that join clauses), unless lookForClauses is false. Afterwards each word
+    /// gets one phrase facet (PhraseFacets), for teaching and display.
     /// </summary>
     public List<Thought> GetTemplates(Thought sentenceThought, bool lookForClauses = true)
     {
         var templates = new List<Thought>(); // Diagnostic summary only, assembled from the UKS below.
-        if (patternRoot is null || vlu is null || matchesTemplate is null || templateSequenceSearch is null)
+        if (patternRoot is null || vlu is null || matchesTemplate is null)
             return templates;
         if (sentenceThought.GetTargetOfFirstLinkOfType(hasWords) is not SeqElement first) return templates;
+        List<Thought> patterns = ByWeight(patternRoot.Descendants.Where(pattern =>
+            pattern.GetTargetOfFirstLinkOfType(hasWords) is SeqElement).Distinct());
 
         bool added;
         bool allowLoneUnknownWords = false;
@@ -38,103 +43,58 @@ public sealed partial class ModuleInterpret
             added = false;
             bool deferred = false, deferredAtClauseStart = false;
             HashSet<SeqElement> sentenceStarts = allowClauses ? clauseStarts : [first];
-            for (SeqElement? start = first; start is not null;)
+            for (SeqElement? start = first; start is not null; start = start.NXT)
             {
-                // Keep the unprocessed search result visible in the debugger.
-                var sequenceMatches = theUKS.FindSequencesByActivation(start, templateSequenceSearch,
-                    alternativeClass: patternRoot, matchClass: patternRoot);
-                var matches = new List<Thought>();
-                int longest = 0;
-                foreach (var sequenceMatch in sequenceMatches)
+                // Every template that can be walked from here, each distinct end with its first walk.
+                var found = new List<(Thought template, List<Step> walk)>();
+                foreach (Thought template in patterns)
                 {
-                    int length = theUKS.GetSequenceLength(sequenceMatch.seqNode);
-                    if (longest != 0 && length != longest) break;
-                    var referringThoughts = theUKS.GetReferringThoughts(sequenceMatch.seqNode, hasWords!);
-                    foreach (Thought template in referringThoughts)
-                        // A sentence template (a direct child of template) describes a whole sentence, so
-                        // it starts at the first word, or a clause's; phrases can start anywhere. Otherwise
-                        // "the kitchen is brown" would be read inside "The dog in the kitchen is brown."
-                        if (template.HasAncestor(patternRoot) && !matches.Contains(template) &&
-                            Admits(template, start, allowClauses) &&
-                            (!template.Parents.Contains(templateRoot) || ReferenceEquals(start, first) ||
-                                sentenceStarts.Contains(start) && IsClause(template)))
-                        {
-                            matches.Add(template);
-                            longest = length;
-                        }
+                    // A sentence template (a direct child of template) describes a whole sentence, so it
+                    // starts at the first word, or a clause's; phrases can start anywhere. Otherwise "the
+                    // kitchen is brown" would be read inside "The dog in the kitchen is brown."
+                    bool isSentence = template.Parents.Contains(templateRoot);
+                    if (isSentence && !ReferenceEquals(start, first) && !(sentenceStarts.Contains(start) && IsClause(template)))
+                        continue;
+                    foreach (List<Step> walk in Walks(template, start, null, null))
+                    {
+                        SeqElement end = walk[^1].Last;
+                        // A sentence template must also end at the last word; a clause may end where the
+                        // next one is joined on ("Fido is a dog | and Fido is hungry").
+                        if (isSentence && end.NXT is SeqElement after && !(allowClauses && JoinsClauses(after) && IsClause(template)))
+                            continue;
+                        if (!found.Any(entry => entry.template == template && ReferenceEquals(entry.walk[^1].Last, end)))
+                            found.Add((template, walk));
+                    }
                 }
-                // Equally long matches compete by weight: the strongest becomes the phrase facet below.
-                matches = ByWeight(matches);
                 // A single unknown word on its own is only a guess. If words precede it, a template
-                // starting earlier may still cover it, so wait until nothing else can be recognized.
-                bool atClauseStart = clauseStarts.Contains(start);
-                if (matches.Count > 0 && !allowLoneUnknownWords && !(allowLoneUnknownWordsAtClauseStarts && atClauseStart) &&
-                    !ReferenceEquals(start, first) && IsLoneUnknownWord(start, matches))
+                // starting earlier may still cover it, so wait until nothing else can be recognized; one
+                // a larger match already reads ("hungry" in "Fido is hungry") is not guessed alone.
+                if (found.Count > 0 && !ReferenceEquals(start, first) && IsLoneUnknownWord(start, found))
                 {
-                    deferred = true;
-                    deferredAtClauseStart |= atClauseStart;
-                    matches.Clear();
-                }
-                if (matches.Count == 0)
-                {
-                    // Skip the complete phrase already recognized here, rather than entering its middle.
-                    Thought? phrase = theUKS.GetElementValue(start, patternRoot);
-                    while (phrase is not null && start.NXT is SeqElement next &&
-                        ReferenceEquals(theUKS.GetElementValue(next, patternRoot), phrase)) start = next;
-                    start = start.NXT;
-                    continue;
+                    bool atClauseStart = clauseStarts.Contains(start);
+                    if (IsReadInAMatch(start)) found.Clear();
+                    else if (!allowLoneUnknownWords && !(allowLoneUnknownWordsAtClauseStarts && atClauseStart))
+                    {
+                        deferred = true;
+                        deferredAtClauseStart |= atClauseStart;
+                        found.Clear();
+                    }
                 }
 
-                bool changed = false;
-                SeqElement last = start;
-                foreach (Thought template in matches)
+                foreach (var (template, walk) in found)
                 {
-                    SeqElement? input = start;
-                    SeqElement? position = template.GetTargetOfFirstLinkOfType(hasWords) as SeqElement;
-                    for (; position is not null && input is not null; position = position.NXT)
+                    SeqElement last = walk[^1].Last;
+                    for (SeqElement? input = start; input is not null; input = input.NXT)
                     {
-                        Thought? phrase = theUKS.GetElementValue(input, patternRoot);
-                        Thought value = phrase ?? input.VLU;
-                        last = input;
-                        while (phrase is not null && last.NXT is SeqElement next &&
-                            ReferenceEquals(theUKS.GetElementValue(next, patternRoot), phrase)) last = next;
-                        if (value.HasAncestor(unknownWordType) && position.VLU.HasProperty(isWildcard))
-                            foreach (Thought type in position.VLU.Parents.Where(parent => parent.HasAncestor(wordType)))
-                                value.AddLink(isA!, type);
-                        // Preserve every winning match on every covered original word.
-                        for (; input is not null; input = input.NXT)
-                        {
-                            int count = input.LinksTo.Count;
-                            input.AddLink(matchesTemplate, template);
-                            changed |= input.LinksTo.Count > count;
-                            if (ReferenceEquals(input, last)) { input = input.NXT; break; }
-                        }
+                        int count = input.LinksTo.Count;
+                        input.AddLink(matchesTemplate, template);
+                        added |= input.LinksTo.Count > count;
+                        if (ReferenceEquals(input, last)) break;
                     }
                     // And the match itself, with its extent: "(A and B) and C" is a second match of
                     // compoundTemplate at the same first word, ending later.
-                    changed |= RecordMatch(start, template, last);
+                    added |= RecordMatch(start, template, last);
                 }
-                // Preserve the word facet, and select one tied winner as the current phrase facet.
-                for (SeqElement? element = start; element is not null; element = element.NXT)
-                {
-                    Thought word = element.VLU;
-                    if (word.Parents.Any(parent => parent != unknownWordType && parent.HasAncestor(wordType)))
-                    {
-                        word.RemoveParent(unknownWordType!);
-                        word.RemoveParent(wordRoot!);
-                    }
-                    if (!ReferenceEquals(theUKS.GetElementValue(element, patternRoot), matches[0]))
-                    {
-                        foreach (Link link in element.LinksTo.Where(link => link.LinkType == vlu && link.To.HasAncestor(patternRoot)))
-                            element.RemoveLink(link);
-                        element.AddLink(vlu, matches[0]);
-                        changed = true;
-                    }
-                    if (ReferenceEquals(element, last)) break;
-                }
-                added |= changed;
-                // Retry here immediately: the recognized subject may enable a whole sentence.
-                if (!changed) start = last.NXT;
             }
             // Once nothing else can be recognized: guess a waiting lone unknown word that starts a phrase
             // after a joining word; then, if nothing covers the sentence, look for its clauses; then guess
@@ -147,57 +107,174 @@ public sealed partial class ModuleInterpret
                 allowClauses = added = true;
             else if (deferred && !allowLoneUnknownWords) allowLoneUnknownWords = added = true;
         } while (added);
+        ClassifyUnknownWords(first);
+        PhraseFacets(first);
+
         for (SeqElement? element = first; element is not null; element = element.NXT)
             foreach (Link link in element.LinksTo)
                 if (link.LinkType == matchesTemplate && !templates.Contains(link.To)) templates.Add(link.To);
         return templates;
     }
 
+    // One element of a walk: a template element filled by the words First..Last, either one word
+    // (Child null) or the recorded match Child, a smaller phrase starting at First.
+    private sealed record Step(SeqElement Element, SeqElement First, SeqElement Last, Thought? Child);
+
     /// <summary>
-    /// A template may be matched only if no unknown word would be learned into a closed class
-    /// (articles, auxiliaries, ...): those are fixed sets of function words. And a word must carry
-    /// the inflection its element requires ("is chasing", not "is chases"); sequence search compares
-    /// only classes. A word whose inflection adds meaning (past, ongoing) must fill an element whose
-    /// meaning the template uses. A sentence template must reach the end of the sentence (or, while
-    /// clauses are looked for, a word that joins clauses). Walks the template and the sentence
-    /// together as the classification step does.
+    /// The ways a template can be walked from a sentence word, most preferred first: at each element
+    /// the word itself if the element takes it, then each recorded match starting there whose template
+    /// is of the element's class, longest first. A walk ends where the template does (the sentence may
+    /// go on); it never passes bound, if given. usable, if given, says which recorded matches may fill
+    /// an element. Recognition and meaning walk the same way.
     /// </summary>
-    private bool Admits(Thought template, SeqElement start, bool allowClauses)
+    private IEnumerable<List<Step>> Walks(Thought template, SeqElement start, SeqElement? bound, Func<Thought, bool>? usable) =>
+        template.GetTargetOfFirstLinkOfType(hasWords) is SeqElement pattern ? WalksFrom(template, pattern, start, bound, usable) : [];
+
+    private IEnumerable<List<Step>> WalksFrom(Thought template, SeqElement position, SeqElement? input, SeqElement? bound, Func<Thought, bool>? usable)
     {
-        SeqElement? input = start;
-        SeqElement? position = template.GetTargetOfFirstLinkOfType(hasWords) as SeqElement;
-        for (; position is not null && input is not null; position = position.NXT)
+        if (input is null) yield break;  // the sentence ran out before the template did
+        foreach (Step step in Fillers(template, position, input, bound, usable))
         {
-            Thought? phrase = theUKS.GetElementValue(input, patternRoot);
-            Thought value = phrase ?? input.VLU;
-            SeqElement last = input;
-            while (phrase is not null && last.NXT is SeqElement next &&
-                ReferenceEquals(theUKS.GetElementValue(next, patternRoot), phrase)) last = next;
-            // A recognized phrase fills only an element of its class: a clause ("Fido is a dog") is not
-            // the noun phrase of "Fido and Rover are green". Sequence search ORs a wildcard's parents.
-            if (phrase is not null && position.VLU.HasProperty(isWildcard) &&
-                ElementClasses(position.VLU).ToList() is { Count: > 0 } classes && !classes.Any(phrase.HasAncestor))
-                return false;
-            if (value.HasAncestor(unknownWordType) && position.VLU.HasProperty(isWildcard) &&
-                position.VLU.Parents.Any(parent => parent.HasAncestor(wordType) && parent.HasProperty(closedClass)))
-                return false;
-            if (phrase is null && !HasRequiredInflection(input, position.VLU)) return false;
-            // What an inflection adds must reach a meaning: "Fido was a dog" must not be read as the
-            // present-tense is-a of a template whose copula supplies nothing.
-            // An auxiliary that lends its inflection passes it to the verb instead ("did go": goes.past).
-            if (phrase is null && AddedMeaning(InflectionOf(input)) is not null && !IsMeansOperand(template, position.VLU) &&
-                !LendsInflection(input))
-                return false;
-            input = last.NXT;
+            if (position.NXT is not SeqElement next) { yield return [step]; continue; }
+            if (ReferenceEquals(step.Last, bound)) continue;
+            foreach (List<Step> rest in WalksFrom(template, next, step.Last.NXT, bound, usable))
+                yield return [step, .. rest];
         }
-        // The sentence ran out before the template did.
-        if (position is not null) return false;
-        // A sentence template describes the whole sentence: it must also end at the last word. In
-        // "Is the cat in the kitchen black?" the locative question would leave "black" over; the
-        // attribute question about "the cat in the kitchen" covers it all. A clause ends where the
-        // next one is joined on ("Fido is a dog | and Fido is hungry"); only a clause can.
-        return input is null || !template.Parents.Contains(templateRoot) ||
-            allowClauses && JoinsClauses(input) && IsClause(template);
+    }
+
+    /// <summary>
+    /// What can fill one template element at a sentence word. The word, if the element takes it: a
+    /// literal element only that word; a class wildcard a word of its class (sequence search ORs a
+    /// wildcard's parents) with the inflection it requires ("is chasing", not "is chases"), or an
+    /// unknown word if all its classes are word classes, but never into a closed class (articles,
+    /// auxiliaries); a word whose inflection adds meaning (past, ongoing) only where the template uses
+    /// the element's meaning ("Fido was a dog" must not be the present is-a), unless it lends it to a
+    /// verb ("did go"). Then the recorded matches starting at the word whose template is of the
+    /// element's class (a clause is not the noun phrase of "Fido and Rover are green"), longest first.
+    /// </summary>
+    private IEnumerable<Step> Fillers(Thought template, SeqElement element, SeqElement input, SeqElement? bound, Func<Thought, bool>? usable)
+    {
+        Thought expected = element.VLU;
+        bool isWildcardElement = expected.HasProperty(isWildcard);
+        bool takesWord = isWildcardElement
+            ? TakesWord(expected, input) && !(input.VLU.HasAncestor(unknownWordType) &&
+                expected.Parents.Any(parent => parent.HasAncestor(wordType) && parent.HasProperty(closedClass)))
+            : ReferenceEquals(expected, input.VLU) && HasRequiredInflection(input, expected);
+        if (takesWord && (AddedMeaning(InflectionOf(input)) is null || IsMeansOperand(template, expected) || LendsInflection(input)) &&
+            MayStandBare(template, expected, input.VLU, ReferenceEquals(InflectionOf(input), plural)))
+            yield return new Step(element, input, input, null);
+        var classes = ElementClasses(expected).ToList();
+        if (!isWildcardElement || classes.Count == 0) yield break;
+        var children = MatchesAt(input).Where(child => classes.Any(TemplateOf(child).HasAncestor) &&
+            (bound is null || ReferenceEquals(EndOf(child), bound) || Follows(bound, EndOf(child))) &&
+            (usable is null || usable(child)));
+        // Longest first: each child before every child it ends after; readings of the same words best first.
+        foreach (Thought child in Preferred(children.OrderBy(EndOf, LaterFirst)))
+            yield return new Step(element, input, EndOf(child), child);
+    }
+
+    // Whether a class wildcard takes a sentence word itself: one of its classes (sequence search ORs a
+    // wildcard's parents) with the inflection it requires, or an unknown word if all its classes are
+    // word classes.
+    private bool TakesWord(Thought expected, SeqElement input)
+    {
+        var classes = ElementClasses(expected).ToList();
+        bool takes = input.VLU.HasAncestor(unknownWordType)
+            ? classes.Count > 0 && expected.Parents.Where(parent => !parent.HasProperty(isWildcard)).All(parent => parent.HasAncestor(wordType))
+            : classes.Count == 0 || classes.Any(input.VLU.HasAncestor);
+        return takes && HasRequiredInflection(input, expected);
+    }
+
+    /// <summary>
+    /// A template that lacksDeterminer (a noun phrase with no article: "dogs", "brown dogs") takes a
+    /// noun only if it may stand bare: a plural, or a noun that doesn't need a determiner (a name, a
+    /// mass noun, a learned noun). "Fido is green" can't mean "Fido is a green", so a singular common
+    /// noun ("Fido is dog") is not read, or said, there. BasicWords: commonNoun needsDeterminer,
+    /// massNoun standsBare. Recognition and generation both ask.
+    /// </summary>
+    private bool MayStandBare(Thought template, Thought element, Thought baseWord, bool isPlural) =>
+        isPlural || !template.HasProperty("lacksDeterminer") ||
+        !ElementClasses(element).Any(wordClass => ReferenceEquals(wordClass, noun) || wordClass.HasAncestor(noun)) ||
+        !baseWord.HasProperty("needsDeterminer") || baseWord.HasProperty("standsBare");
+
+    /// <summary>
+    /// An unknown word joins the class of the wildcard it fills in the reading that wins, not in every
+    /// reading ("the hungry" alone would make hungry a noun in "the hungry dog ate dinner"): the
+    /// strongest matches covering the whole sentence (all of them if equally strong), else, from the
+    /// first word, the longest matches at each word and the word after them. Inner matches count
+    /// through the walk that reads them. Recognition itself lets an unknown word fill any word class.
+    /// </summary>
+    private void ClassifyUnknownWords(SeqElement first)
+    {
+        SeqElement end = first;
+        while (end.NXT is SeqElement next) end = next;
+        var readings = new List<Thought>();
+        List<Thought> covering = MatchesAt(first).Where(match => ReferenceEquals(EndOf(match), end)).ToList();
+        if (covering.Count > 0)
+            readings.AddRange(covering.Where(match => TemplateOf(match).Weight == covering.Max(other => TemplateOf(other).Weight)));
+        else
+            for (SeqElement? start = first; start is not null;)
+            {
+                List<Thought> here = MatchesAt(start).ToList();
+                if (here.Count == 0) { start = start.NXT; continue; }
+                SeqElement longest = here.Select(EndOf).Aggregate((a, b) => Follows(b, a) ? b : a);
+                readings.AddRange(here.Where(match => ReferenceEquals(EndOf(match), longest)));
+                start = longest.NXT;
+            }
+        var classified = new HashSet<Thought>();
+        var pending = new Stack<Thought>(readings);
+        var visited = new HashSet<Thought>();
+        while (pending.Count > 0)
+        {
+            Thought match = pending.Pop();
+            if (!visited.Add(match) || MatchStart(match) is not SeqElement start) continue;
+            List<Step>? walk = Walks(TemplateOf(match), start, EndOf(match), child => !ReferenceEquals(child, match))
+                .FirstOrDefault(steps => ReferenceEquals(steps[^1].Last, EndOf(match)));
+            foreach (Step step in walk ?? [])
+            {
+                if (step.Child is not null) { pending.Push(step.Child); continue; }
+                Thought word = step.First.VLU;
+                if (!word.HasAncestor(unknownWordType) || !step.Element.VLU.HasProperty(isWildcard)) continue;
+                foreach (Thought type in step.Element.VLU.Parents.Where(parent => parent.HasAncestor(wordType)))
+                    word.AddLink(isA!, type);
+                classified.Add(word);
+            }
+        }
+        foreach (Thought word in classified)
+            if (word.Parents.Any(parent => parent != unknownWordType && parent.HasAncestor(wordType)))
+            {
+                word.RemoveParent(unknownWordType!);
+                word.RemoveParent(wordRoot!);
+            }
+    }
+
+    // The sentence word a match starts at.
+    private SeqElement? MatchStart(Thought match) =>
+        match.LinksFrom.FirstOrDefault(link => link.LinkType == startsMatch)?.From as SeqElement;
+
+    /// <summary>
+    /// Gives each sentence word one phrase facet (a languagePattern VLU), for teaching (Units) and
+    /// display: from the first word, the longest match starting there (the strongest of equally long
+    /// ones) covers its words, then the next word after it, and so on. Recognition does not use them.
+    /// </summary>
+    private void PhraseFacets(SeqElement first)
+    {
+        for (SeqElement? element = first; element is not null; element = element.NXT)
+            foreach (Link link in element.LinksTo.Where(link => link.LinkType == vlu && link.To.HasAncestor(patternRoot)).ToList())
+                element.RemoveLink(link);
+        for (SeqElement? start = first; start is not null;)
+        {
+            Thought? longest = null;
+            foreach (Thought match in MatchesAt(start).OrderByDescending(match => TemplateOf(match).Weight))
+                if (longest is null || Follows(EndOf(match), EndOf(longest))) longest = match;
+            if (longest is null) { start = start.NXT; continue; }
+            for (SeqElement? element = start; element is not null; element = element.NXT)
+            {
+                element.AddLink(vlu, TemplateOf(longest));
+                if (ReferenceEquals(element, EndOf(longest))) break;
+            }
+            start = EndOf(longest).NXT;
+        }
     }
 
     // Where a clause can start: the first word, and each word right after one that joins clauses.
@@ -224,10 +301,13 @@ public sealed partial class ModuleInterpret
             return true;
         });
 
-    // An unknown, unrecognized word matched only by single-element templates (e.g. a bare noun phrase).
-    private bool IsLoneUnknownWord(SeqElement start, List<Thought> matches) =>
-        theUKS.GetElementValue(start, patternRoot) is null && start.VLU.HasAncestor(unknownWordType) &&
-        matches.All(template => (template.GetTargetOfFirstLinkOfType(hasWords) as SeqElement)?.NXT is null);
+    // An unknown word that no match starts at, found only by single-element templates (a bare noun phrase).
+    private bool IsLoneUnknownWord(SeqElement start, List<(Thought template, List<Step> walk)> found) =>
+        start.VLU.HasAncestor(unknownWordType) && !MatchesAt(start).Any() && found.All(entry => entry.walk.Count == 1);
+
+    // Whether some recorded match covers a word.
+    private bool IsReadInAMatch(SeqElement word) => word.LinksTo.Any(link => link.LinkType == matchesTemplate);
+
     // Resolve each match separately (RecordMatch): it carries its MEANS results.
     public List<Thought> GetMeanings(Thought sentenceThought)
     {
@@ -246,22 +326,18 @@ public sealed partial class ModuleInterpret
                     SeqElement last = EndOf(match);
                     if (template.GetTargetOfFirstLinkOfType(hasWords) is not SeqElement pattern) continue;
 
-                    // The template must account for exactly the match's words: walk both together,
-                    // binding each covered word to the template element it fills in this match.
-                    SeqElement? input = start;
-                    SeqElement? position = pattern;
-                    for (; position is not null && input is not null && input != last.NXT; position = position.NXT)
-                    {
-                        SeqElement? filled = FilledThrough(input, position, match, last, out _);
-                        if (filled is null) break;
-                        for (SeqElement word = input; ; word = word.NXT!)
+                    // The template must account for exactly the match's words: find a walk that ends at
+                    // its last word (smaller phrases inside it already have their meanings), binding each
+                    // covered word to the template element it fills in this match.
+                    List<Step>? walk = Walks(template, start, last, child => !ReferenceEquals(child, match) && HasUsableMeaning(child))
+                        .FirstOrDefault(steps => ReferenceEquals(steps[^1].Last, last));
+                    if (walk is null) continue;
+                    foreach (Step step in walk)
+                        for (SeqElement word = step.First; ; word = word.NXT!)
                         {
-                            word.AddLink(fills, position)?.AddLink(inMatch!, match);
-                            if (ReferenceEquals(word, filled)) break;
+                            word.AddLink(fills, step.Element)?.AddLink(inMatch!, match);
+                            if (ReferenceEquals(word, step.Last)) break;
                         }
-                        input = filled.NXT;
-                    }
-                    if (position is not null || !ReferenceEquals(input, last.NXT)) continue;
 
                     // Substitute the meaning bound to each role or class wildcard in each MEANS pattern.
                     var bound = new List<Thought>();
@@ -290,49 +366,70 @@ public sealed partial class ModuleInterpret
     }
 
     /// <summary>
-    /// Fills one template element starting at a sentence word. A word the element accepts supplies
-    /// its own meaning; otherwise an already recognized smaller phrase starting here supplies its
-    /// meaning and the element covers that whole phrase. A word's meaning is its base word's meaning
-    /// as modified by the inflection it was read with ("chased": chases.past.!).
+    /// The meaning that fills a template element in a match, starting at a sentence word that fills
+    /// it: the word's own meaning, as modified by the inflection it was read with ("chased":
+    /// chases.past.!), or the meaning of the smaller phrase covering the same words. A phrase supplies
+    /// what it names (a noun, a described referent); a clause supplies its statement.
     /// </summary>
-    /// <param name="match">The match being filled; its own last word bounds the element.</param>
-    /// <returns>The last sentence word the element covers, or null if it cannot be filled here.</returns>
-    private SeqElement? FilledThrough(SeqElement input, SeqElement element, Thought match, SeqElement last, out Thought? value)
+    private Thought? FilledValue(SeqElement word, SeqElement element, Thought match)
     {
-        Thought expected = element.VLU;
-        var classes = ElementClasses(expected).ToList();
-        bool acceptsWord = expected.HasProperty(isWildcard)
-            ? (classes.Count == 0 || classes.Any(input.VLU.HasAncestor)) && HasRequiredInflection(input, expected)
-            : ReferenceEquals(expected, input.VLU);
-        if (acceptsWord)
-        {
-            value = WithInflection(input.VLU.LinksTo.FirstOrDefault(link => link.LinkType == means)?.To, InflectionOf(input));
-            return input;
-        }
-
-        // A larger template consumes the meaning of an already resolved phrase: another match starting
-        // here, of the element's class, that ends within this match. Where several are nested ("the dog"
-        // within "the dog in the kitchen", "A and B" within "(A and B) and C"), the longest one is the
-        // element; it may be an earlier match of the same template. A phrase supplies what it names (a
-        // noun, a described referent); a clause supplies its statement.
-        value = null;
-        SeqElement? end = null;
-        foreach (Thought child in MatchesAt(input).Where(child => !ReferenceEquals(child, match) &&
-            classes.Any(TemplateOf(child).HasAncestor)))
-        {
-            bool isClause = IsClause(TemplateOf(child));
-            if (child.LinksTo.FirstOrDefault(link => link.LinkType == means &&
-                (link.To is not Link || IsReferentDescriptor(link.To)) != isClause)?.To is not Thought meaning) continue;
-            SeqElement childEnd = EndOf(child);
-            if (!ReferenceEquals(childEnd, last) && !Follows(last, childEnd)) continue;
-            if (end is null || Follows(childEnd, end))
-            {
-                value = meaning;
-                end = childEnd;
-            }
-        }
-        return end;
+        SeqElement end = word;
+        while (end.NXT is SeqElement next && Fills(next, element, match)) end = next;
+        if (ReferenceEquals(end, word) && (element.VLU.HasProperty(isWildcard) ? TakesWord(element.VLU, word) : ReferenceEquals(element.VLU, word.VLU)))
+            return WithInflection(word.VLU.LinksTo.FirstOrDefault(link => link.LinkType == means)?.To, InflectionOf(word));
+        var classes = ElementClasses(element.VLU).ToList();
+        Thought? child = Preferred(MatchesAt(word).Where(child => !ReferenceEquals(child, match) && ReferenceEquals(EndOf(child), end) &&
+            classes.Any(TemplateOf(child).HasAncestor) && HasUsableMeaning(child))).FirstOrDefault();
+        return child is null ? null : UsableMeaning(child);
     }
+
+    // A recorded match's meaning as a phrase supplies it: a clause its statement, a phrase what it names.
+    private Thought? UsableMeaning(Thought match)
+    {
+        bool isClause = IsClause(TemplateOf(match));
+        return match.LinksTo.FirstOrDefault(link => link.LinkType == means &&
+            (link.To is not Link || IsReferentDescriptor(link.To)) != isClause)?.To;
+    }
+
+    private bool HasUsableMeaning(Thought match) => UsableMeaning(match) is not null;
+
+    /// <summary>
+    /// Readings of the same words, best first: those whose relationships meet what their types
+    /// expect of their targets (Fit), then the stronger template (weight). Otherwise the order is
+    /// kept (stable). The whole sentence's readings (CoveringMatches), the inner reading a larger
+    /// one is built from (Fillers, FilledValue) all compete this way. A reading has a Fit only once
+    /// it has meanings (GetMeanings), so during recognition only weight counts.
+    /// </summary>
+    private IEnumerable<Thought> Preferred(IEnumerable<Thought> readings)
+    {
+        Thought? expectsTarget = theUKS.Labeled("expectsTarget");
+        if (readings is IOrderedEnumerable<Thought> ordered)
+            return ordered.ThenByDescending(reading => Fit(reading, expectsTarget)).ThenByDescending(reading => TemplateOf(reading).Weight);
+        return readings.OrderByDescending(reading => Fit(reading, expectsTarget)).ThenByDescending(reading => TemplateOf(reading).Weight);
+    }
+
+    /// <summary>
+    /// How well a reading's meanings agree with what is known: each relationship (nested ones too)
+    /// whose type, or a type it inherits from, expectsTarget a class (BasicWords: located expects a
+    /// location) counts +1 if its target is of that class and -1 if not. "Fido is outside" as
+    /// located.! scores 1 (outside is a location); as the attribute is.! it scores 0.
+    /// </summary>
+    private int Fit(Thought reading, Thought? expectsTarget) =>
+        expectsTarget is null ? 0 : MeaningsOf(reading).Sum(meaning => Fit(meaning as Link, expectsTarget));
+
+    private int Fit(Link? relationship, Thought expectsTarget)
+    {
+        if (relationship is null || IsReferentDescriptor(relationship)) return 0;
+        int fit = Fit(relationship.From as Link, expectsTarget) + Fit(relationship.To as Link, expectsTarget);
+        Thought? expected = relationship.LinkType?.AncestorsWithSelf
+            .Select(type => type.GetTargetOfFirstLinkOfType(expectsTarget)).FirstOrDefault(target => target is not null);
+        if (expected is null || relationship.To is null || relationship.To is Link) return fit;
+        return fit + (relationship.To.AncestorsWithSelf.Contains(expected) ? 1 : -1);
+    }
+
+    // Sentence words, later first (for longest-first orderings).
+    private static readonly IComparer<SeqElement> LaterFirst = Comparer<SeqElement>.Create((a, b) =>
+        ReferenceEquals(a, b) ? 0 : Follows(a, b) ? -1 : 1);
 
     // Whether a sentence word comes after another, found by following NXT from the earlier one.
     private static bool Follows(SeqElement later, SeqElement earlier)
@@ -382,7 +479,7 @@ public sealed partial class ModuleInterpret
             for (SeqElement? word = start; word is not null && word != last.NXT; word = word.NXT)
                 if (Fills(word, element, match))
                 {
-                    FilledThrough(word, element, match, last, out Thought? value);
+                    Thought? value = FilledValue(word, element, match);
                     // A verb in its plain form takes the tense an auxiliary lends it: "did ... go" is goes.past.
                     if (value is not null && value.HasProperty(setRelationship) && AddedMeaning(InflectionOf(word)) is null)
                         value = WithInflection(value, LentInflection(start, last, match));

@@ -233,15 +233,14 @@ public sealed partial class ModuleInterpret : ModuleBase
     private Thought? Covering(Thought sentenceThought) => CoveringMatches(sentenceThought).FirstOrDefault();
 
     // Every reading of the whole sentence: the matches with a meaning that start at its first word and
-    // end at its last, strongest template first (they compete by weight).
+    // end at its last, best first (Preferred).
     private List<Thought> CoveringMatches(Thought sentenceThought)
     {
         if (sentenceThought.GetTargetOfFirstLinkOfType(hasWords) is not SeqElement first) return new();
         SeqElement end = first;
         while (end.NXT is SeqElement next) end = next;
-        return MatchesAt(first)
-            .Where(match => ReferenceEquals(EndOf(match), end) && match.LinksTo.Any(link => link.LinkType == means))
-            .OrderByDescending(match => TemplateOf(match).Weight).ToList();
+        return Preferred(MatchesAt(first)
+            .Where(match => ReferenceEquals(EndOf(match), end) && match.LinksTo.Any(link => link.LinkType == means))).ToList();
     }
 
     #region GetSequenceFromText

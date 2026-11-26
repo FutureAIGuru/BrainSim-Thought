@@ -127,8 +127,13 @@ public sealed partial class ModuleInterpret
             !allowChoices || IsMeansOperand(template, value) ? Enumerable.Empty<List<Thought>>() :
             Choose(value);
         foreach (List<Thought> part in parts)
+        {
+            // A one-word part is the element's word: it may have to stand bare (MayStandBare).
+            if (part.Count == 1 && !MayStandBare(template, value, BaseWordOf(part[0], out _) ?? part[0], ReferenceEquals(InflectionOfForm(part[0]), plural)))
+                continue;
             foreach (List<Thought> rest in ExpressTemplate(element.NXT, template, bound, allowChoices))
                 yield return part.Concat(rest).ToList();
+        }
     }
 
     /// <summary>
@@ -240,12 +245,23 @@ public sealed partial class ModuleInterpret
     /// plus its inflection (w:legs is a plural noun, so it may follow w:4).
     /// </summary>
     private bool FollowsWordOrder(List<Thought> words) =>
-        words.Select((word, index) => index + 1 >= words.Count ||
-            MayPrecede(word, words[index + 1], words.Skip(index + 1).FirstOrDefault(next => !IsModifier(next)))).All(ok => ok) &&
+        words.Select((word, index) => index + 1 >= words.Count || MayPrecede(word, words[index + 1], Heads(words, index + 1))).All(ok => ok) &&
         AgreesInNumber(words);
 
     // A word of a class that isModifier (an adjective) stands between a word and the one precedesWord
-    // is about: "the" precedes a common noun in "the black dog".
+    // is about: "the" precedes a common noun in "the black dog". The heads are the words from here
+    // through the first that is not a modifier: a word that can also be an adjective (w:animal, in
+    // WordNet) may itself be the head ("an animal").
+    private List<Thought> Heads(List<Thought> words, int from)
+    {
+        var heads = new List<Thought>();
+        foreach (Thought word in words.Skip(from))
+        {
+            heads.Add(word);
+            if (!IsModifier(word)) break;
+        }
+        return heads;
+    }
     private bool IsModifier(Thought word) => WordClasses(word).Any(wordClass => wordClass.HasProperty("isModifier"));
 
     /// <summary>
@@ -269,18 +285,19 @@ public sealed partial class ModuleInterpret
         return true;
     }
 
-    // precedesWordStartingWith and followsWord are about the adjacent word; precedesWord about the
-    // next word that is not a modifier (head), if there is one.
-    private bool MayPrecede(Thought left, Thought right, Thought? head)
+    // precedesWordStartingWith and followsWord are about the adjacent word; precedesWord about a head
+    // (Heads), one meeting all of them ("a": a singular count noun).
+    private bool MayPrecede(Thought left, Thought right, List<Thought> heads)
     {
         List<Thought> leftClasses = WordClasses(left), rightClasses = WordClasses(right);
-        List<Thought> headClasses = head is null ? new List<Thought>() : WordClasses(head);
+        var precedes = new List<Thought>();
         foreach (Link rule in leftClasses.SelectMany(thought => thought.LinksTo))
         {
             if (rule.LinkType is null || rule.To is null) continue;
-            if (ReferenceEquals(rule.LinkType, precedesWord) && !headClasses.Contains(rule.To)) return false;
+            if (ReferenceEquals(rule.LinkType, precedesWord)) precedes.Add(rule.To);
             if (ReferenceEquals(rule.LinkType, precedesWordStartingWith) && FirstLetter(right)?.HasAncestor(rule.To) != true) return false;
         }
+        if (precedes.Count > 0 && !heads.Any(head => precedes.All(WordClasses(head).Contains))) return false;
         foreach (Link rule in rightClasses.SelectMany(thought => thought.LinksTo))
             if (rule.LinkType is not null && rule.To is not null &&
                 ReferenceEquals(rule.LinkType, followsWord) && !leftClasses.Contains(rule.To)) return false;

@@ -13,11 +13,18 @@ public sealed partial class ModuleInterpret
 {
     #region Language knowledge
 
+    /// <summary>
+    /// Vocabulary files (full paths) imported right after BasicWords.txt. Empty normally; the
+    /// ambiguity experiment adds the classes WordNet gives BasicWords' words (w:dog is also a verb).
+    /// </summary>
+    public static List<string> ExtraVocabularyFiles { get; } = [];
+
     private void LoadLanguageKnowledge()
     {
         GetUKS();
         string vocabularyFile = Path.Combine(AppContext.BaseDirectory, "UKSContent", "BasicWords.txt");
         theUKS.ImportTextFile(vocabularyFile);
+        foreach (string file in ExtraVocabularyFiles) theUKS.ImportTextFile(file);
         // theUKS.ImportTextFile(ContentPath("InterpretLanguage.txt"));
 
         hasWords = theUKS.GetOrAddThought("hasWords", "LinkType");
@@ -138,12 +145,15 @@ public sealed partial class ModuleInterpret
             "[nounPhrase5->means->??.noun]",
             "[nounPhrase5->means->[??.noun->is.!->??.adjective]]",
             "[nounPhrase5->hasProperty->describesReferent]",
+            "[nounPhrase5->hasProperty->lacksDeterminer]",
             "[nounPhrase2->is-a->nounPhrase]",
             "[nounPhrase2->hasWords->^??.article ??.noun]",
             "[nounPhrase2->means->??.noun]",
             "[nounPhrase3->is-a->nounPhrase]",
             "[nounPhrase3->hasWords->^??.noun]",
             "[nounPhrase3->means->??.noun]",
+            // No determiner: only a noun that may stand bare ("dogs", "fur", "Fido"; not "dog").
+            "[nounPhrase3->hasProperty->lacksDeterminer]",
             // "the cat in the kitchen": a prepositional phrase places the noun, as an adjective
             // describes it in nounPhrase1. The phrase means the noun.
             "[placeRole->is-a->templateRole]",
@@ -166,8 +176,9 @@ public sealed partial class ModuleInterpret
             "[sentenceTemplate->hasWords->^??.nounPhrase.subjectRole ??.verbPhrase ??.nounPhrase.complementRole]",
             "[sentenceTemplate->means->[??.nounPhrase.subjectRole->??.verbPhrase->??.nounPhrase.complementRole]]",
             "[classificationTemplate->is-a->template]",
-            "[classificationTemplate->hasWords->^??.nounPhrase.subjectRole ??.classificationPhrase ??.nounPhrase.complementRole]",
-            "[classificationTemplate->means->[??.nounPhrase.subjectRole->is-a.!->??.nounPhrase.complementRole]]",
+            // "is a" ends with the noun's article, so the noun follows it directly (as after a number).
+            "[classificationTemplate->hasWords->^??.nounPhrase.subjectRole ??.classificationPhrase ??.noun.complementRole]",
+            "[classificationTemplate->means->[??.nounPhrase.subjectRole->is-a.!->??.noun.complementRole]]",
             "[copulaClassificationTemplate->is-a->template]",
             "[copulaClassificationTemplate->hasWords->^??.nounPhrase.subjectRole ??.copula ??.nounPhrase.complementRole]",
             "[copulaClassificationTemplate->means->[??.nounPhrase.subjectRole->is-a.!->??.nounPhrase.complementRole]]",
@@ -282,6 +293,7 @@ public sealed partial class ModuleInterpret
             "[bareClassificationQueryTemplate->is-a->template]",
             "[bareClassificationQueryTemplate->hasWords->^??.copula ??.noun.subjectRole ??.noun.complementRole]",
             "[bareClassificationQueryTemplate->means->[??.noun.subjectRole->is-a.?->??.noun.complementRole]]",
+            "[bareClassificationQueryTemplate->hasProperty->lacksDeterminer]",
             "[wildcardAttributeQueryTemplate->is-a->template]",
             "[wildcardAttributeQueryTemplate->hasWords->^w:what ??.copula ??.adjective]",
             "[wildcardAttributeQueryTemplate->means->[??->is.?->??.adjective]]",
@@ -291,8 +303,8 @@ public sealed partial class ModuleInterpret
             "[wildcardClassificationQueryTemplate->means->[??.nounPhrase->is-a.?->??]]",
             // "What is a dog?" The fixed phrase "is a" is recognized before the copula can be.
             "[wildcardClassificationPhraseQueryTemplate->is-a->template]",
-            "[wildcardClassificationPhraseQueryTemplate->hasWords->^w:what ??.classificationPhrase ??.nounPhrase]",
-            "[wildcardClassificationPhraseQueryTemplate->means->[??.nounPhrase->is-a.?->??]]",
+            "[wildcardClassificationPhraseQueryTemplate->hasWords->^w:what ??.classificationPhrase ??.noun]",
+            "[wildcardClassificationPhraseQueryTemplate->means->[??.noun->is-a.?->??]]",
             // "What does Fido have?" / "Do dogs have tails?"
             "[wildcardPossessionQueryTemplate->is-a->template]",
             "[wildcardPossessionQueryTemplate->hasWords->^w:what ??.doAuxiliary ??.nounPhrase ??.possessionVerb]",
@@ -316,8 +328,10 @@ public sealed partial class ModuleInterpret
         {
             string name = "quantityPossession" + digit;
             Define($"[{name}->is-a->template]");
-            Define($"[{name}->hasWords->^??.nounPhrase.subjectRole ??.possessionVerb w:{digit} ??.nounPhrase.complementRole]");
-            Define($"[{name}->means->[??.nounPhrase.subjectRole->has.{digit}.!->??.nounPhrase.complementRole]]");
+            // The number is the noun's determiner, so the noun follows it directly ("1 tail", not
+            // the bare noun phrase "tail", which a singular count noun can't be).
+            Define($"[{name}->hasWords->^??.nounPhrase.subjectRole ??.possessionVerb w:{digit} ??.noun.complementRole]");
+            Define($"[{name}->means->[??.nounPhrase.subjectRole->has.{digit}.!->??.noun.complementRole]]");
         }
 
         // Clauses: a statement template whose meaning is one relationship can also be a clause of a

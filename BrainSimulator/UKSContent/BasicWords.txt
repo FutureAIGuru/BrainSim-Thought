@@ -14,6 +14,11 @@
 [countNoun->is-a->commonNoun]
 [massNoun->is-a->commonNoun]
 [properNoun->is-a->noun]
+# A singular common noun needs a determiner: "a dog", "the dog", never "Fido is dog". A mass noun
+# stands bare ("Fido has fur"), as do plurals and names. A noun phrase without a determiner
+# (lacksDeterminer, ModuleInterpret) takes only nouns that may stand bare.
+[commonNoun->hasProperty->needsDeterminer]
+[massNoun->hasProperty->standsBare]
 [verb->is-a->wordType] 1.00
 [adjective->is-a->wordType] 1.00
 [article->is-a->wordType] 1.00
@@ -211,6 +216,10 @@
 # located at a location ([fido->located->doghouse]). "Where is Fido?" asks located.?.
 [located->is-a->LinkType]
 [location->is-a->Unknown]
+# What a relationship expects its target to be: a reading that meets it is preferred ("Fido is
+# outside": located at a location, rather than an attribute "outside"). ModuleInterpret.Fit.
+[expectsTarget->is-a->LinkType]
+[located->expectsTarget->location]
 # A thing has one location at a time; a new one displaces the old, which is kept in the
 # thing's events sequence as was.located (UKS.History.cs, as in UKSWeb Lab 4).
 [location->hasProperty->isExclusive]

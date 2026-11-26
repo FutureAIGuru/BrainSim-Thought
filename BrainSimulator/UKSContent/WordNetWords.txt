@@ -2,7 +2,8 @@
 # lemmas that occur in WordNet's sense-tagged corpus, a proxy for common words.
 # Loaded by ModuleInflect after BasicWords.txt and Inflections.txt; not by ModuleInterpret.
 # Spellings and word classes only: no meanings. One entry per spelling, a parent per class
-# (w:bark is-a commonNoun, is-a verb). Spellings BasicWords already has are left out. A noun WordNet only ever capitalizes
+# (w:bark is-a commonNoun, is-a verb). Spellings BasicWords already has get no entry of their own;
+# the classes WordNet adds to them (w:dog is also a verb) are in the first section. A noun WordNet only ever capitalizes
 # is a properNoun. Irregular forms come from WordNet's exception lists where the inflection is
 # clear from the spelling (plurals, -ing, -er/-est); a verb form that may be the past or the past
 # participle (swam, swum) is left out.
@@ -37,6 +38,51 @@
 # and/or database.  Title to copyright in this software, database and
 # any associated documentation shall at all times remain with
 # Princeton University and LICENSEE agrees to preserve same.
+
+# Classes WordNet gives words BasicWords defines (w:dog is also a verb). BEGIN
+[adverb->is-a->wordType]
+[w:behind->is-a->commonNoun]
+[w:black->is-a->commonNoun]
+[w:brown->is-a->commonNoun]
+[w:chase->is-a->commonNoun]
+[w:eating->is-a->commonNoun]
+[w:going->is-a->commonNoun]
+[w:green->is-a->commonNoun]
+[w:in->is-a->commonNoun]
+[w:inside->is-a->commonNoun]
+[w:no->is-a->commonNoun]
+[w:outside->is-a->commonNoun]
+[w:play->is-a->commonNoun]
+[w:playing->is-a->commonNoun]
+[w:small->is-a->commonNoun]
+[w:yes->is-a->commonNoun]
+[w:ball->is-a->verb]
+[w:brown->is-a->verb]
+[w:dog->is-a->verb]
+[w:fetch->is-a->verb]
+[w:house->is-a->verb]
+[w:near->is-a->verb]
+[w:animal->is-a->adjective]
+[w:behind->is-a->adjective]
+[w:going->is-a->adjective]
+[w:gone->is-a->adjective]
+[w:inside->is-a->adjective]
+[w:near->is-a->adjective]
+[w:no->is-a->adjective]
+[w:on->is-a->adjective]
+[w:outside->is-a->adjective]
+[w:played->is-a->adjective]
+[w:under->is-a->adjective]
+[w:behind->is-a->adverb]
+[w:in->is-a->adverb]
+[w:inside->is-a->adverb]
+[w:near->is-a->adverb]
+[w:no->is-a->adverb]
+[w:not->is-a->adverb]
+[w:on->is-a->adverb]
+[w:outside->is-a->adverb]
+[w:under->is-a->adverb]
+# Classes WordNet gives words BasicWords defines. END
 
 [w:ab->is-a->commonNoun]
 [w:ab->spelled->^a b]
