@@ -42,8 +42,8 @@ public class ModuleTextSequenceBubbleEvaluationTests
         {
             Link description = Assert.Single(uks.GetSequenceLinks(learnedTemplate)
                 .Where(link => link.LinkType?.Label == "hasWords"));
-            Assert.True(uks.FlattenSequence(description.To).Count(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) >= 1);
-            Assert.All(uks.FlattenSequence(description.To).Where(element => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)), wildcard =>
+            Assert.True(uks.FlattenSequence(description.To).Count(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => element.HasProperty(p))) >= 1);
+            Assert.All(uks.FlattenSequence(description.To).Where(element => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => element.HasProperty(p))), wildcard =>
             {
                 Assert.True(wildcard.HasProperty("isWildcard"));
                 Assert.StartsWith("??class", wildcard.Label);
@@ -371,7 +371,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
             Assert.NotEmpty(uks.Labeled("LearnedClass").Children);
             Assert.Contains(uks.Labeled("Assertion").Children, template =>
                 uks.GetSequenceLinks(template).Any(sequence =>
-                    uks.FlattenSequence(sequence.To).Count(element => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) == 2));
+                    uks.FlattenSequence(sequence.To).Count(element => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => element.HasProperty(p))) == 2));
         }
         finally
         {
@@ -976,7 +976,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
         static HashSet<Thought> OrdinaryMembers(Thought learnedClass) =>
             learnedClass.Children
-                .Where(member => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(member.HasProperty) && member is not SeqElement)
+                .Where(member => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => member.HasProperty(p)) && member is not SeqElement)
                 .ToHashSet();
     }
 

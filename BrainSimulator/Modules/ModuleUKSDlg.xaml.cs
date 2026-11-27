@@ -498,7 +498,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             header = $"<{t.Weight.ToString("f2")}, {timeToLive}> " + header;
         if (t is Link r)
         {
-            if (r.LinkType?.HasLink(null, null, theUKS.Labeled("not")) is not null) //prepend ! for negative  children
+            if (r.LinkType?.HasLink(default, default, "not") is not null) //prepend ! for negative  children
                 header = "!" + header;
         }
         header += ": Children:" + t.Children.Count;

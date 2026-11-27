@@ -704,7 +704,7 @@ public class ModuleText : ModuleBase
             ? null
             : GetSequenceValues(queryTemplate, "hasWords");
         HashSet<Thought> queryFixedWords = querySequence?
-            .Where(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty))
+            .Where(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => element.HasProperty(p)))
             .ToHashSet() ?? new HashSet<Thought>();
 
         var candidates = assertionRoot.Children
@@ -725,7 +725,7 @@ public class ModuleText : ModuleBase
                 bool sourceCompatible = SurfaceWordMatchesTemplateElement(
                     sourceSurfaceWord, sequence.ElementAt(sourcePosition));
                 int sharedFixedWords = sequence.Count(element =>
-                    !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty) &&
+                    !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => element.HasProperty(p)) &&
                     queryFixedWords.Contains(element));
                 int evidence = template.LinksTo.Count(link => link.LinkType?.Label == "evidence");
                 Thought targetWord = GetSurfaceWordForTemplateElement(
@@ -774,7 +774,7 @@ public class ModuleText : ModuleBase
             .Skip(selected.SourcePosition + 1)
             .Take(selected.TargetPosition - selected.SourcePosition - 1))
         {
-            if (new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(connector.HasProperty)) continue;
+            if (new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => connector.HasProperty(p))) continue;
             string connectorText = GetSurfaceText(connector);
             if (connectorText.Equals("a", StringComparison.OrdinalIgnoreCase) ||
                 connectorText.Equals("an", StringComparison.OrdinalIgnoreCase))
@@ -880,7 +880,7 @@ public class ModuleText : ModuleBase
     private static bool SurfaceWordMatchesTemplateElement(Thought surfaceWord, Thought templateElement)
     {
         if (surfaceWord is null || templateElement is null) return false;
-        if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(templateElement.HasProperty)) return surfaceWord == templateElement;
+        if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => templateElement.HasProperty(p))) return surfaceWord == templateElement;
 
         Thought learnedClassRoot = MainWindow.theUKS?.Labeled("LearnedClass");
         List<Thought> constraints = learnedClassRoot is null
@@ -888,7 +888,7 @@ public class ModuleText : ModuleBase
             : templateElement.Parents
                 .Where(learnedClassRoot.Children.Contains)
                 .ToList();
-        bool retVal = constraints.Count == 0 || constraints.Any(surfaceWord.HasAncestor);
+        bool retVal = constraints.Count == 0 || constraints.Any(a => surfaceWord.HasAncestor(a));
         return retVal;
     }
 
@@ -1216,7 +1216,7 @@ public class ModuleText : ModuleBase
     {
         List<Thought> retVal = learnedClass.Children
             .Where(member => member is not SeqElement &&
-                !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(member.HasProperty) &&
+                !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => member.HasProperty(p)) &&
                 (member.HasAncestor("Word") ||
                     member.Label.StartsWith("w:", StringComparison.OrdinalIgnoreCase)))
             .ToList();
@@ -1310,12 +1310,12 @@ public class ModuleText : ModuleBase
                 int classifiedMatches = sequence is null ? 0 : sequence
                     .Zip(phraseSequence)
                     .Count(item =>
-                        new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(item.First.HasProperty) &&
+                        new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => item.First.HasProperty(p)) &&
                         item.First.Parents.Any(parent =>
                             parent != theUKS.Labeled("Property") &&
                             item.Second.HasAncestor(parent)));
                 int fixedElements = sequence?.Count(element =>
-                    !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty)) ?? 0;
+                    !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => element.HasProperty(p))) ?? 0;
                 int evidence = candidate.Key.LinksTo.Count(link =>
                     link.LinkType?.Label == "evidence");
                 bool hasAction = GetParameterizedTemplateOperation(candidate.Key) is not null;
@@ -1455,7 +1455,7 @@ public class ModuleText : ModuleBase
             if (firstSlot > 0)
             {
                 Thought boundary = sequence.ElementAt(firstSlot - 1);
-                if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(boundary.HasProperty))
+                if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => boundary.HasProperty(p)))
                 {
                     boundaryMembers.Add(boundary);
                     boundaryEvidence.Add(template);
@@ -1471,7 +1471,7 @@ public class ModuleText : ModuleBase
                 List<Thought> fixedSegment = sequence
                     .Skip(segmentStart)
                     .Take(segmentEnd - segmentStart)
-                    .Where(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(element.HasProperty))
+                    .Where(element => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => element.HasProperty(p)))
                     .ToList();
                 if (fixedSegment.Count == 0) continue;
 
@@ -1528,7 +1528,7 @@ public class ModuleText : ModuleBase
     /// <summary>Returns the learned class constraining a wildcard template element.</summary>
     private static Thought GetWildcardClass(Thought value, Thought learnedClassRoot)
     {
-        if (value is null || learnedClassRoot is null || !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(value.HasProperty)) return null;
+        if (value is null || learnedClassRoot is null || !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => value.HasProperty(p))) return null;
         Thought retVal = value.Parents.FirstOrDefault(learnedClassRoot.Children.Contains);
         return retVal;
     }
@@ -2719,7 +2719,7 @@ public class ModuleText : ModuleBase
     private static HashSet<Thought> OrdinaryClassChildren(Thought learnedClass)
     {
         return learnedClass.Children
-            .Where(child => child is not SeqElement && !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(child.HasProperty))
+            .Where(child => child is not SeqElement && !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => child.HasProperty(p)))
             .ToHashSet();
     }
 }

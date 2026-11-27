@@ -16,36 +16,19 @@ namespace UKS;
 public partial class UKS
 {
     /// <summary>
-    /// Creates a Thought. <br/>
-    /// Parameters are strings. If the Thoughts with those labels
-    /// do not exist, they will be created. <br/>
-    /// If the LinkType has an inverse, the inverse will be used and the Thought will be reversed so that
-    /// Fido Is-a Dog become Dog Has-child Fido.<br/>
+    /// Adds the statement [source → linkType → target], e.g. <c>AddStatement("Fido", "is-a", "dog")</c>,
+    /// and returns its link (an existing identical link is reused and fired).
+    /// Each operand is a Thought or a label: an unknown label creates the Thought, under LinkType
+    /// for the link type and under Unknown otherwise. The target may be empty (<c>default</c>).
     /// </summary>
-    /// <param name="sSource">string or Thought for the source.</param>
-    /// <param name="sLinkType">string or Thought for the link type.</param>
-    /// <param name="sTarget">string or Thought (or null) for the target.</param>
-    /// <param name="label">Optional label for the created link Thought.</param>
-    /// <returns>The primary link which was created (others may be created for given attributes).</returns>
-    public Link? AddStatement(string sSource, string sLinkType, string sTarget, string label = "")
+    /// <param name="label">Optional label for the link.</param>
+    /// <returns>The link, or null if the source or link type is empty.</returns>
+    public Link? AddStatement(ThoughtRef sourceRef, ThoughtRef linkTypeRef, ThoughtRef targetRef, string label = "")
     {
-        Thought? source = ThoughtFromObject(sSource);
-        Thought? linkType = ThoughtFromObject(sLinkType, "LinkType", source);
-        Thought? target = ThoughtFromObject(sTarget);
-        if (source is null || linkType is null) return null;
-
-        return AddStatement(source, linkType, target, label);
-    }
-
-    /// <summary>
-    /// Adds a statement relating the specified source, link type, and target. No new Thoughts are created.
-    /// </summary>
-    public Link? AddStatement(Thought source, Thought linkType, Thought? target, string label = "")
-    {
-        if (source is null || linkType is null) return null;
-        if (!ReferenceEquals(source.Store, this) || !ReferenceEquals(linkType.Store, this) ||
-            (target is not null && !ReferenceEquals(target.Store, this)))
-            throw new ArgumentException("Cannot create a statement using Thoughts from another UKS.");
+        Thought? source = sourceRef.GetOrAdd(this, "Unknown");
+        Thought? linkType = source is null ? null : linkTypeRef.GetOrAdd(this, "LinkType", source);
+        if (source is null || linkType is null) return null; // nothing is created for a rejected statement
+        Thought? target = targetRef.GetOrAdd(this, "Unknown");
         theUKS = this;
 
         Link? labeledLink = string.IsNullOrEmpty(label) ? null : Labeled(label) as Link;

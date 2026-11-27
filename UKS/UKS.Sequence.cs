@@ -794,7 +794,7 @@ public partial class UKS
     private List<(SeqElement seqNode, float confidence)> FindExactWildcardMatches(List<Thought> pattern, Thought? valueClass = null)
     {
         Thought? anchor = pattern
-            .Where(x => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(x.HasProperty))
+            .Where(x => !HasWildcardProperty(x))
             .OrderBy(x => x.LinksFrom.Count(link => link.LinkType?.Label == "VLU"))
             .FirstOrDefault();
         if (anchor is null) return new List<(SeqElement seqNode, float confidence)>();
@@ -837,7 +837,7 @@ public partial class UKS
             HashSet<int> nextPositions = new();
             foreach (int position in activePositions)
             {
-                if (!new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(patternElement.HasProperty))
+                if (!HasWildcardProperty(patternElement))
                 {
                     if (position < sequence.Count && ReferenceEquals(patternElement, sequence[position]))
                         nextPositions.Add(position + 1);
@@ -881,16 +881,16 @@ public partial class UKS
     private static bool WildcardMatchesValue(Thought? wildcard, Thought? value)
     {
         if (wildcard is null || value is null ||
-            !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(wildcard.HasProperty)) return false;
+            !HasWildcardProperty(wildcard)) return false;
         List<Thought> constraints = wildcard.AncestorsWithSelf
-            .Where(ancestor => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(ancestor.HasProperty))
+            .Where(ancestor => HasWildcardProperty(ancestor))
             .SelectMany(ancestor => ancestor.Parents)
-            .Where(parent => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(parent.HasProperty) &&
+            .Where(parent => !HasWildcardProperty(parent) &&
                 !ReferenceEquals(parent, wildcard.Store.Labeled("Property")) &&
                 !ReferenceEquals(parent, wildcard.Store.Labeled("Thought")) &&
                 !ReferenceEquals(parent, wildcard.Store.Labeled("Unknown")))
             .ToList();
-        return constraints.Count == 0 || constraints.Any(value.HasAncestor);
+        return constraints.Count == 0 || constraints.Any(constraint => value.HasAncestor(constraint));
     }
 
     /// <summary>
@@ -936,7 +936,7 @@ public partial class UKS
             // are grouped, rather than relying on Property parentage or scanning all Thoughts.
             if (Labeled("unknownWordType") is Thought unknownWordType && firstPatternElement.HasAncestor(unknownWordType))
                 wildcardCandidates = wildcardCandidates.Concat(
-                    new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }
+                    WildcardProperties
                         .Select(Labeled).OfType<Thought>().SelectMany(property => property.LinksFrom)
                         .Where(link => link.LinkType == Labeled("hasProperty") && link.From is not null)
                         .SelectMany(link => link.From!.Descendants.Prepend(link.From!)));
@@ -1142,15 +1142,21 @@ public partial class UKS
     private static bool HasClassConstraint(Thought? wildcard)
     {
         return wildcard is not null &&
-            new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(wildcard.HasProperty) &&
+            HasWildcardProperty(wildcard) &&
             wildcard.AncestorsWithSelf
-                .Where(ancestor => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(ancestor.HasProperty))
+                .Where(ancestor => HasWildcardProperty(ancestor))
                 .SelectMany(ancestor => ancestor.Parents)
-                .Any(parent => !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(parent.HasProperty) &&
+                .Any(parent => !HasWildcardProperty(parent) &&
                     !ReferenceEquals(parent, wildcard.Store.Labeled("Property")) &&
                     !ReferenceEquals(parent, wildcard.Store.Labeled("Thought")) &&
                     !ReferenceEquals(parent, wildcard.Store.Labeled("Unknown")));
     }
+
+    /// <summary>The properties marking a wildcard, one per cardinality.</summary>
+    private static readonly string[] WildcardProperties = { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" };
+
+    /// <summary>True if the Thought, or an ancestor, has one of the wildcard properties.</summary>
+    internal static bool HasWildcardProperty(Thought t) => WildcardProperties.Any(property => t.HasProperty(property));
 
     private static bool IsWildcardPatternElement(Thought? patternElement, Thought? searchOptions)
     {
@@ -1158,7 +1164,7 @@ public partial class UKS
         if (searchOptions is null) return false;
         if (!searchOptions.HasProperty("allowWildcards")) return false;
 
-        return new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(patternElement.HasProperty);
+        return HasWildcardProperty(patternElement);
     }
 
     private List<(SeqElement seqNode, float confidence)> CollectSequenceSearchResults(
@@ -1200,11 +1206,7 @@ public partial class UKS
         List<Thought> parentThoughts,
         string wildcardProperty = "isWildcard")
     {
-        string[] cardinalityProperties =
-        {
-            "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard"
-        };
-        if (!cardinalityProperties.Contains(wildcardProperty, StringComparer.OrdinalIgnoreCase))
+        if (!WildcardProperties.Contains(wildcardProperty, StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException("Unknown wildcard cardinality property.", nameof(wildcardProperty));
 
         Thought wildcard = GetOrAddThought(wildcardName, "Property")!;
@@ -1212,7 +1214,7 @@ public partial class UKS
         Thought? existingProperty = wildcard.LinksTo
             .Where(x => x.LinkType?.Label == "hasProperty" && x.To is not null)
             .Select(x => x.To!)
-            .FirstOrDefault(x => cardinalityProperties.Contains(
+            .FirstOrDefault(x => WildcardProperties.Contains(
                 x.Label, StringComparer.OrdinalIgnoreCase));
         if (existingProperty is not null && existingProperty != selectedProperty)
             throw new InvalidOperationException(

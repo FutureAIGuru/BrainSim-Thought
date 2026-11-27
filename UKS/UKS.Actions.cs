@@ -56,7 +56,7 @@ public partial class UKS
 
         Link query = new(action.From, relationshipType, action.To);
         bool hasWildcard = new[] { action.From, relationshipType, action.To }.Any(thought =>
-            new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(thought.HasProperty));
+            HasWildcardProperty(thought));
         if (!hasWildcard)
         {
             // is-a is not among a Thought's attributes; it is answered from the stored link.

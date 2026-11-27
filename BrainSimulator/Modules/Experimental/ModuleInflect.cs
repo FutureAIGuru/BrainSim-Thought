@@ -389,7 +389,7 @@ public sealed class ModuleInflect : ModuleBase
     {
         if (!element.HasProperty(isWildcard)) return ReferenceEquals(element, letter);
         if (bindings.TryGetValue(element, out Thought? bound)) return ReferenceEquals(bound, letter);
-        if (!element.Parents.Where(parent => !parent.HasProperty(isWildcard)).All(letter.HasAncestor)) return false;
+        if (!element.Parents.Where(parent => !parent.HasProperty(isWildcard)).All(a => letter.HasAncestor(a))) return false;
         bindings[element] = letter;
         return true;
     }

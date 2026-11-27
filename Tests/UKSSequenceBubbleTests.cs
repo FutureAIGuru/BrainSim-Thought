@@ -128,13 +128,13 @@ public class UKSSequenceBubbleTests
         Link first = Observation(uks, hasWords, "p1", "A", "X", "C");
         Link second = Observation(uks, hasWords, "p2", "A", "Y", "C");
         int thoughtCount = uks.AtomicThoughts.Count;
-        int wildcardCount = uks.AtomicThoughts.Count(thought => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(thought.HasProperty));
+        int wildcardCount = uks.AtomicThoughts.Count(thought => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => thought.HasProperty(p)));
 
         CommonSequencePattern pattern = uks.FindCommonSequence(new[] { first, second });
 
         Assert.NotNull(pattern);
         Assert.Equal(thoughtCount, uks.AtomicThoughts.Count);
-        Assert.Equal(wildcardCount, uks.AtomicThoughts.Count(thought => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(thought.HasProperty)));
+        Assert.Equal(wildcardCount, uks.AtomicThoughts.Count(thought => new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(p => thought.HasProperty(p))));
     }
 
     [Fact]

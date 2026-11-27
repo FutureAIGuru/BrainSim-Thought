@@ -346,7 +346,7 @@ public partial class UKS
             if (inverseOf is not null && hasChildLink is not null)
                 isA.RemoveLink(inverseOf, hasChildLink);
             if (hasProperty is not null)
-                isA.RemoveLink(hasProperty, null!);
+                isA.RemoveLink(hasProperty, default);
         }
         if (Labeled("has") is Thought has)
         {

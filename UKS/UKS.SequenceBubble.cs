@@ -78,7 +78,7 @@ public partial class UKS
     public Thought GetOrCreateThoughtClass(Thought classRoot, IEnumerable<Thought> members, string classLabel = "class*")
     {
         static bool IsMember(Thought? t) => 
-            t is not null and not SeqElement && !new[] { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" }.Any(t.HasProperty);
+            t is not null and not SeqElement && !HasWildcardProperty(t);
 
         HashSet<Thought> memberSet = members.Where(IsMember).ToHashSet();
         if (memberSet.Count == 0)

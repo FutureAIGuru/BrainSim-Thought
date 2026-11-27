@@ -30,8 +30,8 @@ public class ModuleAttentionS : ModuleBase
 
         foreach (Link l in ((Thought)"activeThought")?.LinksFrom?.Where(x=>x?.LinkType?.Label== "is-a"))
         {
-            if (l.HasLink(l,"handled", null) is not null) continue; //only handle this event once
-            l.AddLink("handled", null);
+            if (l.HasLink(l, "handled", default) is not null) continue; //only handle this event once
+            l.AddLink("handled", default);
             if (!l.From.HasAncestor("musicalPhrase")) continue;
 
             //Add the new node to the phrase sequence

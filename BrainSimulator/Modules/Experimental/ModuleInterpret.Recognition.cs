@@ -165,7 +165,7 @@ public sealed partial class ModuleInterpret
             yield return new Step(element, input, input, null);
         var classes = ElementClasses(expected).ToList();
         if (!isWildcardElement || classes.Count == 0) yield break;
-        var children = MatchesAt(input).Where(child => classes.Any(TemplateOf(child).HasAncestor) &&
+        var children = MatchesAt(input).Where(child => classes.Any(a => TemplateOf(child).HasAncestor(a)) &&
             (bound is null || ReferenceEquals(EndOf(child), bound) || Follows(bound, EndOf(child))) &&
             (usable is null || usable(child)));
         // Longest first: each child before every child it ends after; readings of the same words best first.
@@ -181,7 +181,7 @@ public sealed partial class ModuleInterpret
         var classes = ElementClasses(expected).ToList();
         bool takes = input.VLU.HasAncestor(unknownWordType)
             ? classes.Count > 0 && expected.Parents.Where(parent => !parent.HasProperty(isWildcard)).All(parent => parent.HasAncestor(wordType))
-            : classes.Count == 0 || classes.Any(input.VLU.HasAncestor);
+            : classes.Count == 0 || classes.Any(a => input.VLU.HasAncestor(a));
         return takes && HasRequiredInflection(input, expected);
     }
 
@@ -379,7 +379,7 @@ public sealed partial class ModuleInterpret
             return WithInflection(word.VLU.LinksTo.FirstOrDefault(link => link.LinkType == means)?.To, InflectionOf(word));
         var classes = ElementClasses(element.VLU).ToList();
         Thought? child = Preferred(MatchesAt(word).Where(child => !ReferenceEquals(child, match) && ReferenceEquals(EndOf(child), end) &&
-            classes.Any(TemplateOf(child).HasAncestor) && HasUsableMeaning(child))).FirstOrDefault();
+            classes.Any(a => TemplateOf(child).HasAncestor(a)) && HasUsableMeaning(child))).FirstOrDefault();
         return child is null ? null : UsableMeaning(child);
     }
 

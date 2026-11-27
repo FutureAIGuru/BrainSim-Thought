@@ -146,7 +146,7 @@ public partial class UKS
         return t.HasProperty("isNegative") || t.GetAttributes().Any(attribute => attribute.HasProperty("isNegative"));
     }
 
-    private Thought? ThoughtFromString(string label, string defaultParent, Thought? source = null)
+    internal Thought? ThoughtFromString(string label, string defaultParent, Thought? source = null)
     {
         GetOrAddThought("Thought"); //safety
         GetOrAddThought("Unknown", "Thought"); //safety
@@ -163,19 +163,5 @@ public partial class UKS
             t = GetOrAddThought(label, defaultParent, source);
         }
         return t;
-    }
-
-    private Thought? ThoughtFromObject(object? o, string parentLabel = "", Thought? source = null)
-    {
-        if (parentLabel == "")
-            parentLabel = "Unknown";
-        if (o is string s3)
-            return ThoughtFromString(s3.Trim(), parentLabel, source);
-        else if (o is Thought t3)
-            return t3;
-        else if (o is null)
-            return null;
-        else
-            return null;
     }
 }
