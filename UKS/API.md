@@ -150,8 +150,16 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
       (`AddSequenceAndLink` baseWeight, `FlattenSequence` skipPlusValues, `ExportTextFile` maxDepth);
       `EnumerateSequenceElements`'s recursion stack is private; `SaveXml`/`LoadXml` take `path`;
       `CreateWildcard` takes `IEnumerable<Thought>` and finds its cardinality property by identity.
-- [ ] **J. Freeze:** a public API baseline checked at build time, so any change to the public
-      surface fails the build until the baseline is updated on purpose
+- [x] **J. Freeze:** `Microsoft.CodeAnalysis.PublicApiAnalyzers` checks the public API at every build.
+      `UKS/PublicAPI.Shipped.txt` lists the frozen core (148 entries: members, accessors, constructors).
+      Adding or removing a public member, or changing a signature, fails the build (RS0016, RS0017
+      are errors in UKS.csproj) until the change is made on purpose: put a new member in
+      `PublicAPI.Unshipped.txt` (Visual Studio's quick fix on the error does it), and delete a removed
+      member's line. The namespaces `UKS.Agents` and `UKS.Helpers` are left out (`UKS.ApiFreeze.cs`,
+      namespace-scoped suppressions; per-file .editorconfig severity is not honored for this analyzer).
+      The Undocumented members (`sThought`, `FindSequenceSpansByActivation`) are listed, so a change
+      to the XML serialization type is deliberate too. At a release, move the Unshipped lines into
+      Shipped.
 
 ## Members
 

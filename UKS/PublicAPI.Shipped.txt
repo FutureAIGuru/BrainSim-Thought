@@ -1,0 +1,149 @@
+#nullable enable
+const UKS.Thought.Forever = -1 -> long
+const UKS.UKS.CharacterPrefix = "c:" -> string!
+const UKS.UKS.CyclesPerSecond = 100 -> int
+override UKS.Link.ToString() -> string!
+override UKS.SeqElement.ToString() -> string!
+override UKS.Thought.ToString() -> string!
+override UKS.ThoughtRef.ToString() -> string!
+override UKS.UKS.sThought.ToString() -> string!
+static UKS.ThoughtRef.implicit operator UKS.ThoughtRef(string? label) -> UKS.ThoughtRef
+static UKS.ThoughtRef.implicit operator UKS.ThoughtRef(UKS.Thought? thought) -> UKS.ThoughtRef
+static UKS.UKS.GetCharacterLabel(char character) -> string!
+static UKS.UKS.IsWildcard(UKS.Thought! t) -> bool
+UKS.Link
+UKS.Link.From.get -> UKS.Thought?
+UKS.Link.From.set -> void
+UKS.Link.Link(UKS.Link! l) -> void
+UKS.Link.Link(UKS.Thought? from, UKS.Thought? linkType, UKS.Thought? to) -> void
+UKS.Link.Link(UKS.UKS! store) -> void
+UKS.Link.LinkType.get -> UKS.Thought?
+UKS.Link.LinkType.set -> void
+UKS.Link.To.get -> UKS.Thought?
+UKS.Link.To.set -> void
+UKS.SeqElement
+UKS.SeqElement.FRST.get -> UKS.SeqElement?
+UKS.SeqElement.FRST.set -> void
+UKS.SeqElement.NXT.get -> UKS.SeqElement?
+UKS.SeqElement.NXT.set -> void
+UKS.SeqElement.SeqElement(UKS.UKS! store) -> void
+UKS.SeqElement.VLU.get -> UKS.Thought?
+UKS.SeqElement.VLU.set -> void
+UKS.Thought
+UKS.Thought.AddLink(UKS.ThoughtRef linkType, UKS.ThoughtRef to) -> UKS.Link?
+UKS.Thought.AddParent(UKS.ThoughtRef parent) -> UKS.Link?
+UKS.Thought.AddProperty(UKS.ThoughtRef property) -> UKS.Thought?
+UKS.Thought.Ancestors.get -> System.Collections.Generic.IEnumerable<UKS.Thought!>!
+UKS.Thought.Children.get -> System.Collections.Generic.IReadOnlyList<UKS.Thought!>!
+UKS.Thought.CreatedCycle.get -> long
+UKS.Thought.Delete() -> void
+UKS.Thought.Descendants.get -> System.Collections.Generic.IEnumerable<UKS.Thought!>!
+UKS.Thought.Fire() -> void
+UKS.Thought.FiredWithin(long cycles) -> bool
+UKS.Thought.HasAncestor(UKS.ThoughtRef ancestor) -> bool
+UKS.Thought.HasLink(UKS.ThoughtRef from, UKS.ThoughtRef linkType, UKS.ThoughtRef to) -> UKS.Link?
+UKS.Thought.HasLink(UKS.ThoughtRef linkType, UKS.ThoughtRef to = default(UKS.ThoughtRef)) -> UKS.Link?
+UKS.Thought.HasProperty(UKS.ThoughtRef property) -> bool
+UKS.Thought.IsPlastic.get -> bool
+UKS.Thought.IsPlastic.set -> void
+UKS.Thought.Label.get -> string!
+UKS.Thought.Label.set -> void
+UKS.Thought.LastFiredCycle -> long
+UKS.Thought.LinksAsType.get -> System.Collections.Generic.IReadOnlyList<UKS.Link!>!
+UKS.Thought.LinksFrom.get -> System.Collections.Generic.IReadOnlyList<UKS.Link!>!
+UKS.Thought.LinksTo.get -> System.Collections.Generic.IReadOnlyList<UKS.Link!>!
+UKS.Thought.MaxWeight.get -> float
+UKS.Thought.MaxWeight.set -> void
+UKS.Thought.Parents.get -> System.Collections.Generic.IReadOnlyList<UKS.Thought!>!
+UKS.Thought.RemoveLink(UKS.Link! r) -> void
+UKS.Thought.RemoveLink(UKS.ThoughtRef linkType, UKS.ThoughtRef to) -> void
+UKS.Thought.RemoveParent(UKS.ThoughtRef parent) -> void
+UKS.Thought.Store.get -> UKS.UKS!
+UKS.Thought.Thought(UKS.Thought! r) -> void
+UKS.Thought.Thought(UKS.UKS! store) -> void
+UKS.Thought.TimeToLive.get -> long
+UKS.Thought.TimeToLive.set -> void
+UKS.Thought.Value.get -> object?
+UKS.Thought.Value.set -> void
+UKS.Thought.Weight.get -> float
+UKS.Thought.Weight.set -> void
+UKS.ThoughtRef
+UKS.ThoughtRef.Find(UKS.UKS! store) -> UKS.Thought?
+UKS.ThoughtRef.IsEmpty.get -> bool
+UKS.ThoughtRef.ThoughtRef() -> void
+UKS.UKS
+UKS.UKS.AddSequence(string! label, System.Collections.Generic.IReadOnlyList<UKS.Thought!>? targets, bool allowCompression = true) -> UKS.SeqElement?
+UKS.UKS.AddSequenceAndLink(UKS.Thought! source, UKS.ThoughtRef linkType, System.Collections.Generic.IReadOnlyList<UKS.Thought!>! targets, bool allowCompression = true) -> UKS.SeqElement?
+UKS.UKS.AddStatement(UKS.ThoughtRef source, UKS.ThoughtRef linkType, UKS.ThoughtRef target, string! label = "") -> UKS.Link?
+UKS.UKS.AddStatementRecordingHistory(UKS.ThoughtRef from, UKS.ThoughtRef type, UKS.ThoughtRef to) -> UKS.Link?
+UKS.UKS.AdvanceCycle() -> System.Collections.Generic.IReadOnlyList<UKS.Thought!>!
+UKS.UKS.ApplyTestOrSetAction(UKS.Link! action) -> System.Collections.Generic.IReadOnlyList<UKS.Link!>!
+UKS.UKS.CanUndo.get -> bool
+UKS.UKS.ChangeUndoably(string! description, System.Action! change) -> void
+UKS.UKS.Copy() -> UKS.UKS!
+UKS.UKS.CreatedInCurrentChange(UKS.Thought! thought) -> bool
+UKS.UKS.CreateFirstElement(string! labelBase, UKS.ThoughtRef value) -> UKS.SeqElement!
+UKS.UKS.CreateInitialStructure() -> void
+UKS.UKS.CreateSearchOptions(bool mustMatchFirst = false, bool mustMatchLast = false, bool allowWildcard = false, bool allowNestedSequences = false, bool allowTrailingInput = false) -> UKS.Thought!
+UKS.UKS.CreateSpellingSequence(string! spelling, UKS.Thought? owner) -> UKS.SeqElement?
+UKS.UKS.CreateWildcard(string! wildcardName, System.Collections.Generic.IEnumerable<UKS.Thought!>! parentThoughts, string! wildcardProperty = "isWildcard") -> UKS.Thought!
+UKS.UKS.Cycle.get -> long
+UKS.UKS.DeleteDescendants(UKS.Thought! t) -> void
+UKS.UKS.DeleteSequence(UKS.SeqElement? s) -> void
+UKS.UKS.EnumerateSequenceElements(UKS.SeqElement? sequenceStart) -> System.Collections.Generic.IEnumerable<UKS.SeqElement!>!
+UKS.UKS.ExportTextFile(UKS.ThoughtRef root, string! path) -> void
+UKS.UKS.FileName.get -> string!
+UKS.UKS.FindLinks(UKS.Link! l) -> System.Collections.Generic.IReadOnlyList<UKS.Link!>!
+UKS.UKS.FindSequencesByActivation(System.Collections.Generic.IReadOnlyList<UKS.Thought!>! pattern, UKS.ThoughtRef searchOptions = default(UKS.ThoughtRef), bool getFirstElements = true, UKS.ThoughtRef valueClass = default(UKS.ThoughtRef), UKS.ThoughtRef matchClass = default(UKS.ThoughtRef)) -> System.Collections.Generic.IReadOnlyList<(UKS.SeqElement! seqNode, float confidence)>!
+UKS.UKS.FindSequencesByActivation(UKS.SeqElement? sequence, UKS.ThoughtRef searchOptions = default(UKS.ThoughtRef), bool getFirstElements = true, UKS.SeqElement? last = null, UKS.ThoughtRef valueClass = default(UKS.ThoughtRef), UKS.ThoughtRef alternativeClass = default(UKS.ThoughtRef), UKS.ThoughtRef matchClass = default(UKS.ThoughtRef)) -> System.Collections.Generic.IReadOnlyList<(UKS.SeqElement! seqNode, float confidence)>!
+UKS.UKS.FindSequenceSpansByActivation(UKS.SeqElement! first, UKS.SeqElement! last, UKS.Thought! searchOptions) -> System.Collections.Generic.IReadOnlyList<(UKS.SeqElement! start, UKS.SeqElement! end, UKS.SeqElement! match)>!
+UKS.UKS.FlattenSequence(UKS.Thought? sequenceStart) -> System.Collections.Generic.IReadOnlyList<UKS.Thought!>!
+UKS.UKS.GetAttributes(UKS.ThoughtRef source, UKS.Link? filter = null, int maxResults = 0) -> System.Collections.Generic.IReadOnlyList<UKS.Link!>!
+UKS.UKS.GetElementValue(UKS.SeqElement? s, UKS.ThoughtRef valueClass = default(UKS.ThoughtRef)) -> UKS.Thought?
+UKS.UKS.GetEvidence(UKS.Link! attribute) -> System.Collections.Generic.IReadOnlyList<UKS.Link!>!
+UKS.UKS.GetLink(UKS.ThoughtRef from, UKS.ThoughtRef linkType, UKS.ThoughtRef to) -> UKS.Link?
+UKS.UKS.GetOrAddCharacter(char character) -> UKS.Thought!
+UKS.UKS.GetOrAddThought(string! label, UKS.ThoughtRef parent = default(UKS.ThoughtRef), UKS.Thought? source = null) -> UKS.Thought?
+UKS.UKS.GetPlainLinkType(UKS.Thought? linkType) -> UKS.Thought?
+UKS.UKS.GetReferringThoughts(UKS.SeqElement! s, UKS.ThoughtRef linkType) -> System.Collections.Generic.IReadOnlyList<UKS.Thought!>!
+UKS.UKS.ImportTextFile(string! filePath) -> void
+UKS.UKS.InsertAfter(UKS.SeqElement! element, UKS.ThoughtRef value, bool atBeginning = false) -> UKS.SeqElement!
+UKS.UKS.IsSequenceElement(UKS.Thought? t) -> bool
+UKS.UKS.IsSequenceFirstElement(UKS.Thought? t) -> bool
+UKS.UKS.Labeled(string! label) -> UKS.Thought?
+UKS.UKS.LabeledStartingWith(string! prefix) -> System.Collections.Generic.IReadOnlyList<UKS.Thought!>!
+UKS.UKS.LinkCount() -> int
+UKS.UKS.LinksAreExclusive(UKS.Link! r1, UKS.Link! r2) -> bool
+UKS.UKS.LoadXml(string! path = "") -> bool
+UKS.UKS.Merge(UKS.Thought! redundantThought, UKS.Thought! canonicalThought) -> int
+UKS.UKS.ProcessSingleLine(string! line) -> UKS.Thought?
+UKS.UKS.ProcessSingleLineWithNesting(string! line, bool asPattern = false, bool asActionPrototype = false) -> UKS.Thought?
+UKS.UKS.Reset() -> void
+UKS.UKS.Roots() -> System.Collections.Generic.IReadOnlyList<UKS.Thought!>!
+UKS.UKS.RunPeriodically(System.Func<System.Collections.Generic.IReadOnlyList<UKS.Thought!>!>! agent, System.TimeSpan? interval) -> void
+UKS.UKS.SaveXml(string! path = "") -> bool
+UKS.UKS.SearchByAttributes(UKS.Thought! target, UKS.ThoughtRef root) -> System.Collections.Generic.IReadOnlyList<(UKS.Thought! t, float conf)>!
+UKS.UKS.SequenceElementCount() -> int
+UKS.UKS.StartClock() -> void
+UKS.UKS.sThought
+UKS.UKS.sThought.index -> int
+UKS.UKS.sThought.isPlastic -> bool
+UKS.UKS.sThought.label -> string!
+UKS.UKS.sThought.linkType -> int
+UKS.UKS.sThought.maxWeight -> float
+UKS.UKS.sThought.source -> int
+UKS.UKS.sThought.sThought() -> void
+UKS.UKS.sThought.target -> int
+UKS.UKS.sThought.V -> object?
+UKS.UKS.sThought.weight -> float
+UKS.UKS.StopClock() -> void
+UKS.UKS.SuppressFiring.get -> bool
+UKS.UKS.SuppressFiring.set -> void
+UKS.UKS.ThoughtCount() -> int
+UKS.UKS.ThoughtFired -> System.Action<UKS.Thought!>?
+UKS.UKS.TryChange(string! description, System.Func<bool>! change) -> bool
+UKS.UKS.UKS() -> void
+UKS.UKS.UndoLast() -> string?
+UKS.UKS.Why() -> System.Collections.Generic.IReadOnlyList<UKS.Link!>!
+UKS.UKS.WhyNot() -> System.Collections.Generic.IReadOnlyList<UKS.Link!>!
+virtual UKS.UKS.AddThought(string! label, UKS.ThoughtRef parent = default(UKS.ThoughtRef)) -> UKS.Thought!
