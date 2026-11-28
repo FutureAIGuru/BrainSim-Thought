@@ -25,7 +25,7 @@ public static class ClassAgents
     /// inherit it).
     /// </summary>
     /// <returns>The parents whose links changed.</returns>
-    public static List<Thought> BubbleAttributes(this UKS store)
+    public static IReadOnlyList<Thought> BubbleAttributes(this UKS store)
     {
         List<Thought> parents = Under(store, "Object").Concat(Under(store, "Unknown")).Distinct().ToList();
         List<Thought> changed = new();
@@ -84,7 +84,7 @@ public static class ClassAgents
     /// to that ancestor (Fido has paw, has paw → Fido has.2 paw). Only ancestors under Unknown count.
     /// </summary>
     /// <returns>The links added.</returns>
-    public static List<Thought> AddCounts(this UKS store)
+    public static IReadOnlyList<Thought> AddCounts(this UKS store)
     {
         List<Thought> added = new();
         Thought? isA = store.Labeled("is-a");
@@ -122,7 +122,7 @@ public static class ClassAgents
     /// A Thought with several parents (such as a compound, dog.big) is left alone.
     /// </summary>
     /// <returns>The subclasses created.</returns>
-    public static List<Thought> BalanceTree(this UKS store)
+    public static IReadOnlyList<Thought> BalanceTree(this UKS store)
     {
         const int maxChildren = 6;
         List<Thought> created = new();
@@ -150,7 +150,7 @@ public static class ClassAgents
     /// under Unknown are not divided.
     /// </summary>
     /// <returns>The classes created or reused.</returns>
-    public static List<Thought> CreateClasses(this UKS store)
+    public static IReadOnlyList<Thought> CreateClasses(this UKS store)
     {
         List<Thought> classes = new();
         foreach (Thought t in Under(store, "Object").ToList())

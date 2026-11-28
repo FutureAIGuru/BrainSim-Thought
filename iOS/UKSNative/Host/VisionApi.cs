@@ -149,10 +149,10 @@ sealed class VisionApi : ModuleApi
         var patch = new PatchDto { Label = t.Label, X = x, Y = y, Weight = t.Weight, FiredAgo = firedAgo };
         foreach (Link pt in t.LinksTo.Where(l => l.LinkType?.Label == "hasBoundary"))
             if (pt.To is not null && Position(pt.To.Label) is var (bx, by))
-                patch.Boundary.Add(new WeightedPointDto { X = bx, Y = by, Weight = pt.Weight, MaxWeight = pt.maxWeight });
+                patch.Boundary.Add(new WeightedPointDto { X = bx, Y = by, Weight = pt.Weight, MaxWeight = pt.MaxWeight });
         foreach (Link pt in t.LinksTo.Where(l => l.LinkType?.Label == "collinearWith" && l.Weight >= .2f))
             if (pt.To is not null && Position(pt.To.Label) is var (cx, cy))
-                patch.Collinear.Add(new WeightedPointDto { X = cx, Y = cy, Weight = pt.Weight, MaxWeight = pt.maxWeight });
+                patch.Collinear.Add(new WeightedPointDto { X = cx, Y = cy, Weight = pt.Weight, MaxWeight = pt.MaxWeight });
         if (Orientation(t) is var (theta, ox, oy)) { patch.Orientation = theta; patch.OrientationX = ox; patch.OrientationY = oy; }
         return patch;
     }

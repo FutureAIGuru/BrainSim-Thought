@@ -51,7 +51,7 @@ public partial class UKS
     public int SequenceElementCount() => Labels.Values.Count(thought => thought is SeqElement);
 
     /// <summary>The Thoughts with no parents, the tops of the hierarchy (e.g. Thought, BrainSim).</summary>
-    public List<Thought> Roots()
+    public IReadOnlyList<Thought> Roots()
     {
         List<Thought> thoughts;
         lock (AtomicThoughts) thoughts = AtomicThoughts.Where(thought => thought is not Link).ToList();
@@ -83,20 +83,22 @@ public partial class UKS
     public bool SuppressFiring { get; set; } = false;
 
     /// <summary>
-    /// This is a primitive method needed only to create ROOT Thoughts which have no parents.
+    /// Always creates a new Thought; if the label is in use, a number is appended to it (a trailing *
+    /// becomes the next free number). Without a parent the Thought is a root. Use
+    /// <see cref="GetOrAddThought"/> to find a labeled Thought or create it.
     /// </summary>
-    /// <param name="label">Label of the thought to create.</param>
+    /// <param name="label">Label of the Thought to create.</param>
     /// <param name="parent">Optional parent, a Thought or a label; an empty or unknown one adds no parent.</param>
-    /// <returns>The newly created thought.</returns>
-    public virtual Thought AddThought(string label, ThoughtRef parentRef = default)
+    /// <returns>The new Thought.</returns>
+    public virtual Thought AddThought(string label, ThoughtRef parent = default)
     {
-        Thought? parent = parentRef.Find(this);
+        Thought? t = parent.Find(this);
         Thought newThought = new(this);
         newThought.Label = label;
         newThought.AddDefaultLabel();
-        if (parent is not null)
+        if (t is not null)
         {
-            newThought.AddParent(parent);
+            newThought.AddParent(t);
         }
         lock (AtomicThoughts)
         {
@@ -155,7 +157,7 @@ public partial class UKS
     /// The Thoughts whose labels start with <paramref name="prefix"/> (ignoring case), in label order,
     /// e.g. to complete a label as it is typed. Links and sequence elements are included.
     /// </summary>
-    public List<Thought> LabeledStartingWith(string prefix) =>
+    public IReadOnlyList<Thought> LabeledStartingWith(string prefix) =>
         Labels.Values.Where(thought => thought.Label.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .OrderBy(thought => thought.Label, StringComparer.OrdinalIgnoreCase).ToList();
 
@@ -202,12 +204,12 @@ public partial class UKS
     /// <param name="linkType">Link type thought.</param>
     /// <param name="to">Target thought of the link.</param>
     /// <returns>The existing link Thought, or null if not found.</returns>
-    public Link? GetLink(ThoughtRef fromRef, ThoughtRef linkTypeRef, ThoughtRef toRef)
+    public Link? GetLink(ThoughtRef from, ThoughtRef linkType, ThoughtRef to)
     {
-        Thought? from = fromRef.Find(this), linkType = linkTypeRef.Find(this), to = toRef.Find(this);
-        if (from is null || linkType is null || (to is null && !toRef.IsEmpty)) return null;
+        Thought? source = from.Find(this), type = linkType.Find(this), target = to.Find(this);
+        if (source is null || type is null || (target is null && !to.IsEmpty)) return null;
         //create a temporary link
-        Link r = new(this) { From = from, LinkType = linkType, To = to };
+        Link r = new(this) { From = source, LinkType = type, To = target };
         //see if it already exists
         return GetLink(r);
     }
@@ -224,10 +226,11 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Recursively removes all the descendants of a Thought. If these descendants have no other parents, they will be deleted as well.
+    /// Deletes every descendant of <paramref name="t"/> (even one with another parent) and removes all
+    /// of <paramref name="t"/>'s own links, including its is-a links and any sequences its links point to.
+    /// <paramref name="t"/> itself stays in the store, unlinked.
     /// </summary>
-    /// <param name="t">The thought to remove the children from.</param>
-    public void DeleteAllChildrenAndLinks(Thought t)
+    public void DeleteDescendants(Thought t)
     {
         if (t is not null && !ReferenceEquals(t.Store, this))
             throw new ArgumentException("Thought belongs to another UKS.", nameof(t));
@@ -301,7 +304,7 @@ public partial class UKS
             SeqElement sequence = CreateFirstElement("path*", values[0]);
             SeqElement last = sequence;
             foreach (Thought value in values.Skip(1))
-                last = AddElement(last, value);
+                last = InsertAfter(last, value);
             sequence.Label = label;
             sequence.AddParent(capability);
             if (correctParent is not null && correctParent != Labeled("Unknown"))
@@ -360,7 +363,7 @@ public partial class UKS
             if (source is not null)
             {
                 int digit = 0;
-                while (source.LinksTo.FindFirst(x => x.LinkType?.Label == baseLabel + digit) is not null) digit++;
+                while (source.LinksTo.FirstOrDefault(x => x.LinkType?.Label == baseLabel + digit) is not null) digit++;
                 Thought? labeled = Labeled(baseLabel + digit);
                 if (labeled is not null)
                     return labeled;
@@ -378,7 +381,7 @@ public partial class UKS
     /// one, reinforcement is combined, and the redundant Thought is deleted.
     /// </summary>
     /// <returns>The number of links which were redirected.</returns>
-    public int ReplaceThoughtReferences(Thought redundantThought, Thought canonicalThought)
+    public int Merge(Thought redundantThought, Thought canonicalThought)
     {
         ArgumentNullException.ThrowIfNull(redundantThought);
         ArgumentNullException.ThrowIfNull(canonicalThought);
@@ -415,7 +418,7 @@ public partial class UKS
         }
 
         CombineReinforcement(canonicalThought, redundantThought);
-        canonicalThought.V ??= redundantThought.V;
+        canonicalThought.Value ??= redundantThought.Value;
         ClearExtraneousParents(canonicalThought);
         redundantThought.Delete();
         return replacedCount;
@@ -425,8 +428,8 @@ public partial class UKS
     private static void CombineReinforcement(Thought kept, Thought merged)
     {
         kept.Weight = Math.Max(kept.Weight, merged.Weight);
-        kept.maxWeight = Math.Max(kept.maxWeight, merged.maxWeight);
-        kept.isPlastic |= merged.isPlastic;
+        kept.MaxWeight = Math.Max(kept.MaxWeight, merged.MaxWeight);
+        kept.IsPlastic |= merged.IsPlastic;
         kept.LastFiredCycle = Math.Max(kept.LastFiredCycle, merged.LastFiredCycle);
         if (kept.TimeToLive != Thought.Forever &&
             (merged.TimeToLive == Thought.Forever || merged.TimeToLive > kept.TimeToLive))

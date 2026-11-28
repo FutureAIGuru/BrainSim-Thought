@@ -214,7 +214,7 @@ namespace BrainSimulator.Modules
                         if (descendentCount == 1)
                         {
                             i--;
-                            theUKS.DeleteAllChildrenAndLinks(child);
+                            theUKS.DeleteDescendants(child);
                             child.Delete();
                         }
                     }
@@ -701,7 +701,7 @@ namespace BrainSimulator.Modules
                     Output = kid.ToString();
                     GetUKS();
                     Thought incomingInfo = theUKS.GetOrAddThought("CurrentIncomingDefinition", "Attention");
-                    incomingInfo.V = kid;
+                    incomingInfo.Value = kid;
                     return;
                 }
             }
@@ -768,7 +768,7 @@ namespace BrainSimulator.Modules
             Output = kidsdef.ToString();
             GetUKS();
             Thought incomingInfo = theUKS.GetOrAddThought("CurrentIncomingInfo", "Attention");
-            incomingInfo.V = kidsdef;
+            incomingInfo.Value = kidsdef;
 
             CollectStringValues(htmlContent, "phrase:", kidsdef.phrases, posSearch, "<");
             CollectStringValues(htmlContent, "similar words:", kidsdef.similar, posSearch, "<");

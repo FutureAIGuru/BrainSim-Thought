@@ -8,7 +8,7 @@ namespace UKS.Tests;
 public class UKSClassCoalescingTests
 {
     [Fact]
-    public void ReplaceThoughtReferencesPreservesCanonicalClassAndRedirectsEveryReference()
+    public void MergePreservesCanonicalClassAndRedirectsEveryReference()
     {
         UKS uks = CreateUKS();
         Thought classRoot = uks.GetOrAddThought("LearnedClass", "Thought");
@@ -28,7 +28,7 @@ public class UKSClassCoalescingTests
         Thought describes = uks.GetOrAddThought("describes", "LinkType");
         referrer.AddLink(describes, classB);
 
-        int replaced = uks.ReplaceThoughtReferences(classB, classA);
+        int replaced = uks.Merge(classB, classA);
 
         Assert.True(replaced >= 4);
         Assert.Null(uks.Labeled("classB"));
@@ -42,7 +42,7 @@ public class UKSClassCoalescingTests
     }
 
     [Fact]
-    public void ReplaceThoughtReferencesRedirectsLinksUsingTheThoughtAsTheirType()
+    public void MergeRedirectsLinksUsingTheThoughtAsTheirType()
     {
         UKS uks = CreateUKS();
         Thought owns = uks.GetOrAddThought("owns", "LinkType");
@@ -51,7 +51,7 @@ public class UKSClassCoalescingTests
         Thought bone = uks.GetOrAddThought("bone", "Object");
         fido.AddLink(possesses, bone);
 
-        uks.ReplaceThoughtReferences(possesses, owns);
+        uks.Merge(possesses, owns);
 
         Assert.Null(uks.Labeled("possesses"));
         Assert.NotNull(fido.HasLink(owns, bone));

@@ -70,7 +70,7 @@ public class GetAttributesFilterTests
         Link query = new(fido, null, unknown);
         query.AddLink(filterBy, color);
 
-        var results = uks.SearchForRelationships(query);
+        var results = uks.FindLinks(query);
 
         Assert.Equal(new[] { "blue", "red" }, results.Select(link => link.To.Label).OrderBy(label => label));
     }
@@ -82,7 +82,7 @@ public class GetAttributesFilterTests
         Thought unknown = uks.GetOrAddThought("??", "Unknown");
         Link query = new(fido, null, unknown);
 
-        var results = uks.SearchForRelationships(query);
+        var results = uks.FindLinks(query);
 
         Assert.Contains(results, link => link.LinkType?.Label == "has" && link.To?.Label == "red");
         Assert.Contains(results, link => link.LinkType?.Label == "can" && link.To?.Label == "blue");

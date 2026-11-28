@@ -23,14 +23,14 @@ public sealed partial class ModuleInterpret
     private static void Capture(Thought pattern)
     {
         pattern.Weight = InitialPatternWeight;
-        pattern.isPlastic = true;
+        pattern.IsPlastic = true;
     }
 
     // A pattern whose reading succeeded moves halfway to certainty, and consolidates once strong enough.
     private static void Strengthen(Thought pattern)
     {
         pattern.Weight += (1 - pattern.Weight) / 2;
-        if (pattern.isPlastic && pattern.Weight >= ConsolidationWeight) pattern.isPlastic = false;
+        if (pattern.IsPlastic && pattern.Weight >= ConsolidationWeight) pattern.IsPlastic = false;
     }
 
     // Patterns in competition for the same input, strongest first. Ties keep their order.

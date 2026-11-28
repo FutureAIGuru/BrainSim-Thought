@@ -461,7 +461,7 @@ public sealed partial class ModuleInterpret
     private Thought? AsQuery(Thought? type)
     {
         if (type is null || type.HasProperty("isPossible")) return type;
-        Thought relationship = type.HasProperty(setRelationship) ? theUKS.GetActionRelationshipType(type) ?? type : type;
+        Thought relationship = type.HasProperty(setRelationship) ? theUKS.GetPlainLinkType(type) ?? type : type;
         return theUKS.GetOrAddThought(relationship.Label + ".?");
     }
 

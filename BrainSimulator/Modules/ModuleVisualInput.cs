@@ -1065,7 +1065,7 @@ public class ModuleVisualInput : ModuleBase
                 .SearchByAttributes(query, objectRoot))
             {
                 if (!IsAnonymousObject(candidate)) continue;
-                List<Link> candidateAttributes = theUKS.GetAttributes(candidate);
+                List<Link> candidateAttributes = theUKS.GetAttributes(candidate).ToList();
                 bool allMatch = query.LinksTo.All(queryLink =>
                     candidateAttributes.Any(candidateLink =>
                         candidateLink.LinkType == queryLink.LinkType &&
@@ -1094,7 +1094,7 @@ public class ModuleVisualInput : ModuleBase
             if (imageLink is not null) imageLink.Weight = 1;
         }
 
-        List<Link> availableAttributes = theUKS.GetAttributes(subject);
+        List<Link> availableAttributes = theUKS.GetAttributes(subject).ToList();
         foreach (ObservationAttribute attribute in observation.Attributes)
         {
             Thought linkType = GetOrCreateLinkType(attribute.LinkTypeLabel);
@@ -1224,9 +1224,9 @@ public class ModuleVisualInput : ModuleBase
 
                 meaning = word.AddLink(means, candidate);
                 if (meaning is null) continue;
-                meaning.isPlastic = true;
-                meaning.maxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
-                meaning.Weight = Math.Clamp(MeaningInitialWeight, 0, meaning.maxWeight);
+                meaning.IsPlastic = true;
+                meaning.MaxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
+                meaning.Weight = Math.Clamp(MeaningInitialWeight, 0, meaning.MaxWeight);
                 meaning.Fire();
                 newLinks.Add(meaning);
             }
@@ -1245,7 +1245,7 @@ public class ModuleVisualInput : ModuleBase
                     if (!siblings.Contains(t2)) siblings.Add(t2);
             }
         }
-        List<Link> plasticMeanings = siblings.SelectMany(thought => thought.LinksTo).Where(link => link.LinkType == means && link.isPlastic).ToList();
+        List<Link> plasticMeanings = siblings.SelectMany(thought => thought.LinksTo).Where(link => link.LinkType == means && link.IsPlastic).ToList();
 
         //Now update the weights.
         foreach (Link meaning in plasticMeanings)
@@ -1262,11 +1262,11 @@ public class ModuleVisualInput : ModuleBase
             {
                 if (!newLinks.Contains(meaning))
                 {
-                    meaning.maxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
+                    meaning.MaxWeight = Math.Max(MeaningMaximumWeight, 0.01f);
                     meaning.Weight = Math.Clamp(
                         meaning.Weight + Math.Max(0, MeaningReinforcement),
                         0,
-                        meaning.maxWeight);
+                        meaning.MaxWeight);
                     meaning.Fire();
                     changesCount++;
                 }

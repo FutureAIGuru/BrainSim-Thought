@@ -138,7 +138,7 @@ Follow has ONLY if called out in type
         else if (filterThoughts.Count > 1)
             filterLink = new Link(theUKS) { LinkType = filterThoughts[0] };
 
-        links = theUKS.GetAttributes(sourceList[0], filterLink);
+        links = theUKS.GetAttributes(sourceList[0], filterLink).ToList();
 
         //unreverse the source and target
         if (reverse)

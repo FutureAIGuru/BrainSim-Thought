@@ -272,7 +272,7 @@ app.MapPost("/api/sandboxes", (string? demo, HttpContext context) =>
         var store = new UKS.UKS();
         if (selectedDemo.Path is not null)
         {
-            if (!store.LoadUKSfromXMLFile(selectedDemo.Path))
+            if (!store.LoadXml(selectedDemo.Path))
                 return Results.Problem("The XML demo could not be loaded.");
         }
         else store.CreateInitialStructure();
@@ -390,7 +390,7 @@ Func<UKS.UKS, string, string, string[], int[], UKS.Thought> storeDemoSequence = 
         // AddSequenceAndLink may reuse an exact sequence, including the live input.
         var first = store.CreateFirstElement(owner.Label, thoughts[0]);
         var previous = first;
-        foreach (var value in thoughts.Skip(1)) previous = store.AddElement(previous, value);
+        foreach (var value in thoughts.Skip(1)) previous = store.InsertAfter(previous, value);
         owner.AddLink(type, first);
         var duration = store.GetOrAddThought("duration", "Abstract")!;
         duration.AddLink(store.Labeled("hasProperty")!, store.GetOrAddThought("isSequenceMetadata", "Property"));
@@ -398,7 +398,7 @@ Func<UKS.UKS, string, string, string[], int[], UKS.Thought> storeDemoSequence = 
         for (int index = 0; cell is not null; index++, cell = cell.NXT)
         {
             int units = delays[index];
-            var delay = store.GetOrAddThought("delay:" + units, duration)!; delay.V = units;
+            var delay = store.GetOrAddThought("delay:" + units, duration)!; delay.Value = units;
             cell.AddLink(store.Labeled("VLU")!, delay);
         }
     }
@@ -419,7 +419,7 @@ Func<UKS.Thought, string, object> demoSequence = (owner, kind) =>
     return new { id = graphId(owner), label = owner.Label, startId = graphId(first), kind,
         cells = demoSequenceCells(first).Select(cell => new {
             id = graphId(cell), label = cell.Label, value = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("VLU") && link.To?.HasProperty("isSequenceMetadata") != true)?.To?.Label,
-            delay = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("VLU") && link.To?.HasAncestor(cell.Store.Labeled("duration")) == true)?.To?.V is int units ? units : 1,
+            delay = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("VLU") && link.To?.HasAncestor(cell.Store.Labeled("duration")) == true)?.To?.Value is int units ? units : 1,
             nextId = cell.LinksTo.FirstOrDefault(link => link.LinkType == cell.Store.Labeled("NXT"))?.To?.Label
         }).ToArray() };
 };
@@ -499,7 +499,7 @@ app.MapPost("/api/sequences", (System.Text.Json.JsonElement input, HttpContext c
             var cells = demoSequenceCells(start);
             if (!cells.Select(cell => cell.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled("VLU") && link.To?.HasProperty("isSequenceMetadata") != true)?.To?.Label)
                 .SequenceEqual(values.Select(value => kind == "word" ? UKS.UKS.GetCharacterLabel(value[0]) : value))) continue;
-            if (kind != "word" && !cells.Select(cell => cell.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled("VLU") && link.To?.HasAncestor(uks.Labeled("duration")) == true)?.To?.V is int units ? units : 1).SequenceEqual(delays)) continue;
+            if (kind != "word" && !cells.Select(cell => cell.LinksTo.FirstOrDefault(link => link.LinkType == uks.Labeled("VLU") && link.To?.HasAncestor(uks.Labeled("duration")) == true)?.To?.Value is int units ? units : 1).SequenceEqual(delays)) continue;
             return Results.Ok(demoSequence(candidate, kind));
         }
         // The server allocates order names under the sandbox lock.

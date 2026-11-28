@@ -53,7 +53,7 @@ public class UKSActionsTests
         Thought leg = uks.GetOrAddThought("leg");
         Thought setHasFour = uks.GetOrAddThought("!.has.4", "LinkType");
 
-        List<Link> results = uks.ApplyTestOrSetAction(new Link(dog, setHasFour, leg));
+        List<Link> results = uks.ApplyTestOrSetAction(new Link(dog, setHasFour, leg)).ToList();
         Link result = Assert.Single(results);
 
         Assert.NotNull(result);

@@ -20,7 +20,7 @@ public partial class UKS
     /// underlying link type are identified through inheritance.
     /// </summary>
     /// <returns>The written link for writes, or all matching links for ?.</returns>
-    public List<Link> ApplyTestOrSetAction(Link action)
+    public IReadOnlyList<Link> ApplyTestOrSetAction(Link action)
     {
         // TODO: compound (nested) actions are untested.
         ArgumentNullException.ThrowIfNull(action);
@@ -51,7 +51,7 @@ public partial class UKS
         Thought? actionType = action.LinkType;
         if (actionType?.HasProperty("isPossible") != true) return retVal;
 
-        Thought? relationshipType = GetActionRelationshipType(actionType);
+        Thought? relationshipType = GetPlainLinkType(actionType);
         if (relationshipType is null || action.From is null || action.To is null) return retVal;
 
         Link query = new(action.From, relationshipType, action.To);
@@ -79,7 +79,7 @@ public partial class UKS
             Thought? filterBy = GetOrAddThought("filterBy", "Property");
             if (filterBy is not null) query.AddLink(filterBy, filterTarget);
         }
-        retVal = SearchForRelationships(query);
+        retVal = FindLinks(query).ToList();
         return retVal;
     }
 
@@ -96,7 +96,7 @@ public partial class UKS
             !action.LinkType.HasProperty("setRelationship"))
             return retVal;
 
-        Thought? newLinkType = GetActionRelationshipType(action.LinkType);
+        Thought? newLinkType = GetPlainLinkType(action.LinkType);
         if (newLinkType is null) return retVal;
 
         Link? existing = GetLink(action.From, newLinkType, action.To);
@@ -117,19 +117,19 @@ public partial class UKS
         return retVal;
     }
 
-    /// <summary>Gets the ordinary link type inherited by a SET or query action type.</summary>
-    public Thought? GetActionRelationshipType(Thought? actionType)
+    /// <summary>
+    /// The ordinary link type a SET (TYPE.!) or query (TYPE.?) type stands for: its most specific parent
+    /// that is neither a marker nor a root; null if it has none.
+    /// </summary>
+    public Thought? GetPlainLinkType(Thought? linkType)
     {
-        Thought? retVal = null;
-        if (actionType is null) return retVal;
-
-        Thought? linkTypeRoot = Labeled("LinkType");
-        List<Thought> relationshipParents = actionType.Parents.Where(parent =>
-            parent != linkTypeRoot && !ReferenceEquals(parent, Labeled("Property")) &&
+        if (linkType is null) return null;
+        Thought? linkTypeRoot = Labeled("LinkType"), propertyRoot = Labeled("Property");
+        List<Thought> candidates = linkType.Parents.Where(parent =>
+            parent != linkTypeRoot && parent != propertyRoot &&
             !parent.HasProperty("setRelationship") && !parent.HasProperty("isPossible"))
             .ToList();
-        retVal = relationshipParents.FirstOrDefault(parent =>
-            relationshipParents.All(other => parent.HasAncestor(other))) ?? relationshipParents.FirstOrDefault();
-        return retVal;
+        return candidates.FirstOrDefault(parent => candidates.All(other => parent.HasAncestor(other)))
+            ?? candidates.FirstOrDefault();
     }
 }

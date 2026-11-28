@@ -5,8 +5,9 @@ internal, what moves out, and the order of the work. Each member's fate is check
 
 ## Principles
 
-1. **Public types:** `UKS`, `Thought`, `Link`, `SeqElement`, plus the input type `ThoughtRef` and the
-   read-only `ThoughtList`. Results are Thoughts, links, sequences, `ThoughtList`, or search tuples.
+1. **Public types:** `UKS`, `Thought`, `Link`, `SeqElement`, plus the input type `ThoughtRef`. Results
+   are Thoughts, links, sequences, read-only lists (`IReadOnlyList<Thought>`, `IReadOnlyList<Link>`),
+   or search tuples.
 2. **Every label is resolved by a named store** (`uks.Labeled("dog")`, `thought.Store`, or a method
    taking a `ThoughtRef`). There is no ambient store and no implicit string-to-Thought conversion.
 3. **Identity, not labels.** Two Thoughts are equal only if they are the same object; labels find
@@ -41,12 +42,12 @@ only stores the label; the receiving method resolves it in its own store. A bare
 
 A value that is neither a Thought nor a string doesn't compile; a Thought from another store throws.
 Applied (Phase B):
-- Thought: `AddLink`, `RemoveLink`, `RemoveLinks`, `HasLink`, `AddParent`, `RemoveParent`, `RemoveChild`,
+- Thought: `AddLink`, `RemoveLink`, `RemoveLinks`, `HasLink`, `AddParent`, `RemoveParent`,
   `HasAncestor`, `HasProperty`, `AddProperty`, the `Get...OfType` helpers (now in `UKS.Helpers`).
 - UKS: `AddStatement`, `AddStatementRecordingHistory`, `GetOrAddThought` and `AddThought` (parent),
   `GetLink`, `GetAttributes`, `SearchByAttributes` (root), `ExportTextFile` (root),
   `FindSequencesByActivation` (options and classes), `AddSequenceAndLink` (link type),
-  `CreateFirstElement`/`AddElement`/`InsertElement` (value), `GetElementValue` (class),
+  `CreateFirstElement`/`InsertAfter` (value), `GetElementValue` (class),
   `GetReferringThoughts` (link type).
 
 `AddParent` finds `is-a` but never creates it (creating a Thought adds its parent, which would recurse).
@@ -65,9 +66,12 @@ Settled:
 - Query annotations on Link (`InheritanceDepth`, `InheritedFromCategory`) become internal.
 - Naming: `isPlastic` to `IsPlastic`, `maxWeight` to `MaxWeight`, `V` to `Value`,
   `SaveUKStoXMLFile`/`LoadUKSfromXMLFile` to `SaveXml`/`LoadXml`.
-- `ThoughtRef` parameters take the plain names (`source`, `valueClass`, not `sourceRef`): Phase H.
-- `ThoughtList` is the read-only type for everything list-like, links included (plain, not generic:
-  a caller needing links casts, e.g. `.OfType<Link>()`); a caller needing a writable list calls `.ToList()`.
+- `ThoughtRef` parameters take the plain names (`source`, `valueClass`, not `sourceRef`): done in Phase H.
+- Lists: a public result that is a list is an `IReadOnlyList<Thought>` or `IReadOnlyList<Link>` (a
+  caller needing a writable list calls `.ToList()`); a list parameter that is only read is an
+  `IReadOnlyList` or `IEnumerable`. A custom `ThoughtList` type was considered and dropped (2026-11-28):
+  it added a type to learn and, unless generic, casts at every link filter, for no gain over the
+  standard interface (Thoughts already compare by identity).
 
 Open:
 - When the spelling helpers leave (`CharacterPrefix`, `GetCharacterLabel`, `GetOrAddCharacter`,
@@ -125,7 +129,14 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
       still read where they are the notation itself: dotted labels, the text and XML formats, and
       numbers (`GetCount`). `isConditional`/`isPossible` audit: the logic was consistent; misleading
       names ("conditional" for `?` types) were fixed. Pluralize.NET left the UKS.
-- [ ] **H. Naming** (the renames above, including the plain `ThoughtRef` parameter names) and `ThoughtList`
+- [x] **H. Naming and lists:** `ThoughtRef` parameters have plain names (the resolved Thought is a local such as `type`,
+      `target`; the activation searches resolve, then call a private search taking Thoughts);
+      GetPlainLinkType, SaveXml/LoadXml, FindLinks, DeleteDescendants, Merge, Value, IsPlastic,
+      MaxWeight; `InsertAfter` replaces AddElement/InsertElement. File formats are unchanged.
+      Every public list result (core, agents) is an `IReadOnlyList`, and `RunPeriodically` takes a
+      `Func<IReadOnlyList<Thought>>`; `AddSequence`, `AddSequenceAndLink` and the pattern search take
+      an `IReadOnlyList<Thought>`. The internal `IReadOnlyListExtensions` (`FindFirst`, ...) were deleted
+      in favor of LINQ. Callers that change a result call `.ToList()`.
 - [ ] **I. Documentation:** upgrade every public member's XML doc comment so Doxygen works again
       (`UKS/Doxyfile`, output to `UKS/Documentation`; about 140 of 226 public declarations have a
       comment today). The book's readers will read these, so: one-sentence summary, `<param>` and
@@ -141,7 +152,7 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
 because an experiment or the serializer needs it; left out of the documentation and the Phase J freeze), **Move** (out of the UKS
 to a module), **Delete**.
 
-Totals by name: Core 106, Internal 45, Delete 15, Agent 13, Undocumented 11, Move 6, Helper 6 (202 names).
+Totals by name: Core 105, Internal 45, Delete 17, Agent 13, Undocumented 11, Move 6, Helper 6 (203 names).
 
 
 ### UKS
@@ -149,12 +160,12 @@ Totals by name: Core 106, Internal 45, Delete 15, Agent 13, Undocumented 11, Mov
 | Member | Fate | Note | Done |
 |---|---|---|---|
 | `AddCounts` | Agent | ClassAgents | done |
-| `AddElement` | Core | merge into InsertAfter(element, value, atBeginning) | |
+| `AddElement` | Delete | merged into InsertAfter(element, value) | done |
 | `AddSequence` | Core |  | |
 | `AddSequenceAndLink` | Core |  | |
 | `AddStatement` | Core |  | |
 | `AddStatementRecordingHistory` | Core | fold into AddStatement (open) | |
-| `AddThought` | Core | fold into GetOrAddThought | |
+| `AddThought` | Core | kept apart from GetOrAddThought: Add always creates (a label in use gets a number), GetOrAdd finds first; module instances and roots need Add. Doc fixed | done |
 | `AdvanceCycle` | Core |  | |
 | `ApplyTestOrSetAction` | Core |  | |
 | `BalanceTree` | Agent | ClassAgents | done |
@@ -175,13 +186,13 @@ Totals by name: Core 106, Internal 45, Delete 15, Agent 13, Undocumented 11, Mov
 | `CreateNewTemplate` | Agent | SequenceAgents | done |
 | `CreateSearchOptions` | Core |  | |
 | `CreateSpellingSequence` | Move | letters are language content: word module; deferred (see Open) |  |
-| `CreateThoughtFromMultipleAttributes` | Helper | PhraseHelpers; takes an optional singularizer (hosts pass English), so Pluralize.NET left the UKS. The text reader uses an internal copy without singularizing (no content file or test depended on it) | done |
+| `CreateThoughtFromMultipleAttributes` | Helper | PhraseHelpers; takes an optional singularizer (hosts pass English), so Pluralize.NET left the UKS. The text reader keeps only what files use: `^a b c` sequences, else GetOrAddThought (private SequenceOrThought); no content file had a multi-word part | done |
 | `CreateWildcard` | Core |  | |
 | `CreatedInCurrentChange` | Core | new (Phase D): replaces CurrentTransaction.Created | done |
 | `CurrentTransaction` | Internal | replaced by CreatedInCurrentChange | done |
 | `Cycle` | Core |  | |
 | `CyclesPerSecond` | Core |  | |
-| `DeleteAllChildrenAndLinks` | Core | rename in H (DeleteDescendants; the doc must say it also removes the Thought's own links) |  |
+| `DeleteAllChildrenAndLinks` | Core | renamed DeleteDescendants; the doc says it deletes every descendant (even one with another parent) and removes the Thought's own links | done |
 | `DeleteSequence` | Core |  | |
 | `DiscoverSequenceTemplates` | Agent | SequenceAgents | done |
 | `EndTransaction` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
@@ -194,7 +205,7 @@ Totals by name: Core 106, Internal 45, Delete 15, Agent 13, Undocumented 11, Mov
 | `FindSequencesByActivation (2)` | Core |  | |
 | `FindSequencesOutOfOrder` | Internal | reached through FindSequencesByActivation options | done |
 | `FlattenSequence` | Core |  | |
-| `GetActionRelationshipType` | Core | rename GetPlainLinkType (Phase H); merge the private GetAssertionLinkType (Query), which repeats it |  |
+| `GetActionRelationshipType` | Core | renamed GetPlainLinkType; the query's private GetAssertionLinkType now calls it | done |
 | `GetAttributes` | Core |  | |
 | `GetCharacterLabel` | Move | letters are language content: word module; deferred (see Open) |  |
 | `GetEvidence` | Core | new (Phase D): the stored links behind a query result (is-a chain, then the stored link); replaces the Link query annotations | done |
@@ -213,7 +224,8 @@ Totals by name: Core 106, Internal 45, Delete 15, Agent 13, Undocumented 11, Mov
 | `GetSequenceLength` | Internal | callers use FlattenSequence(...).Count | done |
 | `GetSequenceLinks (2)` | Agent | SequenceAgents | done |
 | `ImportTextFile` | Core |  | |
-| `InsertElement` | Core | merge into InsertAfter(first, value, atBeginning: true) | |
+| `InsertAfter` | Core | new (H): replaces AddElement and InsertElement | done |
+| `InsertElement` | Delete | merged into InsertAfter(first, value, atBeginning: true); its insert-before-a-later-element case had no callers | done |
 | `IsConditionalLinkType` | Internal | IF is evaluated only by queries; hosts check HasProperty("isConditional"). The core's inline copies call it, and new internal IsClauseLinkType (IF or AND) and HasConditions (a rule) replace the other repeated tests | done |
 | `IsSequenceElement` | Core |  | |
 | `IsSequenceFirstElement` | Core |  | |
@@ -222,7 +234,7 @@ Totals by name: Core 106, Internal 45, Delete 15, Agent 13, Undocumented 11, Mov
 | `LabeledStartingWith` | Core | new (Phase C): label completion and search, replacing `ThoughtLabels.LabelList` | done |
 | `LinkCount` | Core |  | |
 | `LinksAreExclusive` | Core | public (decided) | done |
-| `LoadUKSfromXMLFile` | Core | rename to LoadXml | |
+| `LoadUKSfromXMLFile` | Core | renamed LoadXml | done |
 | `MaterializeCommonSequence` | Agent | SequenceAgents, internal (its pattern type is internal; only tests call it) | done |
 | `ProcessSingleLine` | Core |  | |
 | `ProcessSingleLineWithNesting` | Core |  | |
@@ -230,13 +242,13 @@ Totals by name: Core 106, Internal 45, Delete 15, Agent 13, Undocumented 11, Mov
 | `RememberForUndo` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
 | `RemoveFirstSequenceElement` | Move | ModuleSequenceSegmenter.RemoveQueueHead | done |
 | `RemoveLastSequenceElement` | Delete | dead | done |
-| `ReplaceThoughtReferences` | Core | was Agent: merging two Thoughts is a store operation (it keeps the parent invariant); ModuleText's class coalescing uses it. Rename to Merge (Phase H)? | done |
+| `ReplaceThoughtReferences` | Core | was Agent: merging two Thoughts is a store operation (it keeps the parent invariant); ModuleText's class coalescing uses it. Renamed Merge (H) | done |
 | `Reset` | Core |  | |
 | `Roots` | Core |  | |
 | `RunPeriodically` | Core | was Agent: the scheduler agents run on, with per-store timers | done |
-| `SaveUKStoXMLFile` | Core | rename to SaveXml | |
+| `SaveUKStoXMLFile` | Core | renamed SaveXml | done |
 | `SearchByAttributes` | Core |  | |
-| `SearchForRelationships` | Core | maybe a shorter name in H (FindLinks) |  |
+| `SearchForRelationships` | Core | renamed FindLinks | done |
 | `SequenceElementCount` | Core |  | |
 | `SequenceMatchesPattern` | Agent | SequenceAgents, internal (its pattern type is internal; only tests call it) | done |
 | `StartClock` | Core |  | |
@@ -300,10 +312,10 @@ Totals by name: Core 106, Internal 45, Delete 15, Agent 13, Undocumented 11, Mov
 | `constructor (2)` | Core |  | |
 | `TimeToLive` | Core |  | |
 | `ToString` | Core |  | |
-| `V` | Core | rename to Value | |
+| `V` | Core | renamed Value (the XML field and the text format's V: token are unchanged) | done |
 | `Weight` | Core |  | |
-| `isPlastic` | Core | rename to IsPlastic | |
-| `maxWeight` | Core | rename to MaxWeight | |
+| `isPlastic` | Core | renamed IsPlastic (XML field unchanged) | done |
+| `maxWeight` | Core | renamed MaxWeight (XML field unchanged) | done |
 | `operators (3)` | Delete | implicit string-to-Thought (Phase C) and label-based ==/!= (Phase E) removed | done |
 
 ### Link

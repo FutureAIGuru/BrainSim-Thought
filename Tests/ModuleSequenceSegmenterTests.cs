@@ -22,7 +22,7 @@ public partial class ModuleSequenceSegmenterTests
         SeqElement value = uks.CreateFirstElement("value", uks.Labeled("A"));
         SeqElement first = new(uks) { Label = "stream*", VLU = value };
         first.AddLink(uks.GetOrAddThought("usedBy", "LinkType"), value);
-        SeqElement next = uks.AddElement(first, uks.Labeled("B"));
+        SeqElement next = uks.InsertAfter(first, uks.Labeled("B"));
         Assert.Same(next, ModuleSequenceSegmenter.RemoveQueueHead(first));
         Assert.Null(uks.Labeled(first.Label));
         Assert.Same(next, uks.Labeled(next.Label));
@@ -46,7 +46,7 @@ public partial class ModuleSequenceSegmenterTests
             ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
             Thought dog = uks.Labeled("w:dog");
             Assert.Equal(repeat, dog.Weight);
-            Assert.Equal(repeat < 3, dog.isPlastic);
+            Assert.Equal(repeat < 3, dog.IsPlastic);
         }
         Assert.Single(module.PatternRoot.Children); // No inherited do/og/d/o/g candidates.
     }
@@ -72,7 +72,7 @@ public partial class ModuleSequenceSegmenterTests
                 {
                     statuses.Add(module.LastStatus);
                     var state = new System.Collections.Generic.List<(string, float, bool)>();
-                    foreach (Thought thought in module.PatternRoot.Children) state.Add((thought.Label, thought.Weight, thought.isPlastic));
+                    foreach (Thought thought in module.PatternRoot.Children) state.Add((thought.Label, thought.Weight, thought.IsPlastic));
                     states.Add(state);
                     Assert.Empty(module.LastLearningDetails);
                 }
@@ -85,7 +85,7 @@ public partial class ModuleSequenceSegmenterTests
                     {
                         Thought thought = module.theUKS.Labeled(expected.label);
                         Assert.Equal(expected.weight, thought.Weight);
-                        Assert.Equal(expected.plastic, thought.isPlastic);
+                        Assert.Equal(expected.plastic, thought.IsPlastic);
                     }
                     if (input == "catdog")
                     {
@@ -166,7 +166,7 @@ public partial class ModuleSequenceSegmenterTests
         ModuleSequenceSegmenterDlg.SubmitLine(module, first);
         Assert.Equal(knownNeighbors ? 2 : 0, module.PatternRoot.Children.Count);
         ModuleSequenceSegmenterDlg.SubmitLine(module, second);
-        var candidates = module.PatternRoot.Children.Where(thought => thought.isPlastic);
+        var candidates = module.PatternRoot.Children.Where(thought => thought.IsPlastic);
         if (expected.Length == 0) Assert.Empty(candidates);
         else
         {
@@ -208,7 +208,7 @@ public partial class ModuleSequenceSegmenterTests
         Thought candidate = Assert.Single(module.PatternRoot.Children);
         Assert.Equal("w:frog", candidate.Label);
         Assert.Equal(module.InitialStrength + emphasis, candidate.Weight);
-        Assert.Equal(candidate.Weight < threshold, candidate.isPlastic);
+        Assert.Equal(candidate.Weight < threshold, candidate.IsPlastic);
         ModuleSequenceSegmenterDlg.SubmitLine(module, "frog" + marks);
         Assert.Equal(module.InitialStrength + emphasis + module.Reinforcement * emphasis, candidate.Weight);
     }
@@ -250,7 +250,7 @@ public partial class ModuleSequenceSegmenterTests
         ModuleSequenceSegmenterDlg.SubmitLine(module, "catanddog");
         Thought candidate = module.theUKS.Labeled("w:and");
         Assert.NotNull(candidate);
-        Assert.True(candidate.isPlastic);
+        Assert.True(candidate.IsPlastic);
         Assert.Equal(1, candidate.Weight);
         Assert.Equal(3, module.PatternRoot.Children.Count);
     }
@@ -269,7 +269,7 @@ public partial class ModuleSequenceSegmenterTests
         {
             Thought pattern = module.theUKS.Labeled("w:" + text);
             Assert.NotNull(pattern);
-            Assert.False(pattern.isPlastic);
+            Assert.False(pattern.IsPlastic);
             Assert.Equal(module.InitialStrength + threshold, pattern.Weight);
         }
         Assert.Null(module.theUKS.Labeled("w:dogandcat"));
@@ -292,7 +292,7 @@ public partial class ModuleSequenceSegmenterTests
         Thought candidate = module.theUKS.Labeled("w:" + gap);
         Assert.NotNull(candidate);
         Assert.Equal(weight, candidate.Weight);
-        Assert.Equal(weight < 25, candidate.isPlastic);
+        Assert.Equal(weight < 25, candidate.IsPlastic);
         Assert.Equal(3, module.PatternRoot.Children.Count);
     }
 
@@ -314,7 +314,7 @@ public partial class ModuleSequenceSegmenterTests
         Thought cat = module.theUKS.Labeled("w:cat");
         Assert.NotNull(cat);
         Assert.Equal(1, cat.Weight);
-        Assert.True(cat.isPlastic);
+        Assert.True(cat.IsPlastic);
         Assert.Null(module.theUKS.Labeled("w:" + input));
         if (compoundStrength > 0) SeedPattern(module, input, compoundStrength);
         for (int repeat = 0; repeat < 3; repeat++) ModuleSequenceSegmenterDlg.SubmitLine(module, input);
@@ -344,7 +344,7 @@ public partial class ModuleSequenceSegmenterTests
             Assert.True(and.Weight > before);
         }
         Assert.True(and.Weight > 6);
-        Assert.True(and.isPlastic);
+        Assert.True(and.IsPlastic);
         Assert.Contains("w:and: reinforced", module.LastLearningDetails);
         if (compoundStrength == 0) Assert.Null(module.theUKS.Labeled("w:catanddog"));
     }
@@ -476,7 +476,7 @@ public partial class ModuleSequenceSegmenterTests
         Assert.Equal(1, whole.Weight); // The compound lacks established context at both ends.
         ModuleSequenceSegmenterDlg.SubmitLine(module, "catandog");
         Assert.Equal(3, a.Weight);
-        Assert.False(a.isPlastic);
+        Assert.False(a.IsPlastic);
         Assert.Equal(1, whole.Weight);
         Assert.Equal(5, cat.Weight);
         Assert.Equal(5, dog.Weight);
@@ -484,7 +484,7 @@ public partial class ModuleSequenceSegmenterTests
         Assert.Equal(4, a.Weight);
         ModuleSequenceSegmenterDlg.SubmitLine(module, "an");
         Assert.Equal(5, a.Weight);
-        Assert.False(a.isPlastic);
+        Assert.False(a.IsPlastic);
         Assert.Equal(4, module.PatternRoot.Children.Count);
     }
 
@@ -552,7 +552,7 @@ public partial class ModuleSequenceSegmenterTests
         Assert.Null(uks.Labeled("w:catdog"));
         ModuleSequenceSegmenterDlg.SubmitLine(module, "catdog");
         Assert.Equal(3, cat.Weight);
-        Assert.False(cat.isPlastic);
+        Assert.False(cat.IsPlastic);
         Assert.Null(uks.Labeled("w:catdog"));
         Assert.Equal(1, uks.Labeled("w:dog").Weight);
         Assert.Single(module.PatternRoot.Children.Where(pattern => pattern.Label == "w:cat"));
@@ -582,7 +582,7 @@ public partial class ModuleSequenceSegmenterTests
         Assert.Equal(10, crossing.Weight); // Partial coverage leaves the inhibited match unchanged.
         ModuleSequenceSegmenterDlg.SubmitLine(module, "dogcatdogcat");
         Assert.Equal(10, crossing.Weight); // Full coverage also leaves losing occurrences unchanged.
-        Assert.False(crossing.isPlastic);
+        Assert.False(crossing.IsPlastic);
         Assert.Equal(12, dog.Weight);
         Assert.Equal(12, cat.Weight);
         Assert.Equal(10, absent.Weight);
@@ -651,7 +651,7 @@ public partial class ModuleSequenceSegmenterTests
         Assert.Null(uks.Labeled("w:xyz"));
         ModuleSequenceSegmenterDlg.SubmitLine(module, "fido");
         ModuleSequenceSegmenterDlg.SubmitLine(module, "fido");
-        Assert.False(uks.Labeled("w:fido").isPlastic);
+        Assert.False(uks.Labeled("w:fido").IsPlastic);
         module.MaximumProposalsPerEpisode = 1;
         ModuleSequenceSegmenterDlg.SubmitLine(module, "xyz");
         Assert.NotNull(uks.Labeled("w:xyz"));
@@ -836,7 +836,7 @@ public partial class ModuleSequenceSegmenterTests
         {
             ModuleSequenceSegmenterDlg.SubmitLine(module, "dog");
             Assert.Equal(strength, uks.Labeled("w:dog").Weight);
-            Assert.Equal(strength < 25, uks.Labeled("w:dog").isPlastic);
+            Assert.Equal(strength < 25, uks.Labeled("w:dog").IsPlastic);
         }
         Thought candidate = SeedPattern(module, "cat", 9);
         module.CandidateCapacity = 1; // Exercise the full decay rate at full plastic capacity.
@@ -844,12 +844,12 @@ public partial class ModuleSequenceSegmenterTests
         module.DecayCandidates(System.TimeSpan.FromSeconds(1));
         Assert.Equal(9 - module.CandidateDecayPerSecond, candidate.Weight, 4);
         Assert.Equal(25, pattern.Weight);
-        Assert.False(pattern.isPlastic);
+        Assert.False(pattern.IsPlastic);
         module.DecayCandidates(System.TimeSpan.FromSeconds(100));
         Assert.Null(uks.Labeled("w:cat"));
         Assert.Same(pattern, uks.Labeled("w:dog"));
         Assert.Equal(25, pattern.Weight);
-        Assert.False(pattern.isPlastic);
+        Assert.False(pattern.IsPlastic);
     }
 
     [Theory]
@@ -899,7 +899,7 @@ public partial class ModuleSequenceSegmenterTests
         Thought bb = SeedPattern(module, "bb", 2);
         Thought cc = SeedPattern(module, "cc", 2);
         ModuleSequenceSegmenterDlg.SubmitLine(module, "aa");
-        Assert.False(aa.isPlastic);
+        Assert.False(aa.IsPlastic);
         module.DecayCandidates(System.TimeSpan.FromSeconds(100));
         Assert.Equal(2, bb.Weight);
         Assert.Equal(2, cc.Weight);
@@ -925,7 +925,7 @@ public partial class ModuleSequenceSegmenterTests
     {
         Thought pattern = module.theUKS.GetOrAddThought("w:" + text, module.PatternRoot);
         pattern.Weight = strength;
-        pattern.isPlastic = strength < module.ConsolidationStrength;
+        pattern.IsPlastic = strength < module.ConsolidationStrength;
         module.theUKS.AddSequenceAndLink(pattern, "spelled", ModuleSequenceSegmenterDlg.InputSymbols(module, text), allowCompression: false);
         return pattern;
     }
@@ -976,7 +976,7 @@ public partial class ModuleSequenceSegmenterTests
         });
         Assert.Null(module.CurrentPointer);
         Assert.Equal(3, module.PatternRoot.Children.Count);
-        Assert.False(module.theUKS.Labeled("w:cat").isPlastic);
+        Assert.False(module.theUKS.Labeled("w:cat").IsPlastic);
         Assert.Null(module.theUKS.Labeled("w:frogorcat"));
     }
 
@@ -1047,7 +1047,7 @@ public partial class ModuleSequenceSegmenterTests
         Assert.Equal(1000, module.PatternRoot.Children.Count);
         foreach (Thought thought in seeded.Keys)
         {
-            Assert.False(thought.isPlastic);
+            Assert.False(thought.IsPlastic);
             Assert.Equal(25, thought.Weight);
             Assert.NotNull(thought.GetTargetOfFirstLinkOfType("spelled"));
         }
@@ -1080,7 +1080,7 @@ public partial class ModuleSequenceSegmenterTests
             Assert.Equal(1, expected[a]);
             foreach (Thought word in expected.Keys)
             {
-                Assert.False(word.isPlastic);
+                Assert.False(word.IsPlastic);
                 Assert.Equal(module.ConsolidationStrength, word.Weight);
                 Assert.NotNull(word.GetTargetOfFirstLinkOfType("spelled"));
             }

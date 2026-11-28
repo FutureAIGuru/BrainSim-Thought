@@ -57,7 +57,7 @@ namespace BrainSimulator.Modules
                 {
                     if (r.LinkType.Label == "hasAttribute" && r.To.Label.StartsWith("Root"))
                     {
-                        root = (string)r.To.V;
+                        root = (string)r.To.Value;
                     }
                 }
 

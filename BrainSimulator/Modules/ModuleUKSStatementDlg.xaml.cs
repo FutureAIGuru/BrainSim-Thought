@@ -270,7 +270,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             }
             else
             {
-                Thought t1 = UKSStatement.theUKS.InsertElement((SeqElement)theSequence, r1);
+                Thought t1 = UKSStatement.theUKS.InsertAfter((SeqElement)theSequence, r1, atBeginning: true);
             }
         }
 

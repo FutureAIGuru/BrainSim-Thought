@@ -261,7 +261,7 @@ public partial class ModuleVision : ModuleBase
                                     {
                                         // handle missing target if needed
                                     }
-                                    rRel1.maxWeight = maxWeight;
+                                    rRel1.MaxWeight = maxWeight;
                                 }
                                 continue; ;
                             }
@@ -275,7 +275,7 @@ public partial class ModuleVision : ModuleBase
                             {
                                 // handle missing target if needed
                             }
-                            rRel.maxWeight = maxWeight;
+                            rRel.MaxWeight = maxWeight;
                         }
                 }
 
@@ -545,7 +545,7 @@ public partial class ModuleVision : ModuleBase
         List<(Thought t, float conf)> match = new();
         if (queryThought.LinksTo.Count > 0)
         {
-            matchOrig = theUKS.SearchByAttributes(queryThought, "Patch");
+            matchOrig = theUKS.SearchByAttributes(queryThought, "Patch").ToList();
 
 
             matchOrig.RemoveAll(x => x.t.Label.StartsWith("theQuery"));
@@ -712,16 +712,16 @@ public partial class ModuleVision : ModuleBase
                     if (r.To.Label == centerPtLabel) continue;
 
                     //did the input point fire?
-                    Link rFound = inputPattern.LinksTo.FindFirst(x => x.To == r.To);
+                    Link rFound = inputPattern.LinksTo.FirstOrDefault(x => x.To == r.To);
 
                     // targets: ON -> +1, OFF -> -0.5
-                    //float tp = (rFound != null) ? r.maxWeight : -r.maxWeight / 2f;
-                    float tp = (rFound != null) ? r.maxWeight * tpOnWeight : tpOff;
+                    //float tp = (rFound != null) ? r.MaxWeight : -r.MaxWeight / 2f;
+                    float tp = (rFound != null) ? r.MaxWeight * tpOnWeight : tpOff;
                     float eta = (rFound != null) ? etaOn : etaOff; // example: smaller step for OFF
                     r.Weight += eta * (tp - r.Weight);
 
                     // clamp to keep Thoughts well-behaved
-                    if (r.Weight > r.maxWeight) r.Weight = r.maxWeight;
+                    if (r.Weight > r.MaxWeight) r.Weight = r.MaxWeight;
                     if (r.Weight < -1f) r.Weight = -1f;
                     //if (r.Weight < 0.0) r.source.RemoveLink(r);
                     if (r.Weight < 0.0) r.Weight = 0;
@@ -918,11 +918,11 @@ public partial class ModuleVision : ModuleBase
     public override void SetUpBeforeSave()
     {
         Thought t = theUKS.Labeled("currentShape");
-        if (t != null) { theUKS.DeleteAllChildrenAndLinks(t); }
+        if (t != null) { theUKS.DeleteDescendants(t); }
         t = theUKS.Labeled("corner");
-        if (t != null) { theUKS.DeleteAllChildrenAndLinks(t); }
+        if (t != null) { theUKS.DeleteDescendants(t); }
         t = theUKS.Labeled("Outline");
-        if (t != null) { theUKS.DeleteAllChildrenAndLinks(t); }
+        if (t != null) { theUKS.DeleteDescendants(t); }
         // (A "MentalModel" Thought is not Vision's: labels ignore case, so clearing it here deleted
         // ModuleMentalModel's "mentalModel" sheet on every save, and its buttons stopped working.)
     }
@@ -936,7 +936,7 @@ public partial class ModuleVision : ModuleBase
         //objects out of the Xml stream
         foreach (Thought t in theUKS.Roots().SelectMany(root => root.Descendants.Prepend(root)))
         {
-            if (t.V is System.Xml.XmlNode[] nodes)
+            if (t.Value is System.Xml.XmlNode[] nodes)
             {
                 if (nodes[0].Value == "Color")
                 {
@@ -945,7 +945,7 @@ public partial class ModuleVision : ModuleBase
                     byte G = byte.Parse(nodes[3].InnerText);
                     byte B = byte.Parse(nodes[4].InnerText);
                     Color theColor = new() { A = A, R = R, G = G, B = B, };
-                    t.V = theColor;
+                    t.Value = theColor;
                 }
                 if (nodes[0].Value == "HSLColor")
                 {
@@ -953,7 +953,7 @@ public partial class ModuleVision : ModuleBase
                     float saturation = float.Parse(nodes[2].InnerText);
                     float luminance = float.Parse(nodes[3].InnerText);
                     HSLColor theColor = new(hue, saturation, luminance);
-                    t.V = theColor;
+                    t.Value = theColor;
                 }
                 //if (nodes[0].Value == "Corner")
                 //{
@@ -968,7 +968,7 @@ public partial class ModuleVision : ModuleBase
                 //    //get the orientation node
                 //    float theta1 = float.Parse(nodes[3].FirstChild.InnerText);
                 //    //c.orientation = Angle.FromDegrees(theta1);
-                //    t.V = c;
+                //    t.Value = c;
                 //}
             }
         }

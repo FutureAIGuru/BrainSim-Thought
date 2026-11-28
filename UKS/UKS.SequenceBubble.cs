@@ -71,10 +71,10 @@ public static partial class SequenceAgents
     /// Gets the links by which an owner describes its sequences (phrase hasWords, word spelled, ...).
     /// A link's From is the owner, its LinkType the kind of sequence and its To the first element.
     /// </summary>
-    public static List<Link> GetSequenceLinks(this UKS store, Thought owner) => owner.LinksTo.Where(link => link.To is SeqElement).ToList();
+    public static IReadOnlyList<Link> GetSequenceLinks(this UKS store, Thought owner) => owner.LinksTo.Where(link => link.To is SeqElement).ToList();
 
     /// <summary>Gets the sequence links of each owner.</summary>
-    public static List<Link> GetSequenceLinks(this UKS store, IEnumerable<Thought> owners) => owners.SelectMany(owner => store.GetSequenceLinks(owner)).ToList();
+    public static IReadOnlyList<Link> GetSequenceLinks(this UKS store, IEnumerable<Thought> owners) => owners.SelectMany(owner => store.GetSequenceLinks(owner)).ToList();
 
     /// <summary>
     /// Finds an ordered description common to all supplied sequences.
@@ -91,7 +91,7 @@ public static partial class SequenceAgents
 
         List<List<Thought>> sequences = observations
             .Where(observation => observation is not null)
-            .Select(observation => store.FlattenSequence(observation.To))
+            .Select(observation => store.FlattenSequence(observation.To).ToList())
             .Where(sequence => sequence.Count > 0)
             .ToList();
         if (sequences.Count == 0) return null;
@@ -125,7 +125,7 @@ public static partial class SequenceAgents
     {
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(observation);
-        List<Thought> elements = store.FlattenSequence(observation.To);
+        List<Thought> elements = store.FlattenSequence(observation.To).ToList();
 
         HashSet<int> activePositions = new() { 0 };
         foreach (CommonSequenceElement patternElement in pattern.Elements)
@@ -172,7 +172,7 @@ public static partial class SequenceAgents
     /// owners. Wildcard fillers become ordinary classes, while complete sequence
     /// owners are retained as evidence links on the learned templates.
     /// </summary>
-    public static List<Thought> DiscoverSequenceTemplates(this UKS store,
+    public static IReadOnlyList<Thought> DiscoverSequenceTemplates(this UKS store,
         IEnumerable<Link> observations,
         Thought templateRoot,
         Thought fillerClassRoot,

@@ -197,7 +197,7 @@ public static partial class Exports
     static LinkDto ToDto(Link l)
     {
         // Where an attribute was found: its evidence is the is-a chain, then the stored link.
-        List<Link> evidence = l.Store.GetEvidence(l);
+        List<Link> evidence = l.Store.GetEvidence(l).ToList();
         return new()
         {
             Label = l.Label ?? "",
@@ -343,7 +343,7 @@ public static partial class Exports
     public static IntPtr DeleteThought(IntPtr pLabel, int withChildren) => Guard(() =>
     {
         Thought t = Require(In(pLabel));
-        if (withChildren != 0) Store.DeleteAllChildrenAndLinks(t);
+        if (withChildren != 0) Store.DeleteDescendants(t);
         t.Delete();
         return Ok($"Deleted '{t.Label}'");
     });
@@ -402,7 +402,7 @@ public static partial class Exports
         var dto = new ThoughtDto
         {
             Label = t.Label,
-            Value = t.V?.ToString(),
+            Value = t.Value?.ToString(),
             Weight = t.Weight,
             IsLink = t is Link,
             IsSequence = t is SeqElement,
@@ -586,7 +586,7 @@ public static partial class Exports
             filterLink.To ??= targetFilter;
         }
 
-        List<Link> links = uks.GetAttributes(sourceList[0], filterLink);
+        List<Link> links = uks.GetAttributes(sourceList[0], filterLink).ToList();
         result.Links = links.Select(ToDto).ToList();
         return Json(result, JsonCtx.Default.QueryResultDto);
     });
@@ -598,7 +598,7 @@ public static partial class Exports
         var uks = Store;
         string linkType = In(pLinkType).Trim(), target = In(pTarget).Trim();
         Thought source = uks.Labeled(In(pSource).Trim()) ?? throw new ArgumentException("Why? — source not found");
-        List<Link> links = uks.GetAttributes(source);
+        List<Link> links = uks.GetAttributes(source).ToList();
 
         List<Link> whyNot = uks.WhyNot().Where(l => l != null).ToList();
         if (whyNot.Count > 0) return Ok("Why not?\n" + Explain(whyNot, false));
@@ -613,7 +613,7 @@ public static partial class Exports
         match ??= links.FirstOrDefault(l => uks.GetEvidence(l).Count > 1);
         if (match == null) return Ok("Why? — no explainable inherited link");
 
-        List<Link> evidence = uks.GetEvidence(match);
+        List<Link> evidence = uks.GetEvidence(match).ToList();
         return Ok("Why? " + (evidence.Count == 0 ? "the query computed it" : string.Join(", ", evidence.Select(Format))));
     });
 
@@ -722,7 +722,7 @@ public static partial class Exports
     {
         PreserveXmlTypes();
         BeforeLoad();
-        bool loaded = Store.LoadUKSfromXMLFile(In(pPath));
+        bool loaded = Store.LoadXml(In(pPath));
         AfterLoad();
         return loaded
             ? Ok($"Loaded {Store.ThoughtCount()} Thoughts")

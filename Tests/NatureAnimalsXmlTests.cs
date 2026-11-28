@@ -30,7 +30,7 @@ public class NatureAnimalsXmlTests
         var uks = new UKS();
         string path = XmlPath();
         Assert.True(File.Exists(path), $"NatureAnimals.xml not found at {path}");
-        Assert.True(uks.LoadUKSfromXMLFile(path));
+        Assert.True(uks.LoadXml(path));
         return uks;
     }
 

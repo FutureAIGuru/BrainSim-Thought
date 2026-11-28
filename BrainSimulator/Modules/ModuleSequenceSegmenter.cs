@@ -48,7 +48,7 @@ public class ModuleSequenceSegmenter : ModuleBase
     {
         SeqElement tail = _inputQueueHead;
         while (tail.NXT is not null) tail = tail.NXT;
-        SeqElement added = theUKS.AddElement(tail, observation);
+        SeqElement added = theUKS.InsertAfter(tail, observation);
         _currentPointer ??= added;
     }
 
@@ -274,7 +274,7 @@ public class ModuleSequenceSegmenter : ModuleBase
 
         // First establish boundaries using non-plastic patterns only.
         var coverageOccurrences = activeOccurrences.Where(match => match.sequence.LinksFrom.Any(link =>
-            ReferenceEquals(link.LinkType, _hasSequence) && !link.From.isPlastic)).ToList();
+            ReferenceEquals(link.LinkType, _hasSequence) && !link.From.IsPlastic)).ToList();
         int unreachable = position + 1;
         int[] fromStart = Enumerable.Repeat(unreachable, position + 1).ToArray();
         int[] toEnd = Enumerable.Repeat(unreachable, position + 1).ToArray();
@@ -397,7 +397,7 @@ public class ModuleSequenceSegmenter : ModuleBase
             else
             {
                 establishedNeighbor = tags.Any(link => ((SeqElement)link.To).FRST is not null &&
-                    link.To.LinksFrom.Any(owner => ReferenceEquals(owner.LinkType, _hasSequence) && !owner.From.isPlastic));
+                    link.To.LinksFrom.Any(owner => ReferenceEquals(owner.LinkType, _hasSequence) && !owner.From.IsPlastic));
                 // A leading pause can supply one boundary when the right neighbor is established.
                 if (gap.Count > 1 && (gap.Count < episode.Count - 1 || establishedNeighbor)) boundedGap = new List<Thought>(gap);
                 gap.Clear();
@@ -492,7 +492,7 @@ public class ModuleSequenceSegmenter : ModuleBase
         int created = 0;
         foreach (int index in nominations)
         {
-            if (created >= MaximumProposalsPerEpisode || PatternRoot.Children.Count(thought => thought.isPlastic) >= CandidateCapacity)
+            if (created >= MaximumProposalsPerEpisode || PatternRoot.Children.Count(thought => thought.IsPlastic) >= CandidateCapacity)
             {
                 if (ExplainLearning) _learningDetails.Add("Further proposals blocked by proposal limit or candidate capacity.");
                 break;
@@ -536,11 +536,11 @@ public class ModuleSequenceSegmenter : ModuleBase
         if (theUKS.Labeled(label) is not null) label += "*";
         Thought candidate = theUKS.GetOrAddThought(label, PatternRoot);
         candidate.Weight = InitialStrength + emphasis;
-        candidate.isPlastic = candidate.Weight < ConsolidationStrength;
+        candidate.IsPlastic = candidate.Weight < ConsolidationStrength;
         theUKS.AddSequenceAndLink(candidate, _hasSequence, input, allowCompression: false);
         candidate.Fire();
         string result = $"{candidate.Label}: strength {candidate.Weight:0.##}, " +
-            (candidate.isPlastic ? "candidate" : "pattern");
+            (candidate.IsPlastic ? "candidate" : "pattern");
         return result;
     }
 
@@ -557,18 +557,18 @@ public class ModuleSequenceSegmenter : ModuleBase
     {
         float increase = Reinforcement * Math.Max(1, emphasis);
         thought.Weight += increase;
-        if (thought.Weight >= ConsolidationStrength) thought.isPlastic = false;
+        if (thought.Weight >= ConsolidationStrength) thought.IsPlastic = false;
         if (ExplainLearning) _learningDetails.Add($"{thought.Label}: reinforced +{increase:0.##}, strength {thought.Weight:0.##}" +
             (emphasis > 0 ? $"; emphasis {emphasis:0.##}" : "; ordinary match") +
-            (thought.isPlastic ? "; candidate." : "; non-plastic pattern."));
+            (thought.IsPlastic ? "; candidate." : "; non-plastic pattern."));
         string result = $"{thought.Label}: strength {thought.Weight:0.##}, " +
-            (thought.isPlastic ? "candidate" : "pattern");
+            (thought.IsPlastic ? "candidate" : "pattern");
         return result;
     }
 
     public void DecayCandidates(TimeSpan elapsed)
     {
-        List<Thought> candidates = PatternRoot.Children.Where(thought => thought.isPlastic).ToList();
+        List<Thought> candidates = PatternRoot.Children.Where(thought => thought.IsPlastic).ToList();
         // No forgetting below half capacity; reach the configured rate at full capacity.
         float pressure = Math.Clamp(2f * candidates.Count / CandidateCapacity - 1, 0, 1);
         if (pressure <= 0) return;

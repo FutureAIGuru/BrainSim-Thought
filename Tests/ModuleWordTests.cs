@@ -118,12 +118,12 @@ public class ModuleWordTests
         for (int i = 0; i < 10; i++)
             repeatedWord = module.AddWordSpelling("repeated");
 
-        Assert.False(repeatedWord.isPlastic);
+        Assert.False(repeatedWord.IsPlastic);
         Assert.InRange(repeatedWord.Weight, 10f, 11f);
         Assert.True(fadingWord.Weight < initialFadingWeight,
             $"Expected fading below {initialFadingWeight}, actual {fadingWord.Weight}; " +
             $"Word children: {string.Join(",", uks.Labeled("Word").Children.Select(x => x.Label))}");
-        Assert.False(uks.Labeled("spelled").isPlastic);
+        Assert.False(uks.Labeled("spelled").IsPlastic);
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class ModuleWordTests
         Thought stableWord = module.AddWordSpelling("familiar");
         for (int i = 0; i < 10; i++)
             stableWord = module.AddWordSpelling("familiar");
-        Assert.False(stableWord.isPlastic);
+        Assert.False(stableWord.IsPlastic);
         float stableWeightBeforeInterveningWord = stableWord.Weight;
 
         Thought fadingWord = module.AddWordSpelling("unrepeated");
@@ -145,7 +145,7 @@ public class ModuleWordTests
         stableWord = module.AddWordSpelling("familiar");
         float expectedFadingWeight = initialFadingWeight * 0.9999f;
 
-        Assert.False(stableWord.isPlastic);
+        Assert.False(stableWord.IsPlastic);
         Assert.True(stableWord.Weight > stableWeightBeforeInterveningWord);
         Assert.Equal(expectedFadingWeight, fadingWord.Weight, 5);
     }
@@ -181,9 +181,9 @@ public class ModuleWordTests
         // Weight retains frequency information after consolidation rather than
         // being clamped to one. All three repeated words consolidate, and their
         // scores preserve the large differences in observed frequency.
-        Assert.False(mostFrequent.isPlastic);
-        Assert.False(frequent.isPlastic);
-        Assert.False(occasional.isPlastic);
+        Assert.False(mostFrequent.IsPlastic);
+        Assert.False(frequent.IsPlastic);
+        Assert.False(occasional.IsPlastic);
         Assert.True(mostFrequent.Weight > frequent.Weight);
         Assert.True(frequent.Weight > occasional.Weight);
         Assert.True(occasional.Weight >= 10f);

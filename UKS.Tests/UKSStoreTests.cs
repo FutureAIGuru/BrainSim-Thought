@@ -52,9 +52,9 @@ public class UKSStoreTests
         string path = Path.GetTempFileName();
         try
         {
-            Assert.True(store.SaveUKStoXMLFile(path));
+            Assert.True(store.SaveXml(path));
             var loaded = new UKS();
-            Assert.True(loaded.LoadUKSfromXMLFile(path));
+            Assert.True(loaded.LoadXml(path));
             // The loader also puts links in the Thought set; the counts must not care.
             Assert.Equal(store.ThoughtCount(), loaded.ThoughtCount());
             Assert.Equal(store.LinkCount(), loaded.LinkCount());
@@ -67,7 +67,7 @@ public class UKSStoreTests
     public void RootsAreTheThoughtsWithoutParents()
     {
         UKS store = DogStore();
-        List<Thought> roots = store.Roots();
+        List<Thought> roots = store.Roots().ToList();
 
         Assert.Contains(store.Labeled("Thought")!, roots);
         Assert.DoesNotContain(store.Labeled("dog")!, roots);

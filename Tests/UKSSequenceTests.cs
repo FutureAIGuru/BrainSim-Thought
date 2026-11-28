@@ -19,22 +19,22 @@ public class UKSSequenceTests
         Thought three = uks.GetOrAddThought("delay3", durations);
         Thought tunes = uks.GetOrAddThought("tune", "Thought");
         SeqElement stored = uks.CreateFirstElement("tuneCells", c);
-        SeqElement storedLast = uks.AddElement(stored, d);
+        SeqElement storedLast = uks.InsertAfter(stored, d);
         stored.AddLink("VLU", one);
         storedLast.AddLink("VLU", two);
         Thought sequenceType = uks.GetOrAddThought("hasSequence", "LinkType");
         uks.GetOrAddThought("rememberedTune", tunes).AddLink(sequenceType, stored);
         SeqElement unrelated = uks.CreateFirstElement("otherCells", c);
-        uks.AddElement(unrelated, d);
+        uks.InsertAfter(unrelated, d);
         uks.GetOrAddThought("unrelatedWord", "word").AddLink(uks.GetOrAddThought("spelled", "LinkType"), unrelated);
         SeqElement input = uks.CreateFirstElement("inputCells", c);
-        SeqElement inputLast = uks.AddElement(input, d);
+        SeqElement inputLast = uks.InsertAfter(input, d);
         input.AddLink("VLU", one);
         inputLast.AddLink("VLU", three);
         Thought options = uks.CreateSearchOptions(mustMatchFirst: true, mustMatchLast: true);
 
-        var noteMatches = uks.FindSequencesByActivation(input, options, valueClassRef: notes, matchClassRef: tunes);
-        var durationMatches = uks.FindSequencesByActivation(input, options, valueClassRef: durations, matchClassRef: tunes);
+        var noteMatches = uks.FindSequencesByActivation(input, options, valueClass: notes, matchClass: tunes);
+        var durationMatches = uks.FindSequencesByActivation(input, options, valueClass: durations, matchClass: tunes);
         Assert.Contains(noteMatches, match => ReferenceEquals(match.seqNode, stored));
         Assert.DoesNotContain(noteMatches, match => ReferenceEquals(match.seqNode, unrelated));
         Assert.DoesNotContain(durationMatches, match => ReferenceEquals(match.seqNode, stored));
@@ -43,16 +43,16 @@ public class UKSSequenceTests
 
         inputLast.RemoveLink(uks.Labeled("VLU"), three);
         inputLast.AddLink("VLU", two);
-        var matchingDurations = uks.FindSequencesByActivation(input, options, valueClassRef: durations, matchClassRef: tunes);
+        var matchingDurations = uks.FindSequencesByActivation(input, options, valueClass: durations, matchClass: tunes);
         Assert.Contains(matchingDurations, match => ReferenceEquals(match.seqNode, stored));
         Thought wildcard = uks.CreateWildcard("??.duration", new List<Thought> { durations });
         options.AddProperty("allowWildcards");
         var wildcardMatches = uks.FindSequencesByActivation(new List<Thought> { one, wildcard }, options,
-            valueClassRef: durations, matchClassRef: tunes);
+            valueClass: durations, matchClass: tunes);
         Assert.Contains(wildcardMatches, match => ReferenceEquals(match.seqNode, stored));
         SeqElement query = uks.CreateFirstElement("durationQuery", one);
-        uks.AddElement(query, uks.Labeled("??"));
-        var wildcardSequenceMatches = uks.FindSequencesByActivation(query, options, valueClassRef: durations, matchClassRef: tunes);
+        uks.InsertAfter(query, uks.Labeled("??"));
+        var wildcardSequenceMatches = uks.FindSequencesByActivation(query, options, valueClass: durations, matchClass: tunes);
         Assert.Contains(wildcardSequenceMatches, match => ReferenceEquals(match.seqNode, stored));
     }
 
@@ -77,7 +77,7 @@ public class UKSSequenceTests
         var exact = sequenceInput ? uks.FindSequencesByActivation(sentence, strict) : uks.FindSequencesByActivation(input, strict);
         Assert.DoesNotContain(exact, match => ReferenceEquals(match.seqNode, one) ||
             ReferenceEquals(match.seqNode, two) || ReferenceEquals(match.seqNode, three));
-        var matches = sequenceInput ? uks.FindSequencesByActivation(sentence, prefix) : uks.FindSequencesByActivation(input, prefix);
+        var matches = (sequenceInput ? uks.FindSequencesByActivation(sentence, prefix) : uks.FindSequencesByActivation(input, prefix)).ToList();
         Assert.Contains(matches, match => ReferenceEquals(match.seqNode, one) && match.confidence == 1);
         Assert.Contains(matches, match => ReferenceEquals(match.seqNode, two) && match.confidence == 1);
         Assert.Contains(matches, match => ReferenceEquals(match.seqNode, three) && match.confidence == 1);
@@ -182,8 +182,8 @@ public class UKSSequenceTests
         var uks = CreateUKS();
         var stored = uks.AddSequence("bounded", new List<Thought> { uks.Labeled("A"), uks.Labeled("B") }, allowCompression: false);
         SeqElement input = new(uks) { Label = "input*", VLU = uks.Labeled("A") };
-        SeqElement last = uks.AddElement(input, uks.Labeled("B"));
-        uks.AddElement(last, uks.Labeled("C"));
+        SeqElement last = uks.InsertAfter(input, uks.Labeled("B"));
+        uks.InsertAfter(last, uks.Labeled("C"));
         var bounded = uks.FindSequencesByActivation(input, last: last);
         Assert.Contains(bounded, match => ReferenceEquals(match.seqNode, stored));
         Assert.DoesNotContain(uks.FindSequencesByActivation(input), match => ReferenceEquals(match.seqNode, stored));
@@ -195,7 +195,7 @@ public class UKSSequenceTests
         var uks = CreateUKS();
         Thought a = uks.Labeled("A");
         SeqElement first = new(uks) { Label = "stream*", VLU = a };
-        SeqElement second = uks.AddElement(first, a);
+        SeqElement second = uks.InsertAfter(first, a);
         Assert.Null(first.FRST);
         Assert.Null(second.FRST);
         var matches = uks.FindSequencesByActivation(new List<Thought> { a }, uks.CreateSearchOptions());
@@ -478,7 +478,7 @@ public class UKSSequenceTests
             source, spelled, new List<Thought> { digit });
         List<(SeqElement seqNode, float confidence)> matches =
             uks.FindSequencesByActivation(
-                new List<Thought> { digit }, uks.Labeled("ExactSequenceSearch"));
+                new List<Thought> { digit }, uks.Labeled("ExactSequenceSearch")).ToList();
 
         Assert.NotNull(sequence);
         Assert.Equal(new[] { "c:4" },
@@ -488,7 +488,7 @@ public class UKSSequenceTests
     }
 
     [Fact]
-    public void InsertElement_PrependsValue()
+    public void InsertAfterAtBeginning_PrependsValue()
     {
         var uks = CreateUKS();
         var source = uks.GetOrAddThought("dog", "Thought");
@@ -502,7 +502,7 @@ public class UKSSequenceTests
         SeqElement first = uks.AddSequenceAndLink(source, linkType, targets);
 
         var newVal = uks.GetOrAddThought("!"); // prepend
-        SeqElement updatedFirst = uks.InsertElement(first, newVal);
+        SeqElement updatedFirst = uks.InsertAfter(first, newVal, atBeginning: true);
 
         var flat = uks.FlattenSequence(updatedFirst);
         Assert.Equal(new[] { "!", "D", "O", "G" }, flat.Select(x => x.Label));
@@ -629,7 +629,7 @@ public class UKSSequenceTests
                     isWord,
                     uks.GetOrAddThought("wet", uks.Labeled("Word"))
                 },
-                uks.Labeled("TemplateSequenceSearch"));
+                uks.Labeled("TemplateSequenceSearch")).ToList();
 
         Assert.Contains(matches, match => ReferenceEquals(match.seqNode, template));
     }
@@ -691,11 +691,11 @@ public class UKSSequenceTests
         List<(SeqElement seqNode, float confidence)> strictMatches =
             uks.FindSequencesByActivation(
                 new List<Thought> { what, does, article, dog, have },
-                uks.Labeled("TemplateSequenceSearch"));
+                uks.Labeled("TemplateSequenceSearch")).ToList();
         List<(SeqElement seqNode, float confidence)> learningMatches =
             uks.FindSequencesByActivation(
                 new List<Thought> { what, does, article, dog, have },
-                uks.Labeled("TemplateLearningSearch"));
+                uks.Labeled("TemplateLearningSearch")).ToList();
 
         Assert.DoesNotContain(strictMatches,
             match => ReferenceEquals(match.seqNode, template));

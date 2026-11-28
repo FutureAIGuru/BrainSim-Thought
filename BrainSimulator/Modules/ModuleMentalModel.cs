@@ -120,7 +120,7 @@ public class ModuleMentalModel : ModuleBase
         float weight = 1f,
         bool imagined = false)
     {
-        Link existing = mmPosition.LinksTo.FindFirst(link =>
+        Link existing = mmPosition.LinksTo.FirstOrDefault(link =>
             link.LinkType == _ltContains && link.To == thought);
         if (existing is not null)
         {

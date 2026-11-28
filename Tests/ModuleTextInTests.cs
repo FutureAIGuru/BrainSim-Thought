@@ -95,8 +95,8 @@ public class ModuleTextInteractionTests
         Thought mary = uks.GetOrAddThought("w:mary", "Word");
         Thought john = uks.GetOrAddThought("w:john", "Word");
         uks.GetOrAddThought("hasWords", "LinkType");
-        mary.isPlastic = true;
-        john.isPlastic = true;
+        mary.IsPlastic = true;
+        john.IsPlastic = true;
         Thought exemplar = ModuleText.AddActionExemplar(
             "How is Mary related to John", "[Mary->?.??->John]");
         var wordModule = new ModuleWord { theUKS = uks };

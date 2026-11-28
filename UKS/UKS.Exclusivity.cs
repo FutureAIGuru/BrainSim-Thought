@@ -97,8 +97,8 @@ public partial class UKS
             }
             //if source and target are the same and one contains a number, assume that the other contains "1"
             // fido has leg -> fido has 1 leg  
-            bool hasNumber1 = (r1LinkiProps.FindFirst(x => x.HasAncestor("number")) is not null);
-            bool hasNumber2 = (r2LinkProps.FindFirst(x => x.HasAncestor("number")) is not null);
+            bool hasNumber1 = (r1LinkiProps.FirstOrDefault(x => x.HasAncestor("number")) is not null);
+            bool hasNumber2 = (r2LinkProps.FirstOrDefault(x => x.HasAncestor("number")) is not null);
             if (r1.To == r2.To &&
                 (hasNumber1 || hasNumber2))
                 return true;

@@ -81,7 +81,7 @@ public abstract class ModuleBase
         if (thisDlg is null) return null;
         foreach (var r in thisDlg.LinksTo)
             if (r.LinkType?.Label == "hasAttribute" && r.To is not null && r.To.Label.StartsWith(attribName))
-                return r.To.V as string;
+                return r.To.Value as string;
         return null;
     }
 
@@ -95,7 +95,7 @@ public abstract class ModuleBase
             if (r.LinkType?.Label == "hasAttribute" && r.To is not null && r.To.Label.StartsWith(attribName))
             {
                 if (attribValue is null) { r.To.Delete(); return; }
-                r.To.V = attribValue;
+                r.To.Value = attribValue;
                 return;
             }
         }
@@ -103,7 +103,7 @@ public abstract class ModuleBase
         Thought dlgInfo = theUKS.AddThought(attribName, dlgAttribParent);
         Thought hasAttribute = theUKS.GetOrAddThought("hasAttribute", "LinkType");
         thisDlg.AddLink(hasAttribute, dlgInfo);
-        dlgInfo.V = attribValue;
+        dlgInfo.Value = attribValue;
         dlgInfo.Fire();
     }
 

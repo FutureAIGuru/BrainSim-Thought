@@ -222,7 +222,7 @@ public sealed partial class ModuleInterpret : ModuleBase
     /// <returns>A report line when the template is still below full strength.</returns>
     private string Reinforce(Thought winner, List<Link> executed, bool isQuery, out bool stillLearning)
     {
-        bool wasPlastic = winner.isPlastic;
+        bool wasPlastic = winner.IsPlastic;
         float before = winner.Weight;
         if (!isQuery) RecordSource(executed, winner);
         Strengthen(winner);
@@ -395,7 +395,7 @@ public sealed partial class ModuleInterpret : ModuleBase
     private Thought? WithInflection(Thought? meaning, Thought? inflection)
     {
         if (meaning is null || AddedMeaning(inflection) is not Thought added) return meaning;
-        if (meaning.HasProperty(setRelationship) && theUKS.GetActionRelationshipType(meaning) is Thought type)
+        if (meaning.HasProperty(setRelationship) && theUKS.GetPlainLinkType(meaning) is Thought type)
             return theUKS.GetOrAddThought($"{type.Label}.{added.Label}.!");
         return theUKS.GetOrAddThought($"{meaning.Label}.{added.Label}");
     }
@@ -460,7 +460,7 @@ public sealed partial class ModuleInterpret : ModuleBase
     // is. Null when a looked-up one is not known.
     // A question asked on an assumption (assuming.?).
     private bool IsAssuming(Link action) =>
-        ReferenceEquals(theUKS.GetActionRelationshipType(action.LinkType), theUKS.Labeled("assuming"));
+        ReferenceEquals(theUKS.GetPlainLinkType(action.LinkType), theUKS.Labeled("assuming"));
 
     // The condition the question in this sentence assumed ("if Fido is outside"), if any.
     private Link? assumption;
@@ -472,7 +472,7 @@ public sealed partial class ModuleInterpret : ModuleBase
 
     // A statement that one clause holds on condition of another (conditionalOn.!).
     private bool IsRule(Link action) =>
-        ReferenceEquals(theUKS.GetActionRelationshipType(action.LinkType), theUKS.Labeled("conditionalOn"));
+        ReferenceEquals(theUKS.GetPlainLinkType(action.LinkType), theUKS.Labeled("conditionalOn"));
 
     /// <summary>
     /// Stores a rule the way the UKS represents one: its clauses are possibilities, never stated, and
@@ -488,7 +488,7 @@ public sealed partial class ModuleInterpret : ModuleBase
 
     // The statements a conjunction joins ("A and B": A, B), or the statement itself.
     private IEnumerable<Thought?> Conjuncts(Thought? statement) =>
-        statement is Link joined && ReferenceEquals(theUKS.GetActionRelationshipType(joined.LinkType), theUKS.Labeled("conjoinedWith"))
+        statement is Link joined && ReferenceEquals(theUKS.GetPlainLinkType(joined.LinkType), theUKS.Labeled("conjoinedWith"))
             ? Conjuncts(joined.From).Concat(Conjuncts(joined.To)) : [statement];
 
     // A rule's part in UKS text: a relationship by its ordinary type (conditionalOn is IF, conjoinedWith
@@ -498,7 +498,7 @@ public sealed partial class ModuleInterpret : ModuleBase
     {
         if (IsReferentDescriptor(part)) return Referent((Link)part!, question: false)?.Label;
         if (part is not Link relationship) return part?.Label;
-        Thought? type = theUKS.GetActionRelationshipType(relationship.LinkType) ?? relationship.LinkType;
+        Thought? type = theUKS.GetPlainLinkType(relationship.LinkType) ?? relationship.LinkType;
         string? typeText = ReferenceEquals(type, theUKS.Labeled("conditionalOn")) ? "IF"
             : ReferenceEquals(type, theUKS.Labeled("conjoinedWith")) ? "AND" : type?.Label;
         string? from = RuleText(relationship.From), to = RuleText(relationship.To);
@@ -518,7 +518,7 @@ public sealed partial class ModuleInterpret : ModuleBase
         if (from is null || to is null) return null;
         Link nested = ReferenceEquals(from, written.From) && ReferenceEquals(to, written.To) ? written : new Link(from, written.LinkType, to);
         if (question)
-            return theUKS.GetActionRelationshipType(nested.LinkType) is Thought type ? theUKS.GetLink(nested.From, type, nested.To) : null;
+            return theUKS.GetPlainLinkType(nested.LinkType) is Thought type ? theUKS.GetLink(nested.From, type, nested.To) : null;
         return theUKS.ApplyTestOrSetAction(nested).FirstOrDefault();
     }
 }

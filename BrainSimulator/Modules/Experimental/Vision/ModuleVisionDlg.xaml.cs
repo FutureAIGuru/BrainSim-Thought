@@ -250,7 +250,7 @@ namespace BrainSimulator.Modules
                 y = int.Parse(parts[2]);
                 float theWeight = pt.Weight;
                 b = new SolidColorBrush(RainbowColorFromValue(theWeight));
-                toolTipString = $"({(int)x},{(int)y}) w: {theWeight:F2}  max: {pt.maxWeight:F2}  ";
+                toolTipString = $"({(int)x},{(int)y}) w: {theWeight:F2}  max: {pt.MaxWeight:F2}  ";
                 e = new()
                 {
                     Height = pixelSize / 2,
@@ -275,7 +275,7 @@ namespace BrainSimulator.Modules
                 y = int.Parse(parts[2]);
                 float theWeight = pt.Weight;
                 b = new SolidColorBrush(Colors.Red);
-                toolTipString = $"({(int)x},{(int)y}) w: {theWeight:F2}  max: {pt.maxWeight:F2}  ";
+                toolTipString = $"({(int)x},{(int)y}) w: {theWeight:F2}  max: {pt.MaxWeight:F2}  ";
                 e = new()
                 {
                     Height = pixelSize / 2,

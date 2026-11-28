@@ -49,7 +49,7 @@ public class ModuleAttentionS : ModuleBase
                 //var deltaNote = GetIntAfterColon(theNote.Label)-GetIntAfterColon(currentSeq.VLU.Label) ;
                 //Thought theInterval = theUKS.GetOrAddThought($"interval:{deltaNote}", "musicalNote");
                 //currentSeq.AddLink("VLU", theInterval);
-                currentSeq = theUKS.AddElement(currentSeq, theNote);
+                currentSeq = theUKS.InsertAfter(currentSeq, theNote);
                 Debug.WriteLine("Note Added:" + theNote.Label);
 
             }
@@ -63,7 +63,7 @@ public class ModuleAttentionS : ModuleBase
         //    l.AddLink("handled", null);
         //    if (currentSeq is null) continue; //never start a sequence with a note-end
         //    AddTimeToNextToSeqStep();
-        //    currentSeq = theUKS.AddElement(currentSeq, l.From);
+        //    currentSeq = theUKS.InsertAfter(currentSeq, l.From);
         //    Debug.WriteLine($"added end event {l.From}");
         //    _lastEventTime = DateTime.Now;
         //}
@@ -183,7 +183,7 @@ public class ModuleAttentionS : ModuleBase
         if (currentSeq?.FRST is null) return null;
 
         List<Thought> retVal = new();
-        List<Thought> played = theUKS.FlattenSequence(currentSeq.FRST);
+        List<Thought> played = theUKS.FlattenSequence(currentSeq.FRST).ToList();
         if (played.Count == 0) return null;
 
         // Find all known phrases that start with the current sequence

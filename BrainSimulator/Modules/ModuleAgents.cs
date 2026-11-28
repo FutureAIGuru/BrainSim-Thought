@@ -17,7 +17,7 @@ namespace BrainSimulator.Modules;
 /// </summary>
 public class ModuleAgents : ModuleBase
 {
-    private static readonly (string name, Func<UKS.UKS, List<Thought>> run)[] agents =
+    private static readonly (string name, Func<UKS.UKS, IReadOnlyList<Thought>> run)[] agents =
     {
         ("Add Counts", uks => uks.AddCounts()),
         ("Attribute Bubble", uks => uks.BubbleAttributes()),
@@ -54,7 +54,7 @@ public class ModuleAgents : ModuleBase
             return false;
         }
 
-        List<Thought> changed = agent.run(theUKS);
+        IReadOnlyList<Thought> changed = agent.run(theUKS);
         Status = $"{agent.name}: {changed.Count} changed\n" + string.Join("\n", changed.Select(thought => thought.ToString()));
         UpdateDialog();
         return true;

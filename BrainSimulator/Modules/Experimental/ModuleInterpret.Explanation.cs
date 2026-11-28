@@ -46,7 +46,7 @@ public sealed partial class ModuleInterpret
     // ([fido->is.?->wet]) on the subject with an IF to their condition.
     private IEnumerable<(Link Result, Link Condition)> RulesFor(Link query)
     {
-        if (query.From is null || query.To is null || theUKS.GetActionRelationshipType(query.LinkType) is not Thought type ||
+        if (query.From is null || query.To is null || theUKS.GetPlainLinkType(query.LinkType) is not Thought type ||
             theUKS.Labeled(type.Label + ".?") is not Thought possible) yield break;
         foreach (Link result in query.From.LinksTo.Where(link => link.LinkType == possible && link.To == query.To))
             foreach (Link rule in result.LinksTo.Where(link => link.LinkType?.HasProperty("isConditional") == true))
@@ -64,7 +64,7 @@ public sealed partial class ModuleInterpret
     private Link? Contradiction(Link condition)
     {
         if (Asserted(condition) is not Link assumed || assumed.From is null) return null;
-        List<Link> known = theUKS.GetAttributes(assumed.From);
+        List<Link> known = theUKS.GetAttributes(assumed.From).ToList();
         Thought? negation = theUKS.Labeled(assumed.LinkType.Label + ".not");
         return known.FirstOrDefault(fact => theUKS.LinksAreExclusive(assumed, fact)) ??
             known.FirstOrDefault(fact => negation is not null && fact.LinkType == negation && fact.To == assumed.To);
@@ -72,7 +72,7 @@ public sealed partial class ModuleInterpret
 
     // A possibility as the plain relationship it describes ([fido->located.?->outside] → located).
     private Link? Asserted(Link possibility) =>
-        theUKS.GetActionRelationshipType(possibility.LinkType) is Thought type ? new Link(possibility.From, type, possibility.To) : null;
+        theUKS.GetPlainLinkType(possibility.LinkType) is Thought type ? new Link(possibility.From, type, possibility.To) : null;
 
     private string Clause(Link? fact) => fact is null ? "" : GenerateClause(fact) ?? fact.ToString();
 

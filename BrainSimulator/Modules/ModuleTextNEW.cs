@@ -136,7 +136,7 @@ public class ModuleTextNEW : ModuleBase
 
         //Does this input match an existing template?
         SeqElement phraseContent = (SeqElement) phrase.GetTargetOfFirstLinkOfType("hasWords");
-        var matchedTemplateStruct = theUKS.FindSequencesByActivation(phraseContent, "TemplateLearningSearch");
+        var matchedTemplateStruct = theUKS.FindSequencesByActivation(phraseContent, "TemplateLearningSearch").ToList();
         matchedTemplateStruct.RemoveAll(match => match.seqNode == phraseContent);  //remove any matches which are the phrase itself.
         Thought templateContent = null;
         if (matchedTemplateStruct.Count > 0) templateContent = matchedTemplateStruct[0].seqNode;
@@ -445,7 +445,7 @@ public class ModuleTextNEW : ModuleBase
     private static Thought FindPhraseWithWords(UKS.UKS theUKS, Thought phraseRoot, Thought hasWords, List<Thought> words)
     {
         List<(SeqElement seqNode, float confidence)> exactSequences =
-            theUKS.FindSequencesByActivation(words, "ExactSequenceSearch");
+            theUKS.FindSequencesByActivation(words, "ExactSequenceSearch").ToList();
         foreach ((SeqElement sequence, float _) in exactSequences)
         {
             Link ownerLink = sequence.LinksFrom.FirstOrDefault(link =>

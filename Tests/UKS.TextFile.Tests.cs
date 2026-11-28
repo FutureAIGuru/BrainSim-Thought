@@ -49,7 +49,7 @@ public class UKSTextFileTests : IDisposable
         Thought t = uks.Labeled(label);
         Assert.NotNull(t);
         if (expectedValue != null)
-            Assert.Equal(expectedValue, t.V?.ToString());
+            Assert.Equal(expectedValue, t.Value?.ToString());
     }
 
     private void VerifyLink(string fromLabel, string linkTypeLabel, string toLabel)
@@ -134,7 +134,7 @@ public class UKSTextFileTests : IDisposable
          *  
          *  // Create a thought with a value
                 Thought age = uks.GetOrAddThought("age", "Attribute");
-                age.V = "5";
+                age.Value = "5";
 
                 Thought dog = uks.GetOrAddThought("dog", "Thing");
                 Thought hasType = uks.GetOrAddThought("has", "LinkType");
@@ -181,7 +181,7 @@ public class UKSTextFileTests : IDisposable
         Assert.True(spelledLink.To is SeqElement);
         
         // Verify sequence content
-        List<Thought> flatSequence = uks.FlattenSequence((SeqElement)spelledLink.To);
+        List<Thought> flatSequence = uks.FlattenSequence((SeqElement)spelledLink.To).ToList();
         Assert.Equal(3, flatSequence.Count);
         Assert.Equal("C", flatSequence[0].Label);
         Assert.Equal("A", flatSequence[1].Label);
@@ -423,11 +423,11 @@ public class UKSTextFileTests : IDisposable
         
         Link link = dog.AddLink(hasType, tail);
         link.Weight = 2.5f;
-        link.maxWeight = 3.5f;
-        link.isPlastic = true;
+        link.MaxWeight = 3.5f;
+        link.IsPlastic = true;
         dog.Weight = 0.42f;
-        dog.maxWeight = 0.8f;
-        dog.isPlastic = true;
+        dog.MaxWeight = 0.8f;
+        dog.IsPlastic = true;
         
         // Export and reimport
         uks.ExportTextFile("Thought", testFilePath);
@@ -439,11 +439,11 @@ public class UKSTextFileTests : IDisposable
         Link reimportedLink = reimportedDog.HasLink(uks.Labeled("has"), uks.Labeled("tail"));
         Assert.NotNull(reimportedLink);
         Assert.Equal(2.5f, reimportedLink.Weight, 2);
-        Assert.Equal(3.5f, reimportedLink.maxWeight, 2);
-        Assert.True(reimportedLink.isPlastic);
+        Assert.Equal(3.5f, reimportedLink.MaxWeight, 2);
+        Assert.True(reimportedLink.IsPlastic);
         Assert.Equal(0.42f, reimportedDog.Weight, 2);
-        Assert.Equal(0.8f, reimportedDog.maxWeight, 2);
-        Assert.True(reimportedDog.isPlastic);
+        Assert.Equal(0.8f, reimportedDog.MaxWeight, 2);
+        Assert.True(reimportedDog.IsPlastic);
     }
 
     [Fact]

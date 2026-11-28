@@ -47,7 +47,7 @@ public class InflectionRuleInheritanceTests
 
     private static List<string> Values(UKS store, string rule, string linkType)
     {
-        List<Link> attributes = store.GetAttributes(store.Labeled(rule));
+        List<Link> attributes = store.GetAttributes(store.Labeled(rule)).ToList();
         return attributes.Where(link => link.LinkType?.Label == linkType).Select(link => link.To.Label).OrderBy(label => label).ToList();
     }
 

@@ -78,9 +78,9 @@ public partial class UKS
                 {
                     // A link recreates its component Thoughts on import.
                     if (t is not Link && referenced.Contains(t) &&
-                        t.V is null && t.Weight == 1 && t.maxWeight == 1 && !t.isPlastic) continue;
+                        t.Value is null && t.Weight == 1 && t.MaxWeight == 1 && !t.IsPlastic) continue;
                     string s = FormatThought(t) + " " + t.Weight.ToString("F2") +
-                        " " + t.maxWeight.ToString("F2") + " " + t.isPlastic;
+                        " " + t.MaxWeight.ToString("F2") + " " + t.IsPlastic;
                     if (!alreadyWritten.Contains(s))
                     {
                         writer.WriteLine(s);
@@ -108,8 +108,8 @@ public partial class UKS
     string FormatThought(Thought t)
     {
         string retVal = EnsureLabel(t).PadRight(15) + " ";
-        if (t.V is not null)
-            retVal += " V: " + t.V.ToString();
+        if (t.Value is not null)
+            retVal += " V: " + t.Value.ToString();
         if (t is Link r)
         {
             if (r.From is Link r1) EnsureLabel(r1);
@@ -361,14 +361,14 @@ public partial class UKS
 
         // Process 'to'
         //this might be a sequence
-        Thought? to = ProcessThoughtOrLink(linkParts[2]) ?? ThoughtFromPhrase(linkParts[2], false);
+        Thought? to = ProcessThoughtOrLink(linkParts[2]) ?? SequenceOrThought(linkParts[2]);
 
         if (from is null || linkType is null) return null;
 
         Link? r = AddStatement(from, linkType, to, label);
         if (r is null) return null;
         if (value != "")
-            r.From!.V = value;
+            r.From!.Value = value;
         if (label != "" && !label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase))
         {
             r.Label = label.Trim();
@@ -459,20 +459,20 @@ public partial class UKS
         }
 
         Thought? linkType = ProcessThoughtOrLink(linkParts[1]);
-        if (linkType is null) linkType = ThoughtFromPhrase(linkParts[1], true);
+        if (linkType is null) linkType = SequenceOrThought(linkParts[1]);
         if (linkType is null) return null;
         bool structural = IsClauseLinkType(linkType);
 
         // Conditional and conjunction operands are patterns, never new assertions.
         Thought? from = ProcessThoughtOrLink(linkParts[0], asPattern || structural);
-        if (from is null) from = ThoughtFromPhrase(linkParts[0], false);
+        if (from is null) from = SequenceOrThought(linkParts[0]);
 
         // Process 'to' - may be a nested link
         Thought? to = null;
         if (linkParts.Count > 2)
         {
             to = ProcessThoughtOrLink(linkParts[2], asPattern || structural);
-            if (to is null) to = ThoughtFromPhrase(linkParts[2], false);
+            if (to is null) to = SequenceOrThought(linkParts[2]);
         }
 
         if (from is null || linkType is null) return null;
@@ -511,7 +511,7 @@ public partial class UKS
         else r = label.Length == 0 ? from.AddLink(linkType, to) : AddStatement(from, linkType, to, label);
         if (r is null) return null;
         if (value != "")
-            r.From!.V = value;
+            r.From!.Value = value;
         if (label != "" && !label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase))
         {
             r.Label = label.Trim();
@@ -527,11 +527,10 @@ public partial class UKS
         return r;
     }
 
-    // A phrase of several words names one Thought by a dotted label: "4 legs" is legs.4 (the
-    // attributes precede the base) and "has 4" is has.4 (they follow). "^a b c" is a sequence;
-    // a one-character element is that character.
-    internal Thought? ThoughtFromPhrase(string phrase, bool attributesFollow)
+    // "^a b c" is a sequence (a one-character element is that character); anything else is a label.
+    private Thought? SequenceOrThought(string part)
     {
+        string phrase = part.Trim();
         if (phrase.StartsWith('^'))
         {
             string[] elementLabels = phrase[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -544,10 +543,7 @@ public partial class UKS
             }
             return AddSequence(string.Join("", elementLabels), elements, false);
         }
-        string[] words = phrase.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length == 0) return null;
-        IEnumerable<string> ordered = attributesFollow ? words : words.Skip(words.Length - 1).Concat(words.SkipLast(1));
-        return GetOrAddThought(string.Join(".", ordered));
+        return phrase.Length == 0 ? null : GetOrAddThought(phrase);
     }
 
     /// <summary>
@@ -643,9 +639,9 @@ public partial class UKS
         if (sWeight is not null && float.TryParse(sWeight, out float weight))
             thought.Weight = weight;
         if (sMaxWeight is not null && float.TryParse(sMaxWeight, out float maxWeight))
-            thought.maxWeight = maxWeight;
+            thought.MaxWeight = maxWeight;
         if (sIsPlastic is not null && bool.TryParse(sIsPlastic, out bool isPlastic))
-            thought.isPlastic = isPlastic;
+            thought.IsPlastic = isPlastic;
     }
 
     private static void ApplyTrailingPersistenceMetadata(
@@ -664,7 +660,7 @@ public partial class UKS
         {
             int end = tokens.Count - (hasExtendedMetadata ? 3 : 1);
             string value = string.Join(" ", tokens.Skip(metadataStart + 1).Take(Math.Max(0, end - metadataStart - 1)));
-            thought.V = int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int integer) ? integer
+            thought.Value = int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int integer) ? integer
                 : double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double number) ? number
                 : bool.TryParse(value, out bool boolean) ? boolean : value;
         }

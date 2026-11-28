@@ -135,7 +135,7 @@ public partial class ModuleWord : ModuleBase
 
         if (isNewWord)
         {
-            observedWord.isPlastic = true;
+            observedWord.IsPlastic = true;
             observedWord.Weight = ObservationWeightIncrease;
         }
         else
@@ -144,10 +144,10 @@ public partial class ModuleWord : ModuleBase
         }
 
         observedWord.Fire();
-        if (observedWord.isPlastic && observedWord.Weight >= ConsolidationWeight)
-            observedWord.isPlastic = false;
+        if (observedWord.IsPlastic && observedWord.Weight >= ConsolidationWeight)
+            observedWord.IsPlastic = false;
 
-        int plasticChildCount = wordRoot.Children.Count(child => child.isPlastic);
+        int plasticChildCount = wordRoot.Children.Count(child => child.IsPlastic);
         bool observedWordWasPruned = false;
         while (plasticChildCount > PlasticWordCapacity)
         {
@@ -250,7 +250,7 @@ public partial class ModuleWord : ModuleBase
     private static Thought PruneLowestScoringChild(Thought parent)
     {
         Thought weakest = parent.Children
-            .Where(child => child.isPlastic)
+            .Where(child => child.IsPlastic)
             .OrderBy(child => float.IsNaN(child.Weight) ? float.MinValue : child.Weight)
             .ThenBy(child => child.LastFiredCycle)
             .FirstOrDefault();

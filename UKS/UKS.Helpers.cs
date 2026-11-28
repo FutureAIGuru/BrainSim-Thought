@@ -25,25 +25,25 @@ public static class ThoughtHelpers
         public IEnumerable<Thought> AncestorsWithSelf => thought.Ancestors.Prepend(thought);
 
         /// <summary>The target of this Thought's first link of the given type, or null.</summary>
-        public Thought? GetTargetOfFirstLinkOfType(ThoughtRef linkTypeRef) =>
-            linkTypeRef.Find(thought.Store) is Thought linkType
-                ? thought.LinksTo.FirstOrDefault(link => link.LinkType == linkType)?.To : null;
+        public Thought? GetTargetOfFirstLinkOfType(ThoughtRef linkType) =>
+            linkType.Find(thought.Store) is Thought type
+                ? thought.LinksTo.FirstOrDefault(link => link.LinkType == type)?.To : null;
 
         /// <summary>The source of the first link of the given type that points to this Thought, or null.</summary>
-        public Thought? GetSourceOfFirstLinkOfType(ThoughtRef linkTypeRef) =>
-            linkTypeRef.Find(thought.Store) is Thought linkType
-                ? thought.LinksFrom.FirstOrDefault(link => link.LinkType == linkType)?.From : null;
+        public Thought? GetSourceOfFirstLinkOfType(ThoughtRef linkType) =>
+            linkType.Find(thought.Store) is Thought type
+                ? thought.LinksFrom.FirstOrDefault(link => link.LinkType == type)?.From : null;
 
         /// <summary>The target of this Thought's highest-weight link of the given type, or null.</summary>
-        public Thought? GetTargetOfHighestWeightLinkOfType(ThoughtRef linkTypeRef) =>
-            linkTypeRef.Find(thought.Store) is Thought linkType
-                ? thought.LinksTo.Where(link => link.LinkType == linkType).MaxBy(link => link.Weight)?.To : null;
+        public Thought? GetTargetOfHighestWeightLinkOfType(ThoughtRef linkType) =>
+            linkType.Find(thought.Store) is Thought type
+                ? thought.LinksTo.Where(link => link.LinkType == type).MaxBy(link => link.Weight)?.To : null;
 
         /// <summary>Removes every link of the given type from this Thought; an unknown label removes nothing.</summary>
-        public void RemoveLinks(ThoughtRef linkTypeRef)
+        public void RemoveLinks(ThoughtRef linkType)
         {
-            if (linkTypeRef.Find(thought.Store) is not Thought linkType) return;
-            foreach (Link link in thought.LinksTo.Where(link => link.LinkType == linkType))
+            if (linkType.Find(thought.Store) is not Thought type) return;
+            foreach (Link link in thought.LinksTo.Where(link => link.LinkType == type))
                 thought.RemoveLink(link);
         }
     }

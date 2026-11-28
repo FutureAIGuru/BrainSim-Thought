@@ -44,7 +44,7 @@ public sealed partial class ModuleInterpret
 
     private static string WeightReport(Thought template, float before, bool wasPlastic) =>
         $"\n\nTemplate {template.Label}: weight {before:0.00}, now {template.Weight:0.00}" +
-        (wasPlastic && !template.isPlastic ? " (consolidated)" : template.isPlastic ? " (plastic)" : "");
+        (wasPlastic && !template.IsPlastic ? " (consolidated)" : template.IsPlastic ? " (plastic)" : "");
 
     private static string StatementReport(List<Link> executed) =>
         executed.Count == 0 ? "" : "\n\nExecuted relationships\n" + string.Join("\n", executed);

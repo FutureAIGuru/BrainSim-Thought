@@ -327,7 +327,7 @@ public sealed partial class ModuleInterpret
     /// </summary>
     private bool Expresses(Thought? meaning, Thought concept) => meaning is not null &&
         (ReferenceEquals(meaning, concept) || meaning.HasProperty(setRelationship) &&
-            ReferenceEquals(theUKS.GetActionRelationshipType(meaning), concept));
+            ReferenceEquals(theUKS.GetPlainLinkType(meaning), concept));
 
     private static bool IsElementValue(SeqElement pattern, Thought? value)
     {

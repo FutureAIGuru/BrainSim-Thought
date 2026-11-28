@@ -106,7 +106,7 @@ public class ModuleSoundOut : ModuleBase
         foreach (var seqNode in theUKS.EnumerateSequenceElements(start) )
         {
             pitches.Add(GetIntegerToRightOfColon(seqNode.VLU.Label));
-            Thought timeToNext = seqNode.LinksTo.FindFirst(x => x.LinkType?.Label == "timetonext")?.To;
+            Thought timeToNext = seqNode.LinksTo.FirstOrDefault(x => x.LinkType?.Label == "timetonext")?.To;
             timesToNextMs.Add(GetIntegerToRightOfColon(timeToNext?.Label));
         }
         try
@@ -152,7 +152,7 @@ public class ModuleSoundOut : ModuleBase
     }
     public static int GetTimeToNextMs(SeqElement elem)
     {
-        var link = elem?.LinksTo.FindFirst(x => x.LinkType?.Label == "timetonext");
+        var link = elem?.LinksTo.FirstOrDefault(x => x.LinkType?.Label == "timetonext");
         var dtThought = link?.To;
         if (dtThought?.Label is { } lbl && lbl.StartsWith("dt:", StringComparison.OrdinalIgnoreCase))
         {

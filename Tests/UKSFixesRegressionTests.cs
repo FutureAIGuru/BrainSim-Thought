@@ -73,24 +73,24 @@ public class UKSFixesRegressionTests
         uks.AddStatement("dog", "is-a", "Object");
         Link original = uks.AddStatement("Fido", "is-a", "dog");
         original.Weight = 0.42f;
-        original.maxWeight = 0.8f;
-        original.isPlastic = true;
+        original.MaxWeight = 0.8f;
+        original.IsPlastic = true;
 
         string path = Path.Combine(Path.GetTempPath(), $"uks_roundtrip_{Guid.NewGuid():N}.xml");
         try
         {
-            Assert.True(uks.SaveUKStoXMLFile(path));
+            Assert.True(uks.SaveXml(path));
 
             var uks2 = new UKS();
-            Assert.True(uks2.LoadUKSfromXMLFile(path));
+            Assert.True(uks2.LoadXml(path));
 
             Assert.NotNull(uks2.Labeled("Fido"));
             Link restored = uks2.GetLink(
                 uks2.Labeled("Fido"), uks2.Labeled("is-a"), uks2.Labeled("dog"));
             Assert.NotNull(restored);
             Assert.Equal(0.42f, restored.Weight, 2);
-            Assert.Equal(0.8f, restored.maxWeight, 2);
-            Assert.True(restored.isPlastic);
+            Assert.Equal(0.8f, restored.MaxWeight, 2);
+            Assert.True(restored.IsPlastic);
         }
         finally
         {
@@ -115,10 +115,10 @@ public class UKSFixesRegressionTests
             Path.GetTempPath(), $"uks_sequence_roundtrip_{Guid.NewGuid():N}.xml");
         try
         {
-            Assert.True(uks.SaveUKStoXMLFile(path));
+            Assert.True(uks.SaveXml(path));
 
             var restored = new UKS();
-            Assert.True(restored.LoadUKSfromXMLFile(path));
+            Assert.True(restored.LoadXml(path));
 
             Thought restoredWord = restored.Labeled("roundTripWord");
             SeqElement restoredSequence = Assert.IsType<SeqElement>(

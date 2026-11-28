@@ -26,12 +26,12 @@ public partial class UKS
     /// statements are then removed, so only the new value remains in effect.
     /// </summary>
     /// <returns>The added (or reinforced) statement.</returns>
-    public Link? AddStatementRecordingHistory(ThoughtRef fromRef, ThoughtRef typeRef, ThoughtRef toRef)
+    public Link? AddStatementRecordingHistory(ThoughtRef from, ThoughtRef type, ThoughtRef to)
     {
-        Thought? from = fromRef.GetOrAdd(this, "Unknown");
-        Thought? type = from is null ? null : typeRef.GetOrAdd(this, "LinkType", from);
-        if (from is null || type is null) return null;
-        Thought? to = toRef.GetOrAdd(this, "Unknown");
+        Thought? source = from.GetOrAdd(this, "Unknown");
+        Thought? linkType = source is null ? null : type.GetOrAdd(this, "LinkType", source);
+        if (source is null || linkType is null) return null;
+        Thought? target = to.GetOrAdd(this, "Unknown");
         var pastMarker = Labeled("was");
         if (pastMarker?.HasProperty("isHistorical") != true)
         {
@@ -39,19 +39,19 @@ public partial class UKS
             pastMarker.AddLink("hasProperty", GetOrAddThought("isHistorical", "Property"));
         }
 
-        bool conditional = IsClauseLinkType(type);
+        bool conditional = IsClauseLinkType(linkType);
         var historyProperty = Labeled("recordsHistory");
-        if (!conditional && from is not Link && !type.HasProperty("isPossible") && !type.HasProperty("isHistorical") &&
-            historyProperty is not null && to is not null &&
-            (type.HasProperty(historyProperty) || to.HasProperty(historyProperty)))
+        if (!conditional && source is not Link && !linkType.HasProperty("isPossible") && !linkType.HasProperty("isHistorical") &&
+            historyProperty is not null && target is not null &&
+            (linkType.HasProperty(historyProperty) || target.HasProperty(historyProperty)))
         {
-            var incoming = new Link(from, type, to);
-            var conflicts = from.LinksTo.Where(previous => previous.LinkType is not null && previous.To is not null &&
+            var incoming = new Link(source, linkType, target);
+            var conflicts = source.LinksTo.Where(previous => previous.LinkType is not null && previous.To is not null &&
                 !previous.LinksTo.Any(clause => IsConditionalLinkType(clause.LinkType)) &&
                 LinksAreExclusive(incoming, previous)).ToArray();
             if (conflicts.Length > 0)
             {
-                var effective = GetAttributes(from);
+                var effective = GetAttributes(source);
                 var displaced = conflicts.Where(previous => effective.Any(result =>
                     result.LinkType == previous.LinkType && result.To == previous.To)).ToArray();
                 if (displaced.Length > 0)
@@ -59,13 +59,13 @@ public partial class UKS
                     var events = GetOrAddThought("events", "LinkType")!;
                     var validUntil = GetOrAddThought("validUntil", "LinkType")!;
                     var timestamp = GetOrAddThought(DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture), "EventTime")!;
-                    var head = from.HasLink(events)?.To as SeqElement;
+                    var head = source.HasLink(events)?.To as SeqElement;
                     var pastValues = new Dictionary<(Thought Type, Thought Target), Link>();
                     var visited = new HashSet<SeqElement>(ReferenceEqualityComparer.Instance);
                     for (var cell = head; cell is not null && visited.Add(cell); cell = cell.NXT)
                     {
                         if (cell.VLU is Link { LinkType: { } historicalType, To: { } targetThought } value &&
-                            ReferenceEquals(value.From, from))
+                            ReferenceEquals(value.From, source))
                             pastValues.TryAdd((historicalType, targetThought), value);
                     }
                     foreach (var previous in displaced)
@@ -78,22 +78,22 @@ public partial class UKS
                         var key = (pastType, previous.To!);
                         if (!pastValues.TryGetValue(key, out var archived))
                         {
-                            archived = from.HasLink(pastType, previous.To) ??
-                                new Link(from, pastType, previous.To!) { Weight = previous.Weight };
+                            archived = source.HasLink(pastType, previous.To) ??
+                                new Link(source, pastType, previous.To!) { Weight = previous.Weight };
                             archived.AddDefaultLabel();
                             pastValues.Add(key, archived);
                         }
                         if (head is null)
                         {
-                            head = CreateFirstElement(from.Label, archived);
-                            from.AddLink(events, head);
+                            head = CreateFirstElement(source.Label, archived);
+                            source.AddLink(events, head);
                         }
                         else
                         {
-                            // InsertElement keeps the head identity and moves its old VLU to NXT.
+                            // Inserting at the beginning keeps the head identity and moves its old VLU to NXT.
                             // Move the occurrence's timestamp with that value.
                             var previousEnd = head.HasLink(validUntil)?.To;
-                            InsertElement(head, archived);
+                            InsertAfter(head, archived, atBeginning: true);
                             if (previousEnd is not null)
                             {
                                 head.RemoveLink(validUntil, previousEnd);
@@ -103,11 +103,11 @@ public partial class UKS
                         head.AddLink(validUntil, timestamp);
                     }
                     // Suppressed alternatives were already out of effect.
-                    foreach (var conflict in conflicts) from.RemoveLink(conflict);
+                    foreach (var conflict in conflicts) source.RemoveLink(conflict);
                 }
             }
         }
 
-        return AddStatement(from, type, to);
+        return AddStatement(source, linkType, target);
     }
 }

@@ -34,7 +34,7 @@ public partial class MainWindow
         foreach (string name in ModuleRegistry.Names)
             theUKS.GetOrAddThought(name, "AvailableModule");
         foreach (Thought t in theUKS.Labeled("AvailableModule").Children.ToList())
-            if (!ModuleRegistry.Names.Contains(t.Label)) { theUKS.DeleteAllChildrenAndLinks(t); t.Delete(); }
+            if (!ModuleRegistry.Names.Contains(t.Label)) { theUKS.DeleteDescendants(t); t.Delete(); }
     }
 
     /// <summary>Recreates module instances from the ActiveModule Thoughts (after a file load).</summary>
@@ -76,7 +76,7 @@ public partial class MainWindow
         ModuleBase mod = GetModuleByLabel(label);
         if (mod is not null) { mod.Closing(); activeModules.Remove(mod); }
         Thought t = theUKS.Labeled(label);
-        if (t is not null) { theUKS.DeleteAllChildrenAndLinks(t); t.Delete(); }
+        if (t is not null) { theUKS.DeleteDescendants(t); t.Delete(); }
     }
 
     public void InsertMandatoryModules()

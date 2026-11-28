@@ -35,7 +35,7 @@ namespace BrainSimulator
             CloseAllModuleDialogs();
             UnloadActiveModules();
 
-            if (!theUKS.LoadUKSfromXMLFile(fileName))
+            if (!theUKS.LoadXml(fileName))
             {
                 theUKS = new UKS.UKS();
                 return false;
@@ -212,7 +212,7 @@ namespace BrainSimulator
         private bool Save()
         {
             SetupBeforeSave();
-            return theUKS.SaveUKStoXMLFile(currentFileName);
+            return theUKS.SaveXml(currentFileName);
         }
         private bool SaveAs()
         {
@@ -230,7 +230,7 @@ namespace BrainSimulator
             {
                 MainWindow.SuspendEngine();
                 currentFileName = saveFileDialog.FileName;
-                theUKS.SaveUKStoXMLFile(currentFileName);
+                theUKS.SaveXml(currentFileName);
                 AddFileToMRUList(currentFileName);
                 SetCurrentFileNameToProperties();
 

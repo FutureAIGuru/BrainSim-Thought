@@ -78,8 +78,8 @@ public partial class UKS
     {
         EnsureLabel(t);
         string retVal = t.Label.PadRight(15);
-        if (t.V is not null)
-            retVal += " V: " + t.V.ToString();
+        if (t.Value is not null)
+            retVal += " V: " + t.Value.ToString();
         if (t is Link r)
         {
             if (r.From is Link r1) EnsureLabel(r1);
@@ -244,7 +244,7 @@ public partial class UKS
         Link r = AddStatement(from, linkType, to, label);
 
         if (value != "")
-            r.From.V = value;
+            r.From.Value = value;
         if (label != "" && !label.StartsWith("unl_"))
         {
             r.Label = label.Trim();

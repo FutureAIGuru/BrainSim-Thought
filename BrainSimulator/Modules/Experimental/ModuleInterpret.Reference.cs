@@ -68,7 +68,7 @@ public sealed partial class ModuleInterpret
 
         bool Satisfies(Thought thought)
         {
-            List<Link> attributes = theUKS.GetAttributes(thought);
+            List<Link> attributes = theUKS.GetAttributes(thought).ToList();
             return constraints.All(constraint => attributes.Any(attribute =>
                 attribute.LinkType == constraint.Type && attribute.To == constraint.Target));
         }
@@ -112,7 +112,7 @@ public sealed partial class ModuleInterpret
         return described;
     }
 
-    private Thought Ordinary(Thought type) => type.HasProperty(setRelationship) ? theUKS.GetActionRelationshipType(type) ?? type : type;
+    private Thought Ordinary(Thought type) => type.HasProperty(setRelationship) ? theUKS.GetPlainLinkType(type) ?? type : type;
 
     // A statement that something is-a a described kind ("Rover is a small dog").
     private bool IsJoiningAKind(Link action) =>

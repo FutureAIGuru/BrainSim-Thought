@@ -256,7 +256,7 @@ public class ModuleLearnMelody : ModuleBase
             }
             else
             {
-                theSeq = theUKS.AddElement(theSeq, theUKS.GetOrAddThought("pitch:" + note.Pitch));
+                theSeq = theUKS.InsertAfter(theSeq, theUKS.GetOrAddThought("pitch:" + note.Pitch));
             }
             theSeq.AddLink("timetonext", theUKS.GetOrAddThought($"dt:{note.TimeToNext}", "timetonext"));
         }

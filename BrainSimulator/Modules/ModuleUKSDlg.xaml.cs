@@ -362,7 +362,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
     {
         ImageSource imageSource = GroundedImageResolver.LoadImage(thought);
         bool showWeight = weightBarsCB?.IsChecked == true &&
-            (thought.isPlastic || thought.Weight != 1f);
+            (thought.IsPlastic || thought.Weight != 1f);
         if (imageSource is null && !showWeight) return text;
 
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
@@ -425,7 +425,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         ProgressBar thermometer,
         TextBlock weightValue)
     {
-        double maximum = Math.Max(0.01, thought.maxWeight);
+        double maximum = Math.Max(0.01, thought.MaxWeight);
         if (thought is not Link && maximum <= 1)
             maximum = Math.Max(maximum, DefaultThoughtWeightMaximum);
         double value = Math.Clamp(thought.Weight, 0, maximum);
@@ -433,12 +433,12 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         thermometer.Value = value;
         double fraction = value / maximum;
         if (fraction >= 0.7)
-            thermometer.Foreground = thought.isPlastic ? Brushes.LimeGreen : Brushes.SeaGreen;
+            thermometer.Foreground = thought.IsPlastic ? Brushes.LimeGreen : Brushes.SeaGreen;
         else if (fraction >= 0.3)
             thermometer.Foreground = Brushes.DodgerBlue;
         else
             thermometer.Foreground = Brushes.DarkOrange;
-        string state = thought.isPlastic ? "Plastic" : "Non-plastic";
+        string state = thought.IsPlastic ? "Plastic" : "Non-plastic";
         thermometer.ToolTip = $"{state}; weight {thought.Weight:0.00} / {maximum:0.00}";
         weightValue.Text = thought.Weight.ToString("0.00");
     }
@@ -451,14 +451,14 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             parent.Label == "LearnedClass" || parent.Label == "LearnedTemplate");
         if (learnedParent is null) return;
 
-        if (!thought.isPlastic)
+        if (!thought.IsPlastic)
         {
             //treeItem.Background = new SolidColorBrush(Colors.LightBlue);
             return;
         }
 
         List<Thought> plasticSiblings = learnedParent.Children
-            .Where(sibling => sibling.isPlastic)
+            .Where(sibling => sibling.IsPlastic)
             .OrderBy(sibling => sibling.Weight)
             .ThenBy(sibling => sibling.LastFiredCycle)
             .ToList();
@@ -820,7 +820,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                         ActionModule.TakeActrion(t);
                     break;
                 case "Delete":
-                    //theUKS.DeleteAllChildrenAndLinks(t);
+                    //theUKS.DeleteDescendants(t);
                     theUKS.ChangeUndoably($"delete {t.Label}", t.Delete);
                     break;
                 case "Delete Child":

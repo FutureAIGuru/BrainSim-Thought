@@ -125,7 +125,7 @@ sealed class SequenceEditorApi : ModuleApi
             Thought taskThought = theUKS.Labeled(taskName);
             bool isNewTask = taskThought is null;
             taskThought ??= theUKS.GetOrAddThought(taskName, theUKS.Labeled("Task"));
-            theUKS.DeleteAllChildrenAndLinks(taskThought);
+            theUKS.DeleteDescendants(taskThought);
             SaveTaskContent(taskThought, content);
             return isNewTask ? $"Created new task '{taskName}'" : $"Updated task '{taskName}'";
         }

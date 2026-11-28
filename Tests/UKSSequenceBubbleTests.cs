@@ -238,7 +238,7 @@ public class UKSSequenceBubbleTests
 
         List<Thought> templates = uks.DiscoverSequenceTemplates(
             uks.GetSequenceLinks(phraseRoot.Children), templateRoot, classRoot,
-            minMembers: 3, minFixedElements: 2);
+            minMembers: 3, minFixedElements: 2).ToList();
 
         Thought runsTemplate = Assert.Single(templates.Where(template => template.LinksTo
             .Where(link => link.LinkType?.Label == "evidence")
@@ -273,7 +273,7 @@ public class UKSSequenceBubbleTests
 
         List<Thought> templates = uks.DiscoverSequenceTemplates(
             uks.GetSequenceLinks(wordRoot.Children), templateRoot, classRoot,
-            minMembers: 3, minFixedElements: 1);
+            minMembers: 3, minFixedElements: 1).ToList();
 
         Thought cVowelT = Assert.Single(templates.Where(template => template.LinksTo
             .Where(link => link.LinkType?.Label == "evidence")
@@ -306,7 +306,7 @@ public class UKSSequenceBubbleTests
 
         List<Thought> templates = uks.DiscoverSequenceTemplates(
             uks.GetSequenceLinks(phraseRoot.Children), templateRoot, classRoot,
-            minMembers: 2, minFixedElements: 2);
+            minMembers: 2, minFixedElements: 2).ToList();
 
         Assert.Empty(templates);
     }

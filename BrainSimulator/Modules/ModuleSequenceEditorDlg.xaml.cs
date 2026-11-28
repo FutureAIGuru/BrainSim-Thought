@@ -410,7 +410,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
         if (sequenceThought is SeqElement firstElement)
         {
             // Flatten the sequence and display it
-            List<Thought> elements = theUKS.FlattenSequence(firstElement);
+            List<Thought> elements = theUKS.FlattenSequence(firstElement).ToList();
 
             foreach (var element in elements)
             {
@@ -542,7 +542,7 @@ public partial class ModuleSequenceEditorDlg : ModuleBaseDlg
             }
 
             // Delete all existing children
-            theUKS.DeleteAllChildrenAndLinks(taskThought);
+            theUKS.DeleteDescendants(taskThought);
 
             // Parse and save the content
             SaveTaskContent(taskThought, content);

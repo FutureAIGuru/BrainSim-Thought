@@ -150,8 +150,8 @@ public partial class ModuleAlgorithm
     /// <summary>
     /// Keep inherited links from the winning context's preferred is-a category; locals always kept.
     /// </summary>
-    public List<Link> FilterLinksByContext(
-        List<Link> links,
+    public IReadOnlyList<Link> FilterLinksByContext(
+        IReadOnlyList<Link> links,
         Thought subject,
         Thought contextRoot,
         Func<Thought, Thought?> resolveIndirection)
@@ -165,7 +165,7 @@ public partial class ModuleAlgorithm
         // Where each link was found: the source of its stored link (evidence ends with it).
         return links.Where(l =>
         {
-            List<Link> evidence = subject.Store.GetEvidence(l);
+            IReadOnlyList<Link> evidence = subject.Store.GetEvidence(l);
             return evidence.Count <= 1 || ReferenceEquals(evidence[^1].From, preferredCategory);
         }).ToList();
     }

@@ -446,7 +446,7 @@ public sealed class ModuleInflect : ModuleBase
     private List<Link> RuleAttributes(Thought rule)
     {
         if (!ruleAttributes.TryGetValue(rule, out List<Link>? attributes))
-            ruleAttributes[rule] = attributes = theUKS.GetAttributes(rule);
+            ruleAttributes[rule] = attributes = theUKS.GetAttributes(rule).ToList();
         return attributes;
     }
 

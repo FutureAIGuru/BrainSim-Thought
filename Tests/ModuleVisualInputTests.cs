@@ -120,9 +120,9 @@ public class ModuleVisualInputTests
         Thought means = uks.Labeled("means")!;
         Link candidate = wordThis.HasLink(means, dogClass)!;
         Assert.NotNull(candidate);
-        Assert.True(candidate.isPlastic);
+        Assert.True(candidate.IsPlastic);
         Assert.Equal(ModuleVisualInput.MeaningInitialWeight, candidate.Weight, 3);
-        Assert.Equal(ModuleVisualInput.MeaningMaximumWeight, candidate.maxWeight, 3);
+        Assert.Equal(ModuleVisualInput.MeaningMaximumWeight, candidate.MaxWeight, 3);
         Assert.NotNull(wordThis.HasLink(means, fido));
         Assert.NotNull(uks.Labeled("w:is")!.HasLink(means, dogClass));
         Assert.Null(wordThis.HasLink(
@@ -281,9 +281,9 @@ public class ModuleVisualInputTests
 
         Thought activeThought = uks.Labeled("activeThought")!;
         Link obsoleteMeaning = wordFido.AddLink(means, activeThought)!;
-        obsoleteMeaning.isPlastic = true;
+        obsoleteMeaning.IsPlastic = true;
         obsoleteMeaning.Weight = 0.2f;
-        obsoleteMeaning.maxWeight = 1;
+        obsoleteMeaning.MaxWeight = 1;
 
         visualInput.ClearPresentation(mentalModel);
         visualInput.SelectObservationFile("O2.txt");
@@ -424,13 +424,13 @@ public class ModuleVisualInputTests
         Thought alternative = uks.GetOrAddThought("O2", "Object");
         Thought word = uks.GetOrAddThought("w:testword", "Word");
         Link winnerMeaning = word.AddLink(means, winner)!;
-        winnerMeaning.isPlastic = true;
+        winnerMeaning.IsPlastic = true;
         winnerMeaning.Weight = 0.9f;
-        winnerMeaning.maxWeight = 1;
+        winnerMeaning.MaxWeight = 1;
         Link weakMeaning = word.AddLink(means, alternative)!;
-        weakMeaning.isPlastic = true;
+        weakMeaning.IsPlastic = true;
         weakMeaning.Weight = 0.4f;
-        weakMeaning.maxWeight = 1;
+        weakMeaning.MaxWeight = 1;
         mentalModel.BindThoughtToMentalModel(winner, mentalModel.AttentionCell);
 
         visualInput.HearPhrase("testword", mentalModel);

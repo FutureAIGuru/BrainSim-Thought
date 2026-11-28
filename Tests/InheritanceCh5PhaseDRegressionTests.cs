@@ -21,7 +21,7 @@ public class InheritanceCh5PhaseDRegressionTests
         return uks;
     }
 
-    private static bool HasLink(List<Link> links, string linkTypeLabel, string targetLabel, UKS uks)
+    private static bool HasLink(IReadOnlyList<Link> links, string linkTypeLabel, string targetLabel, UKS uks)
     {
         Thought target = uks.Labeled(targetLabel);
         return links.Any(l => l.LinkType?.Label == linkTypeLabel && l.To == target);
@@ -68,7 +68,7 @@ public class InheritanceCh5PhaseDRegressionTests
         Link inherited = links.First(l => l.To == uks.Labeled("fur"));
 
         Assert.Same(fido, inherited.From);
-        List<Link> evidence = uks.GetEvidence(inherited);
+        List<Link> evidence = uks.GetEvidence(inherited).ToList();
         Assert.Equal(2, evidence.Count);
         Assert.Same(uks.GetLink(fido, "is-a", "dog"), evidence[0]);
         Assert.Same(uks.GetLink("dog", "has", "fur"), evidence[1]);

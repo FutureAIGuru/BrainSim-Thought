@@ -65,7 +65,7 @@ public class UKSDeletionTests
         Thought lA = uks.GetOrAddThought("A", "symbol");
         Thought lB = uks.GetOrAddThought("B", "symbol");
 
-        var seqStart = uks.AddSequenceAndLink(word, spelled, new() { lA, lB });
+        var seqStart = uks.AddSequenceAndLink(word, spelled, [lA, lB]);
 
         Assert.DoesNotContain(seqStart, uks.AtomicThoughts); //sequences are not in allThoughts
         Assert.Same(seqStart, uks.Labeled($"{word.Label.ToLower()}-seq0"));
@@ -112,11 +112,11 @@ public class UKSDeletionTests
         Thought letterC = uks.GetOrAddThought("C", "symbol");
         Thought letterB = uks.GetOrAddThought("B", "symbol");
 
-        var catSeq = uks.AddSequenceAndLink(cat, spelled, new() { letterC, letterA, letterT });
+        var catSeq = uks.AddSequenceAndLink(cat, spelled, [letterC, letterA, letterT]);
         string catSeqLabel = $"{cat.Label.ToLower()}-seq0";
         Assert.Same(catSeq, uks.Labeled(catSeqLabel));
 
-        var batSeq = uks.AddSequenceAndLink(uks.GetOrAddThought("bat"), spelled, new() { letterB, letterA, letterT });
+        var batSeq = uks.AddSequenceAndLink(uks.GetOrAddThought("bat"), spelled, [letterB, letterA, letterT]);
 
         // Delete cat: its sequence elements should be gone; shared letters remain
         cat.Delete();
@@ -259,7 +259,7 @@ public class UKSDeletionTests
         Thought pigs = uks.GetOrAddThought("pigs", "word");
         Thought are = uks.GetOrAddThought("are", "word");
         Thought animals = uks.GetOrAddThought("animals", "word");
-        SeqElement sequence = uks.AddSequenceAndLink(phrase, hasWords, new() { pigs, are, animals });
+        SeqElement sequence = uks.AddSequenceAndLink(phrase, hasWords, [pigs, are, animals]);
 
         // Partial recall preserves the phrase structure. The forgotten position is
         // represented by -- rather than turning the observation into a wildcard.
@@ -320,7 +320,7 @@ public class UKSDeletionTests
         Thought hasWords = uks.GetOrAddThought("hasWords", "LinkType");
         Thought dogs = uks.GetOrAddThought("dogs", "word");
         Thought bark = uks.GetOrAddThought("bark", "word");
-        SeqElement sharedSequence = uks.AddSequenceAndLink(firstPhrase, hasWords, new() { dogs, bark });
+        SeqElement sharedSequence = uks.AddSequenceAndLink(firstPhrase, hasWords, [dogs, bark]);
         secondPhrase.AddLink(hasWords, sharedSequence);
 
         // Deleting one owner must not delete sequence data still owned elsewhere.

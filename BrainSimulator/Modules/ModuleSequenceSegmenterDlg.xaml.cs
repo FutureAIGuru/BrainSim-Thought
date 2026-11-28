@@ -91,7 +91,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
                 foreach (var entry in vocabulary)
                 {
                     Thought t = module.theUKS.Labeled("w:" + entry.Key);
-                    if (t is not null && !t.isPlastic) continue;
+                    if (t is not null && !t.IsPlastic) continue;
                     missingCount++;
                     if (missingCount <= 20) missing += entry.Key + " ";
                     else if (missingCount == 21) missing += "...";
@@ -193,7 +193,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
                 {
                     Thought thought = module.theUKS.Labeled("w:" + entry.Key);
                     totalOccurrences += entry.Value;
-                    if (thought is not null && !thought.isPlastic)
+                    if (thought is not null && !thought.IsPlastic)
                     {
                         knownWords++;
                         knownOccurrences += entry.Value;
@@ -243,7 +243,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
                             Thought thought = module.theUKS.Labeled("w:" + entry.Key);
                             int recognized = 0;
                             if (thought is not null) module.RecognitionCounts.TryGetValue(thought, out recognized);
-                            string state = thought is null ? "not created" : thought.isPlastic ? "candidate" : "pattern";
+                            string state = thought is null ? "not created" : thought.IsPlastic ? "candidate" : "pattern";
                             SegmentationBox.AppendText($"w:{entry.Key}: {entry.Value} / {recognized}, {state}{Environment.NewLine}");
                         }
                         SegmentationBox.AppendText($"New patterns/candidates:{Environment.NewLine}");
@@ -312,7 +312,7 @@ public partial class ModuleSequenceSegmenterDlg : ModuleBaseDlg
             if (pattern.GetTargetOfFirstLinkOfType("spelled") is null)
                 module.theUKS.AddSequenceAndLink(pattern, "spelled", InputSymbols(module, word), allowCompression: false);
             pattern.Weight = Math.Max(pattern.Weight, module.ConsolidationStrength);
-            pattern.isPlastic = false;
+            pattern.IsPlastic = false;
             counts.TryGetValue(pattern, out int count);
             counts[pattern] = count + 1;
         }

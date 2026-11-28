@@ -261,7 +261,7 @@ sealed class SequenceSegmenterApi : ModuleApi
                 Run(100, i =>
                 {
                     Submit(s, SequenceSegmenterInput.BuildRandomPhrase(vocabulary, 10, random), showPhrase: true);
-                    int missing = words.Count(w => s.theUKS.Labeled("w:" + w) is not { isPlastic: false });
+                    int missing = words.Count(w => s.theUKS.Labeled("w:" + w) is not { IsPlastic: false });
                     status = $"Experiment {i + 1}/100, {words.Length} words, {missing} missing";
                     return true;
                 });
@@ -813,7 +813,7 @@ sealed class ShowGraphApi : ModuleApi
         Thought uksDlg = m.theUKS.Labeled("ModuleUKS0");
         if (uksDlg is not null)
             foreach (var r in uksDlg.LinksTo)
-                if (r.LinkType?.Label == "hasAttribute" && r.To?.Label.StartsWith("Root") == true && r.To.V is string s)
+                if (r.LinkType?.Label == "hasAttribute" && r.To?.Label.StartsWith("Root") == true && r.To.Value is string s)
                     root = s;
         return root;
     }

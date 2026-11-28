@@ -41,7 +41,7 @@ public class ModuleInterpretTeachingTests
         // The template is captured weak and plastic; its facts record that it stated them.
         Thought template = store.Labeled("learnedTemplate0");
         Assert.Equal(0.25f, template.Weight, 3);
-        Assert.True(template.isPlastic);
+        Assert.True(template.IsPlastic);
         Assert.NotNull(fido.HasLink(store.Labeled("statedBy"), template));
     }
 
@@ -134,7 +134,7 @@ public class ModuleInterpretTeachingTests
         Assert.NotNull(Chase(store, "dog", "fido"));
         Assert.Null(Chase(store, "fido", "dog"));
         Assert.Equal(0.8f, learned.Weight, 3);
-        Assert.False(learned.isPlastic);               // strong enough to consolidate
+        Assert.False(learned.IsPlastic);               // strong enough to consolidate
     }
 
     [Fact]

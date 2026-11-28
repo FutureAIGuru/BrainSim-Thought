@@ -156,7 +156,7 @@ Rather than storing facts, the UKS enables **meaning to emerge** from interactio
 
 ### Independent UKS instances
 
-Each `UKS.UKS` instance has its own Thoughts, label dictionary, sequences, activity queues, and XML filename. Initialize each instance with `CreateInitialStructure()` or load its content with `LoadUKSfromXMLFile(path)`. Loading, clearing, or deleting content in one instance does not change another instance. A Thought's read-only `Store` identifies its containing UKS; relationships cannot connect Thoughts from different instances. Thoughts with the same label in different instances compare unequal.
+Each `UKS.UKS` instance has its own Thoughts, label dictionary, sequences, activity queues, and XML filename. Initialize each instance with `CreateInitialStructure()` or load its content with `LoadXml(path)`. Loading, clearing, or deleting content in one instance does not change another instance. A Thought's read-only `Store` identifies its containing UKS; relationships cannot connect Thoughts from different instances. Thoughts with the same label in different instances compare unequal.
 
 There is no "current" UKS. A label always means a Thought of a named store: `sandbox.Labeled("dog")` looks only in that sandbox, and a method that accepts a Thought or a label (a `ThoughtRef` parameter) resolves the label in the store it is called on:
 

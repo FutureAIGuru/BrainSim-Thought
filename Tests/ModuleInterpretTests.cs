@@ -31,8 +31,8 @@ public class ModuleInterpretTests
         Thought options = store.Labeled("InterpretTemplateSearch");
         SeqElement attributePattern = (SeqElement)store.Labeled("copulaAttributeTemplate").GetTargetOfFirstLinkOfType("hasWords");
 
-        var wordsOnly = store.FindSequencesByActivation(first, options, valueClassRef: store.Labeled("word"), matchClassRef: patterns);
-        var withPhrases = store.FindSequencesByActivation(first, options, alternativeClassRef: patterns, matchClassRef: patterns);
+        var wordsOnly = store.FindSequencesByActivation(first, options, valueClass: store.Labeled("word"), matchClass: patterns);
+        var withPhrases = store.FindSequencesByActivation(first, options, alternativeClass: patterns, matchClass: patterns);
         Assert.DoesNotContain(wordsOnly, match => ReferenceEquals(match.seqNode, attributePattern));
         Assert.Contains(withPhrases, match => ReferenceEquals(match.seqNode, attributePattern));
         Assert.Same(store.Labeled("w:the"), first.VLU);

@@ -187,7 +187,7 @@ abstract public class ModuleBase
         {
             if (r.LinkType.Label == "hasAttribute" && r.To.Label.StartsWith(attribName))
             {
-                string retVal = (string)r.To.V;
+                string retVal = (string)r.To.Value;
                 return retVal;
             }
         }
@@ -207,7 +207,7 @@ abstract public class ModuleBase
                     r.To.Delete();
                     return;
                 }
-                r.To.V = attribValue;
+                r.To.Value = attribValue;
                 return;
             }
         }
@@ -216,7 +216,7 @@ abstract public class ModuleBase
         Thought dlgInfo = theUKS.AddThought(attribName, dlgAttribParent);
         Thought hasAttribute = theUKS.GetOrAddThought("hasAttribute", "LinkType");
         thisDlg.AddLink(hasAttribute, dlgInfo);
-        dlgInfo.V = attribValue;
+        dlgInfo.Value = attribValue;
         dlgInfo.Fire();
     }
     string GetDlgWindow()

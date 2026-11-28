@@ -531,7 +531,7 @@ public class ModuleObjectRecognizer : ModuleBase
 
     void Write(Thought appearance, Observation obs)
     {
-        appearance.V = Encode(obs);
+        appearance.Value = Encode(obs);
         Thought hasEdgeAt = theUKS.Labeled(HasEdgeAtLabel);
         Thought hasTone = theUKS.Labeled(HasToneLabel);
         Thought hasColor = theUKS.Labeled(HasColorLabel);
@@ -600,11 +600,11 @@ public class ModuleObjectRecognizer : ModuleBase
     /// </summary>
     Observation Read(Thought appearance)
     {
-        if (Decode(appearance.V) is { } stored) return stored;
+        if (Decode(appearance.Value) is { } stored) return stored;
         Observation obs = ReadLinks(appearance);
         if (Reanalyze(appearance) is { } fresh) obs = fresh;
         else if (obs.Edges.All(x => x == 0) && obs.Tones.All(x => x == 0)) return obs;   // nothing to go on
-        appearance.V = Encode(obs);
+        appearance.Value = Encode(obs);
         return obs;
     }
 

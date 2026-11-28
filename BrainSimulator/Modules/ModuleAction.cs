@@ -263,13 +263,13 @@ public class ModuleAction : ModuleBase
     /*    private double GetDelta(Thought actionRecord)
         {
             Thought deltaThought = actionRecord.LinksTo.FindFirst(x => x.LinkType == _ltDeltaOf)?.To;
-            if (deltaThought?.V is double d) return d;
-            if (deltaThought?.V is float f) return f;
+            if (deltaThought?.Value is double d) return d;
+            if (deltaThought?.Value is float f) return f;
             if (deltaThought?.Label?.StartsWith("delta:") == true &&
                 double.TryParse(deltaThought.Label["delta:".Length..], out double parsed))
                 return parsed;
-            if (actionRecord.V is double da) return da;
-            if (actionRecord.V is float fa) return fa;
+            if (actionRecord.Value is double da) return da;
+            if (actionRecord.Value is float fa) return fa;
             return 0;
         }
     */

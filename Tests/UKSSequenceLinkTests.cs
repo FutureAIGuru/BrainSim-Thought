@@ -33,7 +33,7 @@ public class UKSSequenceLinkTests
         uks.AddSequenceAndLink(word, spelled, Thoughts(uks, "C", "A", "T", "S"));
         uks.AddSequenceAndLink(learnedClass, commonSequence, Thoughts(uks, "??noun", "sleep"));
 
-        List<Link> links = uks.GetSequenceLinks(new[] { phrase, word, learnedClass });
+        List<Link> links = uks.GetSequenceLinks(new[] { phrase, word, learnedClass }).ToList();
 
         Assert.Equal(3, links.Count);
         Assert.Contains(links, link => link.From == phrase && link.LinkType == hasWords);

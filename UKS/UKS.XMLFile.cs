@@ -53,7 +53,7 @@ public partial class UKS
     /// </summary>
     /// <param name="filenameIn">Optional file name; when null or empty, the previous file name is reused.</param>
     /// <returns><see langword="true"/> if the save succeeded; otherwise <see langword="false"/>.</returns>
-    public bool SaveUKStoXMLFile(string filenameIn = "")
+    public bool SaveXml(string filenameIn = "")
     {
         //if you don't pass in a file name, it uses the previous name
         if (!String.IsNullOrEmpty(filenameIn)) { fileName = filenameIn; }
@@ -61,7 +61,7 @@ public partial class UKS
     }
 
     /// <summary>
-    /// The first half of <see cref="SaveUKStoXMLFile"/>: flattens the UKS into the list that
+    /// The first half of <see cref="SaveXml"/>: flattens the UKS into the list that
     /// is written to the XML file. This is the only part that reads the UKS, so a caller that
     /// must keep other threads out of the UKS while saving only needs to do so for this call.
     /// </summary>
@@ -85,7 +85,7 @@ public partial class UKS
     }
 
     /// <summary>
-    /// The second half of <see cref="SaveUKStoXMLFile"/>: writes a snapshot from
+    /// The second half of <see cref="SaveXml"/>: writes a snapshot from
     /// <see cref="CaptureSaveSnapshot"/> to <paramref name="path"/>. It does not touch the UKS.
     /// </summary>
     internal static bool WriteSaveSnapshot(List<sThought> snapshot, string path)
@@ -140,9 +140,9 @@ public partial class UKS
                 index = UKSTemp.Count,
                 label = t.Label,
                 weight = t.Weight,
-                maxWeight = t.maxWeight,
-                isPlastic = t.isPlastic,
-                V = t.V,
+                maxWeight = t.MaxWeight,
+                isPlastic = t.IsPlastic,
+                V = t.Value,
             };
             if (t is Link lnk)
             {
@@ -197,7 +197,7 @@ public partial class UKS
     /// </summary>
     /// <param name="filenameIn">Optional file name; when null or empty, the previous file name is reused.</param>
     /// <returns><see langword="true"/> if the load succeeded; otherwise <see langword="false"/>.</returns>
-    public bool LoadUKSfromXMLFile(string filenameIn = "")
+    public bool LoadXml(string filenameIn = "")
     {
         //stash the current BrainSim configuration
         var contentToRestore = ExtractPortionOfUKS(Labeled("BrainSim"));
@@ -244,7 +244,7 @@ public partial class UKS
     }
 
     /// <summary>
-    /// An independent copy of this store's saved content (what <see cref="SaveUKStoXMLFile"/> would write),
+    /// An independent copy of this store's saved content (what <see cref="SaveXml"/> would write),
     /// e.g. to try a change and inspect the result without touching the original. Like a saved file,
     /// it keeps labels, links, weights and string values, but not firing or time to live.
     /// </summary>
@@ -387,9 +387,9 @@ public partial class UKS
                 {
                     Label = st.label,
                     Weight = st.weight,
-                    maxWeight = st.maxWeight,
-                    isPlastic = st.isPlastic,
-                    V = st.V,
+                    MaxWeight = st.maxWeight,
+                    IsPlastic = st.isPlastic,
+                    Value = st.V,
                 };
                 AtomicThoughts.Add(t);
             }
@@ -399,9 +399,9 @@ public partial class UKS
                 {
                     Label = st.label,
                     Weight = st.weight,
-                    maxWeight = st.maxWeight,
-                    isPlastic = st.isPlastic,
-                    V = st.V,
+                    MaxWeight = st.maxWeight,
+                    IsPlastic = st.isPlastic,
+                    Value = st.V,
                 };
             }
         }
@@ -424,9 +424,9 @@ public partial class UKS
                 theLink.From = from;
                 theLink.LinkType = linkType;
                 theLink.Weight = st.weight;
-                theLink.maxWeight = st.maxWeight;
-                theLink.isPlastic = st.isPlastic;
-                theLink.V = st.V;
+                theLink.MaxWeight = st.maxWeight;
+                theLink.IsPlastic = st.isPlastic;
+                theLink.Value = st.V;
                 if (theLink.From is null || theLink.LinkType is null)
                     continue;
                 // Wire the deserialized link itself. Creating another Link here

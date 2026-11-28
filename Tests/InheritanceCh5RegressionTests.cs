@@ -19,7 +19,7 @@ public class InheritanceCh5RegressionTests
         return uks;
     }
 
-    private static bool HasLink(List<Link> links, string linkTypeLabel, string targetLabel, UKS uks)
+    private static bool HasLink(IReadOnlyList<Link> links, string linkTypeLabel, string targetLabel, UKS uks)
     {
         Thought target = uks.Labeled(targetLabel);
         return links.Any(l => l.LinkType?.Label == linkTypeLabel && l.To == target);

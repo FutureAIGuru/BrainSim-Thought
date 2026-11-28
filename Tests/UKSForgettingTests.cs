@@ -116,7 +116,7 @@ public class UKSForgettingTests
         Thought lA = uks.GetOrAddThought("A", "symbol");
         Thought lB = uks.GetOrAddThought("B", "symbol");
 
-        var seqStart = uks.AddSequenceAndLink(word, spelled, new() { lA, lB });
+        var seqStart = uks.AddSequenceAndLink(word, spelled, [lA, lB]);
         string seqLabel = $"{word.Label.ToLower()}-seq0";
         Assert.Same(seqStart, uks.Labeled(seqLabel));
 

@@ -284,7 +284,7 @@ public partial class Thought
 
     private object? _value;
     /// <summary>Any serializable object can be attached to a Thought. ONLY STRINGS are supported for save/restore to disk file.</summary>
-    public object? V
+    public object? Value
     {
         get => _value;
         set { _value = value; }
@@ -298,8 +298,8 @@ public partial class Thought
         set => _weight = value;
     }
     private float _maxWeight = 1;
-    /// <summary>maxWeight of this Thought (for links, applies to the link).</summary>
-    public float maxWeight
+    /// <summary>MaxWeight of this Thought (for links, applies to the link).</summary>
+    public float MaxWeight
     {
         get => _maxWeight;
         set => _maxWeight = value;
@@ -310,7 +310,7 @@ public partial class Thought
     /// Thought's persistent weight. Structural Thoughts and Links are not
     /// plastic by default.
     /// </summary>
-    public bool isPlastic { get; set; }
+    public bool IsPlastic { get; set; }
 
     /// <summary>
     /// Default constructor.
@@ -330,9 +330,9 @@ public partial class Thought
         if (r is Link)
             return;
         Weight = r.Weight;
-        maxWeight = r.maxWeight;
-        isPlastic = r.isPlastic;
-        V = r.V;
+        MaxWeight = r.MaxWeight;
+        IsPlastic = r.IsPlastic;
+        Value = r.Value;
         Label = r.Label;
         
     }
@@ -343,8 +343,8 @@ public partial class Thought
     public override string ToString()
     {
         string retVal = Label.Trim();
-        if (V is not null)
-            retVal += "_V:" + V.ToString();
+        if (Value is not null)
+            retVal += "_V:" + Value.ToString();
 
         return retVal;
     }
@@ -435,48 +435,48 @@ public partial class Thought
     /// Thought (under LinkType for the link type, else under Unknown). The target may be empty.
     /// </summary>
     /// <returns>The new or existing link, or null if the link type is empty.</returns>
-    public Link? AddLink(ThoughtRef linkTypeRef, ThoughtRef toRef)
+    public Link? AddLink(ThoughtRef linkType, ThoughtRef to)
     {
-        Thought? linkType = linkTypeRef.GetOrAdd(Store, "LinkType");
-        if (linkType is null) return null;
-        Thought? to = toRef.GetOrAdd(Store, "Unknown");
+        Thought? type = linkType.GetOrAdd(Store, "LinkType");
+        if (type is null) return null;
+        Thought? target = to.GetOrAdd(Store, "Unknown");
 
-        Link? existing = HasLink(linkType, to);
+        Link? existing = HasLink(type, target);
         if (existing is not null)
             return existing;
 
         var r = new Link(Store)
         {
-            LinkType = linkType,
+            LinkType = type,
             From = this,
-            To = to,
+            To = target,
             LastFiredCycle = Store.Cycle,
         };
         // Unlabeled prototypes can build a private pattern without indexing it.
         if (!string.IsNullOrEmpty(Label))
         {
             r.AddDefaultLabel();
-            linkType.AddDefaultLabel();
-            to?.AddDefaultLabel();
+            type.AddDefaultLabel();
+            target?.AddDefaultLabel();
         }
-        if (to is not null)
+        if (target is not null)
         {
             lock (_linksTo)
-                lock (linkType._linksAsType)
-                lock (to._linksFrom)
+                lock (type._linksAsType)
+                lock (target._linksFrom)
                 {
                     LinksToWriteable.Add(r);
-                    linkType._linksAsType.Add(r);
-                    to.LinksFromWriteable.Add(r);
+                    type._linksAsType.Add(r);
+                    target.LinksFromWriteable.Add(r);
                 }
         }
         else
         {
             lock (_linksTo)
-            lock (linkType._linksAsType)
+            lock (type._linksAsType)
             {
                 LinksToWriteable.Add(r);
-                linkType._linksAsType.Add(r);
+                type._linksAsType.Add(r);
             }
         }
         Store.Record(UKSTransaction.Change.LinkAdded, r);
@@ -487,12 +487,12 @@ public partial class Thought
     /// Removes the link [this → linkType → to], if present. An empty target means a link with no target;
     /// an unknown label removes nothing.
     /// </summary>
-    public void RemoveLink(ThoughtRef linkTypeRef, ThoughtRef toRef)
+    public void RemoveLink(ThoughtRef linkType, ThoughtRef to)
     {
-        Thought? linkType = linkTypeRef.Require(Store);
-        Thought? to = toRef.Require(Store);
-        if (linkType is null || (to is null && !toRef.IsEmpty)) return;
-        RemoveLink(new Link(Store) { From = this, LinkType = linkType, To = to });
+        Thought? type = linkType.Require(Store);
+        Thought? target = to.Require(Store);
+        if (type is null || (target is null && !to.IsEmpty)) return;
+        RemoveLink(new Link(Store) { From = this, LinkType = type, To = target });
     }
 
     /// <summary>
@@ -529,16 +529,16 @@ public partial class Thought
     /// This Thought's link of the given type to the given target, or to any target if the target is
     /// empty; null if there is none or a label is unknown.
     /// </summary>
-    public Link? HasLink(ThoughtRef linkTypeRef, ThoughtRef toRef = default)
+    public Link? HasLink(ThoughtRef linkType, ThoughtRef to = default)
     {
-        Thought? linkType = linkTypeRef.Find(Store);
-        Thought? to = toRef.Find(Store);
-        if (linkType is null || (to is null && !toRef.IsEmpty)) return null;
+        Thought? type = linkType.Find(Store);
+        Thought? target = to.Find(Store);
+        if (type is null || (target is null && !to.IsEmpty)) return null;
         lock (_linksTo)
         {
             foreach (Link r in _linksTo)
             {
-                if (ReferenceEquals(r.LinkType, linkType) && (to is null || Link.SameConnection(r.To, to)))
+                if (ReferenceEquals(r.LinkType, type) && (target is null || Link.SameConnection(r.To, target)))
                     return r;
             }
         }
@@ -548,16 +548,16 @@ public partial class Thought
     /// The first of this Thought's links matching the given source, type and target, where an empty
     /// one matches anything; null if there is none, all three are empty, or a label is unknown.
     /// </summary>
-    public Link? HasLink(ThoughtRef fromRef, ThoughtRef linkTypeRef, ThoughtRef toRef)
+    public Link? HasLink(ThoughtRef from, ThoughtRef linkType, ThoughtRef to)
     {
-        if (fromRef.IsEmpty && linkTypeRef.IsEmpty && toRef.IsEmpty) return null;
-        Thought? from = fromRef.Find(Store), linkType = linkTypeRef.Find(Store), to = toRef.Find(Store);
-        if ((from is null && !fromRef.IsEmpty) || (linkType is null && !linkTypeRef.IsEmpty) ||
-            (to is null && !toRef.IsEmpty)) return null;
+        if (from.IsEmpty && linkType.IsEmpty && to.IsEmpty) return null;
+        Thought? source = from.Find(Store), type = linkType.Find(Store), target = to.Find(Store);
+        if ((source is null && !from.IsEmpty) || (type is null && !linkType.IsEmpty) ||
+            (target is null && !to.IsEmpty)) return null;
         foreach (Link r in LinksTo)
-            if ((from is null || Link.SameConnection(r.From, from)) &&
-                (linkType is null || ReferenceEquals(r.LinkType, linkType)) &&
-                (to is null || Link.SameConnection(r.To, to))) return r;
+            if ((source is null || Link.SameConnection(r.From, source)) &&
+                (type is null || ReferenceEquals(r.LinkType, type)) &&
+                (target is null || Link.SameConnection(r.To, target))) return r;
         return null;
     }
 
@@ -566,16 +566,16 @@ public partial class Thought
     /// An unknown label creates the parent under Unknown.
     /// </summary>
     /// <returns>The is-a link, or null if the parent is empty.</returns>
-    public Link? AddParent(ThoughtRef parentRef)
+    public Link? AddParent(ThoughtRef parent)
     {
         // is-a is found, never created: creating a Thought adds its parent, which would come back here.
         if (Store.Labeled("is-a") is not Thought isA) return null;
-        Thought? parent = parentRef.GetOrAdd(Store, "Unknown");
-        return parent is null ? null : AddLink(isA, parent);
+        Thought? t = parent.GetOrAdd(Store, "Unknown");
+        return t is null ? null : AddLink(isA, t);
     }
 
     /// <summary>Removes the is-a link to the parent, if present; an unknown label removes nothing.</summary>
-    public void RemoveParent(ThoughtRef parentRef) => RemoveLink("is-a", parentRef);
+    public void RemoveParent(ThoughtRef parent) => RemoveLink("is-a", parent);
 
     // The targets of this Thought's own "is" and "hasAttribute" links (not inherited).
     internal List<Thought> DirectAttributes()
@@ -591,20 +591,20 @@ public partial class Thought
     /// inheritance. An unknown label creates the property under Unknown.
     /// </summary>
     /// <returns>The property, or null if it is empty.</returns>
-    public Thought? AddProperty(ThoughtRef propertyRef)
+    public Thought? AddProperty(ThoughtRef property)
     {
-        Thought? t = propertyRef.GetOrAdd(Store, "Unknown");
+        Thought? t = property.GetOrAdd(Store, "Unknown");
         if (t is not null && !HasProperty(t))
             AddLink("hasProperty", t);
         return t;
     }
 
     /// <summary>True if this Thought or one of its ancestors has a hasProperty link to the property.</summary>
-    public bool HasProperty(ThoughtRef propertyRef)
+    public bool HasProperty(ThoughtRef property)
     {
-        Thought? t = propertyRef.Find(Store);
+        Thought? t = property.Find(Store);
         if (t is null || Store.HasPropertyType is not Thought hasProperty) return false;
-        bool HasItself(Thought thought) => thought.LinksTo.FindFirst(x => x.LinkType == hasProperty && x.To == t) is not null;
+        bool HasItself(Thought thought) => thought.LinksTo.FirstOrDefault(x => x.LinkType == hasProperty && x.To == t) is not null;
         return HasItself(this) || Ancestors.Any(HasItself);
     }
 

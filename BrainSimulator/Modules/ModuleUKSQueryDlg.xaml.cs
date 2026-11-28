@@ -69,7 +69,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             resultText.Text = "Why? — source not found";
             return;
         }
-        List<Link> links = theUKS.GetAttributes(source);
+        List<Link> links = theUKS.GetAttributes(source).ToList();
         List<Link> whyNot = theUKS.WhyNot()
             .Where(link => link is not null)
             .ToList();
@@ -103,7 +103,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             return;
         }
 
-        List<Link> evidence = theUKS.GetEvidence(match);
+        List<Link> evidence = theUKS.GetEvidence(match).ToList();
         resultText.Text = "Why? " + (evidence.Count == 0 ? "the query computed it"
             : string.Join(", ", evidence.Select(FormatLink)));
     }

@@ -24,7 +24,7 @@ public partial class UKS
     /// or last element lowers it more. An exact match has confidence 1.
     /// </summary>
     /// <returns>Sequence first elements with confidence, best first.</returns>
-    internal List<(SeqElement seqNode, float confidence)> FindSequencesOutOfOrder(List<Thought> pattern, Thought searchOptions)
+    internal List<(SeqElement seqNode, float confidence)> FindSequencesOutOfOrder(IReadOnlyList<Thought> pattern, Thought searchOptions)
     {
         var results = new List<(SeqElement seqNode, float confidence)>();
         if (pattern is null || pattern.Count == 0 || searchOptions is null) return results;
@@ -90,7 +90,7 @@ public partial class UKS
 
     // The share of the pattern's neighboring pairs that are neighbors, in that order, in the stored
     // sequence: 1 for the same order, lower as elements are swapped.
-    private static float InOrderPairs(List<Thought?> stored, List<Thought> pattern)
+    private static float InOrderPairs(List<Thought?> stored, IReadOnlyList<Thought> pattern)
     {
         if (pattern.Count < 2) return 1;
         var storedPairs = stored.Zip(stored.Skip(1)).ToList();

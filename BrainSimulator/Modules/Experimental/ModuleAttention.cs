@@ -127,7 +127,7 @@ public class ModuleAttention : ModuleBase
     private static Thought GetCellForThought(Thought t)
     {
         // Reverse of the "_mm:contains" link: object -> cell
-        return t?.LinksFrom.FindFirst(x => x.LinkType?.Label == "_mm:contains")?.From;
+        return t?.LinksFrom.FirstOrDefault(x => x.LinkType?.Label == "_mm:contains")?.From;
     }
 
     private void FireAttention()
@@ -238,7 +238,7 @@ public class ModuleAttention : ModuleBase
         foreach (var link in _queueRoot.LinksTo.Where(x => x.LinkType == _ltQueued))
         {
             Thought item = link.To;
-            Thought target = item?.LinksTo.FindFirst(x => x.LinkType == _ltQueued)?.To;
+            Thought target = item?.LinksTo.FirstOrDefault(x => x.LinkType == _ltQueued)?.To;
             if (item is null || target is null) continue;
             yield return (item, target);
         }
@@ -292,8 +292,8 @@ public class ModuleAttention : ModuleBase
         foreach (var link in _predRoot.LinksTo.Where(x => x.LinkType == _ltPredItem).ToList())
         {
             Thought pred = link.To;
-            Thought next = pred?.LinksTo.FindFirst(x => x.LinkType == _ltPredTo)?.To;
-            Thought src = pred?.LinksTo.FindFirst(x => x.LinkType == _ltPredFrom)?.To;
+            Thought next = pred?.LinksTo.FirstOrDefault(x => x.LinkType == _ltPredTo)?.To;
+            Thought src = pred?.LinksTo.FirstOrDefault(x => x.LinkType == _ltPredFrom)?.To;
             if (next == focus && src is SeqElement se)
                 yield return (se, next);
         }
@@ -305,7 +305,7 @@ public class ModuleAttention : ModuleBase
         foreach (var link in _predRoot.LinksTo.Where(x => x.LinkType == _ltPredItem))
         {
             Thought pred = link.To;
-            Thought next = pred?.LinksTo.FindFirst(x => x.LinkType == _ltPredTo)?.To;
+            Thought next = pred?.LinksTo.FirstOrDefault(x => x.LinkType == _ltPredTo)?.To;
             if (next is not null) yield return next;
         }
     }

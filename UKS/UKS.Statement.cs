@@ -23,36 +23,36 @@ public partial class UKS
     /// </summary>
     /// <param name="label">Optional label for the link.</param>
     /// <returns>The link, or null if the source or link type is empty.</returns>
-    public Link? AddStatement(ThoughtRef sourceRef, ThoughtRef linkTypeRef, ThoughtRef targetRef, string label = "")
+    public Link? AddStatement(ThoughtRef source, ThoughtRef linkType, ThoughtRef target, string label = "")
     {
-        Thought? source = sourceRef.GetOrAdd(this, "Unknown");
-        Thought? linkType = source is null ? null : linkTypeRef.GetOrAdd(this, "LinkType", source);
-        if (source is null || linkType is null) return null; // nothing is created for a rejected statement
-        Thought? target = targetRef.GetOrAdd(this, "Unknown");
+        Thought? from = source.GetOrAdd(this, "Unknown");
+        Thought? type = from is null ? null : linkType.GetOrAdd(this, "LinkType", from);
+        if (from is null || type is null) return null; // nothing is created for a rejected statement
+        Thought? to = target.GetOrAdd(this, "Unknown");
 
         Link? labeledLink = string.IsNullOrEmpty(label) ? null : Labeled(label) as Link;
         bool isUnwiredPlaceholder = labeledLink is not null && labeledLink.From is null;
-        Link? wired = labeledLink is not null && ReferenceEquals(labeledLink.From, source) &&
-            ReferenceEquals(labeledLink.LinkType, linkType) && ReferenceEquals(labeledLink.To, target)
-            ? labeledLink : GetLink(source, linkType, target);
+        Link? wired = labeledLink is not null && ReferenceEquals(labeledLink.From, from) &&
+            ReferenceEquals(labeledLink.LinkType, type) && ReferenceEquals(labeledLink.To, to)
+            ? labeledLink : GetLink(from, type, to);
 
-        source.Fire();
-        linkType.Fire();
-        target?.Fire();
+        from.Fire();
+        type.Fire();
+        to?.Fire();
 
         if (wired is not null && !isUnwiredPlaceholder)
         {
-            WeakenConflictingLinks(source, wired);
+            WeakenConflictingLinks(from, wired);
             wired.Fire();
             return wired;
         }
 
-        Link lnk = isUnwiredPlaceholder ? labeledLink! : CreateTheLink(source, linkType, target);
+        Link lnk = isUnwiredPlaceholder ? labeledLink! : CreateTheLink(from, type, to);
         if (isUnwiredPlaceholder)
         {
-            lnk.From = source;
-            lnk.LinkType = linkType;
-            lnk.To = target;
+            lnk.From = from;
+            lnk.LinkType = type;
+            lnk.To = to;
         }
 
         if (lnk.From?.Label == "") lnk.From.AddDefaultLabel();
@@ -60,7 +60,7 @@ public partial class UKS
         if (!string.IsNullOrEmpty(label))
             lnk.Label = label.Trim();
 
-        WeakenConflictingLinks(source, lnk);
+        WeakenConflictingLinks(from, lnk);
 
         WriteTheLink(lnk);
         lnk.Fire();
@@ -163,7 +163,7 @@ public partial class UKS
         {
             foreach (var attr in attrs)
             {
-                if (r.LinksTo.FindFirst(x => x.To == attr) is null) goto NotFound;
+                if (r.LinksTo.FirstOrDefault(x => x.To == attr) is null) goto NotFound;
             }
             return r;
         NotFound:

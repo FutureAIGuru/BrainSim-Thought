@@ -24,8 +24,8 @@ public static partial class SequenceAgents
     {
         Dictionary<Thought, Thought> bindings = new();
 
-        List<Thought> template = store.FlattenSequence(templateSequence);
-        List<Thought> concrete = store.FlattenSequence(concreteSequence);
+        IReadOnlyList<Thought> template = store.FlattenSequence(templateSequence);
+        IReadOnlyList<Thought> concrete = store.FlattenSequence(concreteSequence);
 
         if (template.Count != concrete.Count)
             return null;

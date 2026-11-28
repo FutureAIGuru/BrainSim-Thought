@@ -21,7 +21,7 @@ namespace UKS;
 /// </summary>
 public partial class UKS
 {
-    private readonly Dictionary<Func<List<Thought>>, Timer> agentTimers = new();
+    private readonly Dictionary<Func<IReadOnlyList<Thought>>, Timer> agentTimers = new();
     private readonly object agentLock = new();
 
     /// <summary>
@@ -29,7 +29,7 @@ public partial class UKS
     /// A null interval stops it. If called from a thread with a synchronization context (a UI thread),
     /// the agent runs on that thread; otherwise on a pool thread, never overlapping another agent run.
     /// </summary>
-    public void RunPeriodically(Func<List<Thought>> agent, TimeSpan? interval)
+    public void RunPeriodically(Func<IReadOnlyList<Thought>> agent, TimeSpan? interval)
     {
         lock (agentLock)
         {
@@ -130,7 +130,7 @@ public partial class UKS
     /// A Thought whose time runs out is deleted (a Link is removed from its source).
     /// </summary>
     /// <returns>The Thoughts that expired.</returns>
-    public List<Thought> AdvanceCycle()
+    public IReadOnlyList<Thought> AdvanceCycle()
     {
         Cycle++;
         List<Thought> expired = new();

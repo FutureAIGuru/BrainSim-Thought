@@ -284,7 +284,7 @@ public class ModuleText : ModuleBase
             bool demonstratedQuery = demonstratedAction.LinkType?.HasProperty("isPossible") == true;
             Link demonstratedRelationship = demonstratedQuery
                 ? new Link(demonstratedAction.From,
-                    MainWindow.theUKS.GetActionRelationshipType(demonstratedAction.LinkType),
+                    MainWindow.theUKS.GetPlainLinkType(demonstratedAction.LinkType),
                     demonstratedAction.To)
                 : MainWindow.theUKS.ApplyTestOrSetAction(demonstratedAction).FirstOrDefault();
             Thought filterTarget = demonstratedAction.GetTargetOfFirstLinkOfType("filterBy");
@@ -564,7 +564,7 @@ public class ModuleText : ModuleBase
         UKS.UKS theUKS, Thought phraseRoot, Thought hasWords, List<Thought> words)
     {
         List<(SeqElement seqNode, float confidence)> exactSequences =
-            theUKS.FindSequencesByActivation(words, "ExactSequenceSearch");
+            theUKS.FindSequencesByActivation(words, "ExactSequenceSearch").ToList();
         foreach ((SeqElement sequence, float _) in exactSequences)
         {
             Link ownerLink = sequence.LinksFrom.FirstOrDefault(link =>
@@ -589,11 +589,11 @@ public class ModuleText : ModuleBase
         if (phraseRoot == null) return;
         foreach (Thought storedPhrase in phraseRoot.Children)
         {
-            if (!storedPhrase.isPlastic || HasMeaning(storedPhrase)) continue;
+            if (!storedPhrase.IsPlastic || HasMeaning(storedPhrase)) continue;
             storedPhrase.Weight *= PhraseObservationDecayFactor;
         }
 
-        observedPhrase.isPlastic = true;
+        observedPhrase.IsPlastic = true;
         if (isNewPhrase) observedPhrase.Weight = PhraseObservationIncrease;
         else observedPhrase.Weight += PhraseObservationIncrease;
         observedPhrase.Fire();
@@ -602,7 +602,7 @@ public class ModuleText : ModuleBase
     private static void PruneStoredPhrases(Thought phraseRoot)
     {
         if (phraseRoot is null) return;
-        List<Thought> phrases = phraseRoot.Children.Where(phrase => phrase.isPlastic && !HasMeaning(phrase))
+        List<Thought> phrases = phraseRoot.Children.Where(phrase => phrase.IsPlastic && !HasMeaning(phrase))
             .OrderBy(phrase => phrase.Weight).ThenBy(phrase => phrase.LastFiredCycle).ToList();
         int deleteCount = phrases.Count - PlasticPhraseCapacity + 1;
         for (int index = 0; index < deleteCount; index++)
@@ -637,9 +637,9 @@ public class ModuleText : ModuleBase
             Link testAction = new(query.From, operation.LinkType, query.To);
             Thought filterTarget = query.GetTargetOfFirstLinkOfType("filterBy");
             if (filterTarget is not null) testAction.AddLink(GetFilterByRelationship(), filterTarget);
-            results = uks.ApplyTestOrSetAction(testAction);
+            results = uks.ApplyTestOrSetAction(testAction).ToList();
         }
-        else results = uks.SearchForRelationships(query);
+        else results = uks.FindLinks(query).ToList();
         Thought preferredSurfaceWord = GetPreferredSurfaceThought(inputWords, query.From);
         LastAnswer = ConvertRelationshipsToText(
             results, query.From, GetSurfaceText(preferredSurfaceWord), preferredSurfaceWord, template);
@@ -713,7 +713,7 @@ public class ModuleText : ModuleBase
             .Select(template =>
             {
                 Link operation = GetParameterizedTemplateOperation(template);
-                Thought operationRelationship = theUKS.GetActionRelationshipType(
+                Thought operationRelationship = theUKS.GetPlainLinkType(
                     operation?.LinkType);
                 IEnumerable<Thought> sequence = GetSequenceValues(template, "hasWords");
                 if (operation?.From is null || operation.To is null || operationRelationship is null ||
@@ -1404,7 +1404,7 @@ public class ModuleText : ModuleBase
             templateRoot,
             fillerClassRoot,
             minMembers,
-            minFixedElements);
+            minFixedElements).ToList();
         return retVal;
     }
 
@@ -1579,7 +1579,7 @@ public class ModuleText : ModuleBase
 
         // Supervised evidence must remain reproducible. A plastic word can otherwise be pruned by ModuleWord and
         // every sequence position which referenced it is then repaired to "--".
-        foreach (Thought word in words) word.isPlastic = false;
+        foreach (Thought word in words) word.IsPlastic = false;
         theUKS.AddSequenceAndLink(exemplar, "hasWords", words.ToList());
 
         theUKS.AddStatement(exemplar, theUKS.Labeled("demonstrates"), operation);
@@ -1620,7 +1620,7 @@ public class ModuleText : ModuleBase
     }
     static Thought GetNewMeaning(Thought t)
     {
-        Thought meaning = t.LinksFrom.FindFirst(x => x.LinkType?.Label == "means")?.To;
+        Thought meaning = t.LinksFrom.FirstOrDefault(x => x.LinkType?.Label == "means")?.To;
         if (meaning is null)
         {
             Thought word = MainWindow.theUKS.Labeled("w:" + t.Label);
@@ -1707,7 +1707,7 @@ public class ModuleText : ModuleBase
                 minExamples,
                 minFixedElements: 1,
                 templateLabel: "actionTemplate*",
-                classLabel: "actionClass*");
+                classLabel: "actionClass*").ToList();
 
             foreach (Thought template in templates)
             {
@@ -1862,11 +1862,11 @@ public class ModuleText : ModuleBase
             Thought modifier = GetOrCreateMeaning(
                 phraseSequence.ElementAt(modifierPosition));
             if (modifier is null) return null;
-            Thought ordinaryType = theUKS.GetActionRelationshipType(actionType);
+            Thought ordinaryType = theUKS.GetPlainLinkType(actionType);
             if (ordinaryType is null) return null;
             Thought specializedType = theUKS.GetOrAddThought(ordinaryType.Label + "." + modifier.Label, "LinkType");
             Thought specializedAction = specializedType.Children.FirstOrDefault(child =>
-                child.HasProperty("setRelationship") && theUKS.GetActionRelationshipType(child) == specializedType)
+                child.HasProperty("setRelationship") && theUKS.GetPlainLinkType(child) == specializedType)
                 ?? theUKS.GetOrAddThought("action*", "LinkType");
             specializedAction.AddParent(specializedType);
             specializedAction.AddProperty(theUKS.Labeled("setRelationship"));
@@ -1875,7 +1875,7 @@ public class ModuleText : ModuleBase
 
         Link action = new(source, actionType, target);
         Link retVal = actionType.HasProperty("isPossible")
-            ? new Link(source, theUKS.GetActionRelationshipType(actionType), target)
+            ? new Link(source, theUKS.GetPlainLinkType(actionType), target)
             : theUKS.ApplyTestOrSetAction(action).FirstOrDefault();
         Thought filterTarget = parameterizedAction.GetTargetOfFirstLinkOfType("filterBy");
         if (retVal is not null && actionType.HasProperty("isPossible") && filterTarget is not null)
@@ -2096,7 +2096,7 @@ public class ModuleText : ModuleBase
 
                 canonical.Weight = Math.Max(canonical.Weight, pattern.Weight);
                 if (pattern == canonical) continue;
-                theUKS.ReplaceThoughtReferences(pattern, canonical);
+                theUKS.Merge(pattern, canonical);
                 retVal++;
             }
             canonical.RemoveLinks(sourceClassType);
@@ -2270,7 +2270,7 @@ public class ModuleText : ModuleBase
             sourcePosition == targetPosition)
             return;
 
-        Thought relationship = MainWindow.theUKS.GetActionRelationshipType(concreteAction.LinkType);
+        Thought relationship = MainWindow.theUKS.GetPlainLinkType(concreteAction.LinkType);
         if (relationship is null) return;
 
         int first = Math.Min(sourcePosition, targetPosition) + 1;
@@ -2405,13 +2405,13 @@ public class ModuleText : ModuleBase
         if (modifier is null) return retVal;
 
         var uks = MainWindow.theUKS;
-        Thought ordinaryType = uks.GetActionRelationshipType(actionType);
+        Thought ordinaryType = uks.GetPlainLinkType(actionType);
         Thought linkType = uks.Labeled("LinkType");
         Thought baseType = ordinaryType?.Ancestors.FirstOrDefault(parent =>
             parent != linkType && parent.HasAncestor(linkType) && !parent.HasAncestor("number"));
         if (baseType is null) return retVal;
         retVal = baseType.Children.FirstOrDefault(child => child.HasProperty("setRelationship") &&
-            GetNumericActionModifier(child) is null && uks.GetActionRelationshipType(child) == baseType)
+            GetNumericActionModifier(child) is null && uks.GetPlainLinkType(child) == baseType)
             ?? uks.GetOrAddThought("action*", "LinkType");
         retVal.AddParent(baseType);
         retVal.AddProperty(uks.Labeled("setRelationship"));
@@ -2712,7 +2712,7 @@ public class ModuleText : ModuleBase
             Thought second = bestPair.Value.second;
             Thought canonical = first;
             Thought redundant = second;
-            uks.ReplaceThoughtReferences(redundant, canonical);
+            uks.Merge(redundant, canonical);
             mergeCount++;
         }
         return mergeCount;

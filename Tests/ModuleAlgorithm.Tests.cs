@@ -39,7 +39,7 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
             throw new FileNotFoundException($"Algorithm.xml not found at {xmlPath}");
         }
 
-        uks.LoadUKSfromXMLFile(xmlPath);
+        uks.LoadXml(xmlPath);
     }
 
     private static string FindRepositoryRoot()
