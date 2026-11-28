@@ -111,6 +111,8 @@ Thoughts), UKS.Labels.cs (label index and notation), UKS.Statement.cs (storing l
 UKS.Sequence.cs, UKS.SequenceSearch.cs, UKS.SequenceApproximate.cs, UKS.Characters.cs; UKS.Time.cs,
 UKS.Journal.cs (undo), UKS.Initialize.cs, UKS.TextFile.cs, UKS.XMLFile.cs; agents and helpers
 (UKS.Agents.Classes.cs, UKS.Agents.Sequences.cs, UKS.Helpers.cs); UKS.ApiFreeze.cs.
+The Doxyfile's INPUT lists the files in this order and SORT_MEMBER_DOCS is NO, so the documentation
+follows the source; a new file must be added to INPUT or it is left out of the documentation.
 
 ## Phases
 

@@ -91,10 +91,9 @@ public partial class UKS
     // broken by storing indexes into this list (sThought) instead of Thought references.
     private List<sThought> UKSTemp = new();
 
-    /// <summary>
-    /// One Thought as written to an XML file, with its links' Thoughts replaced by indexes (so the file has
-    /// no circular references). Public only because XmlSerializer requires it; not part of the API.
-    /// </summary>
+    // One Thought as written to an XML file, with its links' Thoughts replaced by indexes (so the file has
+    // no circular references). Public only because XmlSerializer requires it; not part of the API, so it
+    // has no doc comment and the documentation leaves it out (Doxyfile: HIDE_UNDOC_CLASSES).
     public class sThought
     {
         public int index;

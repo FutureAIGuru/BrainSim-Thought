@@ -607,7 +607,7 @@ HIDE_UNDOC_MEMBERS     = NO
 # if EXTRACT_ALL is enabled.
 # The default value is: NO.
 
-HIDE_UNDOC_CLASSES     = NO
+HIDE_UNDOC_CLASSES     = YES
 
 # If the HIDE_UNDOC_NAMESPACES tag is set to YES, Doxygen will hide all
 # undocumented namespaces that are normally visible in the namespace hierarchy.
@@ -705,7 +705,7 @@ INLINE_INFO            = YES
 # name. If set to NO, the members will appear in declaration order.
 # The default value is: YES.
 
-SORT_MEMBER_DOCS       = YES
+SORT_MEMBER_DOCS       = NO
 
 # If the SORT_BRIEF_DOCS tag is set to YES then Doxygen will sort the brief
 # descriptions of file, namespace and class members alphabetically by member
@@ -991,7 +991,9 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = .
+# The files in reading order (API.md, "Source layout"); members are documented in the order
+# they are read. A new source file must be added here, or it is left out of the documentation.
+INPUT                  = Thought.cs Link.cs SeqElement.cs ThoughtRef.cs UKS.cs UKS.Labels.cs UKS.Statement.cs UKS.Query.cs UKS.Exclusivity.cs UKS.Search.cs UKS.Actions.cs UKS.History.cs UKS.Sequence.cs UKS.SequenceSearch.cs UKS.SequenceApproximate.cs UKS.Characters.cs UKS.Time.cs UKS.Journal.cs UKS.Initialize.cs UKS.TextFile.cs UKS.XMLFile.cs UKS.Agents.Classes.cs UKS.Agents.Sequences.cs UKS.Helpers.cs
 
 # This tag can be used to specify the character encoding of the source files
 # that Doxygen parses. Internally Doxygen uses the UTF-8 encoding. Doxygen uses
