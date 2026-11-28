@@ -35,8 +35,8 @@ public partial class UKS
         // Historical assertions can describe different states of the same Thought.
         if (r1.LinkType?.HasProperty("isHistorical") == true || r2.LinkType?.HasProperty("isHistorical") == true) return false;
         // Rule descriptions and possible links are not competing assertions.
-        if (r1.LinkType?.HasProperty("isPossible") == true || r1.LinkType?.HasProperty("isConditional") == true) return false;
-        if (r2.LinkType?.HasProperty("isPossible") == true || r2.LinkType?.HasProperty("isConditional") == true) return false;
+        if (r1.LinkType?.HasProperty("isPossible") == true || IsConditionalLinkType(r1.LinkType)) return false;
+        if (r2.LinkType?.HasProperty("isPossible") == true || IsConditionalLinkType(r2.LinkType)) return false;
 
         if (LinkTypesAreExclusive(r1, r2))
             return true;
@@ -47,20 +47,19 @@ public partial class UKS
 
         if (r1.From is not null && r2.From is not null &&
             (r1.From == r2.From ||
-            r1.From.AncestorsWithSelf.Contains(r2.From) ||
-            r2.From.AncestorsWithSelf.Contains(r1.From) ||
+            r1.From.HasAncestor(r2.From) ||
+            r2.From.HasAncestor(r1.From) ||
             FindCommonParents(r1.From, r2.From).Count > 0))
         {
 
-            IReadOnlyList<Thought> r1LinkiProps = r1.LinkType is { } r1LinkType ? r1LinkType.GetAttributes().Concat(r1LinkType.Parents).Distinct().ToList() : Array.Empty<Thought>();
-            IReadOnlyList<Thought> r2LinkProps = r2.LinkType is { } r2LinkType ? r2LinkType.GetAttributes().Concat(r2LinkType.Parents).Distinct().ToList() : Array.Empty<Thought>();
+            IReadOnlyList<Thought> r1LinkiProps = r1.LinkType is { } r1LinkType ? r1LinkType.DirectAttributes().Concat(r1LinkType.Parents).Distinct().ToList() : Array.Empty<Thought>();
+            IReadOnlyList<Thought> r2LinkProps = r2.LinkType is { } r2LinkType ? r2LinkType.DirectAttributes().Concat(r2LinkType.Parents).Distinct().ToList() : Array.Empty<Thought>();
             //handle case with properties of the target
             if (r1.To is not null && r1.To == r2.To &&
-                (r1.To.AncestorsWithSelf.Contains(r2.To) ||
-                r2.To.AncestorsWithSelf.Contains(r1.To)))
+                (r1.To.HasAncestor(r2.To) || r2.To.HasAncestor(r1.To)))
             {
-                IReadOnlyList<Thought> r1TargetProps = r1.To.GetAttributes();
-                IReadOnlyList<Thought> r2TargetProps = r2.To.GetAttributes();
+                IReadOnlyList<Thought> r1TargetProps = r1.To.DirectAttributes();
+                IReadOnlyList<Thought> r2TargetProps = r2.To.DirectAttributes();
                 foreach (Thought t1 in r1TargetProps)
                     foreach (Thought t2 in r2TargetProps)
                     {
@@ -143,8 +142,13 @@ public partial class UKS
         if (t is null) return false;
         // Old knowledge may attach the marker as an attribute instead of an is-a parent.
         // Both forms obtain negation from the marker's property, never its label.
-        return t.HasProperty("isNegative") || t.GetAttributes().Any(attribute => attribute.HasProperty("isNegative"));
+        return t.HasProperty("isNegative") || t.DirectAttributes().Any(attribute => attribute.HasProperty("isNegative"));
     }
+
+    // A property the Thought holds itself, not by inheritance.
+    private bool HasProperty(Thought t, string propertyLabel) =>
+        HasPropertyType is Thought hasProperty && Labeled(propertyLabel) is Thought property &&
+        t.LinksTo.Any(link => link.LinkType == hasProperty && link.To == property);
 
     internal Thought? ThoughtFromString(string label, string defaultParent, Thought? source = null)
     {

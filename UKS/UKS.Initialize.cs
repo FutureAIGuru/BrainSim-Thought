@@ -31,12 +31,12 @@ public partial class UKS
     public void CreateInitialStructure()
     {
         //this hack is needed to preserve the info relating to module layout
+        Thought? brainSim = Labeled("BrainSim"), keptIsA = Labeled("is-a"), hasAttribute = Labeled("hasAttribute");
         foreach (Thought t in AtomicThoughts.ToList())
         {
-            if (t.Label == "BrainSim") continue;
-            if (t.HasAncestor("BrainSim")) continue;
-            if (t.Label == "is-a") continue;
-            if (t.Label == "hasAttribute") continue;
+            if (t == brainSim && brainSim is not null) continue;
+            if (brainSim is not null && t.HasAncestor(brainSim)) continue;
+            if ((t == keptIsA && keptIsA is not null) || (t == hasAttribute && hasAttribute is not null)) continue;
             if (t is Link) continue;
 
             t.Delete();

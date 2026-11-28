@@ -60,7 +60,7 @@ public partial class UKS
         if (!hasWildcard)
         {
             // is-a is not among a Thought's attributes; it is answered from the stored link.
-            if (relationshipType.Label == "is-a")
+            if (relationshipType == IsAType)
             {
                 if (GetLink(query) is Link existing) retVal.Add(existing);
                 return retVal;
@@ -73,7 +73,7 @@ public partial class UKS
             return retVal;
         }
 
-        Thought? filterTarget = action.GetTargetOfFirstLinkOfType("filterBy");
+        Thought? filterTarget = action.HasLink("filterBy")?.To;
         if (filterTarget is not null)
         {
             Thought? filterBy = GetOrAddThought("filterBy", "Property");
@@ -108,7 +108,8 @@ public partial class UKS
         else
         {
             if (newLinkType.HasProperty("isExclusive"))
-                action.From.RemoveLinks(newLinkType);
+                foreach (Link old in action.From.LinksTo.Where(link => link.LinkType == newLinkType))
+                    action.From.RemoveLink(old);
             // A value displacing one whose history is recorded archives it first (UKS.History.cs).
             retVal = action.To is null ? AddStatement(action.From, newLinkType, action.To)
                 : AddStatementRecordingHistory(action.From, newLinkType, action.To);

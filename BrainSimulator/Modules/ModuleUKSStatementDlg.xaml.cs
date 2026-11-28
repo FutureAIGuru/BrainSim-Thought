@@ -20,6 +20,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using UKS;
+using UKS.Helpers;
 
 namespace BrainSimulator.Modules;
 
@@ -105,7 +106,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             UKSStatement.theUKS.GetOrAddThought("isConditional", "Property"));
         UKSStatement.theUKS.GetOrAddThought("AND", "ClauseType").AddLink("hasProperty",
             UKSStatement.theUKS.GetOrAddThought("isConjunction", "Property"));
-        Thought tLink = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(linkTypeString, true);
+        Thought tLink = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(linkTypeString, true, ModuleUKSStatement.Singularize);
         bool conditional = tLink?.HasProperty("isConditional") == true || tLink?.HasProperty("isConjunction") == true;
         if (conditional)
         {
@@ -132,11 +133,11 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             sourceParts[1] = ModuleUKSStatement.ConditionalLinkType(linkTypeString, sourceParts[1]);
             Link r2 = new(UKSStatement.theUKS)
             {
-                From = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[0], false),
-                LinkType = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[1], true),
-                To = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[2], false)
+                From = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[0], false, ModuleUKSStatement.Singularize),
+                LinkType = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[1], true, ModuleUKSStatement.Singularize),
+                To = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[2], false, ModuleUKSStatement.Singularize)
             };
-            var existing = UKSStatement.theUKS.GetLinks(r2);
+            List<Link> existing = UKSStatement.theUKS.GetLink(r2.From, r2.LinkType, r2.To) is Link found ? [found] : [];
             if (conditional)
                 tSource = r2;
             else if (existing.Count == 0)
@@ -174,7 +175,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
 
         if (tSource is null)
         {
-            tSource = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(fromString, false);
+            tSource = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(fromString, false, ModuleUKSStatement.Singularize);
         }
 
         //handle target though which is itself a link
@@ -189,11 +190,11 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             targetParts[1] = ModuleUKSStatement.ConditionalLinkType(linkTypeString, targetParts[1]);
             Link r2 = new(UKSStatement.theUKS)
             {
-                From = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[0], false),
-                LinkType = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[1], true),
-                To = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[2], false)
+                From = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[0], false, ModuleUKSStatement.Singularize),
+                LinkType = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[1], true, ModuleUKSStatement.Singularize),
+                To = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[2], false, ModuleUKSStatement.Singularize)
             };
-            var existing = UKSStatement.theUKS.GetLinks(r2);
+            List<Link> existing = UKSStatement.theUKS.GetLink(r2.From, r2.LinkType, r2.To) is Link found ? [found] : [];
             if (conditional)
                 tTarget = r2;
             else if (existing.Count == 0)
@@ -231,7 +232,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
 
         if (tTarget is null)
         {
-            tTarget = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(toString, false);
+            tTarget = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(toString, false, ModuleUKSStatement.Singularize);
         }
 
         bool isNewStatement = UKSStatement.theUKS.GetLink(tSource, tLink, tTarget) is null;
@@ -303,9 +304,9 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             if (sourceParts.Length == 3)
             {
                 tSource = UKSStatement.theUKS.AddStatement(
-                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[0], false),
-                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[1], true),
-                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[2], false));
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[0], false, ModuleUKSStatement.Singularize),
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[1], true, ModuleUKSStatement.Singularize),
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[2], false, ModuleUKSStatement.Singularize));
                 sourceText.Text = tSource.ToString();
             }
         }
@@ -337,9 +338,9 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
             if (targetParts.Length == 3)
             {
                 tTarget = UKSStatement.theUKS.AddStatement(
-                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[0], false),
-                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[1], true),
-                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[2], false));
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[0], false, ModuleUKSStatement.Singularize),
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[1], true, ModuleUKSStatement.Singularize),
+                    UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[2], false, ModuleUKSStatement.Singularize));
                 targetText.Text = tTarget.ToString();
             }
         }

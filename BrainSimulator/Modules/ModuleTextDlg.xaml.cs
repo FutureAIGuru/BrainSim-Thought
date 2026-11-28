@@ -20,6 +20,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using UKS;
+using UKS.Helpers;
 
 namespace BrainSimulator.Modules;
 

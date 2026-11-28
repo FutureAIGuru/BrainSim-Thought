@@ -65,6 +65,10 @@ public class ModuleUKSStatement : ModuleBase
 
 
 
+    /// <summary>English singular of a word (the UKS knows no language; its input helpers take this).</summary>
+    public static string Singularize(string word) => englishNumber.Singularize(word);
+    private static readonly Pluralizer englishNumber = new();
+
     public string[]  Singular(string[] s)
     {
         IPluralize pluralizer = new Pluralizer();

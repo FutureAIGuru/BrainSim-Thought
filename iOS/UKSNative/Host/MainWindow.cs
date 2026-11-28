@@ -48,7 +48,7 @@ public partial class MainWindow
         {
             Thought type = t.Parents.FirstOrDefault(x => x.HasAncestor("AvailableModule") && x.Label != "ActiveModule");
             ModuleBase mod = type is null ? null : ModuleRegistry.Create(type.Label);
-            if (mod is null) { parent.RemoveChild(t); continue; }
+            if (mod is null) { t.RemoveParent(parent); continue; }
             mod.Label = t.Label;
             activeModules.Add(mod);
         }
@@ -59,7 +59,7 @@ public partial class MainWindow
     {
         ModuleBase newModule = ModuleRegistry.Create(moduleType) ?? throw new ArgumentException($"Unknown module '{moduleType}'.");
         Thought t = theUKS.GetOrAddThought(moduleType, "AvailableModule");
-        t = theUKS.CreateInstanceOf(theUKS.Labeled(moduleType));
+        t = theUKS.AddThought(t.Label, t);
         t.AddParent(theUKS.Labeled("ActiveModule"));
         newModule.Label = t.Label;
         activeModules.Add(newModule);

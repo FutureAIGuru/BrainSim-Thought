@@ -7,6 +7,7 @@ using BrainSimulator;
 using BrainSimulator.Modules;
 using UKS;
 using Xunit;
+using UKS.Helpers;
 
 namespace BrainSimulator.Tests;
 

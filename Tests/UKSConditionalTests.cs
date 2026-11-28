@@ -40,7 +40,7 @@ public class UKSConditionalTests
         Assert.True(conditionalPlay.HasProperty("isPossible"));
         Assert.False(conditionalPlay.HasProperty("isConditional"));
         Assert.False(UKS.IsConditionalLinkType(conditionalPlay));
-        Assert.DoesNotContain(conditionalPlay.GetAttributes(), attribute => attribute.Label == "?");
+        Assert.DoesNotContain(conditionalPlay.DirectAttributes(), attribute => attribute.Label == "?");
     }
 
     [Fact]
@@ -71,11 +71,11 @@ public class UKSConditionalTests
         Thought weather = uks.GetOrAddThought("weather")!;
         Thought outside = uks.GetOrAddThought("outside")!;
         Thought raining = uks.GetOrAddThought("raining")!;
-        Thought playConditional = uks.GetOrAddThought("play.?")!;
-        Thought isConditional = uks.GetOrAddThought("is.?")!;
+        Thought playPossible = uks.GetOrAddThought("play.?")!;
+        Thought isPossible = uks.GetOrAddThought("is.?")!;
         Thought isType = uks.GetOrAddThought("is", "LinkType")!;
-        var weatherCondition = new Link(weather, isConditional, raining);
-        Link playResult = uks.AddStatement(fido, playConditional, outside)!;
+        var weatherCondition = new Link(weather, isPossible, raining);
+        Link playResult = uks.AddStatement(fido, playPossible, outside)!;
         uks.AddStatement(playResult, "IF", weatherCondition);
 
         Assert.DoesNotContain(uks.GetAttributes(fido),

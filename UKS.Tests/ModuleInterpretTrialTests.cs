@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using BrainSimulator.Modules;
 using Xunit;
+using UKS.Helpers;
 
 namespace UKS.Tests;
 

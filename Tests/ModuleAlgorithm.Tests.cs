@@ -15,6 +15,7 @@ using BrainSimulator.Modules;
 using System.IO;
 using UKS;
 using Xunit;
+using UKS.Helpers;
 
 namespace UKS.Tests;
 

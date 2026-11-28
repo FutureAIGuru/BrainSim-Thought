@@ -139,7 +139,7 @@ namespace BrainSimulator
                         activeModules.Add(mod);
                     else
                     {
-                        theUKS.Labeled("ActiveModule").RemoveChild(t);
+                        t.RemoveParent(theUKS.Labeled("ActiveModule"));
                     }
                 }
             }

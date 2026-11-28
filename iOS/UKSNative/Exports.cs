@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Pluralize.NET;
 using UKS;
+using UKS.Helpers;
 
 namespace UKSNative;
 
@@ -260,10 +261,9 @@ public static partial class Exports
                 LinkType = uks.GetOrAddThought(parts[1]),
                 To = uks.GetOrAddThought(parts[2]),
             };
-            var existing = uks.GetLinks(probe);
-            return existing.Count > 0 ? existing[0] : uks.AddStatement(parts[0], parts[1], parts[2]);
+            return uks.GetLink(probe.From, probe.LinkType, probe.To) ?? uks.AddStatement(parts[0], parts[1], parts[2]);
         }
-        return Store.CreateThoughtFromMultipleAttributes(text, false);
+        return Store.CreateThoughtFromMultipleAttributes(text, false, pluralizer.Singularize);
     }
 
     static Thought Require(string label) =>
@@ -322,7 +322,7 @@ public static partial class Exports
 
         Thought tFrom = NestedOrPlain(from, linkType, true) ?? throw new ArgumentException($"Could not create '{from}'.");
         Thought tTo = to == "" ? null : NestedOrPlain(to, linkType, false);
-        Thought tLinkType = uks.CreateThoughtFromMultipleAttributes(linkType, true)
+        Thought tLinkType = uks.CreateThoughtFromMultipleAttributes(linkType, true, pluralizer.Singularize)
             ?? throw new ArgumentException($"Could not create link type '{linkType}'.");
 
         bool isNew = uks.GetLink(tFrom, tLinkType, tTo) == null;
@@ -388,7 +388,7 @@ public static partial class Exports
     [UnmanagedCallersOnly(EntryPoint = "uks_remove_parent")]
     public static IntPtr RemoveParent(IntPtr pChild, IntPtr pParent) => Guard(() =>
     {
-        Require(In(pParent)).RemoveChild(Require(In(pChild)));
+        Require(In(pChild)).RemoveParent(Require(In(pParent)));
         return Ok("Removed");
     });
 
@@ -655,8 +655,8 @@ public static partial class Exports
             {
                 string[] parts = line.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 if (parts.Length < 2) continue;
-                Thought linkType = uks.CreateThoughtFromMultipleAttributes(parts[0], true) ?? throw new ArgumentException($"{parts[0]} not found");
-                Thought target = uks.CreateThoughtFromMultipleAttributes(parts[1], false) ?? throw new ArgumentException($"{parts[1]} not found");
+                Thought linkType = uks.CreateThoughtFromMultipleAttributes(parts[0], true, pluralizer.Singularize) ?? throw new ArgumentException($"{parts[0]} not found");
+                Thought target = uks.CreateThoughtFromMultipleAttributes(parts[1], false, pluralizer.Singularize) ?? throw new ArgumentException($"{parts[1]} not found");
                 if (linkType.Label == "can")
                 {
                     target.AddParent("Action");

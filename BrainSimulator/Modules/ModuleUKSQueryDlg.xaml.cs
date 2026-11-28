@@ -23,6 +23,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using System.Windows.Input;
 using UKS;
+using UKS.Helpers;
 
 namespace BrainSimulator.Modules;
 
@@ -292,8 +293,8 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             string[] relParams = s.Split(',', StringSplitOptions.RemoveEmptyEntries);
             if (relParams.Length > 1)
             {
-                Thought linkType = UKSQuery.theUKS.CreateThoughtFromMultipleAttributes(relParams[0], true);
-                Thought relTarget = UKSQuery.theUKS.CreateThoughtFromMultipleAttributes(relParams[1], false);
+                Thought linkType = UKSQuery.theUKS.CreateThoughtFromMultipleAttributes(relParams[0], true, ModuleUKSStatement.Singularize);
+                Thought relTarget = UKSQuery.theUKS.CreateThoughtFromMultipleAttributes(relParams[1], false, ModuleUKSStatement.Singularize);
                 if (linkType is null)
                 {
                     resultText1.Text = $"<{relParams[0]} not found>";

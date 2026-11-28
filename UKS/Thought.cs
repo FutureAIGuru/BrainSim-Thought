@@ -138,9 +138,23 @@ public partial class Thought
     /// <summary>Safe snapshot of the links which use this Thought as their LinkType.</summary>
     public IReadOnlyList<Link> LinksAsType { get { lock (_linksAsType) return new List<Link>(_linksAsType); } }
     /// <summary>Direct parents (targets of outgoing is-a links).</summary>
-    public IReadOnlyList<Thought> Parents { get { lock (_linksTo) return _linksTo.Where(x => x.LinkType?.Label == "is-a").Select(x => x.To).OfType<Thought>().ToList(); } }
+    public IReadOnlyList<Thought> Parents
+    {
+        get
+        {
+            if (Store.IsAType is not Thought isA) return [];
+            lock (_linksTo) return _linksTo.Where(x => x.LinkType == isA).Select(x => x.To).OfType<Thought>().ToList();
+        }
+    }
     /// <summary>Direct children (sources of incoming is-a links).</summary>
-    public IReadOnlyList<Thought> Children { get { lock (_linksFrom) return _linksFrom.Where(x => x.LinkType?.Label == "is-a").Select(x => x.From).OfType<Thought>().ToList(); } }
+    public IReadOnlyList<Thought> Children
+    {
+        get
+        {
+            if (Store.IsAType is not Thought isA) return [];
+            lock (_linksFrom) return _linksFrom.Where(x => x.LinkType == isA).Select(x => x.From).OfType<Thought>().ToList();
+        }
+    }
 
     private string _label = "";
     public string Label
@@ -346,19 +360,6 @@ public partial class Thought
     }
 
     /// <summary>
-    /// Ancestors including self (BFS).
-    /// </summary>
-    public IEnumerable<Thought> AncestorsWithSelf
-    {
-        get
-        {
-            yield return this;
-            foreach (var ancestor in Ancestors)
-                yield return ancestor;
-        }
-    }
-
-    /// <summary>
     /// Breadth-first ancestors (excluding self).
     /// </summary>
     public IEnumerable<Thought> Ancestors
@@ -411,10 +412,7 @@ public partial class Thought
     public bool HasAncestor(ThoughtRef ancestor)
     {
         Thought? t = ancestor.Find(Store);
-        if (t is null) return false;
-        foreach (Thought a in AncestorsWithSelf)
-            if (a == t) return true;
-        return false;
+        return t is not null && (t == this || Ancestors.Contains(t));
     }
 
     /// <summary>
@@ -498,23 +496,6 @@ public partial class Thought
     }
 
     /// <summary>
-    /// Removes every link of the given type from this Thought.
-    /// </summary>
-    public void RemoveLinks(ThoughtRef linkTypeRef)
-    {
-        Thought? linkType = linkTypeRef.Require(Store);
-        if (linkType is null) return;
-        for (int i = 0; i < _linksTo.Count; i++)
-        {
-            Link r = _linksTo[i];
-            if (r.From == this && r.LinkType == linkType)
-            {
-                RemoveLink(r);
-                i--;
-            }
-        }
-    }
-    /// <summary>
     /// Removes a specific link instance.
     /// </summary>
     /// <param name="r">Link to remove.</param>
@@ -544,27 +525,6 @@ public partial class Thought
         storedLink.Delete();
     }
 
-    /// <summary>The target of this Thought's first link of the given type, or null.</summary>
-    public Thought? GetTargetOfFirstLinkOfType(ThoughtRef linkTypeRef)
-    {
-        Thought? linkType = linkTypeRef.Find(Store);
-        return linkType is null ? null : LinksTo.FirstOrDefault(x => x.LinkType == linkType)?.To;
-    }
-
-    /// <summary>The source of the first link of the given type that points to this Thought, or null.</summary>
-    public Thought? GetSourceOfFirstLinkOfType(ThoughtRef linkTypeRef)
-    {
-        Thought? linkType = linkTypeRef.Find(Store);
-        return linkType is null ? null : LinksFrom.FirstOrDefault(x => x.LinkType == linkType)?.From;
-    }
-
-    /// <summary>The target of this Thought's highest-weight link of the given type, or null.</summary>
-    public Thought? GetTargetOfHighestWeightLinkOfType(ThoughtRef linkTypeRef)
-    {
-        Thought? linkType = linkTypeRef.Find(Store);
-        return linkType is null ? null
-            : LinksTo.Where(x => x.LinkType == linkType).MaxBy(x => x.Weight)?.To;
-    }
     /// <summary>
     /// This Thought's link of the given type to the given target, or to any target if the target is
     /// empty; null if there is none or a label is unknown.
@@ -617,22 +577,13 @@ public partial class Thought
     /// <summary>Removes the is-a link to the parent, if present; an unknown label removes nothing.</summary>
     public void RemoveParent(ThoughtRef parentRef) => RemoveLink("is-a", parentRef);
 
-    /// <summary>Removes the child's is-a link to this Thought, if present; an unknown label removes nothing.</summary>
-    public void RemoveChild(ThoughtRef childRef) => childRef.Require(Store)?.RemoveParent(this);
-
-    /// <summary>
-    /// Gets attributes linked via "hasAttribute" or "is".
-    /// </summary>
-    public List<Thought> GetAttributes()
+    // The targets of this Thought's own "is" and "hasAttribute" links (not inherited).
+    internal List<Thought> DirectAttributes()
     {
-        List<Thought> retVal = new();
-        foreach (Link r in LinksTo)
-        {
-            if (r.LinkType?.Label != "hasAttribute" && r.LinkType?.Label != "is") continue;
-            if (r.To is not null)
-                retVal.Add(r.To);
-        }
-        return retVal;
+        Thought? isType = Store.Labeled("is"), hasAttribute = Store.Labeled("hasAttribute");
+        return LinksTo.Where(link => link.To is not null && link.LinkType is not null &&
+                (link.LinkType == isType || link.LinkType == hasAttribute))
+            .Select(link => link.To!).ToList();
     }
 
     /// <summary>
@@ -652,19 +603,16 @@ public partial class Thought
     public bool HasProperty(ThoughtRef propertyRef)
     {
         Thought? t = propertyRef.Find(Store);
-        if (t is null) return false;
-        if (LinksTo.FindFirst(x => x.LinkType?.Label == "hasProperty" && x.To == t) is not null) return true;
-
-        foreach (Thought t1 in Ancestors)
-            if (t1.LinksTo.FindFirst(x => x.LinkType?.Label == "hasProperty" && x.To == t) is not null) return true;
-        return false;
+        if (t is null || Store.HasPropertyType is not Thought hasProperty) return false;
+        bool HasItself(Thought thought) => thought.LinksTo.FindFirst(x => x.LinkType == hasProperty && x.To == t) is not null;
+        return HasItself(this) || Ancestors.Any(HasItself);
     }
 
-    /// <summary>
-    /// Enumerate the closure starting from this Thought (root) using BFS over links and is-a children.
-    /// </summary>
-    public IEnumerable<Thought> EnumerateSubThoughts()
+    // The closure from this Thought (the root), breadth first over links and is-a children: what a
+    // file writes for the root.
+    internal IEnumerable<Thought> EnumerateSubThoughts()
     {
+        Thought? isA = Store.IsAType;
         // This is graph traversal, so distinct objects must remain distinct even
         // when Thought.Equals considers them structurally equivalent. In
         // particular, anonymous sequence values may be equal links that still
@@ -680,7 +628,7 @@ public partial class Thought
         }
 
         EnqueueIfNew(this);
-        foreach (var isaLink in this.LinksTo.Where(x => x.LinkType?.Label == "is-a"))
+        foreach (var isaLink in this.LinksTo.Where(x => x.LinkType == isA))
             yield return isaLink;
 
         while (q.Count > 0)
@@ -699,12 +647,12 @@ public partial class Thought
             {
                 for (SeqElement? e = s; e is not null; e = e.NXT) EnqueueIfNew(e);
             }
-            foreach (var isaLink in t.LinksFrom.Where(x => x.LinkType?.Label == "is-a"))
+            foreach (var isaLink in t.LinksFrom.Where(x => x.LinkType == isA))
             {
                 EnqueueIfNew(isaLink);
                 EnqueueIfNew(isaLink.From);
             }
-            foreach (var link in t.LinksTo.Where(x => x.LinkType?.Label != "is-a"))
+            foreach (var link in t.LinksTo.Where(x => x.LinkType != isA))
             {
                 EnqueueIfNew(link);
                 EnqueueIfNew(link.To);

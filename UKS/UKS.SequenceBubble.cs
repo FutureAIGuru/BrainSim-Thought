@@ -199,7 +199,7 @@ public static partial class SequenceAgents
                     .Select(ownerGroup => ownerGroup.First())
                     .ToList();
                 List<Link> distinct = all
-                    .GroupBy(observation => SequenceObservationSignature(store, observation), StringComparer.Ordinal)
+                    .GroupBy(observation => SequenceObservationSignature(store, observation), SameElements.Instance)
                     .Select(contentGroup => contentGroup.First())
                     .ToList();
                 return (group.Key, distinct, all);
@@ -212,7 +212,7 @@ public static partial class SequenceAgents
         {
             // Pairs propose structures without changing the UKS. Only separated
             // singleton gaps are currently allowed into learned templates.
-            Dictionary<string, CommonSequencePattern> proposals = new(StringComparer.Ordinal);
+            Dictionary<IReadOnlyList<object?>, CommonSequencePattern> proposals = new(SameElements.Instance);
             List<Link> groupObservations = relationshipGroup.observations;
             for (int first = 0; first < groupObservations.Count - 1; first++)
             {
@@ -296,12 +296,22 @@ public static partial class SequenceAgents
         return results;
     }
 
-    private static string SequenceObservationSignature(UKS store, Link observation)
+    // What an observed sequence holds: its values in order.
+    private static IReadOnlyList<object?> SequenceObservationSignature(UKS store, Link observation) =>
+        store.FlattenSequence(observation.To).Cast<object?>().ToList();
+
+    // Lists with the same elements in the same order (Thoughts compared by identity).
+    private sealed class SameElements : IEqualityComparer<IReadOnlyList<object?>>
     {
-        // Thought labels are unique in a UKS. Length-prefixing prevents two
-        // neighboring labels from producing an ambiguous concatenation.
-        return string.Join("|", store.FlattenSequence(observation.To).Select(element =>
-            $"{element.Label.Length}:{element.Label}"));
+        public static readonly SameElements Instance = new();
+        public bool Equals(IReadOnlyList<object?>? a, IReadOnlyList<object?>? b) =>
+            a is not null && b is not null && a.SequenceEqual(b);
+        public int GetHashCode(IReadOnlyList<object?> list)
+        {
+            HashCode hash = new();
+            foreach (object? element in list) hash.Add(element);
+            return hash.ToHashCode();
+        }
     }
 
     /// <summary>
@@ -516,10 +526,7 @@ public static partial class SequenceAgents
         return true;
     }
 
-    private static string CommonSequenceSignature(CommonSequencePattern pattern)
-    {
-        return string.Join("\u001f", pattern.Elements.Select(element => element.IsGap
-            ? "G:" + element.GapCardinality
-            : "V:" + element.Value!.Label));
-    }
+    // A pattern's elements in order: each a fixed value or a gap's cardinality.
+    private static IReadOnlyList<object?> CommonSequenceSignature(CommonSequencePattern pattern) =>
+        pattern.Elements.Select(element => element.IsGap ? (object?)element.GapCardinality : element.Value).ToList();
 }

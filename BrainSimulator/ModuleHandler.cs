@@ -46,7 +46,7 @@ public class ModuleHandler
     public string ActivateModule(string moduleType)
     {
         Thought t = theUKS.GetOrAddThought(moduleType, "AvailableModule");
-        t = theUKS.CreateInstanceOf(theUKS.Labeled(moduleType));
+        t = theUKS.AddThought(t.Label, t);
         t.AddParent(theUKS.Labeled("ActiveModule"));
 
 #if !CONSOLE_APP

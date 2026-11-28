@@ -19,6 +19,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows.Media;
 using UKS;
+using UKS.Helpers;
 
 namespace BrainSimulator.Modules;
 

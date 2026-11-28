@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UKS;
+using UKS.Helpers;
 
 namespace BrainSimulator.Modules;
 

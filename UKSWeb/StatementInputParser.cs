@@ -1,8 +1,16 @@
 using System.Globalization;
 using UKS;
+using UKS.Helpers;
 using KnowledgeStore = UKS.UKS;
 
 namespace UKSWeb;
+
+// The UKS knows no language; English singulars for the input helpers come from Pluralize.NET.
+file static class Singularizer
+{
+    private static readonly Pluralize.NET.Pluralizer pluralizer = new();
+    public static string Singularize(string word) => pluralizer.Singularize(word);
+}
 
 /// <summary>Interprets the three demo fields using the UKS statement-dialog conventions.</summary>
 internal static class StatementInputParser
@@ -68,7 +76,7 @@ internal static class StatementInputParser
 
         // Nouns take preceding attributes (big dog -> dog.big); relationship
         // types take following attributes (has 3 -> has.3). Preserve other verb forms.
-        return store.CreateThoughtFromMultipleAttributes(text, attributesFollow, singularize: !attributesFollow)
+        return store.CreateThoughtFromMultipleAttributes(text, attributesFollow, attributesFollow ? null : Singularizer.Singularize)
             ?? throw new FormatException($"Could not parse Thought: {text}");
     }
 

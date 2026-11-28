@@ -19,6 +19,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using UKS;
 using static UKS.UKS;
+using UKS.Helpers;
 
 namespace BrainSimulator.Modules;
 

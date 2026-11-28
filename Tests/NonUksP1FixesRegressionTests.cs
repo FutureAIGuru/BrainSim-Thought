@@ -26,7 +26,7 @@ public class NonUksP1FixesRegressionTests
 
         Thought shared = uks.GetOrAddThought("SharedConfig", "Object");
         Thought moduleType = uks.GetOrAddThought("ModuleTest", uks.Labeled("AvailableModule"));
-        Thought instance = uks.CreateInstanceOf(moduleType);
+        Thought instance = uks.AddThought(moduleType.Label, moduleType);
         uks.AddStatement(instance, "is", shared);
 
         string instanceLabel = instance.Label;

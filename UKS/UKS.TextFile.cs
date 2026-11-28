@@ -317,8 +317,7 @@ public partial class UKS
         if (stmt.Count < 2) return null;
 
         if (stmt.Any(part => part.TrimStart().StartsWith("[")) ||
-            Labeled(stmt[1])?.HasProperty("isConditional") == true ||
-            Labeled(stmt[1])?.HasProperty("isConjunction") == true)
+            IsClauseLinkType(Labeled(stmt[1])))
         {
             return AddLinkStmtWithNesting(
                 tokens[0], stmt,
@@ -362,7 +361,7 @@ public partial class UKS
 
         // Process 'to'
         //this might be a sequence
-        Thought? to = ProcessThoughtOrLink(linkParts[2]) ?? CreateThoughtFromMultipleAttributes(linkParts[2], false, false);
+        Thought? to = ProcessThoughtOrLink(linkParts[2]) ?? ThoughtFromPhrase(linkParts[2], false);
 
         if (from is null || linkType is null) return null;
 
@@ -376,7 +375,7 @@ public partial class UKS
             if (!AtomicThoughts.Contains(r))
                 AtomicThoughts.Add(r);
         }
-        if (linkType.Label == "VLU")
+        if (linkType == VluType)
         {
             // This must be a sequence element, promote it to one
             PromoteToSeqElement(from);
@@ -460,20 +459,20 @@ public partial class UKS
         }
 
         Thought? linkType = ProcessThoughtOrLink(linkParts[1]);
-        if (linkType is null) linkType = CreateThoughtFromMultipleAttributes(linkParts[1], true, false);
+        if (linkType is null) linkType = ThoughtFromPhrase(linkParts[1], true);
         if (linkType is null) return null;
-        bool structural = linkType.HasProperty("isConditional") || linkType.HasProperty("isConjunction");
+        bool structural = IsClauseLinkType(linkType);
 
         // Conditional and conjunction operands are patterns, never new assertions.
         Thought? from = ProcessThoughtOrLink(linkParts[0], asPattern || structural);
-        if (from is null) from = CreateThoughtFromMultipleAttributes(linkParts[0], false);
+        if (from is null) from = ThoughtFromPhrase(linkParts[0], false);
 
         // Process 'to' - may be a nested link
         Thought? to = null;
         if (linkParts.Count > 2)
         {
             to = ProcessThoughtOrLink(linkParts[2], asPattern || structural);
-            if (to is null) to = CreateThoughtFromMultipleAttributes(linkParts[2], false);
+            if (to is null) to = ThoughtFromPhrase(linkParts[2], false);
         }
 
         if (from is null || linkType is null) return null;
@@ -519,13 +518,36 @@ public partial class UKS
             if (!AtomicThoughts.Contains(r))
                 AtomicThoughts.Add(r);
         }
-        if (linkType.Label == "VLU")
+        if (linkType == VluType)
         {
             // This must be a sequence element, promote it to one
             PromoteToSeqElement(from);
         }
         ApplyPersistenceMetadata(r, sWeight, sMaxWeight, sIsPlastic);
         return r;
+    }
+
+    // A phrase of several words names one Thought by a dotted label: "4 legs" is legs.4 (the
+    // attributes precede the base) and "has 4" is has.4 (they follow). "^a b c" is a sequence;
+    // a one-character element is that character.
+    internal Thought? ThoughtFromPhrase(string phrase, bool attributesFollow)
+    {
+        if (phrase.StartsWith('^'))
+        {
+            string[] elementLabels = phrase[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            List<Thought> elements = new();
+            foreach (string elementLabel in elementLabels)
+            {
+                Thought? element = elementLabel.Length == 1 ? GetOrAddCharacter(elementLabel[0])
+                    : Labeled(elementLabel) ?? (elementLabel.StartsWith("w:") ? GetOrAddThought(elementLabel, "word") : GetOrAddThought(elementLabel));
+                if (element is not null) elements.Add(element);
+            }
+            return AddSequence(string.Join("", elementLabels), elements, false);
+        }
+        string[] words = phrase.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0) return null;
+        IEnumerable<string> ordered = attributesFollow ? words : words.Skip(words.Length - 1).Concat(words.SkipLast(1));
+        return GetOrAddThought(string.Join(".", ordered));
     }
 
     /// <summary>
@@ -574,7 +596,7 @@ public partial class UKS
         // Not a nested link, try to find existing thought
         Thought? existing = Labeled(trimmed);
         if (asPattern && existing is Link relationship && relationship.LinkType is not null &&
-            !relationship.LinkType.HasProperty("isConditional") && !relationship.LinkType.HasProperty("isConjunction"))
+            !IsClauseLinkType(relationship.LinkType))
         {
             Thought patternType = relationship.LinkType;
             if (!patternType.HasProperty("isPossible"))

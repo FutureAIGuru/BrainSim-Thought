@@ -146,7 +146,8 @@ public partial class UKS
             t.AddParent(unknown);
     }
 
-    public Thought? SubclassExists(Thought t, List<Thought> thoughtAttributes, ref Thought? bestMatch, ref List<Thought> missingAttributes)
+    // t, or the first of its descendants, that links to every one of the attributes.
+    private Thought? SubclassExists(Thought t, List<Thought> thoughtAttributes, ref Thought? bestMatch, ref List<Thought> missingAttributes)
     {
         if (t is null) return null;
 
@@ -171,11 +172,6 @@ public partial class UKS
         return null;
     }
 
-    public Thought? CreateInstanceOf(Thought t)
-    {
-        return CreateSubclass(t, new List<Thought>());
-    }
-
     private Thought? CreateSubclass(Thought t, List<Thought> attributes)
     {
         if (t is null) return null;
@@ -197,7 +193,7 @@ public partial class UKS
     private Thought? CheckForInverse(Thought linkType)
     {
         if (linkType is null) return null;
-        return linkType.LinksTo.FindFirst(x => x.LinkType?.Label == "inverseOf")?.To;
+        return linkType.HasLink("inverseOf")?.To;
     }
 
     private static List<Thought> FindCommonParents(Thought t, Thought t1)

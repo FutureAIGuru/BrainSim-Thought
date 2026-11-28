@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using UKS;
 using static UKS.UKS;
+using UKS.Helpers;
 
 namespace BrainSimulator.Modules;
 

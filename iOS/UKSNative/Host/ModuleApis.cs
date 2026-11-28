@@ -2,6 +2,7 @@
 // as plain data, and the operations their buttons performed. Presentation is in SwiftUI.
 using Pluralize.NET;
 using UKS;
+using UKS.Helpers;
 
 namespace BrainSimulator.Modules;
 

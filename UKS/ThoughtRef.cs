@@ -44,7 +44,7 @@ public readonly struct ThoughtRef
     /// The existing Thought, or null for an empty reference or an unknown label. Nothing is created.
     /// A Thought from another store is a programming error and throws.
     /// </summary>
-    internal Thought? Find(UKS store)
+    public Thought? Find(UKS store)
     {
         if (thought is not null) return InStore(store);
         return string.IsNullOrEmpty(label) ? null : store.Labeled(label);

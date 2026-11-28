@@ -2,6 +2,7 @@ using BrainSimulator.Modules;
 using UKS;
 using System.Linq;
 using Xunit;
+using UKS.Helpers;
 
 namespace BrainSimulator.Tests;
 

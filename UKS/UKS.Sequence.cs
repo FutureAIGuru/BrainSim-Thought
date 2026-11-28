@@ -25,14 +25,14 @@ public class SeqElement : Thought
     /// <summary>The first element of this element's sequence (itself, for the first element).</summary>
     public SeqElement? FRST
     {
-        get => LinksToWriteable.FindFirst(x => x.LinkType?.Label == "FRST")?.To as SeqElement;
+        get => Store.FrstType is Thought frst ? LinksToWriteable.FindFirst(x => x.LinkType == frst)?.To as SeqElement : null;
         set => SetSequenceLink("FRST", value);
     }
 
     /// <summary>The next element of the sequence, or null for the last element.</summary>
     public SeqElement? NXT
     {
-        get => LinksTo.FindFirst(x => x.LinkType?.Label == "NXT")?.To as SeqElement;
+        get => Store.NxtType is Thought nxt ? LinksTo.FindFirst(x => x.LinkType == nxt)?.To as SeqElement : null;
         set => SetSequenceLink("NXT", value);
     }
 
@@ -41,7 +41,8 @@ public class SeqElement : Thought
     {
         if (value is not null && !ReferenceEquals(value.Store, Store))
             throw new ArgumentException("Sequence values must belong to the same UKS.", nameof(value));
-        RemoveLinks(Store.Labeled(linkTypeLabel)!);
+        foreach (Link old in LinksTo.Where(link => link.LinkType == Store.Labeled(linkTypeLabel)))
+            RemoveLink(old);
         if (value is not null)
             AddLink(Store.GetOrAddThought(linkTypeLabel, "LinkType")!, value);
     }
@@ -237,12 +238,11 @@ public partial class UKS
             throw new ArgumentException("Sequence belongs to another UKS.", nameof(s));
         //make sure there's only one reference to this sequence
         if (s is null || !IsSequenceFirstElement(s)) return;
-        if (s.LinksFrom.Count(x => x.LinkType?.Label != "FRST") > 1) return;
-        if (!s.Label.StartsWith("thequery"))  //queries don't have cache entries
-        {        //delete it from the cache
-            var sequenceContent = FlattenSequence(s);
+        if (s.LinksFrom.Count(x => x.LinkType != FrstType) > 1) return;
+        // Remove its cache entry, if it has one (an identical sequence may own the entry instead).
+        List<Thought> sequenceContent = FlattenSequence(s);
+        if (SequenceCache.TryGetValue(sequenceContent, out Thought? cached) && ReferenceEquals(cached, s))
             SequenceCache.Remove(sequenceContent);
-        }
         //follow the chain and delete the elements.
         SeqElement? current = s;
         while (current is not null)
@@ -250,7 +250,7 @@ public partial class UKS
             //This replicates DeleteThought but eliminates problems of re-entrance
             SeqElement? next = GetNextElement(current);
             //recursively delete subsequences which are no longer used anywhere else
-            var subsequences = current.VLU?.LinksFrom.Where(x => x.LinkType?.Label != "FRST");
+            var subsequences = current.VLU?.LinksFrom.Where(x => x.LinkType != FrstType);
             if (subsequences?.Count() == 1 && subsequences.First().To is SeqElement s1)
                 DeleteSequence(s1);
             foreach (Link lnk in current.LinksTo)
@@ -265,7 +265,7 @@ public partial class UKS
     internal void ReplaceDeletedSequenceValues(Thought value)
     {
         List<SeqElement> affectedElements = value.LinksFrom
-            .Where(link => link.LinkType?.Label == "VLU" && link.From is SeqElement)
+            .Where(link => link.LinkType == VluType && link.From is SeqElement)
             .Select(link => (SeqElement)link.From!)
             .ToList();
         if (affectedElements.Count == 0) return;
@@ -286,7 +286,8 @@ public partial class UKS
 
         foreach ((SeqElement sequence, List<Thought> oldCacheKey) in oldCacheKeys)
         {
-            if (sequence.Label.StartsWith("thequery")) continue;
+            // Only a sequence the cache holds is re-keyed.
+            if (!SequenceCache.TryGetValue(oldCacheKey, out Thought? cached) || !ReferenceEquals(cached, sequence)) continue;
             SequenceCache.Remove(oldCacheKey);
             SequenceCache[FlattenSequence(sequence)] = sequence;
         }
@@ -296,7 +297,7 @@ public partial class UKS
             if (sequence is null || !affectedSequences.Add(sequence)) return;
 
             foreach (Link reference in sequence.LinksFrom
-                .Where(link => link.LinkType?.Label == "VLU" && link.From is SeqElement))
+                .Where(link => link.LinkType == VluType && link.From is SeqElement))
             {
                 SeqElement? outerSequence = ((SeqElement)reference.From!).FRST;
                 CollectAffectedSequence(outerSequence);
@@ -423,7 +424,9 @@ public partial class UKS
         Thought? linkType = linkTypeRef.GetOrAdd(this, "LinkType");
 
         // Replace any existing sequence link of this type. TODO: delete the old sequence.
-        if (linkType is not null) source.RemoveLinks(linkType);
+        if (linkType is not null)
+            foreach (Link old in source.LinksTo.Where(link => link.LinkType == linkType))
+                source.RemoveLink(old);
         SeqElement rawSequence = AddSequence(source.Label, targets, allowCompression)!;
         if (linkType is not null) source.AddLink(linkType, rawSequence);
         return rawSequence;
@@ -757,14 +760,14 @@ public partial class UKS
     {
         Thought? anchor = pattern
             .Where(x => !IsWildcard(x))
-            .OrderBy(x => x.LinksFrom.Count(link => link.LinkType?.Label == "VLU"))
+            .OrderBy(x => x.LinksFrom.Count(link => link.LinkType == VluType))
             .FirstOrDefault();
         if (anchor is null) return new List<(SeqElement seqNode, float confidence)>();
 
         HashSet<SeqElement> candidates = new();
         foreach (Link link in anchor.LinksFrom)
         {
-            if (link.LinkType?.Label != "VLU" || link.From is not SeqElement element) continue;
+            if (link.LinkType != VluType || link.From is not SeqElement element) continue;
             AddEnclosingSequenceRoots(element.FRST, candidates);
         }
 
@@ -786,7 +789,7 @@ public partial class UKS
         if (sequenceRoot is null || !candidates.Add(sequenceRoot)) return;
         foreach (Link link in sequenceRoot.LinksFrom)
         {
-            if (link.LinkType?.Label == "VLU" && link.From is SeqElement caller)
+            if (link.LinkType == VluType && link.From is SeqElement caller)
                 AddEnclosingSequenceRoots(caller.FRST, candidates);
         }
     }
@@ -844,7 +847,7 @@ public partial class UKS
     {
         if (wildcard is null || value is null ||
             !IsWildcard(wildcard)) return false;
-        List<Thought> constraints = wildcard.AncestorsWithSelf
+        List<Thought> constraints = wildcard.Ancestors.Prepend(wildcard)
             .Where(ancestor => IsWildcard(ancestor))
             .SelectMany(ancestor => ancestor.Parents)
             .Where(parent => !IsWildcard(parent) &&
@@ -890,7 +893,7 @@ public partial class UKS
         IEnumerable<Link> startingLinks = firstPatternElement.LinksFrom;
         if (searchOptions.HasProperty("allowWildcards"))
         {
-            IEnumerable<Thought> wildcardCandidates = firstPatternElement.AncestorsWithSelf
+            IEnumerable<Thought> wildcardCandidates = firstPatternElement.Ancestors.Prepend(firstPatternElement)
                 .Append(Labeled("Property")).OfType<Thought>()
                 .SelectMany(parent => parent.Children);
             // An unclassified word has no noun/adjective/etc. ancestry yet.
@@ -911,7 +914,7 @@ public partial class UKS
 
         foreach (Link link in startingLinks)
         {
-            if (link.LinkType?.Label != "VLU") continue;
+            if (link.LinkType != VluType) continue;
             if (link.From is not SeqElement seqElement) continue;
             Thought? selectedValue = GetElementValue(seqElement, valueClass);
             if (selectedValue is null && IsWildcardPatternElement(seqElement.VLU, searchOptions)) selectedValue = seqElement.VLU;
@@ -933,7 +936,7 @@ public partial class UKS
         int patternIndex, SeqElement? curPos = null, List<SeqElement>? prevStack = null)
     {
         var callers = seqElement.LinksFrom
-            .Where(x => x.LinkType?.Label == "VLU" && x.From is SeqElement)
+            .Where(x => x.LinkType == VluType && x.From is SeqElement)
             .Select(x => (SeqElement)x.From!)
             .ToList();
         if (curPos is null) curPos = seqElement;
@@ -971,7 +974,7 @@ public partial class UKS
                 SeqElement? t = sequenceStart;
                 for (int i = 0; i < seedPatternIndex; i++)
                 {
-                    t = (SeqElement?)t?.LinksFrom.FirstOrDefault(x => x.LinkType?.Label == "NXT")?.From;
+                    t = (SeqElement?)t?.LinksFrom.FirstOrDefault(x => x.LinkType == NxtType)?.From;
                 }
                 return t;
             }
@@ -1032,7 +1035,7 @@ public partial class UKS
     {
         foreach (Link link in patternElement.LinksFrom)
         {
-            if (link.LinkType?.Label != "VLU") continue;
+            if (link.LinkType != VluType) continue;
             if (link.From is not SeqElement anchorElement) continue;
 
             SeqElement? firstElement = anchorElement.FRST;
@@ -1105,7 +1108,7 @@ public partial class UKS
     {
         return wildcard is not null &&
             IsWildcard(wildcard) &&
-            wildcard.AncestorsWithSelf
+            wildcard.Ancestors.Prepend(wildcard)
                 .Where(ancestor => IsWildcard(ancestor))
                 .SelectMany(ancestor => ancestor.Parents)
                 .Any(parent => !IsWildcard(parent) &&
@@ -1175,7 +1178,7 @@ public partial class UKS
         Thought wildcard = GetOrAddThought(wildcardName, "Property")!;
         Thought selectedProperty = GetOrAddThought(wildcardProperty, "Property")!;
         Thought? existingProperty = wildcard.LinksTo
-            .Where(x => x.LinkType?.Label == "hasProperty" && x.To is not null)
+            .Where(x => x.LinkType == HasPropertyType && x.To is not null)
             .Select(x => x.To!)
             .FirstOrDefault(x => WildcardProperties.Contains(
                 x.Label, StringComparer.OrdinalIgnoreCase));

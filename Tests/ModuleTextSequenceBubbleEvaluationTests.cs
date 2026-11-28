@@ -8,6 +8,7 @@ using UKS;
 using UKS.Agents;
 using Xunit;
 using Xunit.Abstractions;
+using UKS.Helpers;
 
 namespace BrainSimulator.Tests;
 

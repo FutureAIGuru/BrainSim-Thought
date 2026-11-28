@@ -39,7 +39,7 @@ public partial class UKS
             pastMarker.AddLink("hasProperty", GetOrAddThought("isHistorical", "Property"));
         }
 
-        bool conditional = type.HasProperty("isConditional") || type.HasProperty("isConjunction");
+        bool conditional = IsClauseLinkType(type);
         var historyProperty = Labeled("recordsHistory");
         if (!conditional && from is not Link && !type.HasProperty("isPossible") && !type.HasProperty("isHistorical") &&
             historyProperty is not null && to is not null &&
@@ -59,7 +59,7 @@ public partial class UKS
                     var events = GetOrAddThought("events", "LinkType")!;
                     var validUntil = GetOrAddThought("validUntil", "LinkType")!;
                     var timestamp = GetOrAddThought(DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture), "EventTime")!;
-                    var head = from.GetTargetOfFirstLinkOfType(events) as SeqElement;
+                    var head = from.HasLink(events)?.To as SeqElement;
                     var pastValues = new Dictionary<(Thought Type, Thought Target), Link>();
                     var visited = new HashSet<SeqElement>(ReferenceEqualityComparer.Instance);
                     for (var cell = head; cell is not null && visited.Add(cell); cell = cell.NXT)
@@ -92,7 +92,7 @@ public partial class UKS
                         {
                             // InsertElement keeps the head identity and moves its old VLU to NXT.
                             // Move the occurrence's timestamp with that value.
-                            var previousEnd = head.GetTargetOfFirstLinkOfType(validUntil);
+                            var previousEnd = head.HasLink(validUntil)?.To;
                             InsertElement(head, archived);
                             if (previousEnd is not null)
                             {

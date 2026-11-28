@@ -162,16 +162,15 @@ public partial class UKS
             Thought? querySource = thoughtsToExamine[i].querySource ?? t;
             foreach (Link r in t.LinksTo)
             {
-                if (r.LinkType == Labeled("is-a")) continue;
-                bool conditional = r.LinksTo.Any(link => link.LinkType?.HasProperty("isConditional") == true);
+                if (r.LinkType == IsAType) continue;
+                bool conditional = HasConditions(r);
                 // A possible link supplies no evidence unless a conditional
                 // supports it as a conclusion. Premises cannot assert their own truth.
                 if (r.LinkType?.HasProperty("isPossible") == true && !conditional) continue;
                 //only add the new link to the list if it is not already in the list
                 bool ignoreSource = thoughtsToExamine[i].hopCount > 1;
                 Link? existing = result.FindFirst(x => LinksAreEqual(x, r, ignoreSource));
-                bool existingConditional = existing is not null && existing.LinksTo.Any(link =>
-                    link.LinkType?.HasProperty("isConditional") == true);
+                bool existingConditional = existing is not null && HasConditions(existing);
                 if (existing is not null && !conditional && !existingConditional) continue;
 
                 //this is a fun hack which allows us to say that mary has 10 fingers because mary has 2 hands and
@@ -186,10 +185,10 @@ public partial class UKS
                     };
                     Thought? newCountType = GetOrAddThought((GetCount(r.LinkType) * haveCount).ToString(), "number");
 
-                    //hack for numeric labels
-                    Thought? rootThought = r1.LinkType;
-                    if (r.LinkType.Label.Contains("."))
-                        rootThought = GetOrAddThought(r.LinkType.Label.Substring(0, r.LinkType.Label.IndexOf(".")));
+                    // A counted type (has.2) is counted again from its uncounted base (has).
+                    Thought? rootThought = r.LinkType.Parents.Any(parent => parent.HasAncestor("number"))
+                        ? r.LinkType.Parents.FirstOrDefault(parent => !parent.HasAncestor("number")) ?? r.LinkType
+                        : r.LinkType;
                     Thought? bestMatch = r.LinkType;
                     List<Thought> missingAttributes = new();
                     Thought? newLinkType = null;
@@ -211,7 +210,7 @@ public partial class UKS
                     {
                         Weight = r.Weight * thoughtsToExamine[i].weight,
                     };
-                    foreach (Link r3 in r.LinksTo.Where(x => x.LinkType?.Label != "is-a"))
+                    foreach (Link r3 in r.LinksTo.Where(x => x.LinkType != IsAType))
                     {
                         if (r3.LinkType is not null)
                             r1.LinksToWriteable.Add(new Link(this) { From = r1, LinkType = r3.LinkType, To = r3.To });
@@ -234,7 +233,7 @@ public partial class UKS
             Link r1 = result[i];
 
             //remove properties from the results list (they are internal)
-            if (r1.LinkType?.Label == "hasProperty")
+            if (r1.LinkType == HasPropertyType && r1.LinkType is not null)
             {
                 result.RemoveAt(i);
                 i--;
@@ -282,9 +281,7 @@ public partial class UKS
         for (int i = 0; i < result.Count; i++)
         {
             Link r1 = result[i];
-            bool hasCondition = r1.LinksTo.Any(link =>
-                link.LinkType?.HasProperty("isConditional") == true);
-            if (!hasCondition) continue;
+            if (!HasConditions(r1)) continue;
             if (!ConditionsAreMet(r1))
             {
                 failedConditions.Add(r1);
@@ -313,13 +310,13 @@ public partial class UKS
         }
     }
 
-    private Thought GetAssertionLinkType(Thought conditionalLinkType)
+    private Thought GetAssertionLinkType(Thought possibleLinkType)
     {
-        if (!conditionalLinkType.HasProperty("isPossible")) return conditionalLinkType;
-        var ordinaryParents = conditionalLinkType.Parents.Where(parent =>
+        if (!possibleLinkType.HasProperty("isPossible")) return possibleLinkType;
+        var ordinaryParents = possibleLinkType.Parents.Where(parent =>
             !parent.HasProperty("isPossible") && !parent.HasProperty("setRelationship")).ToList();
         return ordinaryParents.FirstOrDefault(parent => ordinaryParents.All(other => parent.HasAncestor(other)))
-            ?? ordinaryParents.FirstOrDefault() ?? conditionalLinkType;
+            ?? ordinaryParents.FirstOrDefault() ?? possibleLinkType;
     }
 
     /// <summary>
@@ -331,6 +328,13 @@ public partial class UKS
     {
         return linkType?.HasProperty("isConditional") == true;
     }
+
+    // A link type joining statements, not Thoughts: a condition (IF) or a conjunction (AND).
+    internal static bool IsClauseLinkType(Thought? linkType) =>
+        IsConditionalLinkType(linkType) || linkType?.HasProperty("isConjunction") == true;
+
+    // A rule: the link has conditions (IF links) attached.
+    internal static bool HasConditions(Link link) => link.LinksTo.Any(condition => IsConditionalLinkType(condition.LinkType));
 
     /// <summary>
     private bool LinkHasAncestor(Link r, List<Thought> ancestors)
@@ -347,7 +351,7 @@ public partial class UKS
     int GetCount(Thought t)
     {
         int retVal = 1;
-        foreach (Thought parent in t.AncestorsWithSelf)
+        foreach (Thought parent in t.Ancestors.Prepend(t))
             if (parent.HasAncestor("number") && int.TryParse(parent.Label, out int val))
                 return val;
         return retVal;
@@ -358,7 +362,7 @@ public partial class UKS
         bool foundCondition = false;
         foreach (Link r1 in r.LinksTo)
         {
-            if (r1.LinkType?.HasProperty("isConditional") != true) continue;
+            if (!IsConditionalLinkType(r1.LinkType)) continue;
             foundCondition = true;
             if (r1.To is not Link condition || GetUnconditionalLink(condition) is null)
                 return false;
@@ -595,7 +599,7 @@ public partial class UKS
             for (int i = 0; i < searchCandidates.Keys.Count; i++)
             {
                 Thought t = searchCandidates.Keys.ToList()[i];
-                foreach (Thought t1 in t.AncestorsWithSelf)
+                foreach (Thought t1 in t.Ancestors.Prepend(t))
                 {
                     if (t1 != t && searchCandidates.ContainsKey(t1) && searchCandidates[t1] < 0)
                         searchCandidates.Remove(t);
@@ -624,13 +628,8 @@ public partial class UKS
         }
     }
 
-    /// <summary>
-    /// Gets the weight of the first link between two Thoughts (used by SearchByAttributes).
-    /// </summary>
-    /// <param name="t1">First thought.</param>
-    /// <param name="t2">Second thought.</param>
-    /// <returns>Weight of the direct link between the two thoughts, or 0 if none.</returns>
-    public float GetLinkWeight(Thought t1, Thought t2)
+    // The weight of the first link between two Thoughts, or 0 if there is none.
+    private static float GetLinkWeight(Thought t1, Thought t2)
     {
         foreach (var r in t1.LinksTo)
             if (r.To == t2) return r.Weight;
@@ -648,29 +647,6 @@ public partial class UKS
         return false;
     }
 
-    private bool LinksAreSimilar(Link r1, Link r2)
-    {
-        if (r1.LinkType != r2.LinkType) return false;
-        if (r1.To is null || r2.To is null) return false;
-        if (FindCommonParents(r1.To, r2.To).Count == 0) return false;
-        return true;
-    }
-
-    /// <summary>
-    /// DEPRECATED Determines whether two thoughts share at least one similar link (same link type and compatible targets).
-    /// </summary>
-    /// <param name="source">First thought to compare.</param>
-    /// <param name="target">Second thought to compare.</param>
-    /// <returns>True if a similar link exists; otherwise false.</returns>
-    public bool ThoughtsHaveSimilarLink(Thought source, Thought target)
-    {
-        foreach (Link r1 in source.LinksTo)
-            foreach (Link r2 in target.LinksTo)
-                if (LinksAreSimilar(r1, r2))
-                    return true;
-        return false;
-    }
-
     /// <summary>
     /// Searches for links matching the specified criteria. Null parameters act as wildcards.
     /// </summary>
@@ -682,12 +658,12 @@ public partial class UKS
         Thought? from = l.From?.HasProperty("isWildcard") is true ? null : l.From;
         Thought? linkType = l.LinkType?.HasProperty("isWildcard") is true ? null : l.LinkType;
         Thought? to = l.To?.HasProperty("isWildcard") is true ? null : l.To;
-        Thought? filterTarget = l.GetTargetOfFirstLinkOfType("filterBy");
+        Thought? filterTarget = l.HasLink("filterBy")?.To;
         Link? filter = filterTarget is null ? null : new Link(this) { To = filterTarget };
         if (from is null && to is null && linkType is null) return results;
 
         // hack to handle is-a searches
-        if (linkType is not null && linkType.Label == "is-a" && from is not null)
+        if (linkType is not null && linkType == IsAType && from is not null)
         {
             foreach (Thought child in from.Parents)
             {

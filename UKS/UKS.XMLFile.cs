@@ -436,7 +436,7 @@ public partial class UKS
                 // AtomicThoughts compares by reference, so Add skips a link already present
                 // (a linear Any() scan here made loading quadratic in the file size).
                 AtomicThoughts.Add(theLink);
-                if (linkType?.Label == "VLU")
+                if (linkType is not null && linkType == VluType)
                     PromoteToSeqElement(theLink.From);
             }
         }

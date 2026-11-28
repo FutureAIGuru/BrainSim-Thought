@@ -11,7 +11,6 @@
  * See the LICENSE file in the project root for full license information.
  */
 
-using Pluralize.NET;
 
 namespace UKS;
 
@@ -182,13 +181,13 @@ public partial class UKS
         }
     }
 
-    private bool HasProperty(Thought t, string propertyName)
-    {
-        if (t is null) return false;
-        var v = t.LinksTo;
-        if (v.FindFirst(x => x.To?.Label.ToLower() == propertyName.ToLower() && x.LinkType?.Label == "hasProperty") is not null) return true;
-        return false;
-    }
+    // The link types the store itself relies on, found by label (the index keys are lower case).
+    internal Thought? IsAType => CoreType("is-a");
+    internal Thought? HasPropertyType => CoreType("hasproperty");
+    internal Thought? FrstType => CoreType("frst");
+    internal Thought? NxtType => CoreType("nxt");
+    internal Thought? VluType => CoreType("vlu");
+    private Thought? CoreType(string key) => Labels.TryGetValue(key, out Thought? type) ? type : null;
 
     // The same connection, optionally ignoring the sources (two query results from different
     // sources that say the same thing).
@@ -213,12 +212,8 @@ public partial class UKS
         return GetLink(r);
     }
 
-    /// <summary>
-    /// Gets an existing link matching the supplied link prototype.
-    /// </summary>
-    /// <param name="r">Link prototype (From, LinkType, To) to search for.</param>
-    /// <returns>The existing link Thought, or null if not found.</returns>
-    public Link? GetLink(Link r)
+    // The stored link that a prototype (an unstored link with the same source, type and target) stands for.
+    internal Link? GetLink(Link r)
     {
         if (r.From is null) return null;
         foreach (Link r1 in r.From.LinksTo)
@@ -226,25 +221,6 @@ public partial class UKS
             if (LinksAreEqual(r, r1)) return r1;
         }
         return null;
-    }
-
-    /// <summary>
-    /// Gets all links from the same source matching the prototype's LinkType and To.
-    /// </summary>
-    /// <param name="r">Link prototype containing source, link type, and target.</param>
-    /// <returns>List of matching link Thoughts.</returns>
-    public List<Link> GetLinks(Link r)
-    {
-        List<Link> retVal = new();
-        if (r.From is not null)
-        {
-            foreach (Link r1 in r.From.LinksTo)
-            {
-                if (ReferenceEquals(r.LinkType, r1.LinkType) && Link.SameConnection(r.To, r1.To))
-                    retVal.Add(r1);
-            }
-        }
-        return retVal;
     }
 
     /// <summary>
@@ -289,18 +265,19 @@ public partial class UKS
 
         if (thoughtToReturn is not null)
         {
+            // The roots stay roots.
             if (thoughtToReturn.Parents.Count == 0 &&
-                thoughtToReturn.Label.ToLower() != "brainsim" &&
-                thoughtToReturn.Label.ToLower() != "thought" &&
+                thoughtToReturn != Labeled("BrainSim") &&
+                thoughtToReturn != Labeled("Thought") &&
                 correctParent is not null)
                 thoughtToReturn.AddParent(correctParent);
-            if (correctParent is not null && correctParent.Label != "Unknown")
+            if (correctParent is not null && correctParent != Labeled("Unknown"))
             {
                 thoughtToReturn.RemoveParent("Unknown");
                 thoughtToReturn.AddParent(correctParent);
             }
-            if (label.Split('.').Contains("?") && Labeled("?") is Thought conditionalType)
-                thoughtToReturn.AddParent(conditionalType);
+            if (label.Split('.').Contains("?") && Labeled("?") is Thought possibleType)
+                thoughtToReturn.AddParent(possibleType);
 
             return thoughtToReturn;
         }
@@ -393,67 +370,6 @@ public partial class UKS
         thoughtToReturn = AddThought(label, correctParent);
         thoughtToReturn.Fire();
         return thoughtToReturn;
-    }
-
-    /// <summary>
-    /// Finds or creates a subclass from a phrase, attaching attributes as dotted parts.
-    /// Example: "has 4" becomes thought {has.4} and [has.4 is 4].
-    /// </summary>
-    /// <param name="label">Input phrase to process.</param>
-    /// <param name="attributesFollow">True if attributes follow the base term; false if they precede it.</param>
-    /// <param name="singularize">When true, singularizes non-capitalized words.</param>
-    /// <returns>The created or retrieved Thought.</returns>
-    public Thought? CreateThoughtFromMultipleAttributes(string label, bool attributesFollow, bool singularize = true)
-    {
-        if (label.StartsWith("^"))  //if it starts with an ^, it's a sequence
-        {
-            List<Thought> targets = new();
-            string[] targetParts = label[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            foreach (string label1 in targetParts)
-            {
-                if (label1.Length == 1)
-                {
-                    Thought? t1 = GetOrAddCharacter(label1[0]);
-                    if (t1 is not null) targets.Add(t1);
-                }
-                else
-                {
-                    Thought? t1 = Labeled(label1) ?? (label1.StartsWith("w:")
-                        ? GetOrAddThought(label1, "word")
-                        : GetOrAddThought(label1));
-                    if (t1 is not null) targets.Add(t1);
-                }
-            }
-            string seqLabel = string.Join("", targetParts);
-            return AddSequence(seqLabel, targets, false);
-
-        }
-        IPluralize pluralizer = new Pluralizer();
-        label = label.Trim();
-        string[] attributeParts = label.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (attributeParts.Length == 0 || attributeParts[0].Length == 0) return null;
-
-        for (int i = 0; i < attributeParts.Length; i++)
-            if (!char.IsUpper(attributeParts[i][0]) && singularize)
-                attributeParts[i] = pluralizer.Singularize(attributeParts[i]);
-
-        string thoughtLabel;
-        if (attributesFollow)
-        {
-            thoughtLabel = attributeParts[0];
-            for (int i = 1; i < attributeParts.Length; i++)
-                thoughtLabel += "." + attributeParts[i];
-        }
-        else
-        {
-            int last = attributeParts.Length - 1;
-            thoughtLabel = attributeParts[last];
-            for (int i = 0; i < last; i++)
-                thoughtLabel += "." + attributeParts[i];
-        }
-
-        // GetOrAddThought assigns the parents of a dotted label.
-        return GetOrAddThought(thoughtLabel);
     }
 
     /// <summary>

@@ -119,6 +119,7 @@ public static class ClassAgents
 
     /// <summary>
     /// When a Thought under Object has more than 6 children, moves them into new subclasses of at most 6.
+    /// A Thought with several parents (such as a compound, dog.big) is left alone.
     /// </summary>
     /// <returns>The subclasses created.</returns>
     public static List<Thought> BalanceTree(this UKS store)
@@ -127,7 +128,7 @@ public static class ClassAgents
         List<Thought> created = new();
         foreach (Thought t in Under(store, "Object").ToList())
         {
-            if (t.Label.Contains('.')) continue;
+            if (t.Parents.Count > 1) continue;
             while (t.Children.Count > maxChildren)
             {
                 Thought newParent = store.AddThought(t.Label, t);
@@ -145,7 +146,8 @@ public static class ClassAgents
 
     /// <summary>
     /// Among the children of each Thought under Object, finds groups (3 to 12 members) that share the
-    /// same attributes and makes each group an anonymous subclass.
+    /// same attributes and makes each group an anonymous subclass. Anonymous classes and Thoughts
+    /// under Unknown are not divided.
     /// </summary>
     /// <returns>The classes created or reused.</returns>
     public static List<Thought> CreateClasses(this UKS store)
@@ -153,8 +155,7 @@ public static class ClassAgents
         List<Thought> classes = new();
         foreach (Thought t in Under(store, "Object").ToList())
         {
-            if (!HasDirectProperty(store, t, "isAnonymousClass") &&
-                !t.Label.Contains("unknown", StringComparison.OrdinalIgnoreCase))
+            if (!HasDirectProperty(store, t, "isAnonymousClass") && !t.HasAncestor("Unknown"))
                 classes.AddRange(CreateClassesFromCommonAttributes(store, t));
         }
         return classes;

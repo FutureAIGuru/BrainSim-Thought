@@ -25,6 +25,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using UKS;
+using UKS.Helpers;
 
 namespace BrainSimulator.Modules;
 
@@ -831,7 +832,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     Thought parentThought = (Thought)parent1?.GetValue(ThoughtObjectProperty);
                     //now delete the link
                     if (parentThought is not null && t is not null)
-                        theUKS.ChangeUndoably($"delete child {t.Label} of {parentThought.Label}", () => parentThought.RemoveChild(t));
+                        theUKS.ChangeUndoably($"delete child {t.Label} of {parentThought.Label}", () => t.RemoveParent(parentThought));
                     break;
                 case "Make Root":
                     CommitRoot(t.Label);

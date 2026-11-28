@@ -19,6 +19,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Forms.Design;
 using UKS;
+using UKS.Helpers;
 
 namespace BrainSimulator.Modules;
 

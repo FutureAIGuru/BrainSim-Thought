@@ -19,8 +19,10 @@ internal, what moves out, and the order of the work. Each member's fate is check
 
 - **Core:** the representation and its basic operations: Thoughts, links, inheritance, queries,
   firing and time, sequences, files, undo.
-- **Conveniences:** thin helpers built on the core that never compare labels
-  (e.g. `GetTargetOfFirstLinkOfType`).
+- **Helpers:** shorthands built on the core, in namespace `UKS.Helpers` (UKS.Helpers.cs):
+  `ThoughtHelpers` (lookups on a Thought's links) and `PhraseHelpers` (reading typed input). Like
+  agents they use only the public API and are documented apart from the core and outside the
+  Phase J freeze. The core never calls them.
 - **Agents:** processes that reorganize the store (abstract, consolidate, count, prune). They may use
   only the public API, are packaged as extension methods in their own file and namespace, and can be
   run on demand or with `RunPeriodically`. The clock and TimeToLive expiry stay in the core.
@@ -40,7 +42,7 @@ only stores the label; the receiving method resolves it in its own store. A bare
 A value that is neither a Thought nor a string doesn't compile; a Thought from another store throws.
 Applied (Phase B):
 - Thought: `AddLink`, `RemoveLink`, `RemoveLinks`, `HasLink`, `AddParent`, `RemoveParent`, `RemoveChild`,
-  `HasAncestor`, `HasProperty`, `AddProperty`, the `Get...OfType` helpers.
+  `HasAncestor`, `HasProperty`, `AddProperty`, the `Get...OfType` helpers (now in `UKS.Helpers`).
 - UKS: `AddStatement`, `AddStatementRecordingHistory`, `GetOrAddThought` and `AddThought` (parent),
   `GetLink`, `GetAttributes`, `SearchByAttributes` (root), `ExportTextFile` (root),
   `FindSequencesByActivation` (options and classes), `AddSequenceAndLink` (link type),
@@ -70,11 +72,10 @@ Settled:
 Open:
 - When the spelling helpers leave (`CharacterPrefix`, `GetCharacterLabel`, `GetOrAddCharacter`,
   `CreateSpellingSequence`): the UKS still uses characters itself, for the starter alphabet
-  (`CreateInitialStructure`) and single letters in `CreateThoughtFromMultipleAttributes` (Review).
+  (`CreateInitialStructure`) and single letters in phrases (`^a b c`, the text reader and `PhraseHelpers`).
   They can move once the starter content is decided.
 - Require policy: silent, or a debug warning for an unknown label?
 - Whether `AddStatementRecordingHistory` folds into `AddStatement`.
-- The user's review of the wrapper methods marked Review below.
 
 Deferred (known issues, not API):
 - Editing a sequence that other owners share changes it for all of them and leaves the sequence
@@ -114,7 +115,16 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
       call syntax is unchanged. Whole-store agents walk the hierarchy from its roots instead of the
       internal set of all Thoughts. `RunPeriodically` and `ReplaceThoughtReferences` stay in the core
       (see their rows); new public `UKS.IsWildcard`. The common-sequence types are internal.
-- [ ] **G. Conveniences:** no label comparisons; apply the wrapper review
+- [x] **G. Helpers and label comparisons:** the wrapper review is applied (see the rows). New
+      namespace `UKS.Helpers` (Layers) holds the former conveniences and
+      `CreateThoughtFromMultipleAttributes`; callers add `using UKS.Helpers;`. `ThoughtRef.Find` is
+      public. The UKS compares no labels: the core link types (is-a, hasProperty, FRST, NXT, VLU) are
+      compared by identity (internal lookups by label, `IsAType` etc.), the sequence agents group
+      sequences by their elements instead of label text, and the sequence cache is updated only for the
+      sequence it holds (it used to skip query sequences by a "thequery" label prefix). Labels are
+      still read where they are the notation itself: dotted labels, the text and XML formats, and
+      numbers (`GetCount`). `isConditional`/`isPossible` audit: the logic was consistent; misleading
+      names ("conditional" for `?` types) were fixed. Pluralize.NET left the UKS.
 - [ ] **H. Naming** (the renames above, including the plain `ThoughtRef` parameter names) and `ThoughtList`
 - [ ] **I. Documentation:** upgrade every public member's XML doc comment so Doxygen works again
       (`UKS/Doxyfile`, output to `UKS/Documentation`; about 140 of 226 public declarations have a
@@ -127,11 +137,11 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
 ## Members
 
 "Overloads" counts the declarations sharing a name. Fates:
-**Core**, **Convenience**, **Agent**, **Internal** (stays, not public), **Undocumented** (public only
+**Core**, **Helper**, **Agent**, **Internal** (stays, not public), **Undocumented** (public only
 because an experiment or the serializer needs it; left out of the documentation and the Phase J freeze), **Move** (out of the UKS
-to a module), **Delete**, **Review** (your wrapper review decides).
+to a module), **Delete**.
 
-Totals by name: Core 102, Internal 41, Undocumented 11, Agent 13, Review 12, Delete 11, Move 6, Convenience 5 (201 names).
+Totals by name: Core 106, Internal 45, Delete 15, Agent 13, Undocumented 11, Move 6, Helper 6 (202 names).
 
 
 ### UKS
@@ -160,18 +170,18 @@ Totals by name: Core 102, Internal 41, Undocumented 11, Agent 13, Review 12, Del
 | `CreateClasses` | Agent | ClassAgents | done |
 | `CreateFirstElement` | Core |  | |
 | `CreateInitialStructure` | Core |  | |
-| `CreateInstanceOf` | Review |  | |
+| `CreateInstanceOf` | Delete | was AddThought(type.Label, type); callers write that | done |
 | `CreateMinimumStructureForTests` | Internal | test-only | done |
 | `CreateNewTemplate` | Agent | SequenceAgents | done |
 | `CreateSearchOptions` | Core |  | |
 | `CreateSpellingSequence` | Move | letters are language content: word module; deferred (see Open) |  |
-| `CreateThoughtFromMultipleAttributes` | Review |  | |
+| `CreateThoughtFromMultipleAttributes` | Helper | PhraseHelpers; takes an optional singularizer (hosts pass English), so Pluralize.NET left the UKS. The text reader uses an internal copy without singularizing (no content file or test depended on it) | done |
 | `CreateWildcard` | Core |  | |
 | `CreatedInCurrentChange` | Core | new (Phase D): replaces CurrentTransaction.Created | done |
 | `CurrentTransaction` | Internal | replaced by CreatedInCurrentChange | done |
 | `Cycle` | Core |  | |
 | `CyclesPerSecond` | Core |  | |
-| `DeleteAllChildrenAndLinks` | Review |  | |
+| `DeleteAllChildrenAndLinks` | Core | rename in H (DeleteDescendants; the doc must say it also removes the Thought's own links) |  |
 | `DeleteSequence` | Core |  | |
 | `DiscoverSequenceTemplates` | Agent | SequenceAgents | done |
 | `EndTransaction` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
@@ -190,9 +200,9 @@ Totals by name: Core 102, Internal 41, Undocumented 11, Agent 13, Review 12, Del
 | `GetEvidence` | Core | new (Phase D): the stored links behind a query result (is-a chain, then the stored link); replaces the Link query annotations | done |
 | `GetElementValue` | Core |  | |
 | `GetLastlement` | Internal | test-only | done |
-| `GetLink (2)` | Review |  | |
-| `GetLinkWeight` | Review |  | |
-| `GetLinks` | Review |  | |
+| `GetLink (2)` | Core | (from, type, to) is Core; the prototype overload is internal | done |
+| `GetLinkWeight` | Internal | private; only SearchByAttributes uses it | done |
+| `GetLinks` | Delete | a store keeps one link per connection, so it was GetLink as a list | done |
 | `GetOrAddCharacter` | Move | letters are language content: word module; deferred (see Open) |  |
 | `GetOrAddThought` | Core |  | |
 | `GetOrCreateThoughtClass` | Agent | ClassAgents | done |
@@ -204,7 +214,7 @@ Totals by name: Core 102, Internal 41, Undocumented 11, Agent 13, Review 12, Del
 | `GetSequenceLinks (2)` | Agent | SequenceAgents | done |
 | `ImportTextFile` | Core |  | |
 | `InsertElement` | Core | merge into InsertAfter(first, value, atBeginning: true) | |
-| `IsConditionalLinkType` | Internal | IF is evaluated only by queries; hosts check HasProperty("isConditional"); about 15 inline copies should call it (Phase G) | done |
+| `IsConditionalLinkType` | Internal | IF is evaluated only by queries; hosts check HasProperty("isConditional"). The core's inline copies call it, and new internal IsClauseLinkType (IF or AND) and HasConditions (a rule) replace the other repeated tests | done |
 | `IsSequenceElement` | Core |  | |
 | `IsSequenceFirstElement` | Core |  | |
 | `IsWildcard` | Core | new (Phase F): was internal HasWildcardProperty; pairs with CreateWildcard | done |
@@ -226,16 +236,16 @@ Totals by name: Core 102, Internal 41, Undocumented 11, Agent 13, Review 12, Del
 | `RunPeriodically` | Core | was Agent: the scheduler agents run on, with per-store timers | done |
 | `SaveUKStoXMLFile` | Core | rename to SaveXml | |
 | `SearchByAttributes` | Core |  | |
-| `SearchForRelationships` | Review |  | |
+| `SearchForRelationships` | Core | maybe a shorter name in H (FindLinks) |  |
 | `SequenceElementCount` | Core |  | |
 | `SequenceMatchesPattern` | Agent | SequenceAgents, internal (its pattern type is internal; only tests call it) | done |
 | `StartClock` | Core |  | |
 | `StopClock` | Core |  | |
-| `SubclassExists` | Review |  | |
+| `SubclassExists` | Internal | private; only the query's counting uses it | done |
 | `SuppressFiring` | Core |  | |
 | `ThoughtCount` | Core |  | |
 | `ThoughtFired` | Core |  | |
-| `ThoughtsHaveSimilarLink` | Review |  | |
+| `ThoughtsHaveSimilarLink` | Delete | deprecated, unused (with its private helper LinksAreSimilar) | done |
 | `TryChange` | Core | new (Phase D): a change kept only if it succeeds (the interpreter) | done |
 | `constructor` | Core |  | |
 | `Undo` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
@@ -254,21 +264,21 @@ Totals by name: Core 102, Internal 41, Undocumented 11, Agent 13, Review 12, Del
 | `AddParent` | Core |  | |
 | `AddProperty` | Core |  | |
 | `Ancestors` | Core |  | |
-| `AncestorsWithSelf` | Convenience |  | |
+| `AncestorsWithSelf` | Helper | ThoughtHelpers (an extension property); the core uses Ancestors | done |
 | `Children` | Core |  | |
 | `CreatedCycle` | Core |  | |
 | `Delete` | Core |  | |
 | `Descendants` | Core |  | |
-| `EnumerateSubThoughts` | Review |  | |
+| `EnumerateSubThoughts` | Internal | only the file writers use it | done |
 | `Equals` | Delete | removed: equality is identity | done |
 | `Fire` | Core |  | |
 | `FiredWithin` | Core |  | |
 | `Forever` | Core |  | |
-| `GetAttributes` | Review |  | |
+| `GetAttributes` | Internal | renamed DirectAttributes (it collided with UKS.GetAttributes); compares link types by identity; only exclusivity uses it | done |
 | `GetHashCode` | Delete | removed: equality is identity | done |
-| `GetSourceOfFirstLinkOfType` | Convenience | resolve the label once, then compare identity (no label comparison) | |
-| `GetTargetOfFirstLinkOfType (2)` | Convenience | resolve the label once, then compare identity (no label comparison) | |
-| `GetTargetOfHighestWeightLinkOfType` | Convenience | resolve the label once, then compare identity (no label comparison) | |
+| `GetSourceOfFirstLinkOfType` | Helper | ThoughtHelpers | done |
+| `GetTargetOfFirstLinkOfType (2)` | Helper | ThoughtHelpers; the core uses HasLink(type)?.To | done |
+| `GetTargetOfHighestWeightLinkOfType` | Helper | ThoughtHelpers | done |
 | `HasAncestor (2)` | Core |  | |
 | `HasGeneratedLabel` | Internal | internal; hosts show Links with ToString()/their own format. Still a prefix test: a real flag needs the XML and text files to stop writing generated labels (file-format change) | done |
 | `HasLink (2)` | Core |  | |
@@ -282,9 +292,9 @@ Totals by name: Core 102, Internal 41, Undocumented 11, Agent 13, Review 12, Del
 | `LinksTo` | Core |  | |
 | `LinksToWriteable` | Internal |  | done |
 | `Parents` | Core |  | |
-| `RemoveChild` | Review |  | |
+| `RemoveChild` | Delete | one way: child.RemoveParent(parent) | done |
 | `RemoveLink (2)` | Core |  | |
-| `RemoveLinks` | Convenience |  | |
+| `RemoveLinks` | Helper | ThoughtHelpers | done |
 | `RemoveParent (2)` | Core |  | |
 | `Store` | Core |  | |
 | `constructor (2)` | Core |  | |
@@ -322,6 +332,7 @@ Totals by name: Core 102, Internal 41, Undocumented 11, Agent 13, Review 12, Del
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
+| `Find` | Core | public in G: resolving a ThoughtRef is what code built on the core (helpers, agents) needs | done |
 | `IsEmpty` | Core |  | |
 | `ToString` | Core |  | |
 | `operators (2)` | Core |  | |
