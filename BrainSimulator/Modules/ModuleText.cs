@@ -57,6 +57,7 @@ using System.IO;
 using System.Linq;
 using Pluralize.NET;
 using UKS;
+using UKS.Agents;
 
 namespace BrainSimulator.Modules;
 

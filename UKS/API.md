@@ -108,8 +108,12 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
       `GetLink`, `HasLink`, `RemoveLink`, loading), it now says so explicitly: internal
       `Link.SameConnection` (same type, same source and target by identity, nested Links compared
       the same way). The case-insensitive label match in `HasLink` is gone.
-- [ ] **F. Agents layer:** extension methods in their own file and namespace, including the
-      sequence/template machinery
+- [x] **F. Agents layer:** extension methods in namespace `UKS.Agents`, using only the public API
+      (checked by compiling them outside the UKS assembly): `ClassAgents` (UKS.Agents.Classes.cs) and
+      `SequenceAgents` (UKS.SequenceBubble.cs, UKS.SequenceComparison.cs). Callers add `using UKS.Agents;`;
+      call syntax is unchanged. Whole-store agents walk the hierarchy from its roots instead of the
+      internal set of all Thoughts. `RunPeriodically` and `ReplaceThoughtReferences` stay in the core
+      (see their rows); new public `UKS.IsWildcard`. The common-sequence types are internal.
 - [ ] **G. Conveniences:** no label comparisons; apply the wrapper review
 - [ ] **H. Naming** (the renames above, including the plain `ThoughtRef` parameter names) and `ThoughtList`
 - [ ] **I. Documentation:** upgrade every public member's XML doc comment so Doxygen works again
@@ -127,14 +131,14 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
 because an experiment or the serializer needs it; left out of the documentation and the Phase J freeze), **Move** (out of the UKS
 to a module), **Delete**, **Review** (your wrapper review decides).
 
-Totals by name: Core 99, Internal 41, Undocumented 11, Agent 15, Review 12, Delete 11, Move 6, Convenience 5 (200 names).
+Totals by name: Core 102, Internal 41, Undocumented 11, Agent 13, Review 12, Delete 11, Move 6, Convenience 5 (201 names).
 
 
 ### UKS
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
-| `AddCounts` | Agent |  | |
+| `AddCounts` | Agent | ClassAgents | done |
 | `AddElement` | Core | merge into InsertAfter(element, value, atBeginning) | |
 | `AddSequence` | Core |  | |
 | `AddSequenceAndLink` | Core |  | |
@@ -143,22 +147,22 @@ Totals by name: Core 99, Internal 41, Undocumented 11, Agent 15, Review 12, Dele
 | `AddThought` | Core | fold into GetOrAddThought | |
 | `AdvanceCycle` | Core |  | |
 | `ApplyTestOrSetAction` | Core |  | |
-| `BalanceTree` | Agent |  | |
+| `BalanceTree` | Agent | ClassAgents | done |
 | `BeginTransaction` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
-| `BubbleAttributes` | Agent |  | |
-| `BubbleSharedSequences` | Agent | sequence/template machinery; its result types become internal | |
+| `BubbleAttributes` | Agent | ClassAgents | done |
+| `BubbleSharedSequences` | Agent | SequenceAgents | done |
 | `CanUndo` | Core |  | |
 | `ChangeUndoably` | Core |  | |
 | `CharacterPrefix` | Move | letters are language content: word module; deferred (see Open) |  |
 | `ClearSequenceCache` | Internal |  | done |
 | `CompareSequences` | Internal | ModuleLearnMelody compares the flattened sequences | done |
 | `Copy` | Core |  | |
-| `CreateClasses` | Agent |  | |
+| `CreateClasses` | Agent | ClassAgents | done |
 | `CreateFirstElement` | Core |  | |
 | `CreateInitialStructure` | Core |  | |
 | `CreateInstanceOf` | Review |  | |
 | `CreateMinimumStructureForTests` | Internal | test-only | done |
-| `CreateNewTemplate` | Agent | sequence/template machinery; its result types become internal | |
+| `CreateNewTemplate` | Agent | SequenceAgents | done |
 | `CreateSearchOptions` | Core |  | |
 | `CreateSpellingSequence` | Move | letters are language content: word module; deferred (see Open) |  |
 | `CreateThoughtFromMultipleAttributes` | Review |  | |
@@ -169,13 +173,13 @@ Totals by name: Core 99, Internal 41, Undocumented 11, Agent 15, Review 12, Dele
 | `CyclesPerSecond` | Core |  | |
 | `DeleteAllChildrenAndLinks` | Review |  | |
 | `DeleteSequence` | Core |  | |
-| `DiscoverSequenceTemplates` | Agent | sequence/template machinery; its result types become internal | |
+| `DiscoverSequenceTemplates` | Agent | SequenceAgents | done |
 | `EndTransaction` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
 | `EnumerateSequenceElements` | Core |  | |
 | `ExportTextFile` | Core |  | |
 | `FileName` | Core |  | |
 | `FilterResults` | Delete | dead | done |
-| `FindCommonSequence` | Agent | sequence/template machinery; its result types become internal | |
+| `FindCommonSequence` | Agent | SequenceAgents, internal (its pattern type is internal; only tests call it) | done |
 | `FindSequenceSpansByActivation` | Undocumented | only the segmenter (an experiment) uses it; moving it would expose the activation search internals | done |
 | `FindSequencesByActivation (2)` | Core |  | |
 | `FindSequencesOutOfOrder` | Internal | reached through FindSequencesByActivation options | done |
@@ -191,39 +195,40 @@ Totals by name: Core 99, Internal 41, Undocumented 11, Agent 15, Review 12, Dele
 | `GetLinks` | Review |  | |
 | `GetOrAddCharacter` | Move | letters are language content: word module; deferred (see Open) |  |
 | `GetOrAddThought` | Core |  | |
-| `GetOrCreateThoughtClass` | Agent | sequence/template machinery; its result types become internal | |
+| `GetOrCreateThoughtClass` | Agent | ClassAgents | done |
 | `GetPreviousSequenceElement` | Move | ModuleSequenceSegmenter.PreviousElement (by identity, not the NXT label) | done |
 | `GetReferrer` | Delete | dead | done |
 | `GetReferringThoughts` | Core | later: probably duplicates a general "sources of links of a type" convenience (Phase G) | done |
-| `GetSequenceBindings` | Agent | sequence/template machinery; its result types become internal | |
+| `GetSequenceBindings` | Agent | SequenceAgents | done |
 | `GetSequenceLength` | Internal | callers use FlattenSequence(...).Count | done |
-| `GetSequenceLinks (2)` | Agent | sequence/template machinery; its result types become internal | |
+| `GetSequenceLinks (2)` | Agent | SequenceAgents | done |
 | `ImportTextFile` | Core |  | |
 | `InsertElement` | Core | merge into InsertAfter(first, value, atBeginning: true) | |
 | `IsConditionalLinkType` | Internal | IF is evaluated only by queries; hosts check HasProperty("isConditional"); about 15 inline copies should call it (Phase G) | done |
 | `IsSequenceElement` | Core |  | |
 | `IsSequenceFirstElement` | Core |  | |
+| `IsWildcard` | Core | new (Phase F): was internal HasWildcardProperty; pairs with CreateWildcard | done |
 | `Labeled` | Core |  | |
 | `LabeledStartingWith` | Core | new (Phase C): label completion and search, replacing `ThoughtLabels.LabelList` | done |
 | `LinkCount` | Core |  | |
 | `LinksAreExclusive` | Core | public (decided) | done |
 | `LoadUKSfromXMLFile` | Core | rename to LoadXml | |
-| `MaterializeCommonSequence` | Agent | sequence/template machinery; its result types become internal | |
+| `MaterializeCommonSequence` | Agent | SequenceAgents, internal (its pattern type is internal; only tests call it) | done |
 | `ProcessSingleLine` | Core |  | |
 | `ProcessSingleLineWithNesting` | Core |  | |
 | `PromoteToSeqElement` | Internal |  | done |
 | `RememberForUndo` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
 | `RemoveFirstSequenceElement` | Move | ModuleSequenceSegmenter.RemoveQueueHead | done |
 | `RemoveLastSequenceElement` | Delete | dead | done |
-| `ReplaceThoughtReferences` | Agent | with class coalescing | |
+| `ReplaceThoughtReferences` | Core | was Agent: merging two Thoughts is a store operation (it keeps the parent invariant); ModuleText's class coalescing uses it. Rename to Merge (Phase H)? | done |
 | `Reset` | Core |  | |
 | `Roots` | Core |  | |
-| `RunPeriodically` | Agent |  | |
+| `RunPeriodically` | Core | was Agent: the scheduler agents run on, with per-store timers | done |
 | `SaveUKStoXMLFile` | Core | rename to SaveXml | |
 | `SearchByAttributes` | Core |  | |
 | `SearchForRelationships` | Review |  | |
 | `SequenceElementCount` | Core |  | |
-| `SequenceMatchesPattern` | Agent | sequence/template machinery; its result types become internal | |
+| `SequenceMatchesPattern` | Agent | SequenceAgents, internal (its pattern type is internal; only tests call it) | done |
 | `StartClock` | Core |  | |
 | `StopClock` | Core |  | |
 | `SubclassExists` | Review |  | |
@@ -325,16 +330,16 @@ Totals by name: Core 99, Internal 41, Undocumented 11, Agent 15, Review 12, Dele
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
-| `GapCardinality` | Internal | type becomes internal with the agents (Phase F) |  |
-| `IsGap` | Internal | type becomes internal with the agents (Phase F) |  |
-| `Value` | Internal | type becomes internal with the agents (Phase F) |  |
+| `GapCardinality` | Internal | type is internal | done |
+| `IsGap` | Internal | type is internal | done |
+| `Value` | Internal | type is internal | done |
 
 ### CommonSequencePattern
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
-| `Elements` | Internal | type becomes internal with the agents (Phase F) |  |
-| `FixedElementCount` | Internal | type becomes internal with the agents (Phase F) |  |
+| `Elements` | Internal | type is internal | done |
+| `FixedElementCount` | Internal | type is internal | done |
 
 ### IReadOnlyListExtensions
 

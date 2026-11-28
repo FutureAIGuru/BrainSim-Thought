@@ -11,16 +11,21 @@
  * See the LICENSE file in the project root for full license information.
  */
 
-namespace UKS;
+namespace UKS.Agents;
 
-public partial class UKS
+public static partial class SequenceAgents
 {
-    public Dictionary<Thought, Thought>? GetSequenceBindings(SeqElement templateSequence,SeqElement concreteSequence)
+    /// <summary>
+    /// Binds each wildcard of a template sequence to the value at the same place in an equal-length
+    /// concrete sequence; a wildcard used twice must bind to the same value.
+    /// </summary>
+    /// <returns>The bindings, or null if the lengths differ or a repeated wildcard binds inconsistently.</returns>
+    public static Dictionary<Thought, Thought>? GetSequenceBindings(this UKS store, SeqElement templateSequence, SeqElement concreteSequence)
     {
         Dictionary<Thought, Thought> bindings = new();
 
-        List<Thought> template = FlattenSequence(templateSequence);
-        List<Thought> concrete = FlattenSequence(concreteSequence);
+        List<Thought> template = store.FlattenSequence(templateSequence);
+        List<Thought> concrete = store.FlattenSequence(concreteSequence);
 
         if (template.Count != concrete.Count)
             return null;
@@ -53,13 +58,13 @@ public partial class UKS
     /// Equal values remain fixed; each pair of unequal values becomes a learned class and a singleton wildcard.
     /// </summary>
     /// <returns>The existing or newly created template, or null when the sequences cannot form a useful template.</returns>
-    public Thought? CreateNewTemplate(SeqElement firstSequence, SeqElement secondSequence)
+    public static Thought? CreateNewTemplate(this UKS store, SeqElement firstSequence, SeqElement secondSequence)
     {
         Thought? retVal = null;
         if (firstSequence is null || secondSequence is null) return retVal;
 
-        SeqElement firstRoot = GetFirstElement(firstSequence) ?? firstSequence;
-        SeqElement secondRoot = GetFirstElement(secondSequence) ?? secondSequence;
+        SeqElement firstRoot = firstSequence.FRST ?? firstSequence;
+        SeqElement secondRoot = secondSequence.FRST ?? secondSequence;
         SeqElement? firstElement = firstRoot;
         SeqElement? secondElement = secondRoot;
         int fixedCount = 0;
@@ -68,15 +73,15 @@ public partial class UKS
         //If there are no differences or no similarities, then we cannot create a useful template.
         while (firstElement is not null && secondElement is not null)
         {
-            Thought? firstValue = GetElementValue(firstElement);
-            Thought? secondValue = GetElementValue(secondElement);
+            Thought? firstValue = store.GetElementValue(firstElement);
+            Thought? secondValue = store.GetElementValue(secondElement);
             if (firstValue is null || secondValue is null) return retVal;
 
             if (firstValue == secondValue) fixedCount++;
             else differenceCount++;
 
-            firstElement = GetNextElement(firstElement);
-            secondElement = GetNextElement(secondElement);
+            firstElement = firstElement.NXT;
+            secondElement = secondElement.NXT;
         }
 
         // Unequal lengths need cardinality wildcards and alignment, which are deliberately outside this first comparator.
@@ -84,8 +89,8 @@ public partial class UKS
             return retVal;
 
         //possible matching template, so create a new template and class root if they don't already exist.
-        Thought? templateRoot = Labeled("LearnedTemplate");
-        Thought? classRoot = Labeled("LearnedClass");
+        Thought? templateRoot = store.Labeled("LearnedTemplate");
+        Thought? classRoot = store.Labeled("LearnedClass");
         if (templateRoot is null || classRoot is null) return retVal;
 
         List<Thought> templateValues = new();
@@ -94,8 +99,8 @@ public partial class UKS
         bool lastWasWildcard = false;
         while (firstElement is not null && secondElement is not null)
         {
-            Thought firstValue = GetElementValue(firstElement)!; // checked non-null in the first pass
-            Thought secondValue = GetElementValue(secondElement)!;
+            Thought firstValue = store.GetElementValue(firstElement)!; // checked non-null in the first pass
+            Thought secondValue = store.GetElementValue(secondElement)!;
             if (firstValue == secondValue)
             {
                 templateValues.Add(firstValue);
@@ -105,20 +110,20 @@ public partial class UKS
             {
                 if (lastWasWildcard) return null;
                 List<Thought> members = new() { firstValue, secondValue };
-                Thought fillerClass = GetOrCreateThoughtClass(classRoot, members, "class*");
+                Thought fillerClass = store.GetOrCreateThoughtClass(classRoot, members, "class*");
                 string wildcardLabel = "??" + fillerClass.Label;
-                Thought? wildcard = Labeled(wildcardLabel);
+                Thought? wildcard = store.Labeled(wildcardLabel);
                 if (wildcard is null)
-                    wildcard = CreateWildcard(wildcardLabel, new List<Thought> { fillerClass });
+                    wildcard = store.CreateWildcard(wildcardLabel, new List<Thought> { fillerClass });
                 templateValues.Add(wildcard);
                 lastWasWildcard = true;
             }
 
-            firstElement = GetNextElement(firstElement);
-            secondElement = GetNextElement(secondElement);
+            firstElement = firstElement.NXT;
+            secondElement = secondElement.NXT;
         }
-        retVal = GetOrAddThought("template*", templateRoot)!;
-        AddSequenceAndLink(retVal, "hasWords", templateValues);
+        retVal = store.GetOrAddThought("template*", templateRoot)!;
+        store.AddSequenceAndLink(retVal, "hasWords", templateValues);
         return retVal;
     }
 }

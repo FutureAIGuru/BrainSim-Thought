@@ -4,6 +4,7 @@ using System.Linq;
 using BrainSimulator;
 using BrainSimulator.Modules;
 using UKS;
+using UKS.Agents;
 using Xunit;
 
 namespace BrainSimulator.Tests;

@@ -20,6 +20,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using UKS;
+using UKS.Agents;
 
 namespace BrainSimulator.Modules;
 

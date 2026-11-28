@@ -11,12 +11,12 @@
  * See the LICENSE file in the project root for full license information.
  */
 
-namespace UKS;
+namespace UKS.Agents;
 
 /// <summary>
 /// Cardinality inferred for a non-common region between fixed sequence values.
 /// </summary>
-public enum SequenceGapCardinality
+internal enum SequenceGapCardinality
 {
     ExactlyOne,
     ZeroOrOne,
@@ -28,7 +28,7 @@ public enum SequenceGapCardinality
 /// One transient element of a common-sequence description. It is either a
 /// fixed Thought or a gap with an inferred cardinality.
 /// </summary>
-public sealed class CommonSequenceElement
+internal sealed class CommonSequenceElement
 {
     private CommonSequenceElement(Thought? value, SequenceGapCardinality? gapCardinality)
     {
@@ -48,7 +48,7 @@ public sealed class CommonSequenceElement
 /// A side-effect-free alignment result. Persisted knowledge is created only
 /// when a caller bubbles this description onto a Thought class.
 /// </summary>
-public sealed class CommonSequencePattern
+internal sealed class CommonSequencePattern
 {
     internal CommonSequencePattern(IReadOnlyList<CommonSequenceElement> elements, int fixedElementCount)
     {
@@ -60,37 +60,21 @@ public sealed class CommonSequencePattern
     public int FixedElementCount { get; }
 }
 
-public partial class UKS
+/// <summary>
+/// Agents that find what sequences have in common: shared sequences bubble up to a class, and a
+/// population of sequences yields templates (fixed elements and class wildcards). An agent uses only
+/// the public UKS API.
+/// </summary>
+public static partial class SequenceAgents
 {
     /// <summary>
     /// Gets the links by which an owner describes its sequences (phrase hasWords, word spelled, ...).
     /// A link's From is the owner, its LinkType the kind of sequence and its To the first element.
     /// </summary>
-    public List<Link> GetSequenceLinks(Thought owner) => owner.LinksTo.Where(link => link.To is SeqElement).ToList();
+    public static List<Link> GetSequenceLinks(this UKS store, Thought owner) => owner.LinksTo.Where(link => link.To is SeqElement).ToList();
 
     /// <summary>Gets the sequence links of each owner.</summary>
-    public List<Link> GetSequenceLinks(IEnumerable<Thought> owners) => owners.SelectMany(GetSequenceLinks).ToList();
-
-    /// <summary>
-    /// Gets or creates a class under classRoot whose direct members are exactly the supplied
-    /// ordinary Thoughts. Sequence elements and wildcards are not members.
-    /// </summary>
-    public Thought GetOrCreateThoughtClass(Thought classRoot, IEnumerable<Thought> members, string classLabel = "class*")
-    {
-        static bool IsMember(Thought? t) => 
-            t is not null and not SeqElement && !HasWildcardProperty(t);
-
-        HashSet<Thought> memberSet = members.Where(IsMember).ToHashSet();
-        if (memberSet.Count == 0)
-            throw new ArgumentException("A learned class requires at least one ordinary Thought.", nameof(members));
-
-        Thought learnedClass = classRoot.Children.FirstOrDefault(existing => existing.Children.Where(IsMember).ToHashSet().SetEquals(memberSet))
-            ?? GetOrAddThought(classLabel, classRoot)
-            ?? throw new InvalidOperationException("The learned class could not be created.");
-        foreach (Thought member in memberSet)
-            member.AddParent(learnedClass);
-        return learnedClass;
-    }
+    public static List<Link> GetSequenceLinks(this UKS store, IEnumerable<Thought> owners) => owners.SelectMany(owner => store.GetSequenceLinks(owner)).ToList();
 
     /// <summary>
     /// Finds an ordered description common to all supplied sequences.
@@ -98,7 +82,7 @@ public partial class UKS
     /// wildcard gaps whose cardinality is inferred from the observed lengths.
     /// The method does not change the UKS.
     /// </summary>
-    public CommonSequencePattern? FindCommonSequence(
+    internal static CommonSequencePattern? FindCommonSequence(this UKS store,
         IEnumerable<Link> observations,
         int minFixedElements = 1)
     {
@@ -107,7 +91,7 @@ public partial class UKS
 
         List<List<Thought>> sequences = observations
             .Where(observation => observation is not null)
-            .Select(observation => FlattenSequence(observation.To))
+            .Select(observation => store.FlattenSequence(observation.To))
             .Where(sequence => sequence.Count > 0)
             .ToList();
         if (sequences.Count == 0) return null;
@@ -137,11 +121,11 @@ public partial class UKS
     /// Determines whether an observation fits a transient common-sequence
     /// pattern without materializing wildcard Thoughts.
     /// </summary>
-    public bool SequenceMatchesPattern(CommonSequencePattern pattern, Link observation)
+    internal static bool SequenceMatchesPattern(this UKS store, CommonSequencePattern pattern, Link observation)
     {
         ArgumentNullException.ThrowIfNull(pattern);
         ArgumentNullException.ThrowIfNull(observation);
-        List<Thought> elements = FlattenSequence(observation.To);
+        List<Thought> elements = store.FlattenSequence(observation.To);
 
         HashSet<int> activePositions = new() { 0 };
         foreach (CommonSequenceElement patternElement in pattern.Elements)
@@ -188,7 +172,7 @@ public partial class UKS
     /// owners. Wildcard fillers become ordinary classes, while complete sequence
     /// owners are retained as evidence links on the learned templates.
     /// </summary>
-    public List<Thought> DiscoverSequenceTemplates(
+    public static List<Thought> DiscoverSequenceTemplates(this UKS store,
         IEnumerable<Link> observations,
         Thought templateRoot,
         Thought fillerClassRoot,
@@ -215,7 +199,7 @@ public partial class UKS
                     .Select(ownerGroup => ownerGroup.First())
                     .ToList();
                 List<Link> distinct = all
-                    .GroupBy(SequenceObservationSignature, StringComparer.Ordinal)
+                    .GroupBy(observation => SequenceObservationSignature(store, observation), StringComparer.Ordinal)
                     .Select(contentGroup => contentGroup.First())
                     .ToList();
                 return (group.Key, distinct, all);
@@ -234,7 +218,7 @@ public partial class UKS
             {
                 for (int second = first + 1; second < groupObservations.Count; second++)
                 {
-                    CommonSequencePattern? proposal = FindCommonSequence(
+                    CommonSequencePattern? proposal = store.FindCommonSequence(
                         new[] { groupObservations[first], groupObservations[second] },
                         minFixedElements);
                     if (proposal is null || proposal.Elements.Count < 2 ||
@@ -249,15 +233,15 @@ public partial class UKS
                 // Expand each proposal to every matching observation, then
                 // generalize again until the evidence population stops growing.
                 List<Link> matches = groupObservations
-                    .Where(observation => SequenceMatchesPattern(proposal, observation))
+                    .Where(observation => store.SequenceMatchesPattern(proposal, observation))
                     .ToList();
                 CommonSequencePattern generalized;
                 while (true)
                 {
-                    generalized = FindCommonSequence(matches, minFixedElements)!;
+                    generalized = store.FindCommonSequence(matches, minFixedElements)!;
                     if (!IsLearnableTemplatePattern(generalized)) break;
                     List<Link> expanded = groupObservations
-                        .Where(observation => SequenceMatchesPattern(generalized, observation))
+                        .Where(observation => store.SequenceMatchesPattern(generalized, observation))
                         .ToList();
                     HashSet<Thought> currentOwners = matches.Select(match => match.From!).ToHashSet();
                     HashSet<Thought> expandedOwners = expanded.Select(match => match.From!).ToHashSet();
@@ -273,37 +257,37 @@ public partial class UKS
                 consolidated.Add((owners, generalized));
             }
 
-            Thought evidenceType = GetOrAddThought("evidence", "LinkType")
+            Thought evidenceType = store.GetOrAddThought("evidence", "LinkType")
                 ?? throw new InvalidOperationException("The evidence link type could not be created.");
             foreach (var candidate in consolidated.OrderByDescending(candidate => candidate.owners.Count))
             {
                 // Distinct phrase contents determine whether a pattern is
                 // significant. Every occurrence is retained as evidence.
                 List<Link> members = relationshipGroup.allObservations
-                    .Where(observation => SequenceMatchesPattern(candidate.pattern, observation))
+                    .Where(observation => store.SequenceMatchesPattern(candidate.pattern, observation))
                     .ToList();
 
                 // Each wildcard position gets a class containing the individual
                 // Thoughts observed in that position.
-                List<Thought> description = MaterializeClassSequence(
+                List<Thought> description = MaterializeClassSequence(store,
                     candidate.pattern, members, fillerClassRoot, classLabel);
                 if (description.Count < 2) continue;
 
                 // The wildcard sequence belongs to a template. The complete
                 // Phrase/Word owners are evidence, never children of it.
                 Thought? existingTemplate = templateRoot.Children.FirstOrDefault(existing =>
-                    GetSequenceLinks(existing).Any(link =>
+                    store.GetSequenceLinks(existing).Any(link =>
                         link.LinkType == relationshipGroup.linkType &&
-                        FlattenSequence(link.To).SequenceEqual(description)));
-                Thought learnedTemplate = existingTemplate ?? GetOrAddThought(templateLabel, templateRoot)
+                        store.FlattenSequence(link.To).SequenceEqual(description)));
+                Thought learnedTemplate = existingTemplate ?? store.GetOrAddThought(templateLabel, templateRoot)
                     ?? throw new InvalidOperationException("The learned template could not be created.");
-                if (!GetSequenceLinks(learnedTemplate).Any(link =>
+                if (!store.GetSequenceLinks(learnedTemplate).Any(link =>
                     link.LinkType == relationshipGroup.linkType &&
-                    FlattenSequence(link.To).SequenceEqual(description)))
-                    AddSequenceAndLink(learnedTemplate, relationshipGroup.linkType, description);
+                    store.FlattenSequence(link.To).SequenceEqual(description)))
+                    store.AddSequenceAndLink(learnedTemplate, relationshipGroup.linkType, description);
 
                 foreach (Link member in members)
-                    AddStatement(learnedTemplate, evidenceType, member.From!);
+                    store.AddStatement(learnedTemplate, evidenceType, member.From!);
                 learnedTemplate.Weight = Math.Max(learnedTemplate.Weight, members.Count);
                 if (!results.Contains(learnedTemplate)) results.Add(learnedTemplate);
             }
@@ -312,11 +296,11 @@ public partial class UKS
         return results;
     }
 
-    private string SequenceObservationSignature(Link observation)
+    private static string SequenceObservationSignature(UKS store, Link observation)
     {
         // Thought labels are unique in a UKS. Length-prefixing prevents two
         // neighboring labels from producing an ambiguous concatenation.
-        return string.Join("|", FlattenSequence(observation.To).Select(element =>
+        return string.Join("|", store.FlattenSequence(observation.To).Select(element =>
             $"{element.Label.Length}:{element.Label}"));
     }
 
@@ -325,7 +309,7 @@ public partial class UKS
     /// Gap Thoughts are members of Wildcard and use properties to control their
     /// traversal cardinality.
     /// </summary>
-    public List<Thought> MaterializeCommonSequence(CommonSequencePattern pattern)
+    internal static List<Thought> MaterializeCommonSequence(this UKS store, CommonSequencePattern pattern)
     {
         ArgumentNullException.ThrowIfNull(pattern);
         List<Thought> result = new();
@@ -337,7 +321,7 @@ public partial class UKS
                 continue;
             }
 
-            result.Add(GetCommonSequenceWildcard(element.GapCardinality!.Value));
+            result.Add(GetCommonSequenceWildcard(store, element.GapCardinality!.Value));
         }
         return result;
     }
@@ -347,19 +331,19 @@ public partial class UKS
     /// of a class. Observations are grouped by their link type, and the
     /// original child sequences are retained.
     /// </summary>
-    public bool BubbleSharedSequences(
+    public static bool BubbleSharedSequences(this UKS store,
         Thought parent,
         float minFraction = 0.6f,
         int minFixedElements = 1)
     {
         if (parent is null || parent.Children.Count == 0) return false;
-        if (parent.Label.Equals("Unknown", StringComparison.OrdinalIgnoreCase)) return false;
+        if (parent == store.Labeled("Unknown")) return false;
         if (minFraction <= 0 || minFraction > 1) throw new ArgumentOutOfRangeException(nameof(minFraction));
 
         int childCount = parent.Children.Count;
         bool changed = false;
-        var groups = GetSequenceLinks(parent.Children)
-            .Where(link => link.LinkType is not null && link.LinkType != Labeled("is-a"))
+        var groups = store.GetSequenceLinks(parent.Children)
+            .Where(link => link.LinkType is not null && link.LinkType != store.Labeled("is-a"))
             .GroupBy(link => link.LinkType!);
 
         foreach (var group in groups)
@@ -370,19 +354,19 @@ public partial class UKS
                 .ToList();
             if (observations.Count < childCount * minFraction) continue;
 
-            CommonSequencePattern? common = FindCommonSequence(observations, minFixedElements);
+            CommonSequencePattern? common = store.FindCommonSequence(observations, minFixedElements);
             if (common is null) continue;
-            List<Thought> elements = MaterializeCommonSequence(common);
+            List<Thought> elements = store.MaterializeCommonSequence(common);
             if (elements.Count < 2) continue;
 
-            Link? existing = GetSequenceLinks(parent)
+            Link? existing = store.GetSequenceLinks(parent)
                 .FirstOrDefault(link => link.LinkType == group.Key);
-            if (existing is not null && FlattenSequence(existing.To).SequenceEqual(elements)) continue;
+            if (existing is not null && store.FlattenSequence(existing.To).SequenceEqual(elements)) continue;
 
-            SeqElement? sequence = AddSequenceAndLink(parent, group.Key, elements);
+            SeqElement? sequence = store.AddSequenceAndLink(parent, group.Key, elements);
             if (sequence is null) continue;
 
-            Link? bubbledLink = GetLink(parent, group.Key, sequence);
+            Link? bubbledLink = store.GetLink(parent, group.Key, sequence);
             if (bubbledLink is not null)
                 bubbledLink.Weight = observations.Count / (float)childCount;
             changed = true;
@@ -476,7 +460,7 @@ public partial class UKS
         }
     }
 
-    private Thought GetCommonSequenceWildcard(SequenceGapCardinality cardinality)
+    private static Thought GetCommonSequenceWildcard(UKS store, SequenceGapCardinality cardinality)
     {
         (string label, string property) = cardinality switch
         {
@@ -486,10 +470,10 @@ public partial class UKS
             SequenceGapCardinality.OneOrMore => ("??+", "is+Wildcard"),
             _ => throw new ArgumentOutOfRangeException(nameof(cardinality)),
         };
-        return CreateWildcard(label, new List<Thought>(), property);
+        return store.CreateWildcard(label, new List<Thought>(), property);
     }
 
-    private List<Thought> MaterializeClassSequence(
+    private static List<Thought> MaterializeClassSequence(UKS store,
         CommonSequencePattern pattern,
         IReadOnlyList<Link> observations,
         Thought classRoot,
@@ -506,11 +490,11 @@ public partial class UKS
             }
 
             HashSet<Thought> fillers = observations
-                .Select(observation => FlattenSequence(observation.To)[position])
+                .Select(observation => store.FlattenSequence(observation.To)[position])
                 .ToHashSet();
-            Thought fillerClass = GetOrCreateThoughtClass(classRoot, fillers, classLabel);
-            Thought wildcard = Labeled("??" + fillerClass.Label) ??
-                CreateWildcard("??" + fillerClass.Label, new List<Thought> { fillerClass });
+            Thought fillerClass = store.GetOrCreateThoughtClass(classRoot, fillers, classLabel);
+            Thought wildcard = store.Labeled("??" + fillerClass.Label) ??
+                store.CreateWildcard("??" + fillerClass.Label, new List<Thought> { fillerClass });
             result.Add(wildcard);
         }
         return result;
@@ -538,5 +522,4 @@ public partial class UKS
             ? "G:" + element.GapCardinality
             : "V:" + element.Value!.Label));
     }
-
 }

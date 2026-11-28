@@ -1,6 +1,7 @@
 using BrainSimulator;
 using BrainSimulator.Modules;
 using UKS;
+using UKS.Agents;
 using Xunit;
 using System.Linq;
 

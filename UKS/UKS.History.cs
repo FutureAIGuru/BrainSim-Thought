@@ -42,7 +42,7 @@ public partial class UKS
         bool conditional = type.HasProperty("isConditional") || type.HasProperty("isConjunction");
         var historyProperty = Labeled("recordsHistory");
         if (!conditional && from is not Link && !type.HasProperty("isPossible") && !type.HasProperty("isHistorical") &&
-            historyProperty is not null &&
+            historyProperty is not null && to is not null &&
             (type.HasProperty(historyProperty) || to.HasProperty(historyProperty)))
         {
             var incoming = new Link(from, type, to);
