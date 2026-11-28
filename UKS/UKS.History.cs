@@ -14,6 +14,8 @@ using System.Globalization;
 
 namespace UKS;
 
+// History: a statement that displaces a value of a recordsHistory type or target archives the old
+// value as was.TYPE in the source's events sequence before removing it.
 public partial class UKS
 {
     /// <summary>

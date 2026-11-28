@@ -13,6 +13,8 @@
 
 namespace UKS;
 
+// Actions: links whose type says what to do with them. TYPE.! writes [from->TYPE->to]; TYPE.? asks
+// whether it holds (or, with a wildcard, what matches). ApplyTestOrSetAction carries one out.
 public partial class UKS
 {
     /// <summary>

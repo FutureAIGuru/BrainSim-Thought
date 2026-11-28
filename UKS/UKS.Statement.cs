@@ -13,6 +13,8 @@
 
 namespace UKS;
 
+// Statements: storing links. AddStatement is the one way a link is written (an identical link is
+// reused and strengthened; a contradicted one is weakened); GetLink finds a stored link.
 public partial class UKS
 {
     /// <summary>
@@ -82,6 +84,37 @@ public partial class UKS
 
         return lnk;
     }
+
+    /// <summary>
+    /// The stored link [from → linkType → to], or null if there is none or a label is unknown. An empty
+    /// <paramref name="to"/> means a link with no target. Only the link itself counts, not inheritance.
+    /// </summary>
+    public Link? GetLink(ThoughtRef from, ThoughtRef linkType, ThoughtRef to)
+    {
+        Thought? source = from.Find(this), type = linkType.Find(this), target = to.Find(this);
+        if (source is null || type is null || (target is null && !to.IsEmpty)) return null;
+        //create a temporary link
+        Link r = new(this) { From = source, LinkType = type, To = target };
+        //see if it already exists
+        return GetLink(r);
+    }
+
+    // The stored link that a prototype (an unstored link with the same source, type and target) stands for.
+    internal Link? GetLink(Link r)
+    {
+        if (r.From is null) return null;
+        foreach (Link r1 in r.From.LinksTo)
+        {
+            if (LinksAreEqual(r, r1)) return r1;
+        }
+        return null;
+    }
+
+    // The same connection, optionally ignoring the sources (two query results from different
+    // sources that say the same thing).
+    private static bool LinksAreEqual(Link r1, Link r2, bool ignoreSource = true) =>
+        ReferenceEquals(r1.LinkType, r2.LinkType) && Link.SameConnection(r1.To, r2.To) &&
+        (ignoreSource || Link.SameConnection(r1.From, r2.From));
 
     private Link CreateTheLink(Thought source, Thought linkType, Thought? target)
     {

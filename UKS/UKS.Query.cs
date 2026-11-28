@@ -13,14 +13,12 @@
 
 namespace UKS;
 
+// Queries: everything known about a Thought. GetAttributes gathers a Thought's own links and those it
+// inherits through is-a, lets a more specific link override a conflicting inherited one, and counts a
+// rule (a link with IF conditions) only while its conditions hold. Why/WhyNot and GetEvidence explain
+// a result; FindLinks matches a pattern.
 public partial class UKS
 {
-    //keeps track of the conditions of the previous query in order to answer "Why?" or "Why not?"
-    List<Link> failedConditions = new();
-    List<Link> succeededConditions = new();
-    private int conditionalQueryDepth = 0;
-    private readonly HashSet<Link> evaluatingConditions = new(ReferenceEqualityComparer.Instance);
-
     /// <summary>
     /// Everything known about a Thought: its own links and those it inherits through is-a, strongest first.
     /// A more specific link overrides an inherited one it conflicts with (<see cref="LinksAreExclusive"/>),
@@ -79,6 +77,140 @@ public partial class UKS
             conditionalQueryDepth--;
         }
     }
+
+    /// <summary>The rule conditions that held in the most recent <see cref="GetAttributes"/>.</summary>
+    public IReadOnlyList<Link> Why()
+    {
+        return succeededConditions;
+    }
+
+    /// <summary>The rule conditions that failed in the most recent <see cref="GetAttributes"/>.</summary>
+    public IReadOnlyList<Link> WhyNot()
+    {
+        return failedConditions;
+    }
+
+    //keeps track of the conditions of the previous query in order to answer "Why?" or "Why not?"
+    List<Link> failedConditions = new();
+
+    List<Link> succeededConditions = new();
+
+    /// <summary>
+    /// The stored links that produce an attribute returned by <see cref="GetAttributes"/>: the
+    /// inheritable links (is-a, ...) from the attribute's source up to the Thought that stores it,
+    /// nearest first, then the stored link itself. For Fido's inherited fur:
+    /// [Fido→is-a→dog], [dog→is-a→animal], [animal→has→fur]. A stored link alone means the attribute
+    /// is stated on the source itself. A rule's conditions are the IF links on the stored link.
+    /// </summary>
+    /// <returns>The evidence, or an empty list if no stored link produces the attribute (a count the
+    /// query computed, for example).</returns>
+    public IReadOnlyList<Link> GetEvidence(Link attribute)
+    {
+        ArgumentNullException.ThrowIfNull(attribute);
+        List<Link> evidence = new();
+        if (attribute.From is not Thought source) return evidence;
+        Thought? inheritable = Labeled("inheritable");
+        // Nearest first, as the query looks: the first Thought storing the attribute is where it came from.
+        var reachedBy = new Dictionary<Thought, Link?>(ReferenceEqualityComparer.Instance) { [source] = null };
+        var pending = new Queue<(Thought Thought, int Hops)>();
+        pending.Enqueue((source, 0));
+        while (pending.TryDequeue(out var entry))
+        {
+            if (entry.Thought.LinksTo.FirstOrDefault(link => Produces(link, attribute)) is Link stored)
+            {
+                for (Thought t = entry.Thought; reachedBy[t] is Link step; t = step.From!)
+                    evidence.Insert(0, step);
+                evidence.Add(stored);
+                return evidence;
+            }
+            if (inheritable is null || entry.Hops >= MaxInheritanceHops) continue;
+            foreach (Link link in entry.Thought.LinksTo)
+            {
+                if (link.LinkType?.HasProperty(inheritable) != true || link.To is not Thought next ||
+                    reachedBy.ContainsKey(next)) continue;
+                reachedBy[next] = link;
+                pending.Enqueue((next, entry.Hops + 1));
+            }
+        }
+        return evidence;
+    }
+
+    // True if a stored link produces the query result: the same type and target, or a rule's
+    // possibility (is.?) that the query returned with the ordinary type; a rule's conditions must match.
+    private bool Produces(Link stored, Link result)
+    {
+        if (ReferenceEquals(stored, result)) return true;
+        if (!ReferenceEquals(stored.To, result.To) || stored.LinkType is not Thought storedType) return false;
+        if (!ReferenceEquals(storedType, result.LinkType) &&
+            !ReferenceEquals(GetAssertionLinkType(storedType), result.LinkType)) return false;
+        List<Link> conditions = stored.LinksTo.Where(link => IsConditionalLinkType(link.LinkType)).ToList();
+        List<Link> copied = result.LinksTo.Where(link => IsConditionalLinkType(link.LinkType)).ToList();
+        return conditions.Count == copied.Count && copied.All(copy => conditions.Any(condition =>
+            ReferenceEquals(condition.LinkType, copy.LinkType) && ReferenceEquals(condition.To, copy.To)));
+    }
+
+    /// <summary>
+    /// Finds the links matching a pattern link, where a null or wildcard part matches anything. With a
+    /// source, inherited links are included (<see cref="GetAttributes"/>) and the type matches its
+    /// descendants; otherwise the stored links to the target, or of the type, are searched.
+    /// </summary>
+    /// <param name="l">The pattern. A filterBy link on it keeps only targets that descend from its target.</param>
+    /// <returns>New, unstored links describing the matches; empty if all three parts are open.</returns>
+    public IReadOnlyList<Link> FindLinks(Link l)
+    {
+        List<Link> results = new List<Link>();
+        Thought? from = l.From?.HasProperty("isWildcard") is true ? null : l.From;
+        Thought? linkType = l.LinkType?.HasProperty("isWildcard") is true ? null : l.LinkType;
+        Thought? to = l.To?.HasProperty("isWildcard") is true ? null : l.To;
+        Thought? filterTarget = l.HasLink("filterBy")?.To;
+        Link? filter = filterTarget is null ? null : new Link(this) { To = filterTarget };
+        if (from is null && to is null && linkType is null) return results;
+
+        // hack to handle is-a searches
+        if (linkType is not null && linkType == IsAType && from is not null)
+        {
+            foreach (Thought child in from.Parents)
+            {
+                if (filterTarget is not null && !child.HasAncestor(filterTarget)) continue;
+                results.Add(new Link(this) { From = from, LinkType = linkType, To = child });
+            }
+            return results;
+        }
+        // If from is specified, start there for efficiency (most constrained search)
+        if (from is not null)
+        {
+            var attribs = GetAttributes(from, filter);
+            foreach (Link link in attribs)
+            {
+                if ((linkType is null || link.LinkType?.HasAncestor(linkType) == true) &&
+                    (to is null || link.To == to))
+                {
+                    results.Add(new Link(this)
+                    {
+                        From = from,
+                        LinkType = link.LinkType,
+                        To = link.To,
+                        Weight = link.Weight,
+                    });
+                }
+            }
+        }
+        // If from is null but to is specified, search backwards from to
+        else if (to is not null)
+        {
+            foreach (Link link in to.LinksFrom)
+            {
+                if (linkType is null || link.LinkType == linkType)
+                {
+                    results.Add(link);
+                }
+            }
+        }
+        return results;
+    }
+
+    private int conditionalQueryDepth = 0;
+    private readonly HashSet<Link> evaluatingConditions = new(ReferenceEqualityComparer.Instance);
 
     private void SortLinks(ref List<Link> result2)
     {
@@ -409,299 +541,5 @@ public partial class UKS
         {
             evaluatingConditions.Remove(r);
         }
-    }
-
-    /// <summary>The rule conditions that failed in the most recent <see cref="GetAttributes"/>.</summary>
-    public IReadOnlyList<Link> WhyNot()
-    {
-        return failedConditions;
-    }
-    /// <summary>The rule conditions that held in the most recent <see cref="GetAttributes"/>.</summary>
-    public IReadOnlyList<Link> Why()
-    {
-        return succeededConditions;
-    }
-
-    /// <summary>
-    /// The stored links that produce an attribute returned by <see cref="GetAttributes"/>: the
-    /// inheritable links (is-a, ...) from the attribute's source up to the Thought that stores it,
-    /// nearest first, then the stored link itself. For Fido's inherited fur:
-    /// [Fido→is-a→dog], [dog→is-a→animal], [animal→has→fur]. A stored link alone means the attribute
-    /// is stated on the source itself. A rule's conditions are the IF links on the stored link.
-    /// </summary>
-    /// <returns>The evidence, or an empty list if no stored link produces the attribute (a count the
-    /// query computed, for example).</returns>
-    public IReadOnlyList<Link> GetEvidence(Link attribute)
-    {
-        ArgumentNullException.ThrowIfNull(attribute);
-        List<Link> evidence = new();
-        if (attribute.From is not Thought source) return evidence;
-        Thought? inheritable = Labeled("inheritable");
-        // Nearest first, as the query looks: the first Thought storing the attribute is where it came from.
-        var reachedBy = new Dictionary<Thought, Link?>(ReferenceEqualityComparer.Instance) { [source] = null };
-        var pending = new Queue<(Thought Thought, int Hops)>();
-        pending.Enqueue((source, 0));
-        while (pending.TryDequeue(out var entry))
-        {
-            if (entry.Thought.LinksTo.FirstOrDefault(link => Produces(link, attribute)) is Link stored)
-            {
-                for (Thought t = entry.Thought; reachedBy[t] is Link step; t = step.From!)
-                    evidence.Insert(0, step);
-                evidence.Add(stored);
-                return evidence;
-            }
-            if (inheritable is null || entry.Hops >= MaxInheritanceHops) continue;
-            foreach (Link link in entry.Thought.LinksTo)
-            {
-                if (link.LinkType?.HasProperty(inheritable) != true || link.To is not Thought next ||
-                    reachedBy.ContainsKey(next)) continue;
-                reachedBy[next] = link;
-                pending.Enqueue((next, entry.Hops + 1));
-            }
-        }
-        return evidence;
-    }
-
-    // True if a stored link produces the query result: the same type and target, or a rule's
-    // possibility (is.?) that the query returned with the ordinary type; a rule's conditions must match.
-    private bool Produces(Link stored, Link result)
-    {
-        if (ReferenceEquals(stored, result)) return true;
-        if (!ReferenceEquals(stored.To, result.To) || stored.LinkType is not Thought storedType) return false;
-        if (!ReferenceEquals(storedType, result.LinkType) &&
-            !ReferenceEquals(GetAssertionLinkType(storedType), result.LinkType)) return false;
-        List<Link> conditions = stored.LinksTo.Where(link => IsConditionalLinkType(link.LinkType)).ToList();
-        List<Link> copied = result.LinksTo.Where(link => IsConditionalLinkType(link.LinkType)).ToList();
-        return conditions.Count == copied.Count && copied.All(copy => conditions.Any(condition =>
-            ReferenceEquals(condition.LinkType, copy.LinkType) && ReferenceEquals(condition.To, copy.To)));
-    }
-
-    /// <summary>
-    /// Finds the Thoughts that most resemble <paramref name="target"/> by its links, e.g. an observed
-    /// object compared with known ones.
-    /// </summary>
-    /// <param name="target">The links of this (often unstored) Thought are the attributes to match.</param>
-    /// <param name="root">Only descendants of this Thought are candidates; an unknown label finds none.</param>
-    /// <returns>The candidates with a confidence, best first.</returns>
-    public IReadOnlyList<(Thought t, float conf)> SearchByAttributes(Thought target, ThoughtRef root)
-    {
-        List<(Thought t, float conf)> retVal = new();
-        Thought? scope = root.Require(this);
-        if (scope is null || target.LinksTo.Count == 0) return retVal;
-        //initialize the search queues
-        List<Thought> thoughtsToSearch = new();
-        List<Thought> alreadySearched = new();
-        Dictionary<Thought, float> searchCandidates = new();
-        //Nothing changes the UKS during a search, so these answers are computed once per Thought.
-        //(They are asked for every link visited, and each answer walks the ancestors.)
-        Dictionary<Thought, bool> inheritableLinkTypes = new(ReferenceEqualityComparer.Instance);
-        Dictionary<Thought, bool> underRoot = new(ReferenceEqualityComparer.Instance);
-        bool IsInheritable(Thought? linkType)
-        {
-            if (linkType is null) return false;
-            if (!inheritableLinkTypes.TryGetValue(linkType, out bool value))
-                inheritableLinkTypes[linkType] = value = linkType.HasProperty("inheritable");
-            return value;
-        }
-        bool IsUnderRoot(Thought t)
-        {
-            if (!underRoot.TryGetValue(t, out bool value))
-                underRoot[t] = value = t.HasAncestor(scope);
-            return value;
-        }
-
-        //seed the search queue with the given parameters.
-        foreach (Link r in target.LinksTo)
-        {
-            if (r.To is SeqElement s)
-            {
-                var x = FlattenSequence(s);  //if this is a sequence fragment, try to get the whole sequence
-                if (r.LinkType is null) continue;
-
-                // Keep only stored sequences referred to through the same link type.
-                var y = FindSequencesByActivation(x, Labeled("ExactSequenceSearch"))
-                    .Where(result => result.seqNode.LinksFrom.Any(link => link.LinkType == r.LinkType))
-                    .ToList();
-
-                foreach (var z in y)
-                {
-                    foreach (var w in z.seqNode.LinksFrom.Where(x => x.From != target))
-                    {
-                        if (w.From is null) continue;
-                        var existing = thoughtsToSearch.FirstOrDefault(x => x == w.From);
-                        if (r.LinkType is not null &&
-                            (w.LinkType == r.LinkType || w.LinkType?.HasAncestor(r.LinkType) == true) &&
-                            existing is null)
-                        {
-                            thoughtsToSearch.Add(w.From);
-                            if (!searchCandidates.ContainsKey(w.From))
-                                searchCandidates[w.From] = 0; //initialize a new dictionary entry if needed
-                            searchCandidates[w.From] += w.Weight * r.Weight * z.confidence;
-                        }
-                        else if (existing is not null)
-                        {
-                            searchCandidates[w.From] += w.Weight * r.Weight * z.confidence;
-                        }
-                    }
-                }
-            }
-            if (r.To is null) continue;
-            foreach (Link r1 in r.To.LinksFrom)
-            {
-                if (r1.From == target || r1.From is null) continue;
-                var existing = thoughtsToSearch.FirstOrDefault(x => x == r1.From);
-                if (r.LinkType is not null &&
-                    (r1.LinkType == r.LinkType || r1.LinkType?.HasAncestor(r.LinkType) == true) &&
-                    IsUnderRoot(r1.From) &&
-                    r1.To == r.To && existing is null)
-                {
-                    thoughtsToSearch.Add(r1.From);
-                    if (!searchCandidates.ContainsKey(r1.From))
-                        searchCandidates[r1.From] = 0; //initialize a new dictionary entry if needed
-                    searchCandidates[r1.From] += r1.Weight * r.Weight;
-                }
-                else if (existing is not null)
-                {
-                    searchCandidates[r1.From] += r1.Weight * r.Weight;
-                }
-            }
-        }
-
-        int inheritedValueCount = 0;
-        //fan out from these seeds following all "inheritable" reverse connections.
-        while (thoughtsToSearch.Count > 0)
-        {
-            var t = thoughtsToSearch[0];
-            thoughtsToSearch.RemoveAt(0);
-            alreadySearched.Add(t);
-            foreach (Link r in t.LinksFrom)
-            {
-                if (!IsInheritable(r.LinkType)) continue;
-                if (r.From == target || r.From is null) continue;
-                AddToQueues(t, r.From);
-                inheritedValueCount++;
-                // TODO: also follow isSimilarTo (and transitive) links.
-            }
-        }
-
-        if (inheritedValueCount > 0)
-        {
-            foreach (var key in searchCandidates.ToList())
-            {
-                if (!ThoughtsHaveConflictingLink(key.Key, target)) continue;
-                searchCandidates[key.Key] = searchCandidates[key.Key] - .5f;
-            }
-            if (searchCandidates.Count == 0)
-                return retVal;
-            // delete items which have ancestor in list too
-            for (int i = 0; i < searchCandidates.Keys.Count; i++)
-            {
-                Thought t = searchCandidates.Keys.ToList()[i];
-                foreach (Thought t1 in t.Ancestors.Prepend(t))
-                {
-                    if (t1 != t && searchCandidates.ContainsKey(t1) && searchCandidates[t1] < 0)
-                        searchCandidates.Remove(t);
-                }
-            }
-
-        }
-
-        //create the output list
-        var ordered = searchCandidates.OrderByDescending(kv => kv.Value);
-        foreach (var kv in ordered)
-            retVal.Add((kv.Key, kv.Value));
-
-        return retVal;
-
-        bool AddToQueues(Thought tPrev, Thought tNew)
-        {
-            if (!IsUnderRoot(tNew)) return false;
-            if (!searchCandidates.ContainsKey(tNew))
-                searchCandidates[tNew] = 0; //initialize a new dictionary entry if needed
-            searchCandidates[tNew] += searchCandidates[tPrev] * GetLinkWeight(tNew, tPrev);
-            if (alreadySearched.FirstOrDefault(x => x == tNew) is not null) return false;
-            if (thoughtsToSearch.FirstOrDefault(x => x == tNew) is not null) return false;
-            thoughtsToSearch.Add(tNew);
-            return true;
-        }
-    }
-
-    // The weight of the first link between two Thoughts, or 0 if there is none.
-    private static float GetLinkWeight(Thought t1, Thought t2)
-    {
-        foreach (var r in t1.LinksTo)
-            if (r.To == t2) return r.Weight;
-        foreach (var r in t1.LinksFrom)
-            if (r.To == t2) return r.Weight;
-        return 0;
-    }
-
-    private bool ThoughtsHaveConflictingLink(Thought source, Thought target)
-    {
-        foreach (Link r1 in source.LinksTo)
-            foreach (Link r2 in target.LinksTo)
-                if (LinksAreExclusive(r1, r2))
-                    return true;
-        return false;
-    }
-
-    /// <summary>
-    /// Finds the links matching a pattern link, where a null or wildcard part matches anything. With a
-    /// source, inherited links are included (<see cref="GetAttributes"/>) and the type matches its
-    /// descendants; otherwise the stored links to the target, or of the type, are searched.
-    /// </summary>
-    /// <param name="l">The pattern. A filterBy link on it keeps only targets that descend from its target.</param>
-    /// <returns>New, unstored links describing the matches; empty if all three parts are open.</returns>
-    public IReadOnlyList<Link> FindLinks(Link l)
-    {
-        List<Link> results = new List<Link>();
-        Thought? from = l.From?.HasProperty("isWildcard") is true ? null : l.From;
-        Thought? linkType = l.LinkType?.HasProperty("isWildcard") is true ? null : l.LinkType;
-        Thought? to = l.To?.HasProperty("isWildcard") is true ? null : l.To;
-        Thought? filterTarget = l.HasLink("filterBy")?.To;
-        Link? filter = filterTarget is null ? null : new Link(this) { To = filterTarget };
-        if (from is null && to is null && linkType is null) return results;
-
-        // hack to handle is-a searches
-        if (linkType is not null && linkType == IsAType && from is not null)
-        {
-            foreach (Thought child in from.Parents)
-            {
-                if (filterTarget is not null && !child.HasAncestor(filterTarget)) continue;
-                results.Add(new Link(this) { From = from, LinkType = linkType, To = child });
-            }
-            return results;
-        }
-        // If from is specified, start there for efficiency (most constrained search)
-        if (from is not null)
-        {
-            var attribs = GetAttributes(from, filter);
-            foreach (Link link in attribs)
-            {
-                if ((linkType is null || link.LinkType?.HasAncestor(linkType) == true) &&
-                    (to is null || link.To == to))
-                {
-                    results.Add(new Link(this)
-                    {
-                        From = from,
-                        LinkType = link.LinkType,
-                        To = link.To,
-                        Weight = link.Weight,
-                    });
-                }
-            }
-        }
-        // If from is null but to is specified, search backwards from to
-        else if (to is not null)
-        {
-            foreach (Link link in to.LinksFrom)
-            {
-                if (linkType is null || link.LinkType == linkType)
-                {
-                    results.Add(link);
-                }
-            }
-        }
-        return results;
     }
 }

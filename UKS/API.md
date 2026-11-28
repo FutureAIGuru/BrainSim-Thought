@@ -72,6 +72,16 @@ Settled:
   `IReadOnlyList` or `IEnumerable`. A custom `ThoughtList` type was considered and dropped (2026-11-28):
   it added a type to learn and, unless generic, casts at every link filter, for no gain over the
   standard interface (Thoughts already compare by identity).
+- Sequence element values (decided 2026-11-28, not yet implemented): an element holds any number of
+  values, all peers; none is primary (melody or rhythm, Tuesday or sunny: the question decides), so
+  `isSequenceMetadata` goes. A value's class tells values apart. `GetElementValues(element,
+  valueClass = default)` is the general read: every value matching the class, or every value if no
+  class is given. `GetElementValue` (singular) is the special case: the one matching value, or null
+  if none or several match. Several values of one class are legitimate (a chord, sunny and windy):
+  never an error, never silently reduced to one. Writing: `SetElementValue(element, value,
+  valueClass)` replaces the value of that class; `AddElementValue` adds another. Search matches an
+  element if any of its values of the class matches. Deleting a value removes only that value
+  (an element left with none gets `--`). Two elements are the same if they hold the same set of values.
 
 Open:
 - When the spelling helpers leave (`CharacterPrefix`, `GetCharacterLabel`, `GetOrAddCharacter`,
@@ -87,6 +97,17 @@ Deferred (known issues, not API):
 - The sequence cache may be unnecessary now that activation search has been rewritten.
 - Thread safety (see UKS.Tests/UKSMultiThreadTests.cs, which fails on purpose).
 - `DeleteSequence` leaves the owner's link pointing at the deleted elements.
+
+## Source layout
+
+Each file holds one idea and opens with a comment saying what it is; public members come first,
+most important first, with private helpers after the code that uses them and internal plumbing last.
+Reading order: Thought.cs, Link.cs, SeqElement.cs, ThoughtRef.cs; UKS.cs (creating and finding
+Thoughts), UKS.Labels.cs (label index and notation), UKS.Statement.cs (storing links), UKS.Query.cs
+(what is known), UKS.Exclusivity.cs, UKS.Search.cs (resemblance), UKS.Actions.cs, UKS.History.cs;
+UKS.Sequence.cs, UKS.SequenceSearch.cs, UKS.SequenceApproximate.cs, UKS.Characters.cs; UKS.Time.cs,
+UKS.Journal.cs (undo), UKS.Initialize.cs, UKS.TextFile.cs, UKS.XMLFile.cs; agents and helpers
+(UKS.Agents.Classes.cs, UKS.Agents.Sequences.cs, UKS.Helpers.cs); UKS.ApiFreeze.cs.
 
 ## Phases
 
@@ -115,7 +136,7 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
       the same way). The case-insensitive label match in `HasLink` is gone.
 - [x] **F. Agents layer:** extension methods in namespace `UKS.Agents`, using only the public API
       (checked by compiling them outside the UKS assembly): `ClassAgents` (UKS.Agents.Classes.cs) and
-      `SequenceAgents` (UKS.SequenceBubble.cs, UKS.SequenceComparison.cs). Callers add `using UKS.Agents;`;
+      `SequenceAgents` (UKS.Agents.Sequences.cs). Callers add `using UKS.Agents;`;
       call syntax is unchanged. Whole-store agents walk the hierarchy from its roots instead of the
       internal set of all Thoughts. `RunPeriodically` and `ReplaceThoughtReferences` stay in the core
       (see their rows); new public `UKS.IsWildcard`. The common-sequence types are internal.

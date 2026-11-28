@@ -16,12 +16,80 @@ using System.Xml.Serialization;
 
 namespace UKS;
 
+// XML files: the whole store saved and loaded (SaveXml, LoadXml), and Copy, which goes through the
+// same snapshot. Thoughts are flattened into sThought records whose links refer to each other by index.
 public partial class UKS
 {
-    private string fileName = "";
+    /// <summary>
+    /// Saves the store to an XML file: labels, links, weights and string values (not firing or time to live).
+    /// </summary>
+    /// <param name="path">The file; empty to reuse <see cref="FileName"/>.</param>
+    /// <returns>True if the file was written.</returns>
+    public bool SaveXml(string path = "")
+    {
+        //if you don't pass in a file name, it uses the previous name
+        if (!String.IsNullOrEmpty(path)) { fileName = path; }
+        return WriteSaveSnapshot(CaptureSaveSnapshot(), fileName);
+    }
+
+    /// <summary>Replaces the store's content with an XML file written by <see cref="SaveXml"/>.</summary>
+    /// <param name="path">The file; empty to reuse <see cref="FileName"/>.</param>
+    /// <returns>True if the file was read.</returns>
+    public bool LoadXml(string path = "")
+    {
+        //stash the current BrainSim configuration
+        var contentToRestore = ExtractPortionOfUKS(Labeled("BrainSim"));
+
+        Stream file;
+        if (!String.IsNullOrEmpty(path)) { fileName = path; }
+        try
+        {
+            file = File.Open(fileName, FileMode.Open, FileAccess.Read);
+        }
+        catch (Exception e)
+        {
+            Debug.WriteLine("Could not open file because: " + e.Message);
+            return false;
+        }
+
+        XmlSerializer reader1 = new(UKSTemp.GetType());
+        try
+        {
+            UKSTemp = (List<sThought>?)reader1.Deserialize(file) ?? new();
+        }
+        catch (Exception e)
+        {
+            file.Close();
+            Debug.WriteLine("Network file load failed, a blank network will be opened. \r\n\r\n" + e.InnerException);
+            return false;
+        }
+        file.Close();
+
+        DeFormatContentAfterLoading();
+        ApplyPostXmlLoadCompatibility(contentToRestore);
+        return true;
+    }
+
+    /// <summary>
+    /// An independent copy of this store's saved content (what <see cref="SaveXml"/> would write),
+    /// e.g. to try a change and inspect the result without touching the original. Like a saved file,
+    /// it keeps labels, links, weights and string values, but not firing or time to live.
+    /// </summary>
+    public UKS Copy()
+    {
+        UKS copy = new();
+        copy.RestoreFromUkTempSnapshot(CaptureSaveSnapshot());
+        return copy;
+    }
 
     /// <summary>The file last saved or loaded (<see cref="SaveXml"/>, <see cref="LoadXml"/>).</summary>
     public string FileName { get => fileName; }
+
+    private string fileName = "";
+
+    // A flattened copy of the UKS used while saving and loading XML: circular references are
+    // broken by storing indexes into this list (sThought) instead of Thought references.
+    private List<sThought> UKSTemp = new();
 
     /// <summary>
     /// One Thought as written to an XML file, with its links' Thoughts replaced by indexes (so the file has
@@ -49,18 +117,6 @@ public partial class UKS
         {
             return $"{index}, {label}";
         }
-    }
-
-    /// <summary>
-    /// Saves the store to an XML file: labels, links, weights and string values (not firing or time to live).
-    /// </summary>
-    /// <param name="path">The file; empty to reuse <see cref="FileName"/>.</param>
-    /// <returns>True if the file was written.</returns>
-    public bool SaveXml(string path = "")
-    {
-        //if you don't pass in a file name, it uses the previous name
-        if (!String.IsNullOrEmpty(path)) { fileName = path; }
-        return WriteSaveSnapshot(CaptureSaveSnapshot(), fileName);
     }
 
     /// <summary>
@@ -195,44 +251,6 @@ public partial class UKS
         return true;
     }
 
-    /// <summary>Replaces the store's content with an XML file written by <see cref="SaveXml"/>.</summary>
-    /// <param name="path">The file; empty to reuse <see cref="FileName"/>.</param>
-    /// <returns>True if the file was read.</returns>
-    public bool LoadXml(string path = "")
-    {
-        //stash the current BrainSim configuration
-        var contentToRestore = ExtractPortionOfUKS(Labeled("BrainSim"));
-
-        Stream file;
-        if (!String.IsNullOrEmpty(path)) { fileName = path; }
-        try
-        {
-            file = File.Open(fileName, FileMode.Open, FileAccess.Read);
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine("Could not open file because: " + e.Message);
-            return false;
-        }
-
-        XmlSerializer reader1 = new(UKSTemp.GetType());
-        try
-        {
-            UKSTemp = (List<sThought>?)reader1.Deserialize(file) ?? new();
-        }
-        catch (Exception e)
-        {
-            file.Close();
-            Debug.WriteLine("Network file load failed, a blank network will be opened. \r\n\r\n" + e.InnerException);
-            return false;
-        }
-        file.Close();
-
-        DeFormatContentAfterLoading();
-        ApplyPostXmlLoadCompatibility(contentToRestore);
-        return true;
-    }
-
     /// <summary>
     /// Deserializes UKS XML into the temporary thought list without mutating a UKS instance.
     /// Used by test fixtures to cache Algorithm.xml across many test cases.
@@ -242,18 +260,6 @@ public partial class UKS
         using Stream file = File.Open(path, FileMode.Open, FileAccess.Read);
         XmlSerializer reader = new(typeof(List<sThought>));
         return (List<sThought>?)reader.Deserialize(file) ?? new();
-    }
-
-    /// <summary>
-    /// An independent copy of this store's saved content (what <see cref="SaveXml"/> would write),
-    /// e.g. to try a change and inspect the result without touching the original. Like a saved file,
-    /// it keeps labels, links, weights and string values, but not firing or time to live.
-    /// </summary>
-    public UKS Copy()
-    {
-        UKS copy = new();
-        copy.RestoreFromUkTempSnapshot(CaptureSaveSnapshot());
-        return copy;
     }
 
     /// <summary>

@@ -14,40 +14,11 @@ using System.Diagnostics;
 
 namespace UKS;
 
-// Running the store over time: the cycle count and time-to-live expiry (AdvanceCycle), the clock that
-// advances it, and RunPeriodically, which schedules agents (processes that reorganize the store, such
-// as those in namespace UKS.Agents).
+// Time: the store has no clock of its own; time is counted in cycles (AdvanceCycle), which count down
+// each finite TimeToLive. StartClock advances it in real time; RunPeriodically schedules agents
+// (processes that reorganize the store, such as those in namespace UKS.Agents).
 public partial class UKS
 {
-    private readonly Dictionary<Func<IReadOnlyList<Thought>>, Timer> agentTimers = new();
-    private readonly object agentLock = new();
-
-    /// <summary>
-    /// Runs an agent every interval, e.g. RunPeriodically(uks.BubbleAttributes, TimeSpan.FromSeconds(10)).
-    /// A null interval stops it. If called from a thread with a synchronization context (a UI thread),
-    /// the agent runs on that thread; otherwise on a pool thread, never overlapping another agent run.
-    /// </summary>
-    public void RunPeriodically(Func<IReadOnlyList<Thought>> agent, TimeSpan? interval)
-    {
-        lock (agentLock)
-        {
-            if (agentTimers.Remove(agent, out Timer? old))
-                old.Dispose();
-            if (interval is not TimeSpan period) return;
-
-            SynchronizationContext? context = SynchronizationContext.Current;
-            void Run()
-            {
-                lock (agentLock) agent();
-            }
-            agentTimers[agent] = new Timer(_ =>
-            {
-                if (context is null) Run();
-                else context.Post(_ => Run(), null);
-            }, null, period, period);
-        }
-    }
-
     /// <summary>
     /// The UKS has no clock: time is counted in cycles, advanced by <see cref="AdvanceCycle"/>.
     /// While nothing advances it (the host paused, a debugger stopped), nothing ages or expires.
@@ -58,8 +29,46 @@ public partial class UKS
     /// <summary>The clock's rate (<see cref="StartClock"/>): one cycle every 10 ms.</summary>
     public const int CyclesPerSecond = 100;
 
-    // Cancels the running clock thread, if any.
-    private CancellationTokenSource? clock;
+    /// <summary>
+    /// Agent: advances <see cref="Cycle"/> by one and counts down every finite TimeToLive.
+    /// A Thought whose time runs out is deleted (a Link is removed from its source).
+    /// </summary>
+    /// <returns>The Thoughts that expired.</returns>
+    public IReadOnlyList<Thought> AdvanceCycle()
+    {
+        Cycle++;
+        List<Thought> expired = new();
+        lock (mortalThoughts)
+        {
+            foreach (Thought thought in mortalThoughts)
+                if (thought.CountDown()) expired.Add(thought);
+            mortalThoughts.ExceptWith(expired);
+        }
+        foreach (Thought thought in expired)
+        {
+            if (thought is Link link) link.From?.RemoveLink(link);
+            else if (AtomicThoughts.Contains(thought)) thought.Delete(); // an earlier deletion may have taken it
+        }
+        return expired;
+    }
+
+    // Thoughts with a finite TimeToLive, counted down by AdvanceCycle.
+    private readonly HashSet<Thought> mortalThoughts = new(ReferenceEqualityComparer.Instance);
+
+    // Called whenever a Thought's TimeToLive is set, and when it is deleted (forget: true).
+    internal void TrackMortality(Thought thought, bool forget = false)
+    {
+        lock (mortalThoughts)
+        {
+            if (forget || thought.TimeToLive == Thought.Forever) mortalThoughts.Remove(thought);
+            else mortalThoughts.Add(thought);
+        }
+    }
+
+    private void ClearMortalThoughts()
+    {
+        lock (mortalThoughts) mortalThoughts.Clear();
+    }
 
     /// <summary>
     /// Starts a background thread that calls <see cref="AdvanceCycle"/> <see cref="CyclesPerSecond"/> times a second.
@@ -87,6 +96,9 @@ public partial class UKS
         }
     }
 
+    // Cancels the running clock thread, if any.
+    private CancellationTokenSource? clock;
+
     private void RunClock(CancellationToken stop)
     {
         const long maxCatchUp = CyclesPerSecond / 10;
@@ -105,44 +117,32 @@ public partial class UKS
         }
     }
 
-    // Thoughts with a finite TimeToLive, counted down by AdvanceCycle.
-    private readonly HashSet<Thought> mortalThoughts = new(ReferenceEqualityComparer.Instance);
-
-    // Called whenever a Thought's TimeToLive is set, and when it is deleted (forget: true).
-    internal void TrackMortality(Thought thought, bool forget = false)
-    {
-        lock (mortalThoughts)
-        {
-            if (forget || thought.TimeToLive == Thought.Forever) mortalThoughts.Remove(thought);
-            else mortalThoughts.Add(thought);
-        }
-    }
-
-    private void ClearMortalThoughts()
-    {
-        lock (mortalThoughts) mortalThoughts.Clear();
-    }
-
     /// <summary>
-    /// Agent: advances <see cref="Cycle"/> by one and counts down every finite TimeToLive.
-    /// A Thought whose time runs out is deleted (a Link is removed from its source).
+    /// Runs an agent every interval, e.g. RunPeriodically(uks.BubbleAttributes, TimeSpan.FromSeconds(10)).
+    /// A null interval stops it. If called from a thread with a synchronization context (a UI thread),
+    /// the agent runs on that thread; otherwise on a pool thread, never overlapping another agent run.
     /// </summary>
-    /// <returns>The Thoughts that expired.</returns>
-    public IReadOnlyList<Thought> AdvanceCycle()
+    public void RunPeriodically(Func<IReadOnlyList<Thought>> agent, TimeSpan? interval)
     {
-        Cycle++;
-        List<Thought> expired = new();
-        lock (mortalThoughts)
+        lock (agentLock)
         {
-            foreach (Thought thought in mortalThoughts)
-                if (thought.CountDown()) expired.Add(thought);
-            mortalThoughts.ExceptWith(expired);
+            if (agentTimers.Remove(agent, out Timer? old))
+                old.Dispose();
+            if (interval is not TimeSpan period) return;
+
+            SynchronizationContext? context = SynchronizationContext.Current;
+            void Run()
+            {
+                lock (agentLock) agent();
+            }
+            agentTimers[agent] = new Timer(_ =>
+            {
+                if (context is null) Run();
+                else context.Post(_ => Run(), null);
+            }, null, period, period);
         }
-        foreach (Thought thought in expired)
-        {
-            if (thought is Link link) link.From?.RemoveLink(link);
-            else if (AtomicThoughts.Contains(thought)) thought.Delete(); // an earlier deletion may have taken it
-        }
-        return expired;
     }
+
+    private readonly Dictionary<Func<IReadOnlyList<Thought>>, Timer> agentTimers = new();
+    private readonly object agentLock = new();
 }

@@ -12,6 +12,8 @@
  */
 namespace UKS;
 
+// Approximate sequence search (the allowOutOfOrder search option): stored sequences close to a
+// pattern even with letters out of order or missing, for spelling correction.
 public partial class UKS
 {
     /// <summary>

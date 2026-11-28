@@ -13,21 +13,10 @@
 
 namespace UKS;
 
+// The starter structure of a new store (CreateInitialStructure): the roots, the core link types,
+// the markers for asking and setting, wildcards and the sequence search options.
 public partial class UKS
 {
-    internal void CreateMinimumStructureForTests()
-    {
-        Reset();
-        AddThought("Thought");
-        Thought isA = AddThought("is-a");
-        Thought linkType = AddThought("LinkType", "Thought");
-        isA.AddParent(linkType);
-        GetOrAddThought("Unknown", "Thought");
-        GetOrAddThought("VLU", "LinkType");
-        GetOrAddThought("NXT", "LinkType");
-        GetOrAddThought("FRST", "LinkType");
-    }
-
     /// <summary>
     /// Empties the store and creates the core structure: the root Thought with Unknown, Abstract, Object,
     /// Action and LinkType under it; the core link types (is-a, hasProperty, the sequence links FRST, NXT
@@ -254,6 +243,19 @@ public partial class UKS
             AddSequenceAndLink(alphabetThought, orderLink2, theAlphabet);
 
         AddBrainSimConfigSectionIfNeeded();
+    }
+
+    internal void CreateMinimumStructureForTests()
+    {
+        Reset();
+        AddThought("Thought");
+        Thought isA = AddThought("is-a");
+        Thought linkType = AddThought("LinkType", "Thought");
+        isA.AddParent(linkType);
+        GetOrAddThought("Unknown", "Thought");
+        GetOrAddThought("VLU", "LinkType");
+        GetOrAddThought("NXT", "LinkType");
+        GetOrAddThought("FRST", "LinkType");
     }
 
     void AddBrainSimConfigSectionIfNeeded()

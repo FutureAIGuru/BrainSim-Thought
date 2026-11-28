@@ -16,8 +16,184 @@ using System.Text.RegularExpressions;
 
 namespace UKS;
 
+// Text knowledge files: one statement per line, [from->type->to], with nesting ([a->means->[b->is->c]]),
+// sequences (^a b c), weights and # comments. Reading (ImportTextFile, ProcessSingleLine) comes
+// first, then writing (ExportTextFile), then the parser.
 public partial class UKS
 {
+    /// <summary>
+    /// Reads a text knowledge file into the store: one statement per line, [from->type->to], optionally
+    /// preceded by a label and followed by a weight; nested statements ([a->means->[b->is->c]]),
+    /// sequences (^a b c) and # comments. Firing is suppressed while reading.
+    /// </summary>
+    /// <param name="filePath">The file to read.</param>
+    public void ImportTextFile(string filePath)
+    {
+        if (filePath is null) throw new ArgumentNullException(nameof(filePath));
+        var lines = File.ReadAllLines(filePath);
+
+        lock (this)
+        {
+            bool wasSuppressingFiring = SuppressFiring;
+            SuppressFiring = true;
+            try
+            {
+                var records = lines.Select(line => TokenizeTopLevel(StripEolComment(line).Replace("→", "->")))
+                    .Where(tokens => tokens.Count >= 2).ToList();
+                RemapGeneratedLabels(records);
+
+                // Preallocate only link definitions that are referenced.
+                // Standalone metadata records describe ordinary Thoughts.
+                var definedLinkLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                HashSet<string> referencedLabels = new(StringComparer.OrdinalIgnoreCase);
+                foreach (var tokens in records)
+                {
+                    if (!tokens[1].StartsWith("[")) continue;
+                    if (tokens[0].Length != 0) definedLinkLabels.Add(tokens[0]);
+                    referencedLabels.UnionWith(TextReferences(tokens[1]));
+                }
+
+                foreach (var label in definedLinkLabels.Where(referencedLabels.Contains))
+                {
+                    Thought? existing = Labeled(label);
+                    if (existing is not null)
+                        continue;
+
+                    Link placeholder = new Link(this);
+                    placeholder.Label = label;
+                    AtomicThoughts.Add(placeholder);
+                }
+
+                foreach (var tokens in records)
+                    ProcessSingleLine(tokens);
+
+                // Corpus instructions remain exemplar data when a saved network is imported.
+                foreach (Link operation in AtomicThoughts.SelectMany(thought => thought.LinksTo)
+                    .Where(link => ReferenceEquals(link.LinkType, Labeled("demonstrates")))
+                    .Select(link => link.To).OfType<Link>().ToList())
+                {
+                    if (operation.From is null || operation.To is null || operation.LinkType is null ||
+                        (!operation.LinkType.HasProperty("setRelationship") && !operation.LinkType.HasProperty("isPossible"))) continue;
+                    lock (operation.From.LinksToWriteable)
+                        operation.From.LinksToWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+                    lock (operation.To.LinksFromWriteable)
+                        operation.To.LinksFromWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+                    lock (operation.LinkType.LinksAsTypeWriteable)
+                        operation.LinkType.LinksAsTypeWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+                }
+
+            }
+            finally
+            {
+                SuppressFiring = wasSuppressingFiring;
+            }
+        }
+    }
+
+    /// <summary>Reads one line of the text format (<see cref="ImportTextFile"/>) and adds what it states.</summary>
+    /// <returns>The Thought or link, or null for a blank, comment or unreadable line.</returns>
+    public Thought? ProcessSingleLine(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return null;
+
+        string code = StripEolComment(line);
+        if (string.IsNullOrWhiteSpace(code)) return null;
+
+        code = code.Trim().Replace("→", "->");
+
+        return ProcessSingleLine(TokenizeTopLevel(code));
+    }
+
+    private Thought? ProcessSingleLine(List<string> tokens)
+    {
+        if (tokens.Count < 2) return null;
+
+        if (!tokens[1].TrimStart().StartsWith("["))
+        {
+            Thought? thought = Labeled(tokens[0]) ?? GetOrAddThought(tokens[0]);
+            ApplyTrailingPersistenceMetadata(thought, tokens, 1);
+            Thought? thoughtRetVal = thought;
+            return thoughtRetVal;
+        }
+
+        var stmt = ParseBracketStmt(tokens[1]);
+        if (stmt.Count < 2) return null;
+
+        if (stmt.Any(part => part.TrimStart().StartsWith("[")) ||
+            IsClauseLinkType(Labeled(stmt[1])))
+        {
+            return AddLinkStmtWithNesting(
+                tokens[0], stmt,
+                tokens.Count > 2 ? tokens[2] : null,
+                tokens.Count > 3 ? tokens[3] : null,
+                tokens.Count > 4 ? tokens[4] : null);
+        }
+        Thought? linkRetVal = AddLinkStmt(
+            tokens[0], stmt,
+            tokens.Count > 2 ? tokens[2] : null,
+            tokens.Count > 3 ? tokens[3] : null,
+            tokens.Count > 4 ? tokens[4] : null);
+        return linkRetVal;
+    }
+
+    /// <summary>
+    /// Reads one line of the text format and adds what it states, treating the operands of IF and AND as
+    /// patterns (TYPE.? possibilities) rather than statements.
+    /// </summary>
+    /// <param name="line">The line, e.g. [[fido->is->wet]->IF->[fido->located->outside]].</param>
+    /// <param name="asPattern">Read the whole statement as a pattern: an ordinary type becomes TYPE.?, so nothing is asserted.</param>
+    /// <param name="asActionPrototype">
+    /// Build the action link (a TYPE.! or TYPE.? statement) without connecting it to its Thoughts, as a
+    /// template to carry out later with <see cref="ApplyTestOrSetAction"/>.
+    /// </param>
+    /// <returns>The Thought or link, or null if the line could not be read.</returns>
+    public Thought? ProcessSingleLineWithNesting(string line, bool asPattern = false, bool asActionPrototype = false)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return null;
+
+        string code = StripEolComment(line);
+        if (string.IsNullOrWhiteSpace(code)) return null;
+
+        code = code.Trim().Replace("→", "->");
+
+        if (asPattern) return ProcessThoughtOrLink(code, true);
+
+        var tokens = TokenizeTopLevel(code);
+        if (tokens.Count < 2) return null;
+
+        if (!tokens[1].TrimStart().StartsWith("["))
+        {
+            Thought? thought = Labeled(tokens[0]) ?? GetOrAddThought(tokens[0]);
+            ApplyTrailingPersistenceMetadata(thought, tokens, 1);
+            Thought? thoughtRetVal = thought;
+            return thoughtRetVal;
+        }
+
+        var stmt = ParseBracketStmt(tokens[1]);
+        if (stmt.Count < 2) return null;
+
+        Thought? linkRetVal = AddLinkStmtWithNesting(
+            tokens[0], stmt,
+            tokens.Count > 2 ? tokens[2] : null,
+            tokens.Count > 3 ? tokens[3] : null,
+            tokens.Count > 4 ? tokens[4] : null);
+        if (asActionPrototype && linkRetVal is Link parsed)
+        {
+            Link? operation = parsed.LinkType?.HasProperty("setRelationship") == true ||
+                parsed.LinkType?.HasProperty("isPossible") == true ? parsed : parsed.From as Link;
+            if (operation?.From is not null && operation.To is not null && operation.LinkType is not null)
+            {
+                lock (operation.From.LinksToWriteable)
+                    operation.From.LinksToWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+                lock (operation.To.LinksFromWriteable)
+                    operation.To.LinksFromWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+                lock (operation.LinkType.LinksAsTypeWriteable)
+                    operation.LinkType.LinksAsTypeWriteable.RemoveAll(link => ReferenceEquals(link, operation));
+            }
+        }
+        return linkRetVal;
+    }
+
     /// <summary>
     /// Writes <paramref name="root"/>, its descendants and everything they link to in the text format
     /// (<see cref="ImportTextFile"/>): one line per link, [from->type->to], followed by its weight,
@@ -126,89 +302,6 @@ public partial class UKS
         return retVal;
     }
 
-    /// <summary>
-    /// Reads a text knowledge file into the store: one statement per line, [from->type->to], optionally
-    /// preceded by a label and followed by a weight; nested statements ([a->means->[b->is->c]]),
-    /// sequences (^a b c) and # comments. Firing is suppressed while reading.
-    /// </summary>
-    /// <param name="filePath">The file to read.</param>
-    public void ImportTextFile(string filePath)
-    {
-        if (filePath is null) throw new ArgumentNullException(nameof(filePath));
-        var lines = File.ReadAllLines(filePath);
-
-        lock (this)
-        {
-            bool wasSuppressingFiring = SuppressFiring;
-            SuppressFiring = true;
-            try
-            {
-                var records = lines.Select(line => TokenizeTopLevel(StripEolComment(line).Replace("→", "->")))
-                    .Where(tokens => tokens.Count >= 2).ToList();
-                RemapGeneratedLabels(records);
-
-                // Preallocate only link definitions that are referenced.
-                // Standalone metadata records describe ordinary Thoughts.
-                var definedLinkLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                HashSet<string> referencedLabels = new(StringComparer.OrdinalIgnoreCase);
-                foreach (var tokens in records)
-                {
-                    if (!tokens[1].StartsWith("[")) continue;
-                    if (tokens[0].Length != 0) definedLinkLabels.Add(tokens[0]);
-                    referencedLabels.UnionWith(TextReferences(tokens[1]));
-                }
-
-                foreach (var label in definedLinkLabels.Where(referencedLabels.Contains))
-                {
-                    Thought? existing = Labeled(label);
-                    if (existing is not null)
-                        continue;
-
-                    Link placeholder = new Link(this);
-                    placeholder.Label = label;
-                    AtomicThoughts.Add(placeholder);
-                }
-
-                foreach (var tokens in records)
-                    ProcessSingleLine(tokens);
-
-                // Corpus instructions remain exemplar data when a saved network is imported.
-                foreach (Link operation in AtomicThoughts.SelectMany(thought => thought.LinksTo)
-                    .Where(link => ReferenceEquals(link.LinkType, Labeled("demonstrates")))
-                    .Select(link => link.To).OfType<Link>().ToList())
-                {
-                    if (operation.From is null || operation.To is null || operation.LinkType is null ||
-                        (!operation.LinkType.HasProperty("setRelationship") && !operation.LinkType.HasProperty("isPossible"))) continue;
-                    lock (operation.From.LinksToWriteable)
-                        operation.From.LinksToWriteable.RemoveAll(link => ReferenceEquals(link, operation));
-                    lock (operation.To.LinksFromWriteable)
-                        operation.To.LinksFromWriteable.RemoveAll(link => ReferenceEquals(link, operation));
-                    lock (operation.LinkType.LinksAsTypeWriteable)
-                        operation.LinkType.LinksAsTypeWriteable.RemoveAll(link => ReferenceEquals(link, operation));
-                }
-
-            }
-            finally
-            {
-                SuppressFiring = wasSuppressingFiring;
-            }
-        }
-    }
-
-    /// <summary>Reads one line of the text format (<see cref="ImportTextFile"/>) and adds what it states.</summary>
-    /// <returns>The Thought or link, or null for a blank, comment or unreadable line.</returns>
-    public Thought? ProcessSingleLine(string line)
-    {
-        if (string.IsNullOrWhiteSpace(line)) return null;
-
-        string code = StripEolComment(line);
-        if (string.IsNullOrWhiteSpace(code)) return null;
-
-        code = code.Trim().Replace("→", "->");
-
-        return ProcessSingleLine(TokenizeTopLevel(code));
-    }
-
     private void RemapGeneratedLabels(List<List<string>> records)
     {
         // Numeric labels from independently created stores may describe different
@@ -305,37 +398,6 @@ public partial class UKS
         ? System.Text.Json.JsonSerializer.Deserialize<string>(part) ?? ""
         : part;
 
-    private Thought? ProcessSingleLine(List<string> tokens)
-    {
-        if (tokens.Count < 2) return null;
-
-        if (!tokens[1].TrimStart().StartsWith("["))
-        {
-            Thought? thought = Labeled(tokens[0]) ?? GetOrAddThought(tokens[0]);
-            ApplyTrailingPersistenceMetadata(thought, tokens, 1);
-            Thought? thoughtRetVal = thought;
-            return thoughtRetVal;
-        }
-
-        var stmt = ParseBracketStmt(tokens[1]);
-        if (stmt.Count < 2) return null;
-
-        if (stmt.Any(part => part.TrimStart().StartsWith("[")) ||
-            IsClauseLinkType(Labeled(stmt[1])))
-        {
-            return AddLinkStmtWithNesting(
-                tokens[0], stmt,
-                tokens.Count > 2 ? tokens[2] : null,
-                tokens.Count > 3 ? tokens[3] : null,
-                tokens.Count > 4 ? tokens[4] : null);
-        }
-        Thought? linkRetVal = AddLinkStmt(
-            tokens[0], stmt,
-            tokens.Count > 2 ? tokens[2] : null,
-            tokens.Count > 3 ? tokens[3] : null,
-            tokens.Count > 4 ? tokens[4] : null);
-        return linkRetVal;
-    }
     // Adds a link, handling nested links in src, type, or target
     private Thought? AddLinkStmt(
         string label,
@@ -386,64 +448,6 @@ public partial class UKS
         }
         ApplyPersistenceMetadata(r, sWeight, sMaxWeight, sIsPlastic);
         return r;
-    }
-
-    /// <summary>
-    /// Reads one line of the text format and adds what it states, treating the operands of IF and AND as
-    /// patterns (TYPE.? possibilities) rather than statements.
-    /// </summary>
-    /// <param name="line">The line, e.g. [[fido->is->wet]->IF->[fido->located->outside]].</param>
-    /// <param name="asPattern">Read the whole statement as a pattern: an ordinary type becomes TYPE.?, so nothing is asserted.</param>
-    /// <param name="asActionPrototype">
-    /// Build the action link (a TYPE.! or TYPE.? statement) without connecting it to its Thoughts, as a
-    /// template to carry out later with <see cref="ApplyTestOrSetAction"/>.
-    /// </param>
-    /// <returns>The Thought or link, or null if the line could not be read.</returns>
-    public Thought? ProcessSingleLineWithNesting(string line, bool asPattern = false, bool asActionPrototype = false)
-    {
-        if (string.IsNullOrWhiteSpace(line)) return null;
-
-        string code = StripEolComment(line);
-        if (string.IsNullOrWhiteSpace(code)) return null;
-
-        code = code.Trim().Replace("→", "->");
-
-        if (asPattern) return ProcessThoughtOrLink(code, true);
-
-        var tokens = TokenizeTopLevel(code);
-        if (tokens.Count < 2) return null;
-
-        if (!tokens[1].TrimStart().StartsWith("["))
-        {
-            Thought? thought = Labeled(tokens[0]) ?? GetOrAddThought(tokens[0]);
-            ApplyTrailingPersistenceMetadata(thought, tokens, 1);
-            Thought? thoughtRetVal = thought;
-            return thoughtRetVal;
-        }
-
-        var stmt = ParseBracketStmt(tokens[1]);
-        if (stmt.Count < 2) return null;
-
-        Thought? linkRetVal = AddLinkStmtWithNesting(
-            tokens[0], stmt,
-            tokens.Count > 2 ? tokens[2] : null,
-            tokens.Count > 3 ? tokens[3] : null,
-            tokens.Count > 4 ? tokens[4] : null);
-        if (asActionPrototype && linkRetVal is Link parsed)
-        {
-            Link? operation = parsed.LinkType?.HasProperty("setRelationship") == true ||
-                parsed.LinkType?.HasProperty("isPossible") == true ? parsed : parsed.From as Link;
-            if (operation?.From is not null && operation.To is not null && operation.LinkType is not null)
-            {
-                lock (operation.From.LinksToWriteable)
-                    operation.From.LinksToWriteable.RemoveAll(link => ReferenceEquals(link, operation));
-                lock (operation.To.LinksFromWriteable)
-                    operation.To.LinksFromWriteable.RemoveAll(link => ReferenceEquals(link, operation));
-                lock (operation.LinkType.LinksAsTypeWriteable)
-                    operation.LinkType.LinksAsTypeWriteable.RemoveAll(link => ReferenceEquals(link, operation));
-            }
-        }
-        return linkRetVal;
     }
 
     // Adds a link, handling nested links in src, type, or target

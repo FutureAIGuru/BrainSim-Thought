@@ -12,7 +12,9 @@
  */
 namespace UKS;
 
-// Whether links are in conflict with one another.
+// Exclusivity: whether two links can both hold ([Fido→is→inside], [Fido→is→outside]). Queries use
+// it to let a specific link override an inherited one, and AddStatement to weaken what a new
+// statement contradicts.
 // TODO: the entire process can be simplified and made more accurate.
 public partial class UKS
 {
@@ -152,23 +154,4 @@ public partial class UKS
     private bool HasProperty(Thought t, string propertyLabel) =>
         HasPropertyType is Thought hasProperty && Labeled(propertyLabel) is Thought property &&
         t.LinksTo.Any(link => link.LinkType == hasProperty && link.To == property);
-
-    internal Thought? ThoughtFromString(string label, string defaultParent, Thought? source = null)
-    {
-        GetOrAddThought("Thought"); //safety
-        GetOrAddThought("Unknown", "Thought"); //safety
-        if (string.IsNullOrEmpty(label)) return null;
-        if (label == "") return null;
-        Thought? t = Labeled(label);
-
-        if (t is null)
-        {
-            if (Labeled(defaultParent) is null)
-            {
-                GetOrAddThought(defaultParent, Labeled("Object"), source);
-            }
-            t = GetOrAddThought(label, defaultParent, source);
-        }
-        return t;
-    }
 }
