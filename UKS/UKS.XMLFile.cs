@@ -280,7 +280,7 @@ public partial class UKS
         lock (from.LinksToWriteable)
             lock (linkType.LinksAsTypeWriteable)
             {
-                if (from.LinksToWriteable.Contains(lnk))
+                if (from.LinksToWriteable.Any(existing => Link.SameConnection(existing, lnk)))
                 {
                     WriteTheLink(lnk);
                     return;

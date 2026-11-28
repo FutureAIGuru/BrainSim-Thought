@@ -103,7 +103,11 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
       Second step: `InheritanceDepth`/`InheritedFromCategory` left Link (the query keeps them privately);
       new `GetEvidence(attribute)` explains a result with stored links; `IsConditionalLinkType` and
       `HasGeneratedLabel` are internal.
-- [ ] **E. Identity equality:** remove the label-based `Equals`, `GetHashCode`, `==` and `!=`
+- [x] **E. Identity equality:** remove the label-based `Equals`, `GetHashCode`, `==` and `!=`.
+      Where the store asks whether an unstored Link stands for a stored one (no duplicate links,
+      `GetLink`, `HasLink`, `RemoveLink`, loading), it now says so explicitly: internal
+      `Link.SameConnection` (same type, same source and target by identity, nested Links compared
+      the same way). The case-insensitive label match in `HasLink` is gone.
 - [ ] **F. Agents layer:** extension methods in their own file and namespace, including the
       sequence/template machinery
 - [ ] **G. Conveniences:** no label comparisons; apply the wrapper review
@@ -123,7 +127,7 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
 because an experiment or the serializer needs it; left out of the documentation and the Phase J freeze), **Move** (out of the UKS
 to a module), **Delete**, **Review** (your wrapper review decides).
 
-Totals by name: Core 100, Internal 41, Undocumented 10, Agent 15, Review 12, Delete 11, Move 6, Convenience 5 (200 names).
+Totals by name: Core 99, Internal 41, Undocumented 11, Agent 15, Review 12, Delete 11, Move 6, Convenience 5 (200 names).
 
 
 ### UKS
@@ -172,7 +176,7 @@ Totals by name: Core 100, Internal 41, Undocumented 10, Agent 15, Review 12, Del
 | `FileName` | Core |  | |
 | `FilterResults` | Delete | dead | done |
 | `FindCommonSequence` | Agent | sequence/template machinery; its result types become internal | |
-| `FindSequenceSpansByActivation` | Core | was Internal; the segmenter needs spans, which the options cannot return | done |
+| `FindSequenceSpansByActivation` | Undocumented | only the segmenter (an experiment) uses it; moving it would expose the activation search internals | done |
 | `FindSequencesByActivation (2)` | Core |  | |
 | `FindSequencesOutOfOrder` | Internal | reached through FindSequencesByActivation options | done |
 | `FlattenSequence` | Core |  | |
@@ -251,12 +255,12 @@ Totals by name: Core 100, Internal 41, Undocumented 10, Agent 15, Review 12, Del
 | `Delete` | Core |  | |
 | `Descendants` | Core |  | |
 | `EnumerateSubThoughts` | Review |  | |
-| `Equals` | Delete | label-based equality becomes identity (Phase E) | |
+| `Equals` | Delete | removed: equality is identity | done |
 | `Fire` | Core |  | |
 | `FiredWithin` | Core |  | |
 | `Forever` | Core |  | |
 | `GetAttributes` | Review |  | |
-| `GetHashCode` | Delete | label-based equality becomes identity (Phase E) | |
+| `GetHashCode` | Delete | removed: equality is identity | done |
 | `GetSourceOfFirstLinkOfType` | Convenience | resolve the label once, then compare identity (no label comparison) | |
 | `GetTargetOfFirstLinkOfType (2)` | Convenience | resolve the label once, then compare identity (no label comparison) | |
 | `GetTargetOfHighestWeightLinkOfType` | Convenience | resolve the label once, then compare identity (no label comparison) | |
@@ -285,7 +289,7 @@ Totals by name: Core 100, Internal 41, Undocumented 10, Agent 15, Review 12, Del
 | `Weight` | Core |  | |
 | `isPlastic` | Core | rename to IsPlastic | |
 | `maxWeight` | Core | rename to MaxWeight | |
-| `operators (3)` | Delete | implicit string-to-Thought (Phase C, done) and label-based ==/!= (Phase E) | |
+| `operators (3)` | Delete | implicit string-to-Thought (Phase C) and label-based ==/!= (Phase E) removed | done |
 
 ### Link
 

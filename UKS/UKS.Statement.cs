@@ -102,7 +102,7 @@ public partial class UKS
         for (int i = 0; i < existingLinks.Count; i++)
         {
             Link existingLink = existingLinks[i];
-            if (existingLink == newLink)
+            if (Link.SameConnection(existingLink, newLink))
             {
                 newLink.Weight += (1 - newLink.Weight) / 4.0f;
                 newLink.Fire();
@@ -229,8 +229,7 @@ public partial class UKS
             lock (lnk.From.LinksToWriteable)
                 lock (lnk.LinkType.LinksAsTypeWriteable)
                 {
-                    if (lnk.From.LinksToWriteable.Any(existing => existing.Equals(lnk) ||
-                        (existing.HasGeneratedLabel && lnk.Label.Length == 0 && existing == lnk))) return;
+                    if (lnk.From.LinksToWriteable.Any(existing => Link.SameConnection(existing, lnk))) return;
                     lnk.AddDefaultLabel();
                     lnk.From.LinksToWriteable.Add(lnk);
                     if (!lnk.LinkType.LinksAsTypeWriteable.Contains(lnk))
@@ -244,8 +243,7 @@ public partial class UKS
                 lock (lnk.LinkType.LinksAsTypeWriteable)
                     lock (lnk.To.LinksFromWriteable)
                     {
-                        if (lnk.From.LinksToWriteable.Any(existing => existing.Equals(lnk) ||
-                            (existing.HasGeneratedLabel && lnk.Label.Length == 0 && existing == lnk))) return;
+                        if (lnk.From.LinksToWriteable.Any(existing => Link.SameConnection(existing, lnk))) return;
                         lnk.AddDefaultLabel();
                         lnk.From.LinksToWriteable.Add(lnk);
                         if (!lnk.LinkType.LinksAsTypeWriteable.Contains(lnk))

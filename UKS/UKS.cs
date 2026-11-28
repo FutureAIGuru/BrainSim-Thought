@@ -190,27 +190,11 @@ public partial class UKS
         return false;
     }
 
-    private bool LinksAreEqual(Link r1, Link r2, bool ignoreSource = true)
-    {
-        if (
-            (r1.Label == r2.Label ||
-             (r1.Label.Length == 0 && r2.HasGeneratedLabel) ||
-             (r2.Label.Length == 0 && r1.HasGeneratedLabel)) &&
-            (r1.From == r2.From || ignoreSource) &&
-            (r1.To is null && r2.To is null || r1.To == r2.To) &&
-            r1.LinkType == r2.LinkType
-          ) return true;
-        //special case if these contain other links
-        if (r1.From is Link rt1 && r2.From is Link rt2)
-        {
-            if (!LinksAreEqual(rt1, rt2)) return false;
-            if (r1.To is Link rt3 && r2.To is Link rt4)
-                if (!LinksAreEqual(rt3, rt4)) return false;
-            if (r1.LinkType != r2.LinkType) return false;
-            return true;
-        }
-        return false;
-    }
+    // The same connection, optionally ignoring the sources (two query results from different
+    // sources that say the same thing).
+    private static bool LinksAreEqual(Link r1, Link r2, bool ignoreSource = true) =>
+        ReferenceEquals(r1.LinkType, r2.LinkType) && Link.SameConnection(r1.To, r2.To) &&
+        (ignoreSource || Link.SameConnection(r1.From, r2.From));
 
     /// <summary>
     /// Gets an existing link matching the specified from/linkType/to triple, if present.
@@ -256,7 +240,7 @@ public partial class UKS
         {
             foreach (Link r1 in r.From.LinksTo)
             {
-                if (r.LinkType == r1.LinkType && r.To == r1.To)
+                if (ReferenceEquals(r.LinkType, r1.LinkType) && Link.SameConnection(r.To, r1.To))
                     retVal.Add(r1);
             }
         }

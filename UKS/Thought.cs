@@ -21,6 +21,19 @@ public class Link : Thought
     public Link(UKS store) : base(store) { }
 
     /// <summary>
+    /// True if the two are the same Thought, or Links making the same connection: the same source,
+    /// link type and target, where a source or target that is itself a Link (a nested statement) is
+    /// compared the same way. A store keeps one link per connection, so this finds the stored link
+    /// that an unstored one (built for a query or a pattern) stands for.
+    /// </summary>
+    internal static bool SameConnection(Thought? a, Thought? b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        return a is Link la && b is Link lb && ReferenceEquals(la.LinkType, lb.LinkType) &&
+            SameConnection(la.From, lb.From) && SameConnection(la.To, lb.To);
+    }
+
+    /// <summary>
     /// Creates a link with the specified source, link type, and target.
     /// </summary>
     /// <param name="from">Source thought.</param>
@@ -323,43 +336,6 @@ public partial class Thought
     }
 
     /// <summary>
-    /// Equality by label; for Link, also compares endpoints and link type.
-    /// </summary>
-    public override bool Equals(object? obj)
-    {
-        if (obj is Thought t)
-        {
-            if (!ReferenceEquals(Store, t.Store) || Label != t.Label) return false;
-            if (this is Link l1 && t is Link l2)
-            {
-                return l1.From == l2.From && l1.LinkType == l2.LinkType && l1.To == l2.To;
-            }
-            if (this is not Link && t is not Link)
-                return true;
-        }
-        return false;
-    }
-
-    public override int GetHashCode()
-    {
-        if (this is Link link)
-            return HashCode.Combine(Store, Label, link.From, link.LinkType, link.To);
-        return HashCode.Combine(Store, Label.GetHashCode(StringComparison.Ordinal));
-    }
-
-    public static bool operator ==(Thought? a, Thought? b)
-    {
-        if (ReferenceEquals(a, b)) return true;
-        if (a is null || b is null) return false;
-        if (!ReferenceEquals(a.Store, b.Store)) return false;
-        if (a.Label != "" && a.Label == b.Label) return true;
-        if (a is Link la && b is Link lb)
-            return la.From == lb.From && la.To == lb.To && la.LinkType == lb.LinkType;
-        return false;
-    }
-    public static bool operator !=(Thought? a, Thought? b) => !(a == b);
-
-    /// <summary>
     /// Assigns a default label to a link thought when missing.
     /// </summary>
     internal Thought AddDefaultLabel()
@@ -551,11 +527,7 @@ public partial class Thought
         if (r.From is not null)
         {
             lock (r.From._linksTo)
-                storedLink = r.From._linksTo.Find(candidate =>
-                    ReferenceEquals(candidate, r) ||
-                    (ReferenceEquals(candidate.From, r.From) &&
-                     ReferenceEquals(candidate.LinkType, r.LinkType) &&
-                     ReferenceEquals(candidate.To, r.To)));
+                storedLink = r.From._linksTo.Find(candidate => Link.SameConnection(candidate, r));
         }
         if (storedLink is null) return;
 
@@ -593,14 +565,6 @@ public partial class Thought
         return linkType is null ? null
             : LinksTo.Where(x => x.LinkType == linkType).MaxBy(x => x.Weight)?.To;
     }
-    private static bool LinkTypesMatch(Thought? a, Thought? b)
-    {
-        if (ReferenceEquals(a, b)) return true;
-        if (a is null || b is null) return false;
-        if (!ReferenceEquals(a.Store, b.Store)) return false;
-        return string.Equals(a.Label, b.Label, StringComparison.OrdinalIgnoreCase);
-    }
-
     /// <summary>
     /// This Thought's link of the given type to the given target, or to any target if the target is
     /// empty; null if there is none or a label is unknown.
@@ -614,7 +578,7 @@ public partial class Thought
         {
             foreach (Link r in _linksTo)
             {
-                if (r.From == this && (r.To == to || to is null) && LinkTypesMatch(r.LinkType, linkType))
+                if (ReferenceEquals(r.LinkType, linkType) && (to is null || Link.SameConnection(r.To, to)))
                     return r;
             }
         }
@@ -631,9 +595,9 @@ public partial class Thought
         if ((from is null && !fromRef.IsEmpty) || (linkType is null && !linkTypeRef.IsEmpty) ||
             (to is null && !toRef.IsEmpty)) return null;
         foreach (Link r in LinksTo)
-            if ((from is null || r.From == from) &&
-                (linkType is null || r.LinkType == linkType) &&
-                (to is null || r.To == to)) return r;
+            if ((from is null || Link.SameConnection(r.From, from)) &&
+                (linkType is null || ReferenceEquals(r.LinkType, linkType)) &&
+                (to is null || Link.SameConnection(r.To, to))) return r;
         return null;
     }
 
