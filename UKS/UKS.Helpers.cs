@@ -19,33 +19,30 @@ namespace UKS.Helpers;
 /// </summary>
 public static class ThoughtHelpers
 {
-    extension(Thought thought)
+    /// <summary>The Thought itself, then its ancestors, nearest first.</summary>
+    public static IEnumerable<Thought> AncestorsWithSelf(this Thought thought) => thought.Ancestors.Prepend(thought);
+
+    /// <summary>The target of this Thought's first link of the given type, or null.</summary>
+    public static Thought? GetTargetOfFirstLinkOfType(this Thought thought, ThoughtRef linkType) =>
+        linkType.Find(thought.Store) is Thought type
+            ? thought.LinksTo.FirstOrDefault(link => link.LinkType == type)?.To : null;
+
+    /// <summary>The source of the first link of the given type that points to this Thought, or null.</summary>
+    public static Thought? GetSourceOfFirstLinkOfType(this Thought thought, ThoughtRef linkType) =>
+        linkType.Find(thought.Store) is Thought type
+            ? thought.LinksFrom.FirstOrDefault(link => link.LinkType == type)?.From : null;
+
+    /// <summary>The target of this Thought's highest-weight link of the given type, or null.</summary>
+    public static Thought? GetTargetOfHighestWeightLinkOfType(this Thought thought, ThoughtRef linkType) =>
+        linkType.Find(thought.Store) is Thought type
+            ? thought.LinksTo.Where(link => link.LinkType == type).MaxBy(link => link.Weight)?.To : null;
+
+    /// <summary>Removes every link of the given type from this Thought; an unknown label removes nothing.</summary>
+    public static void RemoveLinks(this Thought thought, ThoughtRef linkType)
     {
-        /// <summary>The Thought itself, then its ancestors, nearest first.</summary>
-        public IEnumerable<Thought> AncestorsWithSelf => thought.Ancestors.Prepend(thought);
-
-        /// <summary>The target of this Thought's first link of the given type, or null.</summary>
-        public Thought? GetTargetOfFirstLinkOfType(ThoughtRef linkType) =>
-            linkType.Find(thought.Store) is Thought type
-                ? thought.LinksTo.FirstOrDefault(link => link.LinkType == type)?.To : null;
-
-        /// <summary>The source of the first link of the given type that points to this Thought, or null.</summary>
-        public Thought? GetSourceOfFirstLinkOfType(ThoughtRef linkType) =>
-            linkType.Find(thought.Store) is Thought type
-                ? thought.LinksFrom.FirstOrDefault(link => link.LinkType == type)?.From : null;
-
-        /// <summary>The target of this Thought's highest-weight link of the given type, or null.</summary>
-        public Thought? GetTargetOfHighestWeightLinkOfType(ThoughtRef linkType) =>
-            linkType.Find(thought.Store) is Thought type
-                ? thought.LinksTo.Where(link => link.LinkType == type).MaxBy(link => link.Weight)?.To : null;
-
-        /// <summary>Removes every link of the given type from this Thought; an unknown label removes nothing.</summary>
-        public void RemoveLinks(ThoughtRef linkType)
-        {
-            if (linkType.Find(thought.Store) is not Thought type) return;
-            foreach (Link link in thought.LinksTo.Where(link => link.LinkType == type))
-                thought.RemoveLink(link);
-        }
+        if (linkType.Find(thought.Store) is not Thought type) return;
+        foreach (Link link in thought.LinksTo.Where(link => link.LinkType == type))
+            thought.RemoveLink(link);
     }
 }
 
@@ -61,6 +58,9 @@ public static class PhraseHelpers
     /// last ("big dogs" is dogs.big). A phrase starting with ^ is a sequence ("^a b c"), where a
     /// one-character element is that character.
     /// </summary>
+    /// <param name="store">The store.</param>
+    /// <param name="phrase">The typed words.</param>
+    /// <param name="attributesFollow">True if the first word is the base (a link type, "has 4").</param>
     /// <param name="singularize">
     /// Optional, applied to each word that doesn't start with a capital letter (e.g. an English
     /// singularizer, so "big dogs" is dog.big). The UKS itself knows no language.

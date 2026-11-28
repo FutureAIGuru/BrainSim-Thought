@@ -1148,7 +1148,7 @@ public class ModuleVisualInput : ModuleBase
     private List<Thought> GetMeaningCandidates(ModuleMentalModel mentalModel)
     {
         return mentalModel.GetAttendedContents()
-            .SelectMany(thought => thought.AncestorsWithSelf)
+            .SelectMany(thought => thought.AncestorsWithSelf())
             .Where(thought => thought is not null &&
                 !BlockedMeaningLabels.Contains(thought.Label))
             .Distinct()

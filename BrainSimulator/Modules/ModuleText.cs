@@ -2392,7 +2392,7 @@ public class ModuleText : ModuleBase
         if (actionType?.HasProperty("setRelationship") != true) return null;
         Thought number = MainWindow.theUKS.Labeled("number");
         Thought digit = MainWindow.theUKS.Labeled("digit");
-        return actionType.AncestorsWithSelf.FirstOrDefault(candidate =>
+        return actionType.AncestorsWithSelf().FirstOrDefault(candidate =>
             candidate != number && candidate != digit && candidate.Parents.Any(parent =>
                 ReferenceEquals(parent, number) || ReferenceEquals(parent, digit)));
     }

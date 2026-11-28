@@ -16,10 +16,13 @@ namespace UKS;
 public partial class UKS
 {
     /// <summary>
-    /// Applies a write action or evaluates a query action. The operation and its
-    /// underlying link type are identified through inheritance.
+    /// Carries out an action link. With a TYPE.! type (one that has setRelationship) it writes
+    /// [From → TYPE → To]; for an exclusive type the source's other links of that type are removed first.
+    /// With a TYPE.? type (one that has isPossible) it asks: without wildcards, whether
+    /// <see cref="GetAttributes"/> of From includes the link; with a wildcard operand, every matching link
+    /// (<see cref="FindLinks"/>).
     /// </summary>
-    /// <returns>The written link for writes, or all matching links for ?.</returns>
+    /// <returns>The written link, the links that answer the question, or an empty list.</returns>
     public IReadOnlyList<Link> ApplyTestOrSetAction(Link action)
     {
         // TODO: compound (nested) actions are untested.

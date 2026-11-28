@@ -62,7 +62,7 @@ public partial class ModuleAlgorithm
 
             Thought? testType = null;
             bool legacy = false;
-            foreach (Thought actionType in test.LinkType.AncestorsWithSelf)
+            foreach (Thought actionType in test.LinkType.AncestorsWithSelf())
             {
                 if (!actionType.HasProperty("isPossible")) continue;
                 // Older EXIST types store their ordinary type as an attribute.
@@ -120,7 +120,7 @@ public partial class ModuleAlgorithm
                     }
                     // Capability-bearing parents supply matching behavior; their ordinary
                     // class parents supply constraints, including inherited constraints.
-                    List<Thought> constraints = pattern.AncestorsWithSelf
+                    List<Thought> constraints = pattern.AncestorsWithSelf()
                         .Where(ancestor => ancestor.HasProperty("isWildcard"))
                         .SelectMany(ancestor => ancestor.Parents)
                         .Where(parent => !parent.HasProperty("isWildcard") &&
@@ -130,7 +130,7 @@ public partial class ModuleAlgorithm
                         .ToList();
                     // Preserve the established OR interpretation for multiple class restrictions.
                     if (constraints.Count > 0 && !constraints.Any(constraint =>
-                        actual.AncestorsWithSelf.Any(ancestor => ReferenceEquals(ancestor, constraint))))
+                        actual.AncestorsWithSelf().Any(ancestor => ReferenceEquals(ancestor, constraint))))
                     {
                         matches = false;
                         break;
@@ -185,7 +185,7 @@ public partial class ModuleAlgorithm
 
             Thought? isA = theUKS.Labeled("is-a");
             bool testsMembership = test.LinkType.HasAncestor(isA) ||
-                test.LinkType.AncestorsWithSelf.Any(ancestor =>
+                test.LinkType.AncestorsWithSelf().Any(ancestor =>
                     ancestor.HasProperty("isPossible") && ancestor.LinksTo.Any(link =>
                         ReferenceEquals(link.LinkType, theUKS.Labeled("is")) && ReferenceEquals(link.To, isA)));
             if (!testsMembership || test.LinkType.HasProperty("isEqual"))

@@ -17,15 +17,13 @@ namespace UKS;
 public partial class UKS
 {
     /// <summary>
-    /// Adds a statement, first recording the history of the values it displaces (UKSWeb Lab 4).
-    /// When the link type or the target has the recordsHistory property and the new statement
-    /// is exclusive with statements the source holds, each displaced statement that is in effect is
-    /// archived as a was.TYPE link (inheriting was, which isHistorical, and the original type)
-    /// at the head of the source's events sequence, newest first, with a validUntil time. A repeat
-    /// visit adds a new sequence cell pointing to the same archived link. The conflicting
-    /// statements are then removed, so only the new value remains in effect.
+    /// Adds the statement [from → type → to] like <see cref="AddStatement"/>, first keeping the history of
+    /// the values it displaces. When the type or the target has the recordsHistory property, each statement
+    /// of the source that is exclusive with the new one (<see cref="LinksAreExclusive"/>) is archived as a
+    /// was.TYPE link at the head of the source's events sequence (newest first, with a validUntil time)
+    /// and then removed, so only the new value remains in effect.
     /// </summary>
-    /// <returns>The added (or reinforced) statement.</returns>
+    /// <returns>The added (or reinforced) statement, or null if the source or type is empty.</returns>
     public Link? AddStatementRecordingHistory(ThoughtRef from, ThoughtRef type, ThoughtRef to)
     {
         Thought? source = from.GetOrAdd(this, "Unknown");

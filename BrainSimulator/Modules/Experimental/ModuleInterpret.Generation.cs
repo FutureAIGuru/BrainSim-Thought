@@ -308,11 +308,11 @@ public sealed partial class ModuleInterpret
     // A word with its ancestors; for an inflected form, its base word's and its inflection's as well.
     private List<Thought> WordClasses(Thought word)
     {
-        var classes = word.AncestorsWithSelf.ToList();
+        var classes = word.AncestorsWithSelf().ToList();
         if (BaseWordOf(word, out Thought? inflection) is Thought baseWord)
         {
-            classes.AddRange(baseWord.AncestorsWithSelf);
-            if (inflection is not null) classes.AddRange(inflection.AncestorsWithSelf);
+            classes.AddRange(baseWord.AncestorsWithSelf());
+            if (inflection is not null) classes.AddRange(inflection.AncestorsWithSelf());
         }
         // A base word is singular; a form carries its own inflection.
         else if (singular is not null) classes.Add(singular);

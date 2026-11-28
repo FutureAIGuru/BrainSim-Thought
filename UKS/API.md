@@ -137,11 +137,19 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
       `Func<IReadOnlyList<Thought>>`; `AddSequence`, `AddSequenceAndLink` and the pattern search take
       an `IReadOnlyList<Thought>`. The internal `IReadOnlyListExtensions` (`FindFirst`, ...) were deleted
       in favor of LINQ. Callers that change a result call `.ToList()`.
-- [ ] **I. Documentation:** upgrade every public member's XML doc comment so Doxygen works again
-      (`UKS/Doxyfile`, output to `UKS/Documentation`; about 140 of 226 public declarations have a
-      comment today). The book's readers will read these, so: one-sentence summary, `<param>` and
-      `<returns>` where they add something, no book references, "link" not "relationship".
-      Run Doxygen and fix its warnings.
+- [x] **I. Documentation:** every public member has an XML doc comment written for readers (one
+      summary, `<param>`/`<returns>` where they add something, "link", no book references), and
+      Doxygen (`UKS/Doxyfile`, output to `UKS/Documentation`) and the C# compiler's documentation
+      check (`-p:GenerateDocumentationFile=true`, which also verifies every `cref`) report nothing.
+      Doxyfile: only `*.cs`, `EXTRACT_STATIC = YES` (without it the agents, helpers and constants were
+      missing), the Undocumented members excluded (`sThought`, `FindSequenceSpansByActivation`), no
+      logo (the file was gone). Each partial class has one summary (the others became `//` notes).
+      Corrected comments that were wrong (`HasAncestor`, `GetAttributes`, `IsSequenceElement`).
+      Also: `ThoughtHelpers` uses classic extension methods, since Doxygen does not read C# 14
+      extension blocks (`AncestorsWithSelf` is now a method); unused parameters removed
+      (`AddSequenceAndLink` baseWeight, `FlattenSequence` skipPlusValues, `ExportTextFile` maxDepth);
+      `EnumerateSequenceElements`'s recursion stack is private; `SaveXml`/`LoadXml` take `path`;
+      `CreateWildcard` takes `IEnumerable<Thought>` and finds its cardinality property by identity.
 - [ ] **J. Freeze:** a public API baseline checked at build time, so any change to the public
       surface fails the build until the baseline is updated on purpose
 

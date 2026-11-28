@@ -32,12 +32,15 @@ public readonly struct ThoughtRef
         this.label = label?.Trim();
     }
 
+    /// <summary>A reference to a Thought.</summary>
     public static implicit operator ThoughtRef(Thought? thought) => new(thought, null);
+    /// <summary>A reference by label, looked up in the store of the method receiving it.</summary>
     public static implicit operator ThoughtRef(string? label) => new(null, label);
 
     /// <summary>True when it names no Thought (null, or an empty label).</summary>
     public bool IsEmpty => thought is null && string.IsNullOrEmpty(label);
 
+    /// <summary>The Thought's label, or the label given.</summary>
     public override string ToString() => thought?.Label ?? label ?? "";
 
     /// <summary>

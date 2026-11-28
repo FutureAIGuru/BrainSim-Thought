@@ -566,7 +566,7 @@ public static partial class Exports
         }
         if (linkType.Contains("is-a") && !reverse || linkType.Contains("has-child") && reverse)
         {
-            if (sourceList.Count > 0) result.Thoughts = sourceList[0].AncestorsWithSelf.Select(Format).ToList();
+            if (sourceList.Count > 0) result.Thoughts = sourceList[0].AncestorsWithSelf().Select(Format).ToList();
             return Json(result, JsonCtx.Default.QueryResultDto);
         }
         if (sourceList.Count == 0)

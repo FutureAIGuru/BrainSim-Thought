@@ -28,6 +28,12 @@ public partial class UKS
         GetOrAddThought("FRST", "LinkType");
     }
 
+    /// <summary>
+    /// Empties the store and creates the core structure: the root Thought with Unknown, Abstract, Object,
+    /// Action and LinkType under it; the core link types (is-a, hasProperty, the sequence links FRST, NXT
+    /// and VLU, and IF and AND for rules); the markers ? and ! for asking and setting; the wildcard ??; and
+    /// the sequence search options. Thoughts under BrainSim (a host's module layout) are kept.
+    /// </summary>
     public void CreateInitialStructure()
     {
         //this hack is needed to preserve the info relating to module layout

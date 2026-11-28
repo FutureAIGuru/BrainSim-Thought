@@ -20,10 +20,13 @@ public partial class UKS
 {
     private string fileName = "";
 
+    /// <summary>The file last saved or loaded (<see cref="SaveXml"/>, <see cref="LoadXml"/>).</summary>
     public string FileName { get => fileName; }
 
-    //this is a modification of Thought which is used to store and retrieve the UKS in XML
-    //it eliminates circular references by replacing Thought references with int indexed into an array 
+    /// <summary>
+    /// One Thought as written to an XML file, with its links' Thoughts replaced by indexes (so the file has
+    /// no circular references). Public only because XmlSerializer requires it; not part of the API.
+    /// </summary>
     public class sThought
     {
         public int index;
@@ -49,14 +52,14 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Saves the UKS content to an XML file.
+    /// Saves the store to an XML file: labels, links, weights and string values (not firing or time to live).
     /// </summary>
-    /// <param name="filenameIn">Optional file name; when null or empty, the previous file name is reused.</param>
-    /// <returns><see langword="true"/> if the save succeeded; otherwise <see langword="false"/>.</returns>
-    public bool SaveXml(string filenameIn = "")
+    /// <param name="path">The file; empty to reuse <see cref="FileName"/>.</param>
+    /// <returns>True if the file was written.</returns>
+    public bool SaveXml(string path = "")
     {
         //if you don't pass in a file name, it uses the previous name
-        if (!String.IsNullOrEmpty(filenameIn)) { fileName = filenameIn; }
+        if (!String.IsNullOrEmpty(path)) { fileName = path; }
         return WriteSaveSnapshot(CaptureSaveSnapshot(), fileName);
     }
 
@@ -192,18 +195,16 @@ public partial class UKS
         return true;
     }
 
-    /// <summary>
-    /// Loads UKS content from a previously-saved XML file.
-    /// </summary>
-    /// <param name="filenameIn">Optional file name; when null or empty, the previous file name is reused.</param>
-    /// <returns><see langword="true"/> if the load succeeded; otherwise <see langword="false"/>.</returns>
-    public bool LoadXml(string filenameIn = "")
+    /// <summary>Replaces the store's content with an XML file written by <see cref="SaveXml"/>.</summary>
+    /// <param name="path">The file; empty to reuse <see cref="FileName"/>.</param>
+    /// <returns>True if the file was read.</returns>
+    public bool LoadXml(string path = "")
     {
         //stash the current BrainSim configuration
         var contentToRestore = ExtractPortionOfUKS(Labeled("BrainSim"));
 
         Stream file;
-        if (!String.IsNullOrEmpty(filenameIn)) { fileName = filenameIn; }
+        if (!String.IsNullOrEmpty(path)) { fileName = path; }
         try
         {
             file = File.Open(fileName, FileMode.Open, FileAccess.Read);

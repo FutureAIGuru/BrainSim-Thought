@@ -364,3 +364,6 @@ MigrationBackup/
 FodyWeavers.xsd
 /BrainSimulator/UKSContent/temp.txt
 /BrainSimulator/UKSContent/TrigramText.txt
+
+# Doxygen output (regenerate with: doxygen Doxyfile, in UKS/)
+UKS/Documentation/

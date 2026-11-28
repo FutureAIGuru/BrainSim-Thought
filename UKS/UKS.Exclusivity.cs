@@ -12,13 +12,16 @@
  */
 namespace UKS;
 
-/// <summary>
-/// Determines whether links are in conflict with one another.
-/// TODO: the entire process can be simplified and made more accurate.
-/// </summary>
+// Whether links are in conflict with one another.
+// TODO: the entire process can be simplified and made more accurate.
 public partial class UKS
 {
-    /// <summary>Checks whether two links conflict under this store's exclusivity rules.</summary>
+    /// <summary>
+    /// True if two links cannot both hold, e.g. [Fido→is→inside] and [Fido→is→outside] (targets under a
+    /// class that isExclusive), a type and its negation (is, is.not), or different counts (has.3 legs,
+    /// has.4 legs). The sources must be the same Thought or related by inheritance. Links stating history,
+    /// possibilities (TYPE.?) and rules (IF) never conflict.
+    /// </summary>
     public bool LinksAreExclusive(Link r1, Link r2)
     {
         //are two links mutually exclusive?

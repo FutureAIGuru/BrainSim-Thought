@@ -22,13 +22,22 @@ public partial class UKS
     private readonly HashSet<Link> evaluatingConditions = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
-    /// Gets all links to a single Thought including inherited links.
+    /// Everything known about a Thought: its own links and those it inherits through is-a, strongest first.
+    /// A more specific link overrides an inherited one it conflicts with (<see cref="LinksAreExclusive"/>),
+    /// and a rule (a link with IF conditions) counts only while its conditions hold; <see cref="Why"/> and
+    /// <see cref="WhyNot"/> then tell which conditions held and failed.
     /// </summary>
-    /// <param name="source">Thought that seeds the search for related links.</param>
-    /// <param name="filter">Optional partially populated link filter. When set, LinkType and To each require the corresponding result component to have that ancestor, self-inclusive.</param>
-    /// <param name="maxResults">Optional maximum number of results to return (0 = no limit).</param>
-    /// <returns>List of matching links.</returns>
-    public IReadOnlyList<Link> GetAttributes(ThoughtRef source, Link? filter = null, int maxResults = 0) //with inheritance, conflicts, etc
+    /// <param name="source">The Thought, or its label; an unknown label gives an empty list.</param>
+    /// <param name="filter">
+    /// Optional: keep only results whose type and target descend from (or are) the filter's
+    /// <see cref="Link.LinkType"/> and <see cref="Link.To"/>, where those are set.
+    /// </param>
+    /// <param name="maxResults">The most results to return; 0 for all.</param>
+    /// <returns>
+    /// The links, each with the Thought as its source. An inherited result is a new, unstored link;
+    /// <see cref="GetEvidence"/> gives the stored links behind it.
+    /// </returns>
+    public IReadOnlyList<Link> GetAttributes(ThoughtRef source, Link? filter = null, int maxResults = 0)
     {
         Thought? thought = source.Find(this);
         if (conditionalQueryDepth == 0)
@@ -331,7 +340,6 @@ public partial class UKS
     // A rule: the link has conditions (IF links) attached.
     internal static bool HasConditions(Link link) => link.LinksTo.Any(condition => IsConditionalLinkType(condition.LinkType));
 
-    /// <summary>
     private bool LinkHasAncestor(Link r, List<Thought> ancestors)
     {
         foreach (Thought ancestor in ancestors)
@@ -403,18 +411,12 @@ public partial class UKS
         }
     }
 
-    /// <summary>
-    /// Returns a list of Links which were false in the previous query.
-    /// </summary>
-    /// <returns>Links that failed conditional evaluation.</returns>
+    /// <summary>The rule conditions that failed in the most recent <see cref="GetAttributes"/>.</summary>
     public IReadOnlyList<Link> WhyNot()
     {
         return failedConditions;
     }
-    /// <summary>
-    /// Returns a list of Links which were true in the previous query.
-    /// </summary>
-    /// <returns>Links that succeeded conditional evaluation.</returns>
+    /// <summary>The rule conditions that held in the most recent <see cref="GetAttributes"/>.</summary>
     public IReadOnlyList<Link> Why()
     {
         return succeededConditions;
@@ -475,11 +477,12 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Search for the Thought which most closely resembles the target Thought based on the attributes of the target.
+    /// Finds the Thoughts that most resemble <paramref name="target"/> by its links, e.g. an observed
+    /// object compared with known ones.
     /// </summary>
-    /// <param name="target">The links of this Thought are the attributes to search on.</param>
-    /// <param name="root">All searching is done within the descendants of this Thought.</param>
-    /// <returns>Ordered list of candidate thoughts with confidence scores.</returns>
+    /// <param name="target">The links of this (often unstored) Thought are the attributes to match.</param>
+    /// <param name="root">Only descendants of this Thought are candidates; an unknown label finds none.</param>
+    /// <returns>The candidates with a confidence, best first.</returns>
     public IReadOnlyList<(Thought t, float conf)> SearchByAttributes(Thought target, ThoughtRef root)
     {
         List<(Thought t, float conf)> retVal = new();
@@ -643,10 +646,12 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Finds the links matching a pattern link (inherited links included when the source is given).
+    /// Finds the links matching a pattern link, where a null or wildcard part matches anything. With a
+    /// source, inherited links are included (<see cref="GetAttributes"/>) and the type matches its
+    /// descendants; otherwise the stored links to the target, or of the type, are searched.
     /// </summary>
-    /// <param name="l">Pattern link; a null or wildcard From, LinkType or To matches anything. A filterBy link on it restricts targets to descendants of its target.</param>
-    /// <returns>List of links matching all specified (non-null) criteria.</returns>
+    /// <param name="l">The pattern. A filterBy link on it keeps only targets that descend from its target.</param>
+    /// <returns>New, unstored links describing the matches; empty if all three parts are open.</returns>
     public IReadOnlyList<Link> FindLinks(Link l)
     {
         List<Link> results = new List<Link>();

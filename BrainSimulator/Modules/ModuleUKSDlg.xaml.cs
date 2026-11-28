@@ -317,7 +317,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         currentLabel = currentLabel.Replace("||", "|"); //parentLabel may or may not have a leading '|'
         if (expandedItems.Contains(currentLabel))
             tviChild.IsExpanded = true;
-        if (theUKS.Labeled(expandAll) is Thought expandRoot && child.AncestorsWithSelf.Contains(expandRoot) &&
+        if (theUKS.Labeled(expandAll) is Thought expandRoot && child.AncestorsWithSelf().Contains(expandRoot) &&
             (child.Label == "" || !parentLabel.Contains("|" + child.Label)))
             tviChild.IsExpanded = true;
         // A collapsed item needs a placeholder child for WPF to show its expansion handle.

@@ -126,7 +126,7 @@ Follow has ONLY if called out in type
             linkType.Contains("has-child") && reverse)
         {
             if (sourceList.Count > 0)
-                thoughtResult = sourceList[0].AncestorsWithSelf.ToList();
+                thoughtResult = sourceList[0].AncestorsWithSelf().ToList();
             return null;
         }
 

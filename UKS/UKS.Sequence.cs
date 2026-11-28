@@ -14,8 +14,9 @@
 namespace UKS;
 
 /// <summary>
-/// One element of a sequence: a Thought with a FRST link to the sequence's first element,
-/// an NXT link to the next element (none on the last), and a VLU link to its value.
+/// One element of a sequence: a Thought with a FRST link to the sequence's first element, an NXT link to
+/// the next element (none on the last), and a VLU link to its value. A value can itself be a sequence,
+/// so sequences nest; identical sequences are stored once and shared.
 /// </summary>
 public class SeqElement : Thought
 {
@@ -69,8 +70,10 @@ public class SeqElement : Thought
 
 public partial class UKS
 {
+    /// <summary>The label prefix of character Thoughts (c:A is the letter a).</summary>
     public const string CharacterPrefix = "c:";
 
+    /// <summary>The label of a character's Thought, e.g. c:A for 'a' (letters are upper-cased).</summary>
     public static string GetCharacterLabel(char character) =>
         CharacterPrefix + char.ToUpperInvariant(character);
 
@@ -105,11 +108,7 @@ public partial class UKS
     // add circular sequences (search can start at any location in the sequence)
     // search with errors and scoring: First/Last are correct, Elements out of order, Elements near others
 
-    /// <summary>
-    /// Determines whether a Thought participates as a sequence element (has a FRST link).
-    /// </summary>
-    /// <param name="t">Thought to test.</param>
-    /// <returns>True if the thought has a FRST link; otherwise false.</returns>
+    /// <summary>True if the Thought is a sequence element.</summary>
     public bool IsSequenceElement(Thought? t) => t is SeqElement;
 
     /// <summary>True if the Thought is the first element of its sequence (its FRST is itself).</summary>
@@ -129,11 +128,15 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Gets a primary VLU value, or a VLU value belonging to the requested class.
+    /// An element's value. An element can carry several values of different classes (a note and its
+    /// duration, say); <paramref name="valueClass"/> selects one.
     /// </summary>
-    /// <param name="s">Sequence element to read.</param>
-    /// <param name="valueClass">Optional ancestor class of the requested VLU facet; null selects a non-metadata value.</param>
-    /// <returns>The selected VLU value, or null if none.</returns>
+    /// <param name="s">The element.</param>
+    /// <param name="valueClass">
+    /// Optional: the value that is, or descends from, this class. Without it, the primary value (not one
+    /// marked isSequenceMetadata).
+    /// </param>
+    /// <returns>The value, or null if there is none (or the class label is unknown).</returns>
     public Thought? GetElementValue(SeqElement? s, ThoughtRef valueClass = default)
     {
         if (s is null) return null;
@@ -184,8 +187,11 @@ public partial class UKS
         return element;
     }
     /// <summary>
-    /// Creates the first sequence element for a source Thought and links its value.
+    /// Starts a new, unshared sequence of one element, to be extended with <see cref="InsertAfter"/>.
+    /// Unlike <see cref="AddSequence"/>, it never reuses an existing sequence.
     /// </summary>
+    /// <param name="labelBase">The element's label is this followed by -seq0.</param>
+    /// <param name="value">The value; an unknown label creates it under Unknown.</param>
     public SeqElement CreateFirstElement(string labelBase, ThoughtRef value)
     {
         Thought? t = value.GetOrAdd(this, "Unknown");
@@ -198,6 +204,10 @@ public partial class UKS
         return firstNode;
     }
 
+    /// <summary>
+    /// Deletes a sequence's elements, given its first element. Nothing is deleted if another Thought also
+    /// refers to the sequence (it is shared) or if <paramref name="s"/> is not a first element.
+    /// </summary>
     public void DeleteSequence(SeqElement? s)
     {
         if (s is not null && !ReferenceEquals(s.Store, this))
@@ -317,6 +327,15 @@ public partial class UKS
             return hc.ToHashCode();
         }
     }
+    /// <summary>
+    /// Stores a sequence of values, or returns the identical one already stored (a sequence is stored once
+    /// and shared). With compression, a run of values that is already a stored sequence is replaced by that
+    /// sequence (so "cats" can reuse "cat").
+    /// </summary>
+    /// <param name="label">The label of the first element of a new sequence.</param>
+    /// <param name="targets">The values in order; a value may be the first element of another sequence.</param>
+    /// <param name="allowCompression">False to store the values flat.</param>
+    /// <returns>The first element, or null for no values.</returns>
     public SeqElement? AddSequence(string label, IReadOnlyList<Thought>? targets, bool allowCompression = true)
     {
         if (targets is not null && targets.Any(value => value is not null && !ReferenceEquals(value.Store, this)))
@@ -367,19 +386,18 @@ public partial class UKS
 
     }
     /// <summary>
-    /// Adds a sequence of Thoughts as ordered links from a source Thought. Handles nested sequences.
+    /// Stores a sequence (<see cref="AddSequence"/>) and links an owner to it, e.g. [w:cat→spelled→^c a t],
+    /// replacing the owner's previous link of that type.
     /// </summary>
-    /// <param name="source">The 'owner' of the sequence.</param>
-    /// <param name="linkType">The link type to use for the sequence link.</param>
-    /// <param name="targets">Targets in order; can be sequence start nodes.</param>
-    /// <param name="baseWeight">Base weight for the links (currently unused).</param>
-    /// <param name="allowCompression">Whether existing subsequences may replace flat target ranges.</param>
-    /// <returns>The first node of the created or reused sequence, or null if insufficient targets.</returns>
+    /// <param name="source">The owner of the sequence.</param>
+    /// <param name="linkType">The type of the owner's link; an unknown label creates it under LinkType.</param>
+    /// <param name="targets">The values in order; a value may be the first element of another sequence.</param>
+    /// <param name="allowCompression">False to store the values flat.</param>
+    /// <returns>The first element, or null for no values.</returns>
     public SeqElement? AddSequenceAndLink(
         Thought source,
         ThoughtRef linkType,
         IReadOnlyList<Thought> targets,
-        float baseWeight = 1.0f,
         bool allowCompression = true)
     {
         if (targets is null || targets.Count == 0) return null;
@@ -398,18 +416,15 @@ public partial class UKS
         return rawSequence;
     }
 
-    /// <summary>
-    /// Gets the canonical Thought for a written character.
-    /// </summary>
+    /// <summary>The Thought for a written character (under character), created if needed.</summary>
     public Thought GetOrAddCharacter(char character)
     {
         Thought characterRoot = GetOrAddThought("character", "Abstract")!;
         return GetOrAddThought(GetCharacterLabel(character), characterRoot)!;
     }
 
-    /// <summary>
-    /// Creates a canonical character sequence and links it to its owner as its spelling.
-    /// </summary>
+    /// <summary>Stores a word's spelling as a sequence of characters and links the owner to it with spelled.</summary>
+    /// <returns>The first element, or null for an empty spelling or no owner.</returns>
     public SeqElement? CreateSpellingSequence(string spelling, Thought? owner)
     {
         if (owner is null || string.IsNullOrEmpty(spelling)) return null;
@@ -421,10 +436,9 @@ public partial class UKS
         return AddSequenceAndLink(owner, spelled, characters);
     }
 
-    /// <summary>
-    /// Flatten a sequence into a list of leaf Thoughts (letters). Handles nested sequences via VLU.
-    /// </summary>
-    public IReadOnlyList<Thought> FlattenSequence(Thought? sequenceStart, bool skipPlusValues = false)
+    /// <summary>The values of a sequence in order, with nested sequences expanded.</summary>
+    /// <param name="sequenceStart">The first element; anything else gives an empty list.</param>
+    public IReadOnlyList<Thought> FlattenSequence(Thought? sequenceStart)
     {
         List<Thought> result = new();
         foreach (SeqElement element in EnumerateSequenceElements(sequenceStart as SeqElement))
@@ -446,18 +460,20 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Enumerates all leaf elements in a sequence, recursively traversing into subsequences.
-    /// Protected against circular subsequence references.
+    /// The elements of a sequence in order, descending into nested sequences, so each element returned
+    /// holds a value that is not a sequence. A sequence that contains itself is not repeated.
     /// </summary>
-    /// <param name="sequenceStart">The first node of the sequence.</param>
-    /// <param name="visitedSequences">Optional stack to track visited sequences across recursion.</param>
-    /// <returns>Leaf sequence elements in order.</returns>
-    public IEnumerable<SeqElement> EnumerateSequenceElements(SeqElement? sequenceStart, Stack<SeqElement>? visitedSequences = null)
+    /// <param name="sequenceStart">The first element (or any element, to start there).</param>
+    public IEnumerable<SeqElement> EnumerateSequenceElements(SeqElement? sequenceStart)
+    {
+        // Each enumeration needs its own record of the sequences it is inside.
+        foreach (SeqElement element in EnumerateSequenceElements(sequenceStart, new Stack<SeqElement>()))
+            yield return element;
+    }
+
+    private IEnumerable<SeqElement> EnumerateSequenceElements(SeqElement? sequenceStart, Stack<SeqElement> visitedSequences)
     {
         if (sequenceStart is null) yield break;
-
-        // Initialize visited sequences tracker if this is the top-level call
-        if (visitedSequences is null) visitedSequences = new();
         if (visitedSequences.Contains(sequenceStart)) yield break; // Already visited this sequence, stop to prevent infinite recursion
         visitedSequences.Push(sequenceStart);
         var current = sequenceStart;
@@ -488,7 +504,7 @@ public partial class UKS
         visitedSequences.Pop();
     }
 
-    /// <summary>The sources of all links of the given type to this sequence element.</summary>
+    /// <summary>The owners of a sequence: the sources of links of the given type to its element <paramref name="s"/>.</summary>
     public IReadOnlyList<Thought> GetReferringThoughts(SeqElement s, ThoughtRef linkType) =>
         linkType.Find(this) is Thought type
             ? s.LinksFrom.Where(x => x.LinkType == type).Select(x => x.From!).ToList()
@@ -574,11 +590,27 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Searches directly from input sequence elements. valueClass selects a VLU facet
-    /// (for example, note or duration) in both input and stored sequences. alternativeClass
-    /// prefers an input VLU of that class and consumes its contiguous covered run as one value.
-    /// matchClass restricts results to sequences referred to by Thoughts of that class.
+    /// Finds the stored sequences that match an input sequence, by activation: each input value activates
+    /// the stored elements holding it, and activation passes along NXT links.
     /// </summary>
+    /// <param name="sequence">The first input element.</param>
+    /// <param name="searchOptions">
+    /// A search options Thought (<see cref="CreateSearchOptions"/>, or one of those
+    /// <see cref="CreateInitialStructure"/> makes: ExactSequenceSearch, the default, TemplateSequenceSearch,
+    /// ApproximateSequenceSearch, ...).
+    /// </param>
+    /// <param name="getFirstElements">
+    /// True for each matching sequence's first element; false for the element where each match starts,
+    /// which finds occurrences inside longer sequences (flat, literal searches only).
+    /// </param>
+    /// <param name="last">The last input element to use; null for the whole input.</param>
+    /// <param name="valueClass">Optional: compare the values of this class (<see cref="GetElementValue"/>) in input and stored sequences.</param>
+    /// <param name="alternativeClass">
+    /// Optional: where an input element has a value of this class, use it instead, as one value for the
+    /// run of following elements that share it.
+    /// </param>
+    /// <param name="matchClass">Optional: keep only sequences owned by a Thought of this class.</param>
+    /// <returns>The matches with a confidence (the share of the stored sequence matched), best first.</returns>
     public IReadOnlyList<(SeqElement seqNode, float confidence)> FindSequencesByActivation(
         SeqElement? sequence, ThoughtRef searchOptions = default, bool getFirstElements = true, SeqElement? last = null,
         ThoughtRef valueClass = default, ThoughtRef alternativeClass = default, ThoughtRef matchClass = default) =>
@@ -640,11 +672,15 @@ public partial class UKS
         return results;
     }
     /// <summary>
-    /// Searches for pattern activation. Returns sequence roots, or individual stream positions when FRST is null.
-    /// getFirstElements=false also returns individual positions within ordinary flat sequences.
-    /// The allowTrailingInput search property retains completed stored sequences when input continues.
-    /// With mustMatchFirst and mustMatchLast, this returns complete templates matching an input prefix.
+    /// Finds the stored sequences that match a pattern of values, by activation (see the overload taking
+    /// an input sequence). With wildcards allowed, a wildcard in the pattern matches values of its class.
     /// </summary>
+    /// <param name="pattern">The values to look for, in order.</param>
+    /// <param name="searchOptions">A search options Thought; ExactSequenceSearch if empty.</param>
+    /// <param name="getFirstElements">True for each matching sequence's first element; false for where each match starts.</param>
+    /// <param name="valueClass">Optional: compare the stored values of this class.</param>
+    /// <param name="matchClass">Optional: keep only sequences owned by a Thought of this class.</param>
+    /// <returns>The matches with a confidence, best first.</returns>
     public IReadOnlyList<(SeqElement seqNode, float confidence)> FindSequencesByActivation(
         IReadOnlyList<Thought> pattern, ThoughtRef searchOptions = default,
         bool getFirstElements = true, ThoughtRef valueClass = default, ThoughtRef matchClass = default) =>
@@ -831,9 +867,12 @@ public partial class UKS
         return constraints.Count == 0 || constraints.Any(constraint => value.HasAncestor(constraint));
     }
 
-    /// <summary>
-    /// Creates a search options Thought with specified properties for sequence searching.
-    /// </summary>
+    /// <summary>Creates a search options Thought (under SearchOption) for <see cref="FindSequencesByActivation"/>.</summary>
+    /// <param name="mustMatchFirst">The match must start at a sequence's first element.</param>
+    /// <param name="mustMatchLast">The match must end at a sequence's last element.</param>
+    /// <param name="allowWildcard">Wildcards in the input match values of their class.</param>
+    /// <param name="allowNestedSequences">Values inside nested sequences are matched.</param>
+    /// <param name="allowTrailingInput">A stored sequence matches even if the input continues past its end.</param>
     public Thought CreateSearchOptions(bool mustMatchFirst = false, bool mustMatchLast = false,
         bool allowWildcard = false, bool allowNestedSequences = false, bool allowTrailingInput = false)
     {
@@ -1093,8 +1132,7 @@ public partial class UKS
     /// <summary>The properties marking a wildcard, one per cardinality.</summary>
     private static readonly string[] WildcardProperties = { "isWildcard", "isOptionalWildcard", "is*Wildcard", "is+Wildcard" };
 
-    /// <summary>True if the Thought, or an ancestor, has one of the wildcard properties.</summary>
-    /// <summary>True if the Thought is a wildcard (it has one of the wildcard properties; see <see cref="CreateWildcard"/>).</summary>
+    /// <summary>True if the Thought is a wildcard: it, or an ancestor, has a wildcard property (<see cref="CreateWildcard"/>).</summary>
     public static bool IsWildcard(Thought t) => WildcardProperties.Any(property => t.HasProperty(property));
 
     private static bool IsWildcardPatternElement(Thought? patternElement, Thought? searchOptions)
@@ -1140,9 +1178,21 @@ public partial class UKS
             .ToList();
     }
 
+    /// <summary>
+    /// Gets or creates a wildcard: a Thought that, in a sequence pattern, matches any value of its
+    /// classes (??.noun matches any noun).
+    /// </summary>
+    /// <param name="wildcardName">The wildcard's label.</param>
+    /// <param name="parentThoughts">The classes it matches; none matches anything.</param>
+    /// <param name="wildcardProperty">
+    /// How many values it matches: isWildcard (one), isOptionalWildcard (zero or one), is*Wildcard
+    /// (any number), is+Wildcard (one or more).
+    /// </param>
+    /// <exception cref="ArgumentException">The property is not one of these.</exception>
+    /// <exception cref="InvalidOperationException">The wildcard already exists with another property.</exception>
     public Thought CreateWildcard(
         string wildcardName,
-        List<Thought> parentThoughts,
+        IEnumerable<Thought> parentThoughts,
         string wildcardProperty = "isWildcard")
     {
         if (!WildcardProperties.Contains(wildcardProperty, StringComparer.OrdinalIgnoreCase))
@@ -1153,8 +1203,7 @@ public partial class UKS
         Thought? existingProperty = wildcard.LinksTo
             .Where(x => x.LinkType == HasPropertyType && x.To is not null)
             .Select(x => x.To!)
-            .FirstOrDefault(x => WildcardProperties.Contains(
-                x.Label, StringComparer.OrdinalIgnoreCase));
+            .FirstOrDefault(x => WildcardProperties.Select(Labeled).Contains(x));
         if (existingProperty is not null && existingProperty != selectedProperty)
             throw new InvalidOperationException(
                 $"Wildcard '{wildcardName}' already has cardinality '{existingProperty.Label}'.");

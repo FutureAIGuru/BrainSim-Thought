@@ -14,11 +14,9 @@ using System.Diagnostics;
 
 namespace UKS;
 
-/// <summary>
-/// Running the store over time: the cycle count and time-to-live expiry (<see cref="AdvanceCycle"/>),
-/// the clock that advances it, and <see cref="RunPeriodically"/>, which schedules agents (processes that
-/// reorganize the store, such as those in namespace UKS.Agents).
-/// </summary>
+// Running the store over time: the cycle count and time-to-live expiry (AdvanceCycle), the clock that
+// advances it, and RunPeriodically, which schedules agents (processes that reorganize the store, such
+// as those in namespace UKS.Agents).
 public partial class UKS
 {
     private readonly Dictionary<Func<IReadOnlyList<Thought>>, Timer> agentTimers = new();

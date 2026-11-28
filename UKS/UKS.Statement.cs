@@ -16,11 +16,15 @@ namespace UKS;
 public partial class UKS
 {
     /// <summary>
-    /// Adds the statement [source → linkType → target], e.g. <c>AddStatement("Fido", "is-a", "dog")</c>,
-    /// and returns its link (an existing identical link is reused and fired).
-    /// Each operand is a Thought or a label: an unknown label creates the Thought, under LinkType
-    /// for the link type and under Unknown otherwise. The target may be empty (<c>default</c>).
+    /// Adds the statement [source → linkType → target], e.g. <c>AddStatement("Fido", "is-a", "dog")</c>.
+    /// An identical stored link is reused, strengthened and fired. A conflicting link of the source
+    /// (<see cref="LinksAreExclusive"/>) is weakened, and removed when its weight reaches 0 or when it is the
+    /// negation of the new one. Each operand is a Thought or a label: an unknown label creates the Thought, under LinkType
+    /// for the link type and under Unknown otherwise.
     /// </summary>
+    /// <param name="source">The source.</param>
+    /// <param name="linkType">The link type.</param>
+    /// <param name="target">The target; may be empty (<c>default</c>).</param>
     /// <param name="label">Optional label for the link.</param>
     /// <returns>The link, or null if the source or link type is empty.</returns>
     public Link? AddStatement(ThoughtRef source, ThoughtRef linkType, ThoughtRef target, string label = "")

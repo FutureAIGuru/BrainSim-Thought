@@ -422,10 +422,10 @@ public sealed partial class ModuleInterpret
     {
         if (relationship is null || IsReferentDescriptor(relationship)) return 0;
         int fit = Fit(relationship.From as Link, expectsTarget) + Fit(relationship.To as Link, expectsTarget);
-        Thought? expected = relationship.LinkType?.AncestorsWithSelf
+        Thought? expected = relationship.LinkType?.AncestorsWithSelf()
             .Select(type => type.GetTargetOfFirstLinkOfType(expectsTarget)).FirstOrDefault(target => target is not null);
         if (expected is null || relationship.To is null || relationship.To is Link) return fit;
-        return fit + (relationship.To.AncestorsWithSelf.Contains(expected) ? 1 : -1);
+        return fit + (relationship.To.AncestorsWithSelf().Contains(expected) ? 1 : -1);
     }
 
     // Sentence words, later first (for longest-first orderings).

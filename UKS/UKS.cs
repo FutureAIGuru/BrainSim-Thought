@@ -15,8 +15,14 @@
 namespace UKS;
 
 /// <summary>
-/// Contains a collection of Thoughts linked by Links to implement Common Sense and general knowledge.
+/// A Universal Knowledge Store: Thoughts connected by links, with inheritance through is-a, queries
+/// that resolve inherited and conflicting knowledge, sequences, time counted in cycles, undo, and
+/// text and XML files.
 /// </summary>
+/// <remarks>
+/// Each store is independent: a label always means a Thought of the store being called. Start a store
+/// with <c>new UKS()</c> and <see cref="CreateInitialStructure"/>, or load one with <see cref="LoadXml"/>.
+/// </remarks>
 public partial class UKS
 {
     //This is the actual internal Universal Knowledge Store
@@ -80,6 +86,10 @@ public partial class UKS
     }
 
     // Handy for temporarily suppressing firing during bulk updates or similar operations
+    /// <summary>
+    /// While true, <see cref="Thought.Fire"/> does nothing, e.g. during a bulk import
+    /// (<see cref="ImportTextFile"/> sets it while reading).
+    /// </summary>
     public bool SuppressFiring { get; set; } = false;
 
     /// <summary>
@@ -108,11 +118,7 @@ public partial class UKS
         return newThought;
     }
 
-    /// <summary>
-    /// Uses a hash table to return the Thought with the given label or null if it does not exist.
-    /// </summary>
-    /// <param name="label">Label to look up.</param>
-    /// <returns>The Thought or null.</returns>
+    /// <summary>The Thought with this label (ignoring case), or null if there is none.</summary>
     public Thought? Labeled(string label)
     {
         if (string.IsNullOrEmpty(label)) return null;
@@ -198,12 +204,9 @@ public partial class UKS
         (ignoreSource || Link.SameConnection(r1.From, r2.From));
 
     /// <summary>
-    /// Gets an existing link matching the specified from/linkType/to triple, if present.
+    /// The stored link [from → linkType → to], or null if there is none or a label is unknown. An empty
+    /// <paramref name="to"/> means a link with no target. Only the link itself counts, not inheritance.
     /// </summary>
-    /// <param name="from">Source thought of the link.</param>
-    /// <param name="linkType">Link type thought.</param>
-    /// <param name="to">Target thought of the link.</param>
-    /// <returns>The existing link Thought, or null if not found.</returns>
     public Link? GetLink(ThoughtRef from, ThoughtRef linkType, ThoughtRef to)
     {
         Thought? source = from.Find(this), type = linkType.Find(this), target = to.Find(this);
@@ -251,12 +254,20 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Creates a new Thought in the UKS OR returns an existing Thought, based on the label.
+    /// The Thought with this label, created if there is none. A dotted label composes its parts: big.dog
+    /// gets the parents big and dog (each created if needed), and is.not.! gets is.not and !. A trailing *
+    /// makes a new numbered Thought (dog0, dog1, ...).
     /// </summary>
-    /// <param name="label">Label for the thought. Trailing '*' auto-increments to a unique label.</param>
-    /// <param name="parent">Optional parent, a Thought or a label; an empty or unknown one means Unknown.</param>
-    /// <param name="source">Optional source thought used to probe existing numbered links.</param>
-    /// <returns>The existing or newly created Thought.</returns>
+    /// <param name="label">The label; an empty one returns null.</param>
+    /// <param name="parent">
+    /// The parent, a Thought or a label; empty means Unknown. An existing Thought under Unknown moves to
+    /// the given parent.
+    /// </param>
+    /// <param name="source">
+    /// With a label ending in *, reuse the first numbered Thought that <paramref name="source"/> does not
+    /// already have a link of (so each of its links gets its own number).
+    /// </param>
+    /// <returns>The Thought, or null for an empty label.</returns>
     public Thought? GetOrAddThought(string label, ThoughtRef parent = default, Thought? source = null)
     {
         if (source is not null && !ReferenceEquals(source.Store, this))

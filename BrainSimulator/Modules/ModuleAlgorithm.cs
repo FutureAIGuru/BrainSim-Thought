@@ -222,7 +222,7 @@ public partial class ModuleAlgorithm : ModuleBase
                 // New compounds inherit their ordinary type. Legacy WRITE compounds
                 // also retain their original attribute links until migration is complete.
                 Thought newLinkType = null;
-                foreach (Thought actionType in action.LinkType.AncestorsWithSelf)
+                foreach (Thought actionType in action.LinkType.AncestorsWithSelf())
                 {
                     if (!actionType.HasProperty("setRelationship")) continue;
                     newLinkType = actionType.LinksTo.LastOrDefault(link =>

@@ -13,11 +13,19 @@
 
 namespace UKS;
 
+/// <summary>
+/// A link: a Thought that connects three others, its source (<see cref="From"/>), its type
+/// (<see cref="LinkType"/>) and its target (<see cref="To"/>), as in [Fido→is-a→dog]. Because a link
+/// is a Thought, it can itself be the source or target of another link (a nested statement).
+/// </summary>
+/// <remarks>
+/// A link built with a constructor is not stored: use it as a pattern (<see cref="UKS.FindLinks"/>,
+/// <see cref="UKS.ApplyTestOrSetAction"/>). Store a link with <see cref="UKS.AddStatement"/> or
+/// <see cref="Thought.AddLink"/>.
+/// </remarks>
 public class Link : Thought
 {
-    /// <summary>
-    /// Default constructor for a link thought.
-    /// </summary>
+    /// <summary>Creates an unconnected, unstored link in the store.</summary>
     public Link(UKS store) : base(store) { }
 
     /// <summary>
@@ -33,12 +41,8 @@ public class Link : Thought
             SameConnection(la.From, lb.From) && SameConnection(la.To, lb.To);
     }
 
-    /// <summary>
-    /// Creates a link with the specified source, link type, and target.
-    /// </summary>
-    /// <param name="from">Source thought.</param>
-    /// <param name="linkType">Link type thought.</param>
-    /// <param name="to">Target thought.</param>
+    /// <summary>Creates an unstored link [from → linkType → to], e.g. a query pattern.</summary>
+    /// <exception cref="ArgumentException">All three are null.</exception>
     public Link(Thought? from, Thought? linkType, Thought? to)
         : base((from ?? linkType ?? to)?.Store ?? throw new ArgumentException("A link needs at least one Thought."))
     {
@@ -46,6 +50,7 @@ public class Link : Thought
         LinkType = linkType;
         To = to;
     }
+    /// <summary>Creates an unstored copy of a link; nested links are copied too.</summary>
     public Link(Link l) : base(l.Store)
     {
         if (l.From is Link l1)
@@ -65,6 +70,7 @@ public class Link : Thought
     private Thought? from;
     private Thought? linkType;
     private Thought? to;
+    /// <summary>The source of the link.</summary>
     public Thought? From
     {
         get => from;
@@ -75,6 +81,7 @@ public class Link : Thought
             from = value;
         }
     }
+    /// <summary>The type of the link (is-a, has, ...).</summary>
     public Thought? LinkType
     {
         get => linkType;
@@ -85,6 +92,7 @@ public class Link : Thought
             linkType = value;
         }
     }
+    /// <summary>The target of the link; may be null.</summary>
     public Thought? To
     {
         get => to;
@@ -96,9 +104,7 @@ public class Link : Thought
         }
     }
 
-    /// <summary>
-    /// Returns a formatted string for the link, showing sequence notation or From→Type→To.
-    /// </summary>
+    /// <summary>The link as text: [From→LinkType→To], preceded by its label if it has a name.</summary>
     public override string ToString()
     {
         string retVal = (HasGeneratedLabel ? "" : Label) + "[";
@@ -111,12 +117,17 @@ public class Link : Thought
 }
 
 /// <summary>
-/// A Thought is an atomic unit of thought. In the lexicon of graphs, a Thought is both a "node" and an Edge.  
-/// A Thought can represent anything, physical object, attribute, word, action, feeling, etc.
+/// The single kind of element in a UKS. A Thought can stand for anything: an object, an attribute, a
+/// word, an action. It has a label, links to other Thoughts (<see cref="LinksTo"/>), and a place in
+/// the is-a hierarchy (<see cref="Parents"/>, <see cref="Children"/>), from which it inherits.
 /// </summary>
+/// <remarks>
+/// Thoughts are compared by identity: two Thoughts are equal only if they are the same object. A label
+/// finds a Thought (<see cref="UKS.Labeled"/>) but is never compared.
+/// </remarks>
 public partial class Thought
 {
-    /// <summary>The independent UKS containing this Thought; never changes after construction.</summary>
+    /// <summary>The store this Thought belongs to; it never changes.</summary>
     public UKS Store { get; }
 
     private readonly List<Link> _linksTo = new();   // links to "has", "is", is-a, many others
@@ -128,16 +139,16 @@ public partial class Thought
     /// <summary>Unsafe writeable list of incoming links.</summary>
     internal List<Link> LinksFromWriteable { get => _linksFrom; }
     internal List<Link> LinksAsTypeWriteable { get => _linksAsType; }
-    /// <summary>Safe snapshot of outgoing links.</summary>
+    /// <summary>This Thought's own links (it is their source), as a copy that is safe to keep.</summary>
     public IReadOnlyList<Link> LinksTo
     {
         get { lock (_linksTo) return new List<Link>(_linksTo); }
     }
-    /// <summary>Safe snapshot of incoming links.</summary>
+    /// <summary>The links that have this Thought as their target, as a copy that is safe to keep.</summary>
     public IReadOnlyList<Link> LinksFrom { get { lock (_linksFrom) { return new List<Link>(_linksFrom.AsReadOnly()); } } }
-    /// <summary>Safe snapshot of the links which use this Thought as their LinkType.</summary>
+    /// <summary>The links that have this Thought as their type, as a copy that is safe to keep.</summary>
     public IReadOnlyList<Link> LinksAsType { get { lock (_linksAsType) return new List<Link>(_linksAsType); } }
-    /// <summary>Direct parents (targets of outgoing is-a links).</summary>
+    /// <summary>The direct parents: targets of this Thought's is-a links.</summary>
     public IReadOnlyList<Thought> Parents
     {
         get
@@ -146,7 +157,7 @@ public partial class Thought
             lock (_linksTo) return _linksTo.Where(x => x.LinkType == isA).Select(x => x.To).OfType<Thought>().ToList();
         }
     }
-    /// <summary>Direct children (sources of incoming is-a links).</summary>
+    /// <summary>The direct children: sources of is-a links to this Thought.</summary>
     public IReadOnlyList<Thought> Children
     {
         get
@@ -157,6 +168,10 @@ public partial class Thought
     }
 
     private string _label = "";
+    /// <summary>
+    /// The Thought's name, unique in its store and case-insensitive. Setting a label already in use
+    /// appends a number, and a trailing * becomes the next free number (dog* gives dog0, dog1, ...).
+    /// </summary>
     public string Label
     {
         get => _label;
@@ -186,6 +201,11 @@ public partial class Thought
     // A label the store made up (NextGeneratedLabel), as opposed to a name.
     internal bool HasGeneratedLabel => Label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Removes this Thought from its store with all its links. Its children move to its parents (a
+    /// wildcard child is deleted instead), and sequences only it refers to are deleted. Deleting a link removes it
+    /// from its source.
+    /// </summary>
     public void Delete()
     {
         // A Link is also a Thought. If it is still installed in the graph, detach
@@ -261,8 +281,8 @@ public partial class Thought
 
     private long _timeToLive = Forever;
     /// <summary>
-    /// Cycles left before this Thought (or Link) is deleted, counted down by <see cref="UKS.AdvanceCycle"/>;
-    /// <see cref="Forever"/> (-1, the default) means it never expires.
+    /// Cycles left before this Thought (or link) is deleted, counted down by <see cref="UKS.AdvanceCycle"/>.
+    /// <see cref="Forever"/> (the default) means it never expires; firing extends a finite time.
     /// </summary>
     public long TimeToLive
     {
@@ -283,7 +303,7 @@ public partial class Thought
     }
 
     private object? _value;
-    /// <summary>Any serializable object can be attached to a Thought. ONLY STRINGS are supported for save/restore to disk file.</summary>
+    /// <summary>Any object attached to the Thought. Only a string value is saved to a file.</summary>
     public object? Value
     {
         get => _value;
@@ -291,14 +311,17 @@ public partial class Thought
     }
 
     private float _weight = 1;
-    /// <summary>Weight of this Thought (for links, applies to the link).</summary>
+    /// <summary>
+    /// Strength or confidence, 1 by default. A query multiplies the weights along an inheritance path and
+    /// orders its results by weight; repeating a statement strengthens its link.
+    /// </summary>
     public float Weight
     {
         get => _weight;
         set => _weight = value;
     }
     private float _maxWeight = 1;
-    /// <summary>MaxWeight of this Thought (for links, applies to the link).</summary>
+    /// <summary>An upper limit on <see cref="Weight"/> for learning code to respect; the store saves it but does not use it.</summary>
     public float MaxWeight
     {
         get => _maxWeight;
@@ -306,14 +329,14 @@ public partial class Thought
     }
 
     /// <summary>
-    /// True when ordinary learning and forgetting are allowed to change this
-    /// Thought's persistent weight. Structural Thoughts and Links are not
-    /// plastic by default.
+    /// True if learning may still change this Thought's weight. The store saves the flag but does not act
+    /// on it; structural Thoughts and links are not plastic.
     /// </summary>
     public bool IsPlastic { get; set; }
 
     /// <summary>
-    /// Default constructor.
+    /// Creates an unlabeled Thought in the store. It becomes a stored Thought when it is given a label;
+    /// usually <see cref="UKS.GetOrAddThought"/> or <see cref="UKS.AddThought"/> is simpler.
     /// </summary>
     public Thought(UKS store)
     {
@@ -321,10 +344,8 @@ public partial class Thought
         CreatedCycle = Store.Cycle;
     }
 
-    /// <summary>
-    /// Copy constructor. For link thoughts, construct a Link instead.
-    /// </summary>
-    /// <param name="r">Thought to copy.</param>
+    /// <summary>Creates a copy of a Thought's label, weights and value, without its links.</summary>
+    /// <param name="r">The Thought to copy; for a link, construct a <see cref="Link"/> instead.</param>
     public Thought(Thought r) : this(r.Store)
     {
         if (r is Link)
@@ -337,9 +358,7 @@ public partial class Thought
         
     }
 
-    /// <summary>
-    /// Returns a Thought's label with attached value if present.
-    /// </summary>
+    /// <summary>The label, followed by _V: and the value if there is one.</summary>
     public override string ToString()
     {
         string retVal = Label.Trim();
@@ -359,9 +378,7 @@ public partial class Thought
         return this;
     }
 
-    /// <summary>
-    /// Breadth-first ancestors (excluding self).
-    /// </summary>
+    /// <summary>Every ancestor (parents, their parents, ...), nearest first, each once; not this Thought.</summary>
     public IEnumerable<Thought> Ancestors
     {
         get
@@ -382,9 +399,7 @@ public partial class Thought
         }
     }
 
-    /// <summary>
-    /// Breadth-first descendants.
-    /// </summary>
+    /// <summary>Every descendant (children, their children, ...), nearest first, each once; not this Thought.</summary>
     public IEnumerable<Thought> Descendants
     {
         get
@@ -406,8 +421,8 @@ public partial class Thought
     }
 
     /// <summary>
-    /// True if this Thought is the given Thought or one of its descendants (follows is-a upward).
-    /// An unknown label is never an ancestor.
+    /// True if <paramref name="ancestor"/> is this Thought or one of its ancestors. An unknown label is
+    /// never an ancestor.
     /// </summary>
     public bool HasAncestor(ThoughtRef ancestor)
     {
@@ -496,9 +511,9 @@ public partial class Thought
     }
 
     /// <summary>
-    /// Removes a specific link instance.
+    /// Removes a stored link. <paramref name="r"/> may be an unstored copy: the link with the same source,
+    /// type and target is removed.
     /// </summary>
-    /// <param name="r">Link to remove.</param>
     public void RemoveLink(Link r)
     {
         if (r is null) return;
@@ -526,8 +541,9 @@ public partial class Thought
     }
 
     /// <summary>
-    /// This Thought's link of the given type to the given target, or to any target if the target is
-    /// empty; null if there is none or a label is unknown.
+    /// This Thought's own link of the given type to the given target (to any target if it is empty), or
+    /// null if there is none or a label is unknown. Inherited links are not included; see
+    /// <see cref="UKS.GetAttributes"/>.
     /// </summary>
     public Link? HasLink(ThoughtRef linkType, ThoughtRef to = default)
     {

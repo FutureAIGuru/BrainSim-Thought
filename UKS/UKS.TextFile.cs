@@ -19,13 +19,13 @@ namespace UKS;
 public partial class UKS
 {
     /// <summary>
-    /// Exports <paramref name="root"/>, its descendants and everything they link to, to the text file
-    /// format: one line per link, label[from->type->to] followed by weight, maxWeight and isPlastic.
+    /// Writes <paramref name="root"/>, its descendants and everything they link to in the text format
+    /// (<see cref="ImportTextFile"/>): one line per link, [from->type->to], followed by its weight,
+    /// MaxWeight and IsPlastic when they are not the defaults.
     /// </summary>
     /// <param name="root">The starting Thought, or its label.</param>
-    /// <param name="path">Destination file path for the exported text.</param>
-    /// <param name="maxDepth">Optional maximum traversal depth (currently unused).</param>
-    public void ExportTextFile(ThoughtRef root, string path, int maxDepth = 12)
+    /// <param name="path">The file to write.</param>
+    public void ExportTextFile(ThoughtRef root, string path)
     {
         if (root.IsEmpty) throw new ArgumentException("A starting Thought is required.", nameof(root));
         Thought? Root = root.Require(this);
@@ -127,9 +127,11 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Imports UKS content from a bracketed text file.
+    /// Reads a text knowledge file into the store: one statement per line, [from->type->to], optionally
+    /// preceded by a label and followed by a weight; nested statements ([a->means->[b->is->c]]),
+    /// sequences (^a b c) and # comments. Firing is suppressed while reading.
     /// </summary>
-    /// <param name="filePath">Path of the text file to import.</param>
+    /// <param name="filePath">The file to read.</param>
     public void ImportTextFile(string filePath)
     {
         if (filePath is null) throw new ArgumentNullException(nameof(filePath));
@@ -193,6 +195,8 @@ public partial class UKS
         }
     }
 
+    /// <summary>Reads one line of the text format (<see cref="ImportTextFile"/>) and adds what it states.</summary>
+    /// <returns>The Thought or link, or null for a blank, comment or unreadable line.</returns>
     public Thought? ProcessSingleLine(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return null;
@@ -385,11 +389,16 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Processes a single line of UKS text format and creates the corresponding thought/link.
-    /// Handles nested links where src, type, or target can themselves be links.
+    /// Reads one line of the text format and adds what it states, treating the operands of IF and AND as
+    /// patterns (TYPE.? possibilities) rather than statements.
     /// </summary>
-    /// <param name="line">The line to process in UKS text format (e.g., "label[from->linkType->to] weight")</param>
-    /// <returns>The created Thought/Link, or null if parsing failed.</returns>
+    /// <param name="line">The line, e.g. [[fido->is->wet]->IF->[fido->located->outside]].</param>
+    /// <param name="asPattern">Read the whole statement as a pattern: an ordinary type becomes TYPE.?, so nothing is asserted.</param>
+    /// <param name="asActionPrototype">
+    /// Build the action link (a TYPE.! or TYPE.? statement) without connecting it to its Thoughts, as a
+    /// template to carry out later with <see cref="ApplyTestOrSetAction"/>.
+    /// </param>
+    /// <returns>The Thought or link, or null if the line could not be read.</returns>
     public Thought? ProcessSingleLineWithNesting(string line, bool asPattern = false, bool asActionPrototype = false)
     {
         if (string.IsNullOrWhiteSpace(line)) return null;
@@ -546,11 +555,8 @@ public partial class UKS
         return phrase.Length == 0 ? null : GetOrAddThought(phrase);
     }
 
-    /// <summary>
-    /// Process a string that may be either a label or a nested link [src->type->target]
-    /// </summary>
-    /// <param name="part">The string to process</param>
-    /// <returns>Thought if found/created, Link if nested, null if not found</returns>
+    // One operand of a statement: a quoted label, a nested statement [from->type->to] (asPattern: read
+    // as a pattern), or an existing label; null otherwise.
     private Thought? ProcessThoughtOrLink(string part, bool asPattern = false)
     {
         if (string.IsNullOrWhiteSpace(part)) return null;
