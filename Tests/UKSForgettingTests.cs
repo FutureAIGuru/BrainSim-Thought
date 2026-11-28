@@ -9,9 +9,8 @@ public class UKSForgettingTests
 {
     private static UKS.UKS CreateUKS()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateMinimumStructureForTests();
-        UKS.UKS.theUKS = uks;
         return uks;
     }
 
@@ -27,7 +26,7 @@ public class UKSForgettingTests
         uks.AdvanceCycle();
 
         Assert.DoesNotContain(temp, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought("temp-ttl"));
+        Assert.Null(uks.Labeled("temp-ttl"));
     }
 
     [Fact]
@@ -64,7 +63,7 @@ public class UKSForgettingTests
 
         uks.AdvanceCycle();
 
-        Thought unknown = ThoughtLabels.GetThought("Unknown");
+        Thought unknown = uks.Labeled("Unknown");
         Assert.NotNull(unknown);
         Assert.DoesNotContain(dog, fido.Parents);
         Assert.Contains(unknown, fido.Parents);
@@ -119,7 +118,7 @@ public class UKSForgettingTests
 
         var seqStart = uks.AddSequenceAndLink(word, spelled, new() { lA, lB });
         string seqLabel = $"{word.Label.ToLower()}-seq0";
-        Assert.Same(seqStart, ThoughtLabels.GetThought(seqLabel));
+        Assert.Same(seqStart, uks.Labeled(seqLabel));
 
         // Force TTL expiration on the owner
         word.TimeToLive = 1;
@@ -128,9 +127,9 @@ public class UKSForgettingTests
 
         // Owner and its sequence are gone
         Assert.DoesNotContain(word, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought(word.Label));
+        Assert.Null(uks.Labeled(word.Label));
         Assert.DoesNotContain(seqStart, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought(seqLabel));
+        Assert.Null(uks.Labeled(seqLabel));
 
         // Element values remain
         Assert.Contains(lA, uks.AtomicThoughts);

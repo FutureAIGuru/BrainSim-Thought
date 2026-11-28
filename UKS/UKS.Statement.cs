@@ -29,7 +29,6 @@ public partial class UKS
         Thought? linkType = source is null ? null : linkTypeRef.GetOrAdd(this, "LinkType", source);
         if (source is null || linkType is null) return null; // nothing is created for a rejected statement
         Thought? target = targetRef.GetOrAdd(this, "Unknown");
-        theUKS = this;
 
         Link? labeledLink = string.IsNullOrEmpty(label) ? null : Labeled(label) as Link;
         bool isUnwiredPlaceholder = labeledLink is not null && labeledLink.From is null;

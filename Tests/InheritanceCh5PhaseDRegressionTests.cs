@@ -16,7 +16,7 @@ public class InheritanceCh5PhaseDRegressionTests
 {
     private static UKS CreateUks()
     {
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         return uks;
     }

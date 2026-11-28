@@ -40,7 +40,6 @@ namespace BrainSimulator
             set
             {
                 moduleHandler.theUKS = value;
-                UKS.UKS.theUKS = value;
             }
         }
         public static MainWindow theWindow = null;
@@ -155,7 +154,7 @@ namespace BrainSimulator
             theUKS.CreateInitialStructure();  //creates the "thought" substructure
 
             if (theUKS.Labeled("BrainSim") is null)
-                theUKS.AddThought("BrainSim", null);
+                theUKS.AddThought("BrainSim");
             theUKS.GetOrAddThought("AvailableModule", "BrainSim");
             theUKS.GetOrAddThought("ActiveModule", "BrainSim");
 
@@ -165,7 +164,7 @@ namespace BrainSimulator
 
         public void UpdateModuleListsInUKS()
         {
-            theUKS.GetOrAddThought("BrainSim", null);
+            theUKS.GetOrAddThought("BrainSim");
             theUKS.GetOrAddThought("AvailableModule", "BrainSim");
             theUKS.GetOrAddThought("ActiveModule", "BrainSim");
             var availableListInUKS = theUKS.Labeled("AvailableModule").Children;

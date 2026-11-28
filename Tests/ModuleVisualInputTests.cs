@@ -10,7 +10,7 @@ public class ModuleVisualInputTests
     private static (UKS.UKS uks, ModuleMentalModel mentalModel, ModuleVisualInput visualInput)
         CreateDemoModules()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks;
         var text = new ModuleText { theUKS = uks };
@@ -25,7 +25,7 @@ public class ModuleVisualInputTests
     [Fact]
     public void PresentSelected_AddsDogsUntilPresentationIsExplicitlyCleared()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks;
 
@@ -79,7 +79,7 @@ public class ModuleVisualInputTests
     [Fact]
     public void VisualVocabulary_PutsImagesUnderVisualElementAndGroundingUnderProperty()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         var module = new ModuleVisualInput { theUKS = uks };
 

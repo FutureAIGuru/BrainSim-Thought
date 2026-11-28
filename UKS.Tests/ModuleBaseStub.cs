@@ -1,6 +1,6 @@
 // UKS.Tests compiles ModuleInterpret.cs (and ModuleWord.Spelling.cs) without the WPF host.
 // The real ModuleBase depends on MainWindow and WPF dialogs; this supplies only the members
-// those modules use. Tests always assign theUKS explicitly, so GetUKS just selects it.
+// those modules use. Tests always assign theUKS explicitly.
 namespace BrainSimulator.Modules;
 
 public abstract class ModuleBase
@@ -19,7 +19,6 @@ public abstract class ModuleBase
 
     public void GetUKS()
     {
-        UKS.UKS.theUKS = theUKS;
     }
 
     protected void Init(bool forceInit = false)

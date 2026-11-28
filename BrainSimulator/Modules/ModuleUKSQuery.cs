@@ -116,11 +116,11 @@ Follow has ONLY if called out in type
             reverse = true;
         }
 
-        List<Thought> sourceList = ModuleUKSStatement.ThoughtListFromString(source);
+        List<Thought> sourceList = ModuleUKSStatement.ThoughtListFromString(theUKS, source);
         //if (sourceList.Count == 0) return;
-        List<Thought> linkTypeList = ModuleUKSStatement.ThoughtListFromString(linkType);
-        List<Thought> targetList = ModuleUKSStatement.ThoughtListFromString(target);
-        List<Thought> filterThoughts = ModuleUKSStatement.ThoughtListFromString(filter);
+        List<Thought> linkTypeList = ModuleUKSStatement.ThoughtListFromString(theUKS, linkType);
+        List<Thought> targetList = ModuleUKSStatement.ThoughtListFromString(theUKS, target);
+        List<Thought> filterThoughts = ModuleUKSStatement.ThoughtListFromString(theUKS, filter);
 
 
         //Handle is-a queries as a special case
@@ -143,9 +143,9 @@ Follow has ONLY if called out in type
 
         Link filterLink = null;
         if (filterThoughts.Count == 1)
-            filterLink = new Link { To = filterThoughts[0] };
+            filterLink = new Link(theUKS) { To = filterThoughts[0] };
         else if (filterThoughts.Count > 1)
-            filterLink = new Link { LinkType = filterThoughts[0] };
+            filterLink = new Link(theUKS) { LinkType = filterThoughts[0] };
 
         links = theUKS.GetAttributes(sourceList[0], filterLink);
 

@@ -11,7 +11,7 @@ public class UKSConditionalTests
     {
         // English intent: the shipped demo says Fido is outside and that it is raining.
         // Therefore the wet and alert rules are true, while the explicitly-not-raining dry rule is false.
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         string demoPath = Path.Combine(FindRepositoryRoot(),
             "BrainSimulator", "UKSContent", "ch4ch5-fidodemo.txt");
@@ -30,7 +30,7 @@ public class UKSConditionalTests
     {
         // English intent: "play.?" means the semantic relationship "play" used as a clause,
         // not as an assertion. It therefore inherits from both "play" and the possible "?" category.
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
 
         Thought conditionalPlay = uks.GetOrAddThought("play.?")!;
@@ -65,7 +65,7 @@ public class UKSConditionalTests
     [Fact]
     public void Play_result_is_returned_only_when_weather_condition_is_met()
     {
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         Thought fido = uks.GetOrAddThought("Fido")!;
         Thought weather = uks.GetOrAddThought("weather")!;
@@ -92,7 +92,7 @@ public class UKSConditionalTests
     [Fact]
     public void Question_mark_label_without_property_is_not_conditional()
     {
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         Thought linkType = uks.GetOrAddThought("play.?")!;
 
@@ -107,7 +107,7 @@ public class UKSConditionalTests
     {
         // English intent: "Fido is wet if Fido is outside and the weather is raining."
         // Being outside by itself is not enough; once it is also raining, Fido is wet.
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
 
         Thought fido = uks.GetOrAddThought("Fido")!;
@@ -198,7 +198,7 @@ public class UKSConditionalTests
     {
         // English intent: none is assigned here. "Suzy AND Mary" is deliberately treated as stored data,
         // not as a logical expression, because it is not being evaluated as the condition of an IF rule.
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         Thought suzy = uks.GetOrAddThought("Suzy")!;
         Thought mary = uks.GetOrAddThought("Mary")!;
@@ -305,7 +305,7 @@ public class UKSConditionalTests
     private static (UKS uks, Thought fido, Thought weather, Thought isType,
         Thought wet, Thought outside, Thought raining) CreateWeatherFixture()
     {
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         return (
             uks,

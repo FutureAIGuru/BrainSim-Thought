@@ -122,7 +122,7 @@ public class ModuleSoundIn : ModuleBase
         float azDeg = (midiNote - 60) * 2.5f;
         var cell = mm.GetCell(Angle.FromDegrees(azDeg), Angle.FromDegrees(0));
         if (cell is not null)
-            mm.BindThoughtToMentalModel(noteThought.Label, cell); // renew or add link
+            mm.BindThoughtToMentalModel(noteThought, cell); // renew or add link
     }
     public void NoteDone(int midiNote)
     {

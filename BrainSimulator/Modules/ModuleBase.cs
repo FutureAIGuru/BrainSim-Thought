@@ -80,7 +80,6 @@ abstract public class ModuleBase
     public void GetUKS()
     {
         theUKS ??= MainWindow.theUKS;
-        UKS.UKS.theUKS = theUKS;
     }
 
     protected void Init(bool forceInit = false)

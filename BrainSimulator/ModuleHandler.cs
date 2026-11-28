@@ -34,7 +34,7 @@ public class ModuleHandler
 
 
     public List<(string, dynamic)> activePythonModules = new();
-    public UKS.UKS theUKS = UKS.UKS.theUKS;
+    public UKS.UKS theUKS = new();
 
     string pythonPath = "";
     public string PythonPath { get => pythonPath; set => pythonPath = value; }
@@ -242,7 +242,7 @@ public class ModuleHandler
     {
         theUKS = new UKS.UKS();
         if (theUKS.Labeled("BrainSim") is null)
-            theUKS.AddThought("BrainSim", null);
+            theUKS.AddThought("BrainSim");
         theUKS.GetOrAddThought("AvailableModule", "BrainSim");
         theUKS.GetOrAddThought("ActiveModule", "BrainSim");
 

@@ -218,7 +218,7 @@ public class ModuleAction : ModuleBase
 
     private List<Thought> GetActiveInputs()
     {
-        Thought active = ThoughtLabels.GetThought("activeThought");
+        Thought active = theUKS.Labeled("activeThought");
         if (active is null) return new List<Thought>();
 
         return active.LinksFrom
@@ -275,7 +275,7 @@ public class ModuleAction : ModuleBase
     */
     private Thought PickRandomKnownAction(Thought t)
     {
-        var options = ((Thought)"possibleAction").Children
+        var options = theUKS.Labeled("possibleAction").Children
             .Where(t1 => t1 is not null)
             .Distinct()
             .ToList();

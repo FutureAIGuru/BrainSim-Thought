@@ -14,7 +14,7 @@ public class ModuleWordTests
 {
     private static UKS.UKS CreateUKS()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateMinimumStructureForTests();
         MainWindow.theUKS = uks; // required by ModuleWord and AddWordSpelling
         return uks;
@@ -82,7 +82,7 @@ public class ModuleWordTests
     [Fact]
     public void CharacterRoot_IsAbstractAndNeverAnObject()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks;
         var module = new ModuleWord { theUKS = uks };

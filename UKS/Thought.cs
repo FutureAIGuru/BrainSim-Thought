@@ -18,7 +18,7 @@ public class Link : Thought
     /// <summary>
     /// Default constructor for a link thought.
     /// </summary>
-    public Link(UKS? store = null) : base(store) { }
+    public Link(UKS store) : base(store) { }
 
     /// <summary>
     /// Creates a link with the specified source, link type, and target.
@@ -26,7 +26,8 @@ public class Link : Thought
     /// <param name="from">Source thought.</param>
     /// <param name="linkType">Link type thought.</param>
     /// <param name="to">Target thought.</param>
-    public Link(Thought? from, Thought? linkType, Thought? to) : base((from ?? linkType ?? to)?.Store)
+    public Link(Thought? from, Thought? linkType, Thought? to)
+        : base((from ?? linkType ?? to)?.Store ?? throw new ArgumentException("A link needs at least one Thought."))
     {
         From = from;
         LinkType = linkType;
@@ -111,7 +112,6 @@ public partial class Thought
     /// <summary>The independent UKS containing this Thought; never changes after construction.</summary>
     public UKS Store { get; }
 
-    public static Thought IsA => ThoughtLabels.GetThought("is-a")!;  // Shortcut in the currently selected UKS; instance operations use Store.Labeled.
     private readonly List<Link> _linksTo = new();   // links to "has", "is", is-a, many others
     private readonly List<Link> _linksFrom = new(); // links from
     private readonly List<Link> _linksAsType = new(); // links which use this Thought as their LinkType
@@ -144,8 +144,8 @@ public partial class Thought
             if (value == _label) return;
             bool wasUnlabeled = string.IsNullOrWhiteSpace(_label);
             string oldLabel = _label;
-            ThoughtLabels.RemoveThoughtLabel(_label, Store);
-            _label = ThoughtLabels.AddThoughtLabel(value, this);
+            Store.UnindexLabel(_label);
+            _label = Store.IndexLabel(value, this);
             // A Thought is created when it is first labeled; an open transaction records it, or the relabel.
             if (wasUnlabeled && !string.IsNullOrWhiteSpace(_label))
                 Store.Record(UKSTransaction.Change.ThoughtCreated, this);
@@ -221,7 +221,7 @@ public partial class Thought
         }
 
         Store.TrackMortality(this, forget: true);
-        ThoughtLabels.RemoveThoughtLabel(Label, Store);
+        Store.UnindexLabel(Label);
         lock (Store.AtomicThoughts)
             Store.AtomicThoughts.Remove(this);
         if (this is not Link) Store.Record(UKSTransaction.Change.ThoughtDeleted, this, Label);
@@ -293,9 +293,9 @@ public partial class Thought
     /// <summary>
     /// Default constructor.
     /// </summary>
-    public Thought(UKS? store = null)
+    public Thought(UKS store)
     {
-        Store = store ?? UKS.theUKS;
+        Store = store ?? throw new ArgumentNullException(nameof(store));
         CreatedCycle = Store.Cycle;
     }
 
@@ -326,11 +326,6 @@ public partial class Thought
 
         return retVal;
     }
-
-    /// <summary>
-    /// Allows implicit conversion from a label string to an existing Thought (or null if not found).
-    /// </summary>
-    public static implicit operator Thought?(string label) => ThoughtLabels.GetThought(label);
 
     /// <summary>
     /// Equality by label; for Link, also compares endpoints and link type.

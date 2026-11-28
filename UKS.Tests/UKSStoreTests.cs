@@ -102,7 +102,6 @@ public class UKSStoreTests
         UKS store = DogStore();
         UKS copy = store.Copy();
 
-        Assert.Same(store, UKS.theUKS);
         Assert.Equal(store.ThoughtCount(), copy.ThoughtCount());
         Assert.Equal(store.LinkCount(), copy.LinkCount());
         Assert.NotSame(store.Labeled("Fido"), copy.Labeled("Fido"));

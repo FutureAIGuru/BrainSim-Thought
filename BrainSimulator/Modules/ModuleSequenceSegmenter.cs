@@ -95,7 +95,7 @@ public class ModuleSequenceSegmenter : ModuleBase
 
     private void ResetInputQueueState()
     {
-        _inputQueueHead = new SeqElement { Label = _inputQueueOwner.Label + "-seq*", VLU = _inputPause };
+        _inputQueueHead = new SeqElement(theUKS) { Label = _inputQueueOwner.Label + "-seq*", VLU = _inputPause };
         _inputQueueOwner.AddLink("hasInputQueue", _inputQueueHead);
         _currentPointer = _inputQueueHead;
         _learnerSpanStart = null;

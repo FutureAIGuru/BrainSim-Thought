@@ -28,8 +28,9 @@ public partial class UKS
     /// <param name="filter">Optional partially populated link filter. When set, LinkType and To each require the corresponding result component to have that ancestor, self-inclusive.</param>
     /// <param name="maxResults">Optional maximum number of results to return (0 = no limit).</param>
     /// <returns>List of matching links.</returns>
-    public List<Link> GetAttributes(Thought source, Link? filter = null, int maxResults = 0) //with inheritance, conflicts, etc
+    public List<Link> GetAttributes(ThoughtRef sourceRef, Link? filter = null, int maxResults = 0) //with inheritance, conflicts, etc
     {
+        Thought? source = sourceRef.Find(this);
         if (conditionalQueryDepth == 0)
         {
             failedConditions.Clear();
@@ -433,12 +434,13 @@ public partial class UKS
     /// Search for the Thought which most closely resembles the target Thought based on the attributes of the target.
     /// </summary>
     /// <param name="target">The links of this Thought are the attributes to search on.</param>
-    /// <param name="root">All searching is done within the descendants of this Thought.</param>
+    /// <param name="rootRef">All searching is done within the descendants of this Thought.</param>
     /// <returns>Ordered list of candidate thoughts with confidence scores.</returns>
-    public List<(Thought t, float conf)> SearchByAttributes(Thought target, Thought root)
+    public List<(Thought t, float conf)> SearchByAttributes(Thought target, ThoughtRef rootRef)
     {
         List<(Thought t, float conf)> retVal = new();
-        if (target.LinksTo.Count == 0) return retVal;
+        Thought? root = rootRef.Require(this);
+        if (root is null || target.LinksTo.Count == 0) return retVal;
         //initialize the search queues
         List<Thought> thoughtsToSearch = new();
         List<Thought> alreadySearched = new();

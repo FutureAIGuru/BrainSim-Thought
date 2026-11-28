@@ -27,8 +27,7 @@ public sealed class AlgorithmXmlFixture
 
     public (UKS uks, ModuleAlgorithm module) CreateHarness()
     {
-        var uks = new UKS(clear: true);
-        UKS.theUKS = uks;
+        var uks = new UKS();
 
         uks.RestoreFromUkTempSnapshot(CloneSnapshot(snapshot));
 

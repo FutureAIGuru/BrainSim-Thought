@@ -9,7 +9,7 @@ public class ModuleClassCreateTests
 {
     private static UKS.UKS CreateUKS()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks;
         return uks;

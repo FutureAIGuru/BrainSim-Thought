@@ -33,7 +33,6 @@ public class UKSMultiThreadTests
 
         void Run(string name, int seed, Action<Random> step) => threads.Add(new Thread(() =>
         {
-            UKS.theUKS = store;
             var random = new Random(seed);
             while (!stop.IsCancellationRequested)
             {

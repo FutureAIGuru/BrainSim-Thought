@@ -115,7 +115,7 @@ public class ModuleLearnMelody : ModuleBase
         moduleAction?.NewContext(thePhrase);
 
         //decode the test response
-        SeqElement seq2 = CreatePhraseFromNotes("temp*", entry.ResponsePhrase.Notes);
+        SeqElement seq2 = CreatePhraseFromNotes(null, entry.ResponsePhrase.Notes);
         foreach (Thought t in theUKS.Labeled("possibleAction").Children)
         {
             SeqElement seq3 = t.GetTargetOfFirstLinkOfType("soundAs") as SeqElement;

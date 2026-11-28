@@ -63,13 +63,7 @@ public partial class ModuleAddToMentalModelDlg : ModuleBaseDlg
         string searchText = tb.Text ?? string.Empty;
         if (!string.IsNullOrEmpty(searchText))
         {
-            var suggestion = ThoughtLabels.LabelList.Keys
-                .Where(key => key.StartsWith(searchText, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(key => key)
-                .FirstOrDefault();
-
-            if (suggestion is not null)
-                suggestion = ThoughtLabels.GetThought(suggestion)?.Label ?? suggestion;
+            string suggestion = MainWindow.theUKS.LabeledStartingWith(searchText).FirstOrDefault()?.Label;
 
             if (suggestion is not null && !suggestion.Equals(searchText, StringComparison.OrdinalIgnoreCase))
             {

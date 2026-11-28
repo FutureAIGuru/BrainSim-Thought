@@ -10,7 +10,7 @@ public class GroundedDogsDemoTests
     [Fact]
     public void DemoImportsImagesAndDiscoversOneAnonymousDogClass()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks;
         var text = new ModuleText { theUKS = uks };

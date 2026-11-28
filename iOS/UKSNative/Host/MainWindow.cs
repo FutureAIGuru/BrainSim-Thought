@@ -8,17 +8,12 @@ namespace BrainSimulator;
 public partial class MainWindow
 {
     public List<ModuleBase> activeModules = new();
-    // Like the desktop's: holds the app's UKS, and setting it also selects that UKS as the
-    // current one. Creating another UKS elsewhere doesn't change it.
+    // Like the desktop's: holds the app's UKS.
     static UKS.UKS current;
     public static UKS.UKS theUKS
     {
-        get => current ??= UKS.UKS.theUKS;
-        set
-        {
-            current = value;
-            UKS.UKS.theUKS = value;
-        }
+        get => current ??= new UKS.UKS();
+        set => current = value;
     }
     public static MainWindow theWindow = new();
     public static string currentFileName = "";
@@ -33,7 +28,7 @@ public partial class MainWindow
     /// <summary>Mirrors MainWindow.UpdateModuleListsInUKS for the modules compiled into this app.</summary>
     public void UpdateModuleListsInUKS()
     {
-        theUKS.GetOrAddThought("BrainSim", null);
+        theUKS.GetOrAddThought("BrainSim");
         theUKS.GetOrAddThought("AvailableModule", "BrainSim");
         theUKS.GetOrAddThought("ActiveModule", "BrainSim");
         foreach (string name in ModuleRegistry.Names)

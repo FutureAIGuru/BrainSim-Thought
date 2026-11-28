@@ -20,9 +20,9 @@ public class NonUksP1FixesRegressionTests
     [Fact]
     public void DeactivateModule_preserves_shared_link_targets()
     {
-        var uks = new global::UKS.UKS(clear: true);
+        var uks = new global::UKS.UKS();
         uks.CreateInitialStructure();
-        var handler = new ModuleHandler();
+        var handler = new ModuleHandler { theUKS = uks };
 
         Thought shared = uks.GetOrAddThought("SharedConfig", "Object");
         Thought moduleType = uks.GetOrAddThought("ModuleTest", uks.Labeled("AvailableModule"));

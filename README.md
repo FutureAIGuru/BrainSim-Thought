@@ -158,23 +158,15 @@ Rather than storing facts, the UKS enables **meaning to emerge** from interactio
 
 Each `UKS.UKS` instance has its own Thoughts, label dictionary, sequences, activity queues, and XML filename. Initialize each instance with `CreateInitialStructure()` or load its content with `LoadUKSfromXMLFile(path)`. Loading, clearing, or deleting content in one instance does not change another instance. A Thought's read-only `Store` identifies its containing UKS; relationships cannot connect Thoughts from different instances. Thoughts with the same label in different instances compare unequal.
 
-Instance calls such as `sandbox.Labeled("dog")` look only in that sandbox. The implicit string-to-Thought conversion and existing static helpers use `UKS.UKS.theUKS`, which now selects a UKS for the current execution context and flows across `await`. Construction, initialization, loading, and the main Thought/statement factories select their receiving instance. At a request or background-task boundary, select the intended sandbox explicitly and restore the previous selection afterward:
+There is no "current" UKS. A label always means a Thought of a named store: `sandbox.Labeled("dog")` looks only in that sandbox, and a method that accepts a Thought or a label (a `ThoughtRef` parameter) resolves the label in the store it is called on:
 
 ```csharp
-UKS.UKS previous = UKS.UKS.theUKS;
-try
-{
-    UKS.UKS.theUKS = sandbox;
-    Thought dog = "dog"; // resolved within sandbox
-    sandbox.AddStatement("Fido", "is-a", "dog");
-}
-finally
-{
-    UKS.UKS.theUKS = previous;
-}
+sandbox.AddStatement("Fido", "is-a", "dog");   // all three resolved (or created) in sandbox
+Thought? fido = sandbox.Labeled("Fido");
+bool isDog = fido!.HasAncestor("dog");         // resolved in fido.Store
 ```
 
-When constructing objects directly, `new Thought(sandbox)`, `new Link(sandbox)`, and `new SeqElement(sandbox)` bind them explicitly; parameterless calls use the selected instance. Separate execution contexts can select different UKSs concurrently. This selection does not serialize access to a single UKS or make compound operations on that UKS atomic; callers must still coordinate concurrent mutations of the same sandbox.
+Constructing objects directly requires the store: `new Thought(sandbox)`, `new Link(sandbox)`, `new SeqElement(sandbox)`. Different stores can be used from different threads concurrently; this does not serialize access to a single UKS or make compound operations on it atomic, so callers must still coordinate concurrent changes to the same store.
 
 ---
 

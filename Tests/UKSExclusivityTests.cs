@@ -5,7 +5,7 @@ namespace UKS.Tests;
 
 public class UKSExclusivityTests
 {
-    private UKS CreateUKS() { var uks = new UKS(clear: true); uks.CreateInitialStructure(); return uks; }
+    private UKS CreateUKS() { var uks = new UKS(); uks.CreateInitialStructure(); return uks; }
 
     private void SeedProvidedLinks(UKS uks)
     {

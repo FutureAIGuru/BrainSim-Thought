@@ -239,18 +239,15 @@ app.Use(async (context, next) =>
         await context.Response.WriteAsJsonAsync(new { error = "This demo has expired. Choose an XML file to start again.", code = "sandbox_unavailable" });
         return;
     }
-    var previousUKS = UKS.UKS.theUKS;
     context.Items["session"] = id;
     context.Response.OnStarting(() =>
     {
         context.Response.Headers["X-Demo-Changed"] = Volatile.Read(ref sandbox.HasChanges.Value) ? "1" : "0";
         return Task.CompletedTask;
     });
-    UKS.UKS.theUKS = sandbox.Store;
     try { await next(context); }
     finally
     {
-        UKS.UKS.theUKS = previousUKS;
         lock (sandbox.Sync)
         {
             sandbox.ActiveRequests.Value--;
@@ -268,7 +265,6 @@ app.MapPost("/api/sandboxes", (string? demo, HttpContext context) =>
     (string Path, string Id) selectedDemo = default;
     if (!string.IsNullOrWhiteSpace(demo) && !demoFiles.TryGetValue(demo, out selectedDemo))
         return Results.NotFound(new { error = "That XML demo is not available. Choose a demo from the list." });
-    var previousUKS = UKS.UKS.theUKS;
     try
     {
         var store = new UKS.UKS();
@@ -293,7 +289,6 @@ app.MapPost("/api/sandboxes", (string? demo, HttpContext context) =>
         app.Logger.LogError(error, "Could not initialize XML demo {Demo}", demo);
         return Results.Problem("The XML demo could not be loaded.");
     }
-    finally { UKS.UKS.theUKS = previousUKS; }
 });
 
 app.MapGet("/api/sandbox", (HttpContext context) =>
@@ -314,9 +309,7 @@ app.MapGet("/api/text-export", (string? root, HttpContext context) =>
         lock (sandbox.Sync)
         {
             if (sandbox.Store.Labeled(root) is null) return Results.NotFound(new { error = "That root Thought does not exist." });
-            var previous = UKS.UKS.theUKS;
-            try { sandbox.Store.ExportTextFile(root, path); }
-            finally { UKS.UKS.theUKS = previous; }
+            sandbox.Store.ExportTextFile(root, path);
         }
         var content = File.ReadAllText(path);
         var filename = string.Concat(root.Select(character => char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '_'));
@@ -363,7 +356,6 @@ app.MapPost("/api/text-import", async (HttpContext context) =>
         var sandbox = sandboxes[(string)context.Items["session"]!]; var uks = sandbox.Store;
         lock (sandbox.Sync)
         {
-            var previous = UKS.UKS.theUKS;
             int before = storeSize(uks);
             try
             {
@@ -371,12 +363,10 @@ app.MapPost("/api/text-import", async (HttpContext context) =>
                 preview.ImportTextFile(path);
                 if (addedSoFar(uks) + storeSize(preview) - previewBefore > thoughtLimit)
                     return Results.Json(new { error = $"This import would exceed the limit of {thoughtLimit} added Thoughts, including relationships." }, statusCode: 409);
-                UKS.UKS.theUKS = uks;
                 uks.ImportTextFile(path);
             }
             catch (Exception error) when (error is FormatException or ArgumentException or InvalidOperationException or IndexOutOfRangeException)
             { return Results.BadRequest(new { error = "The text file could not be imported: " + error.Message }); }
-            finally { UKS.UKS.theUKS = previous; }
             Volatile.Write(ref sandbox.HasChanges.Value, true);
             return Results.Ok(new { added = storeSize(uks) - before });
         }
@@ -526,15 +516,10 @@ app.MapPost("/api/sequences", (System.Text.Json.JsonElement input, HttpContext c
                 return Results.Ok(demoSequence(existing, kind));
             return Results.Conflict(new { error = "That name already has different content. Choose another name." });
         }
-        var previous = UKS.UKS.theUKS;
-        try
-        {
-            var preview = uks.Copy(); int previewBefore = storeSize(preview);
-            storeDemoSequence(preview, kind, label, values, delays);
-            if (addedSoFar(uks) + storeSize(preview) - previewBefore > thoughtLimit)
-                return Results.Json(new { error = $"This demo is limited to {thoughtLimit} added Thoughts, including relationships." }, statusCode: 409);
-        }
-        finally { UKS.UKS.theUKS = previous; }
+        var preview = uks.Copy(); int previewBefore = storeSize(preview);
+        storeDemoSequence(preview, kind, label, values, delays);
+        if (addedSoFar(uks) + storeSize(preview) - previewBefore > thoughtLimit)
+            return Results.Json(new { error = $"This demo is limited to {thoughtLimit} added Thoughts, including relationships." }, statusCode: 409);
         var owner = storeDemoSequence(uks, kind, label, values, delays);
         Volatile.Write(ref sandbox.HasChanges.Value, true);
         return Results.Ok(demoSequence(owner, kind));
@@ -625,7 +610,6 @@ app.MapPost("/api/statements", (StatementInput input, HttpContext context) =>
         {
             return Results.BadRequest(new { error = error.Message });
         }
-        finally { UKS.UKS.theUKS = uks; }
 
         var relationship = UKSWeb.StatementInputParser.Add(
             uks, input.Source, input.RelationshipType, input.Target);

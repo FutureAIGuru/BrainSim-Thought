@@ -10,7 +10,7 @@ namespace UKS.Tests;
 
 public class UKSFixesRegressionTests
 {
-    private static UKS CreateUks() { var uks = new UKS(clear: true); uks.CreateInitialStructure(); return uks; }
+    private static UKS CreateUks() { var uks = new UKS(); uks.CreateInitialStructure(); return uks; }
 
     [Fact]
     public void LinksAreExclusive_CommonParentSources_AreExclusive()
@@ -55,7 +55,7 @@ public class UKSFixesRegressionTests
         uks.AddStatement("dog", "is-a", "Object");
         uks.AddStatement("Fido", "is-a", "dog");
 
-        var placeholder = new Link { Label = "mylink" };
+        var placeholder = new Link(uks) { Label = "mylink" };
         uks.AtomicThoughts.Add(placeholder);
 
         var link = uks.AddStatement(uks.Labeled("Fido"), uks.Labeled("is-a"), uks.Labeled("dog"), "mylink");
@@ -80,7 +80,7 @@ public class UKSFixesRegressionTests
         {
             Assert.True(uks.SaveUKStoXMLFile(path));
 
-            var uks2 = new UKS(clear: true);
+            var uks2 = new UKS();
             Assert.True(uks2.LoadUKSfromXMLFile(path));
 
             Assert.NotNull(uks2.Labeled("Fido"));
@@ -116,7 +116,7 @@ public class UKSFixesRegressionTests
         {
             Assert.True(uks.SaveUKStoXMLFile(path));
 
-            var restored = new UKS(clear: true);
+            var restored = new UKS();
             Assert.True(restored.LoadUKSfromXMLFile(path));
 
             Thought restoredWord = restored.Labeled("roundTripWord");
@@ -156,7 +156,7 @@ public class UKSFixesRegressionTests
     [Fact]
     public void CreateMinimumStructure_RegistersNxtNotNxe()
     {
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateMinimumStructureForTests();
         Assert.NotNull(uks.Labeled("NXT"));
         Assert.Null(uks.Labeled("NXE"));

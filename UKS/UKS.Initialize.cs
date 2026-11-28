@@ -18,8 +18,8 @@ public partial class UKS
     public void CreateMinimumStructureForTests()
     {
         Reset();
-        AddThought("Thought", null);
-        Thought isA = AddThought("is-a", null);
+        AddThought("Thought");
+        Thought isA = AddThought("is-a");
         Thought linkType = AddThought("LinkType", "Thought");
         isA.AddParent(linkType);
         GetOrAddThought("Unknown", "Thought");
@@ -30,7 +30,6 @@ public partial class UKS
 
     public void CreateInitialStructure()
     {
-        theUKS = this;
         //this hack is needed to preserve the info relating to module layout
         foreach (Thought t in AtomicThoughts.ToList())
         {
@@ -45,17 +44,17 @@ public partial class UKS
 
         //This deletes all the labels then adds back in the ones still in the AtomicThoughts list
 
-        ThoughtLabels.ClearLabelList();
+        Labels.Clear();
         foreach (Thought t in AtomicThoughts)
-            ThoughtLabels.AddThoughtLabel(t.Label, t);
+            IndexLabel(t.Label, t);
         ClearSequenceCache();
 
         //Bootstrapping is needed for is-a, Unknown, and the root: Thought
         //because AddStatement and GetOrAddThing won't work without them
         //Thought
-        if (Labeled("Thought") is null) AddThought("Thought", null);
-        Thought? isA = Labeled("is-a") ?? AddThought("is-a", null);
-        Thought? hasChild = Labeled("has-child") ?? AddThought("has-child", null);
+        if (Labeled("Thought") is null) AddThought("Thought");
+        Thought? isA = Labeled("is-a") ?? AddThought("is-a");
+        Thought? hasChild = Labeled("has-child") ?? AddThought("has-child");
         Thought linkType = AddThought("LinkType", "Thought");
         isA?.AddParent(linkType);
         hasChild?.AddParent(linkType);
@@ -254,7 +253,7 @@ public partial class UKS
     void AddBrainSimConfigSectionIfNeeded()
     {
         if (Labeled("BrainSim") is null)
-            AddThought("BrainSim", null);
+            AddThought("BrainSim");
         GetOrAddThought("AvailableModule", "BrainSim");
         GetOrAddThought("ActiveModule", "BrainSim");
     }

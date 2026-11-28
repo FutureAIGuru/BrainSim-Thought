@@ -130,7 +130,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         if (tSource is null && sourceParts.Length == 3 && !sourceParts[0].StartsWith("^"))
         {
             sourceParts[1] = ModuleUKSStatement.ConditionalLinkType(linkTypeString, sourceParts[1]);
-            Link r2 = new()
+            Link r2 = new(UKSStatement.theUKS)
             {
                 From = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[0], false),
                 LinkType = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(sourceParts[1], true),
@@ -187,7 +187,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
         if (tTarget is null && targetParts.Length == 3 && !targetParts[0].StartsWith("^"))
         {
             targetParts[1] = ModuleUKSStatement.ConditionalLinkType(linkTypeString, targetParts[1]);
-            Link r2 = new()
+            Link r2 = new(UKSStatement.theUKS)
             {
                 From = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[0], false),
                 LinkType = UKSStatement.theUKS.CreateThoughtFromMultipleAttributes(targetParts[1], true),
@@ -370,7 +370,7 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
                 SetStatus("Source and type cannot be empty");
                 return false;
             }
-            List<Thought> tl = ModuleUKSStatement.ThoughtListFromString(text);
+            List<Thought> tl = ModuleUKSStatement.ThoughtListFromString(MainWindow.theUKS, text);
             if (tl is null || tl.Count == 0)
             {
                 tb.Background = new SolidColorBrush(Colors.LemonChiffon);

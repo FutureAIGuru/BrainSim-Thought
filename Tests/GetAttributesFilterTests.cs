@@ -21,7 +21,7 @@ public class GetAttributesFilterTests
     {
         var (uks, fido, has, _, _) = CreateFixture();
 
-        var results = uks.GetAttributes(fido, new Link { LinkType = has });
+        var results = uks.GetAttributes(fido, new Link(uks) { LinkType = has });
 
         Assert.Single(results);
         Assert.Equal("red", results[0].To?.Label);
@@ -32,7 +32,7 @@ public class GetAttributesFilterTests
     {
         var (uks, fido, _, _, color) = CreateFixture();
 
-        var results = uks.GetAttributes(fido, new Link { To = color });
+        var results = uks.GetAttributes(fido, new Link(uks) { To = color });
 
         Assert.Contains(results, link => link.To?.Label == "red");
         Assert.Contains(results, link => link.To?.Label == "blue");
@@ -43,7 +43,7 @@ public class GetAttributesFilterTests
     {
         var (uks, fido, _, can, color) = CreateFixture();
 
-        var results = uks.GetAttributes(fido, new Link { LinkType = can, To = color });
+        var results = uks.GetAttributes(fido, new Link(uks) { LinkType = can, To = color });
 
         Assert.Single(results);
         Assert.Equal("blue", results[0].To?.Label);
@@ -55,7 +55,7 @@ public class GetAttributesFilterTests
         var (uks, fido, _, _, _) = CreateFixture();
         Thought red = uks.Labeled("red");
 
-        var results = uks.GetAttributes(fido, new Link { To = red });
+        var results = uks.GetAttributes(fido, new Link(uks) { To = red });
 
         Assert.Single(results);
         Assert.Equal(red, results[0].To);
@@ -90,7 +90,7 @@ public class GetAttributesFilterTests
 
     private static (UKS uks, Thought fido, Thought has, Thought can, Thought color) CreateFixture()
     {
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         uks.AddStatement("animal", "is-a", "Object");
         uks.AddStatement("color", "is-a", "Object");

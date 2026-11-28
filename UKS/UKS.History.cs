@@ -26,8 +26,12 @@ public partial class UKS
     /// statements are then removed, so only the new value remains in effect.
     /// </summary>
     /// <returns>The added (or reinforced) statement.</returns>
-    public Link? AddStatementRecordingHistory(Thought from, Thought type, Thought to)
+    public Link? AddStatementRecordingHistory(ThoughtRef fromRef, ThoughtRef typeRef, ThoughtRef toRef)
     {
+        Thought? from = fromRef.GetOrAdd(this, "Unknown");
+        Thought? type = from is null ? null : typeRef.GetOrAdd(this, "LinkType", from);
+        if (from is null || type is null) return null;
+        Thought? to = toRef.GetOrAdd(this, "Unknown");
         var pastMarker = Labeled("was");
         if (pastMarker?.HasProperty("isHistorical") != true)
         {

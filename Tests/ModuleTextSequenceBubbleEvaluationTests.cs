@@ -1237,7 +1237,7 @@ public class ModuleTextSequenceBubbleEvaluationTests
 
     private static UKS.UKS CreateTextUKS()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks;
         var module = new ModuleText { theUKS = uks };

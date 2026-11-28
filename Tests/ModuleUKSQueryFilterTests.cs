@@ -10,7 +10,7 @@ public class ModuleUKSQueryFilterTests
     [Fact]
     public void Full_attribute_list_returns_successful_rules_as_assertions()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         string demoPath = Path.Combine(FindRepositoryRoot(),
             "BrainSimulator", "UKSContent", "ch4ch5-fidodemo.txt");
@@ -48,7 +48,7 @@ public class ModuleUKSQueryFilterTests
 
     private static ModuleUKSQuery CreateModule()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         uks.AddStatement("animal", "is-a", "Object");
         uks.AddStatement("color", "is-a", "Object");

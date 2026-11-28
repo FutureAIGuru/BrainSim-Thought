@@ -22,13 +22,13 @@ public partial class UKS
     /// Exports <paramref name="root"/>, its descendants and everything they link to, to the text file
     /// format: one line per link, label[from->type->to] followed by weight, maxWeight and isPlastic.
     /// </summary>
-    /// <param name="root">Label of the starting thought to export.</param>
+    /// <param name="root">The starting Thought, or its label.</param>
     /// <param name="path">Destination file path for the exported text.</param>
     /// <param name="maxDepth">Optional maximum traversal depth (currently unused).</param>
-    public void ExportTextFile(string root, string path, int maxDepth = 12)
+    public void ExportTextFile(ThoughtRef root, string path, int maxDepth = 12)
     {
-        if (string.IsNullOrWhiteSpace(root)) throw new ArgumentException("Start label is required.", nameof(root));
-        Thought? Root = Labeled(root);
+        if (root.IsEmpty) throw new ArgumentException("A starting Thought is required.", nameof(root));
+        Thought? Root = root.Require(this);
         if (Root is null) return;
 
         HashSet<string> alreadyWritten = new();

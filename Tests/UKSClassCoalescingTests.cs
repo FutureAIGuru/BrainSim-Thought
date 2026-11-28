@@ -84,7 +84,7 @@ public class UKSClassCoalescingTests
 
     private static UKS CreateUKS()
     {
-        UKS uks = new(clear: true);
+        UKS uks = new();
         uks.CreateInitialStructure();
         return uks;
     }

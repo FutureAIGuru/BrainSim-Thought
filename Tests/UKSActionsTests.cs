@@ -9,7 +9,7 @@ public class UKSActionsTests
     {
         // English intent: setting another non-exclusive possession adds a fact;
         // setting an exclusive location replaces the previous location.
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         Thought fido = uks.GetOrAddThought("Fido");
         Thought fur = uks.GetOrAddThought("fur");
@@ -46,7 +46,7 @@ public class UKSActionsTests
     {
         // !.has.4 means to assert has.4, not to discard the numeric
         // specialization and assert the more general relationship "has".
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         Thought dog = uks.GetOrAddThought("dog");
         Thought leg = uks.GetOrAddThought("leg");

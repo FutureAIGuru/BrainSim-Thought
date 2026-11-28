@@ -212,7 +212,7 @@ To use a different server-controlled catalog, set the **`DemoDirectory`** config
 
 ## Sandbox isolation and Thought allowance
 
-Each session key identifies an independent UKS, including its own initial content. Requests select it through execution-local `UKS.UKS.theUKS` and restore the previous selection afterward. Each sandbox has its own lock, so operations in different sandboxes can proceed concurrently. Graph handles are checked against the selected UKS, including batch requests.
+Each session key identifies an independent UKS, including its own initial content. Each request works on its session's UKS by name; there is no ambient selection. Each sandbox has its own lock, so operations in different sandboxes can proceed concurrently. Graph handles are checked against the selected UKS, including batch requests.
 
 Each sandbox may add **1,000 stored Thoughts** by default. Links count too, including automatically created hierarchy and sequence links. The complete XML-loaded or standard initial content is excluded from this allowance. Deleting additions releases capacity; deleting initial content does not grant extra capacity.
 

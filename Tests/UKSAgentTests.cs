@@ -11,7 +11,7 @@ public class UKSAgentTests
     [Fact]
     public void RunPeriodicallyRunsTheAgentUntilStopped()
     {
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         using var ran = new ManualResetEventSlim();
         int runs = 0;

@@ -25,9 +25,8 @@ public class ModuleAlgorithmTests : IClassFixture<AlgorithmXmlFixture>
 
     public ModuleAlgorithmTests(AlgorithmXmlFixture fixture)
     {
-        uks = new UKS(clear: true);
+        uks = new UKS();
         uks.CreateInitialStructure();
-        UKS.theUKS = uks;
 
         module = new ModuleAlgorithm();
         module.theUKS = uks;

@@ -20,7 +20,7 @@ namespace UKS;
 public class SeqElement : Thought
 {
     /// <summary>Creates an unlinked sequence element.</summary>
-    public SeqElement(UKS? store = null) : base(store) { }
+    public SeqElement(UKS store) : base(store) { }
 
     /// <summary>The first element of this element's sequence (itself, for the first element).</summary>
     public SeqElement? FRST
@@ -133,9 +133,11 @@ public partial class UKS
     /// <param name="s">Sequence element to read.</param>
     /// <param name="valueClass">Optional ancestor class of the requested VLU facet; null selects a non-metadata value.</param>
     /// <returns>The selected VLU value, or null if none.</returns>
-    public Thought? GetElementValue(SeqElement? s, Thought? valueClass = null)
+    public Thought? GetElementValue(SeqElement? s, ThoughtRef valueClassRef = default)
     {
         if (s is null) return null;
+        Thought? valueClass = valueClassRef.Find(s.Store);
+        if (valueClass is null && !valueClassRef.IsEmpty) return null;
         // A class selects one facet by ancestry. Without one, the primary value is read;
         // metadata VLU targets do not add sequence positions or affect matching.
         return s.LinksTo.FirstOrDefault(link => link.LinkType == s.Store.Labeled("VLU") && link.To is not null &&
@@ -152,10 +154,11 @@ public partial class UKS
     /// <param name="prevElementIn">Current first sequence element.</param>
     /// <param name="value">Value to insert as the new first element.</param>
     /// <returns>The (updated) first element of the sequence.</returns>
-    public SeqElement InsertElement(SeqElement prevElementIn, Thought value)
+    public SeqElement InsertElement(SeqElement prevElementIn, ThoughtRef valueRef)
     {
-        if (!ReferenceEquals(prevElementIn.Store, this) || (value is not null && !ReferenceEquals(value.Store, this)))
-            throw new ArgumentException("Sequence values must belong to this UKS.");
+        if (!ReferenceEquals(prevElementIn.Store, this))
+            throw new ArgumentException("Sequence belongs to another UKS.", nameof(prevElementIn));
+        Thought? value = valueRef.GetOrAdd(this, "Unknown");
         SeqElement first = prevElementIn;
         if (IsSequenceFirstElement(prevElementIn))
         {
@@ -198,10 +201,11 @@ public partial class UKS
     }
 
     //Adds a new element after prevElementIn) and links its value. Returns the new element.
-    public SeqElement AddElement(SeqElement prevElement, Thought value)
+    public SeqElement AddElement(SeqElement prevElement, ThoughtRef valueRef)
     {
-        if (!ReferenceEquals(prevElement.Store, this) || (value is not null && !ReferenceEquals(value.Store, this)))
-            throw new ArgumentException("Sequence values must belong to this UKS.");
+        if (!ReferenceEquals(prevElement.Store, this))
+            throw new ArgumentException("Sequence belongs to another UKS.", nameof(prevElement));
+        Thought? value = valueRef.GetOrAdd(this, "Unknown");
         SeqElement newNode = new(this)
         {
             Label = prevElement.Label + "*",
@@ -215,10 +219,9 @@ public partial class UKS
     /// <summary>
     /// Creates the first sequence element for a source Thought and links its value.
     /// </summary>
-    public SeqElement CreateFirstElement(string labelBase, Thought value)
+    public SeqElement CreateFirstElement(string labelBase, ThoughtRef valueRef)
     {
-        if (value is not null && !ReferenceEquals(value.Store, this))
-            throw new ArgumentException("Sequence value belongs to another UKS.", nameof(value));
+        Thought? value = valueRef.GetOrAdd(this, "Unknown");
         SeqElement firstNode = new(this)
         {
             Label = labelBase + "-seq0",
@@ -312,7 +315,7 @@ public partial class UKS
                 DeleteSequence(s1);
             foreach (Link lnk in current.LinksTo)
                 current.RemoveLink(lnk);
-            ThoughtLabels.RemoveThoughtLabel(current.Label, this);
+            UnindexLabel(current.Label);
             lock (AtomicThoughts)
                 AtomicThoughts.Remove(current);
             current = next;
@@ -467,16 +470,17 @@ public partial class UKS
     /// <returns>The first node of the created or reused sequence, or null if insufficient targets.</returns>
     public SeqElement? AddSequenceAndLink(
         Thought source,
-        Thought? linkType,
+        ThoughtRef linkTypeRef,
         List<Thought> targets,
         float baseWeight = 1.0f,
         bool allowCompression = true)
     {
         if (targets is null || targets.Count == 0) return null;
 
-        if (!ReferenceEquals(source.Store, this) || (linkType is not null && !ReferenceEquals(linkType.Store, this)) ||
+        if (!ReferenceEquals(source.Store, this) ||
             targets.Any(value => value is not null && !ReferenceEquals(value.Store, this)))
             throw new ArgumentException("Sequence and its links must belong to this UKS.");
+        Thought? linkType = linkTypeRef.GetOrAdd(this, "LinkType");
 
         // Replace any existing sequence link of this type. TODO: delete the old sequence.
         if (linkType is not null) source.RemoveLinks(linkType);
@@ -580,8 +584,10 @@ public partial class UKS
     }
 
     /// <summary>The sources of all links of the given type to this sequence element.</summary>
-    public List<Thought> GetReferringThoughts(SeqElement s, Thought linkType) =>
-        s.LinksFrom.Where(x => x.LinkType == linkType).Select(x => x.From!).ToList();
+    public List<Thought> GetReferringThoughts(SeqElement s, ThoughtRef linkTypeRef) =>
+        linkTypeRef.Find(this) is Thought linkType
+            ? s.LinksFrom.Where(x => x.LinkType == linkType).Select(x => x.From!).ToList()
+            : new List<Thought>();
 
     /// <summary>
     /// Replace a plain Thought with a SeqElement while preserving label, value, weight, and links.
@@ -592,7 +598,7 @@ public partial class UKS
         if (!ReferenceEquals(t.Store, this))
             throw new ArgumentException("Cannot promote a Thought from another UKS.", nameof(t));
         if (t is SeqElement sExisting) return sExisting;
-        ThoughtLabels.RemoveThoughtLabel(t.Label, this);
+        UnindexLabel(t.Label);
 
         var seq = new SeqElement(this)
         {
@@ -630,7 +636,7 @@ public partial class UKS
         }
         t.Delete();
 
-        ThoughtLabels.AddThoughtLabel(seq.Label, seq);
+        IndexLabel(seq.Label, seq);
         return seq;
     }
 
@@ -645,17 +651,36 @@ public partial class UKS
     }
 
     /// <summary>
+    /// Resolves a search's options and classes in this store: empty options mean ExactSequenceSearch,
+    /// an empty class means none. False if any of them names an unknown label (nothing can match).
+    /// </summary>
+    private bool TryResolveSearch(ThoughtRef searchOptionsRef, out Thought? searchOptions,
+        ThoughtRef valueClassRef, out Thought? valueClass, ThoughtRef matchClassRef, out Thought? matchClass,
+        ThoughtRef alternativeClassRef, out Thought? alternativeClass)
+    {
+        searchOptions = searchOptionsRef.IsEmpty ? Labeled("ExactSequenceSearch") : searchOptionsRef.Find(this);
+        valueClass = valueClassRef.Find(this);
+        matchClass = matchClassRef.Find(this);
+        alternativeClass = alternativeClassRef.Find(this);
+        return (searchOptions is not null || searchOptionsRef.IsEmpty) &&
+            (valueClass is not null || valueClassRef.IsEmpty) &&
+            (matchClass is not null || matchClassRef.IsEmpty) &&
+            (alternativeClass is not null || alternativeClassRef.IsEmpty);
+    }
+
+    /// <summary>
     /// Searches directly from input sequence elements. valueClass selects a VLU facet
     /// (for example, note or duration) in both input and stored sequences. alternativeClass
     /// prefers an input VLU of that class and consumes its contiguous covered run as one value.
     /// matchClass restricts results to sequences referred to by Thoughts of that class.
     /// </summary>
     public List<(SeqElement seqNode, float confidence)> FindSequencesByActivation(
-        SeqElement? sequence, Thought? searchOptions = null, bool getFirstElements = true, SeqElement? last = null,
-        Thought? valueClass = null, Thought? alternativeClass = null, Thought? matchClass = null)
+        SeqElement? sequence, ThoughtRef searchOptionsRef = default, bool getFirstElements = true, SeqElement? last = null,
+        ThoughtRef valueClassRef = default, ThoughtRef alternativeClassRef = default, ThoughtRef matchClassRef = default)
     {
         List<(SeqElement seqNode, float confidence)> results = new();
-        searchOptions ??= Labeled("ExactSequenceSearch");
+        if (!TryResolveSearch(searchOptionsRef, out Thought? searchOptions, valueClassRef, out Thought? valueClass,
+                matchClassRef, out Thought? matchClass, alternativeClassRef, out Thought? alternativeClass)) return results;
         if (sequence is null || searchOptions is null) return results;
         if (!getFirstElements && (searchOptions.HasProperty("allowWildcards") || searchOptions.HasProperty("allowNestedSequences")))
             throw new ArgumentException("Occurrence locations require a flat, literal search.", nameof(getFirstElements));
@@ -712,13 +737,14 @@ public partial class UKS
     /// With mustMatchFirst and mustMatchLast, this returns complete templates matching an input prefix.
     /// </summary>
     public List<(SeqElement seqNode, float confidence)> FindSequencesByActivation(
-        List<Thought> pattern, Thought? searchOptions = null,
-        bool getFirstElements = true, Thought? valueClass = null, Thought? matchClass = null)
+        List<Thought> pattern, ThoughtRef searchOptionsRef = default,
+        bool getFirstElements = true, ThoughtRef valueClassRef = default, ThoughtRef matchClassRef = default)
     {
         List<(SeqElement seqNode, float confidence)> retVal = new();
         if (pattern is null || pattern.Count == 0) return retVal;
 
-        searchOptions ??= Labeled("ExactSequenceSearch");
+        if (!TryResolveSearch(searchOptionsRef, out Thought? searchOptions, valueClassRef, out Thought? valueClass,
+                matchClassRef, out Thought? matchClass, default, out _)) return retVal;
         if (searchOptions is null) return retVal;
         if (searchOptions.HasProperty("allowOutOfOrder"))
         {

@@ -283,7 +283,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
     private Thought CreateTheQueryThought()
     {
         ModuleUKSQuery UKSQuery = (ModuleUKSQuery)ParentModule;
-        Thought queryThought = new Thought() { Label = "theQuery" };
+        Thought queryThought = new Thought(UKSQuery.theUKS) { Label = "theQuery" };
         string[] rels = queryText1.Text.Split('\n');
         foreach (string s in rels)
         {
@@ -410,7 +410,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
                 SetStatus("Source and type cannot be empty");
                 return null;
             }
-            List<Thought> tl = ModuleUKSStatement.ThoughtListFromString(text);
+            List<Thought> tl = ModuleUKSStatement.ThoughtListFromString(MainWindow.theUKS, text);
             if (tl is null || tl.Count == 0)
             {
                 tb.Background = new SolidColorBrush(Colors.LemonChiffon);

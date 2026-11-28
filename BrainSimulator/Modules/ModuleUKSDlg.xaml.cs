@@ -120,8 +120,6 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         string root = parent.GetSavedDlgAttribute("Root");
         Thought Root = theUKS.Labeled(root);
 
-        // Look labels up in this dialog's store: an implicit string → Thought conversion uses the
-        // ambient UKS.theUKS, which a click handler may not have (it then gets a new, empty store).
         if (Root is null) Root = theUKS.Labeled("Thought");
         if (Root is null) return;
         string sizeString = parent.GetSavedDlgAttribute("fontSize");
@@ -690,7 +688,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
             ContextMenu cm = mi.Parent as ContextMenu;
             Thought t = (Thought)cm.GetValue(ThoughtObjectProperty);
             string testName = tb.Text + e.Key;
-            Thought testThought = ThoughtLabels.GetThought(testName);
+            Thought testThought = theUKS.Labeled(testName);
             if (testName != "" && testThought is not null && testThought != t)
             {
                 tb.Background = new SolidColorBrush(Colors.Pink);
@@ -859,7 +857,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
 
     private void UpdateStatusLabel()
     {
-        uksStatusLabel.Content = ThoughtLabels.GetLabelCount() + " Thoughts  " + ThoughtLabels.GetLinksCount() + " Links.";
+        uksStatusLabel.Content = theUKS.ThoughtCount() + " Thoughts  " + theUKS.LinkCount() + " Links.";
         Title = "The Universal Knowledgs Store (UKS)  --  File: " + Path.GetFileNameWithoutExtension(theUKS.FileName);
     }
 
@@ -907,11 +905,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
         }
         if (!string.IsNullOrEmpty(searchText))
         {
-            var suggestion = ThoughtLabels.LabelList.Keys
-                .Where(key => key.StartsWith(searchText, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(key => key)
-                .FirstOrDefault();
-            if (suggestion is not null) suggestion = ThoughtLabels.GetThought(suggestion).Label;
+            string suggestion = theUKS.LabeledStartingWith(searchText).FirstOrDefault()?.Label;
 
             if (suggestion is not null && !suggestion.Equals(searchText, StringComparison.OrdinalIgnoreCase))
             {

@@ -89,12 +89,12 @@ public class ModuleInterpretGenerationTests
         var (store, module) = FreshInterpreter();
         Link fact = Fact(store, "dog", "chases.ongoing", "cat");
         module.GenerateSentence(fact);
-        int labels = ThoughtLabels.GetLabelCount();
+        int labels = store.Labels.Count;
 
         module.GenerateSentence(fact);
         module.GenerateSentence(Fact(store, "fido", "is-a", "dog"));
 
-        Assert.Equal(labels, ThoughtLabels.GetLabelCount());
+        Assert.Equal(labels, store.Labels.Count);
     }
 
     [Fact]

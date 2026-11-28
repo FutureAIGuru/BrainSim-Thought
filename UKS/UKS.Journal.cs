@@ -151,7 +151,7 @@ public partial class UKS
                     // and are restored, before that), so this is undone first.
                     case UKSTransaction.Change.ThoughtDeleted:
                         if (!string.IsNullOrEmpty(oldLabel) && Labeled(oldLabel) is null)
-                            ThoughtLabels.AddThoughtLabel(oldLabel, thought);
+                            IndexLabel(oldLabel, thought);
                         lock (AtomicThoughts) AtomicThoughts.Add(thought);
                         TrackMortality(thought);
                         break;
@@ -161,17 +161,17 @@ public partial class UKS
                     case UKSTransaction.Change.LinkRemoved when thought is Link removed:
                         WriteTheLink(removed);
                         if (!string.IsNullOrEmpty(removed.Label) && Labeled(removed.Label) is null)
-                            ThoughtLabels.AddThoughtLabel(removed.Label, removed);
+                            IndexLabel(removed.Label, removed);
                         TrackMortality(removed);
                         break;
                     case UKSTransaction.Change.ThoughtCreated:
-                        if (thought is Link link) ThoughtLabels.RemoveThoughtLabel(link.Label, this);
+                        if (thought is Link link) UnindexLabel(link.Label);
                         else if (!ReferenceEquals(Labeled(thought.Label), thought)) break;
                         // Its later Links have already been undone, so an unlinked Thought only needs
                         // unregistering (Delete would also add placeholder Thoughts for sequences).
                         else if (thought.LinksTo.Count == 0 && thought.LinksFrom.Count == 0)
                         {
-                            ThoughtLabels.RemoveThoughtLabel(thought.Label, this);
+                            UnindexLabel(thought.Label);
                             lock (AtomicThoughts) AtomicThoughts.Remove(thought);
                         }
                         else thought.Delete();

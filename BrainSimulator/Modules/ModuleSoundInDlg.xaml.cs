@@ -81,7 +81,7 @@ public partial class ModuleSoundInDlg : ModuleBaseDlg
         if (string.IsNullOrEmpty(searchText)) return;
 
         // Get the musicalPhrase thought
-        var musicalPhraseThought = ThoughtLabels.GetThought("musicalPhrase");
+        var musicalPhraseThought = MainWindow.theUKS.Labeled("musicalPhrase");
         if (musicalPhraseThought is null) return;
 
         // Find children of musicalPhrase that match the search text
@@ -108,7 +108,7 @@ public partial class ModuleSoundInDlg : ModuleBaseDlg
         string phraseLabel = playPhrase.Text?.Trim();
         if (string.IsNullOrWhiteSpace(phraseLabel)) return;
 
-        var phraseThought = ThoughtLabels.GetThought(phraseLabel);
+        var phraseThought = MainWindow.theUKS.Labeled(phraseLabel);
         if (phraseThought is null)
         {
             SetStatus($"Phrase '{phraseLabel}' not found.");

@@ -1599,7 +1599,7 @@ public class ModuleText : ModuleBase
                 Thought old = action.From;
                 action.From = newMeaning;
                 if (old.LinksFrom.Count == 0 && old.LinksTo.All(link =>
-                    ReferenceEquals(link.LinkType, Thought.IsA) && ReferenceEquals(link.To, MainWindow.theUKS.Labeled("Unknown")))) old.Delete();
+                    ReferenceEquals(link.LinkType, MainWindow.theUKS.Labeled("is-a")) && ReferenceEquals(link.To, MainWindow.theUKS.Labeled("Unknown")))) old.Delete();
             }
         }
         if (action.To is Link l1)
@@ -1612,7 +1612,7 @@ public class ModuleText : ModuleBase
                 Thought old = action.To;
                 action.To = newMeaning;
                 if (old.LinksFrom.Count == 0 && old.LinksTo.All(link =>
-                    ReferenceEquals(link.LinkType, Thought.IsA) && ReferenceEquals(link.To, MainWindow.theUKS.Labeled("Unknown")))) old.Delete();
+                    ReferenceEquals(link.LinkType, MainWindow.theUKS.Labeled("is-a")) && ReferenceEquals(link.To, MainWindow.theUKS.Labeled("Unknown")))) old.Delete();
             }
         }
     }

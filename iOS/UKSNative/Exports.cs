@@ -109,15 +109,13 @@ public static partial class Exports
     static readonly object gate = new();
     static readonly Pluralizer pluralizer = new();
 
-    // The app has one UKS. UKS.theUKS (which Thought.Delete(), labels and the modules use) is
-    // per execution context, and the app calls in from several native threads (main, engine,
-    // background saves), each of which would otherwise get a new, empty UKS. So every entry
-    // point selects the shared instance when it takes the lock (UseShared).
+    // The app has one UKS, shared by every native thread that calls in (main, engine, background
+    // saves); the host's MainWindow.theUKS and the modules hold the same instance (UseShared).
     static UKS.UKS shared;
-    static UKS.UKS Store => UKS.UKS.theUKS;
+    static UKS.UKS Store => shared ??= new UKS.UKS();
 
-    /// <summary>Makes the app's UKS the current one on this thread (call with the lock held).</summary>
-    internal static void UseShared() => BrainSimulator.MainWindow.theUKS = shared ??= new UKS.UKS();
+    /// <summary>Makes the app's UKS the host's and the modules' one (call with the lock held).</summary>
+    internal static void UseShared() => BrainSimulator.MainWindow.theUKS = Store;
 
     // ---------- marshalling helpers ----------
 
@@ -229,7 +227,7 @@ public static partial class Exports
             string word = raw;
             if (word.Length == 1) word = UKS.UKS.GetCharacterLabel(word[0]);
             if (!char.IsUpper(word[0]) && word.Length > 2) word = pluralizer.Singularize(word);
-            Thought t = ThoughtLabels.GetThought(word);
+            Thought t = Store.Labeled(word);
             if (t == null) return retVal;
             retVal.Add(t);
         }
@@ -251,7 +249,7 @@ public static partial class Exports
         {
             var uks = Store;
             parts[1] = ConditionalLinkType(linkType, parts[1]);
-            var probe = new Link
+            var probe = new Link(uks)
             {
                 From = uks.GetOrAddThought(parts[0]),
                 LinkType = uks.GetOrAddThought(parts[1]),
@@ -286,7 +284,7 @@ public static partial class Exports
                 if (clear != 0 || Store.Labeled("Thought") == null)
                 {
                     // a fresh, empty UKS replaces the shared one; CreateEmptyUKS rebuilds the modules on it
-                    if (clear != 0) shared = new UKS.UKS(true);
+                    if (clear != 0) { shared = new UKS.UKS(); UseShared(); }
                     CreateEmptyUKS();
                 }
                 return Store.ThoughtCount();
@@ -363,7 +361,7 @@ public static partial class Exports
         Thought t = Require(In(pLabel));
         string newLabel = In(pNewLabel).Trim();
         if (newLabel == "") throw new ArgumentException("A label is required.");
-        Thought existing = ThoughtLabels.GetThought(newLabel);
+        Thought existing = Store.Labeled(newLabel);
         if (existing is not null && !ReferenceEquals(existing, t)) throw new ArgumentException($"'{newLabel}' is already used.");
         t.Label = newLabel;
         // clear any time-to-live on this newly named Thought
@@ -406,8 +404,8 @@ public static partial class Exports
             Text = Format(t),
             Parents = t.Parents.Select(Format).ToList(),
             Children = t.Children.Select(Format).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
-            LinksTo = t.LinksTo.Where(l => l.LinkType != Thought.IsA).Select(ToDto).ToList(),
-            LinksFrom = t.LinksFrom.Where(l => l.LinkType != Thought.IsA).Select(ToDto).ToList(),
+            LinksTo = t.LinksTo.Where(l => l.LinkType != Store.Labeled("is-a")).Select(ToDto).ToList(),
+            LinksFrom = t.LinksFrom.Where(l => l.LinkType != Store.Labeled("is-a")).Select(ToDto).ToList(),
         };
         return Json(dto, JsonCtx.Default.ThoughtDto);
     });
@@ -427,7 +425,7 @@ public static partial class Exports
     public static IntPtr Search(IntPtr pText, int limit) => Guard(() =>
     {
         string text = In(pText);
-        var hits = ThoughtLabels.LabelList.Values
+        var hits = Store.LabeledStartingWith("")
             .Select(t => t.Label)
             .Where(l => l != "" && l.Contains(text, StringComparison.OrdinalIgnoreCase))
             .Distinct()
@@ -518,7 +516,7 @@ public static partial class Exports
                     Source = IdOf(t),
                     Target = IdOf(l.To),
                     LinkType = Format(l.LinkType),
-                    IsA = l.LinkType == Thought.IsA,
+                    IsA = l.LinkType == Store.Labeled("is-a"),
                     Weight = l.Weight,
                 });
             }
@@ -572,13 +570,13 @@ public static partial class Exports
         // Filter: the Type/Target fields narrow by ancestor; the Filter field follows the
         // desktop rule (one Thought filters the target, several filter the link type).
         Link filterLink = null;
-        if (filterThoughts.Count == 1) filterLink = new Link { To = filterThoughts[0] };
-        else if (filterThoughts.Count > 1) filterLink = new Link { LinkType = filterThoughts[0] };
+        if (filterThoughts.Count == 1) filterLink = new Link(Store) { To = filterThoughts[0] };
+        else if (filterThoughts.Count > 1) filterLink = new Link(Store) { LinkType = filterThoughts[0] };
         Thought typeFilter = linkTypeList.FirstOrDefault();
         Thought targetFilter = reverse ? null : targetList.FirstOrDefault();
         if (typeFilter != null || targetFilter != null)
         {
-            filterLink ??= new Link();
+            filterLink ??= new Link(Store);
             filterLink.LinkType ??= typeFilter;
             filterLink.To ??= targetFilter;
         }
@@ -646,7 +644,7 @@ public static partial class Exports
     {
         var uks = Store;
         Thought ancestor = uks.Labeled(In(pAncestor).Trim()) ?? uks.Labeled("Thought");
-        var query = new Thought { Label = "theQuery" };
+        var query = new Thought(Store) { Label = "theQuery" };
         try
         {
             foreach (string line in In(pAttributes).Split('\n'))

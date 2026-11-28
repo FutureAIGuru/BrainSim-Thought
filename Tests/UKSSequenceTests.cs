@@ -33,8 +33,8 @@ public class UKSSequenceTests
         inputLast.AddLink("VLU", three);
         Thought options = uks.CreateSearchOptions(mustMatchFirst: true, mustMatchLast: true);
 
-        var noteMatches = uks.FindSequencesByActivation(input, options, valueClass: notes, matchClass: tunes);
-        var durationMatches = uks.FindSequencesByActivation(input, options, valueClass: durations, matchClass: tunes);
+        var noteMatches = uks.FindSequencesByActivation(input, options, valueClassRef: notes, matchClassRef: tunes);
+        var durationMatches = uks.FindSequencesByActivation(input, options, valueClassRef: durations, matchClassRef: tunes);
         Assert.Contains(noteMatches, match => ReferenceEquals(match.seqNode, stored));
         Assert.DoesNotContain(noteMatches, match => ReferenceEquals(match.seqNode, unrelated));
         Assert.DoesNotContain(durationMatches, match => ReferenceEquals(match.seqNode, stored));
@@ -43,16 +43,16 @@ public class UKSSequenceTests
 
         inputLast.RemoveLink(uks.Labeled("VLU"), three);
         inputLast.AddLink("VLU", two);
-        var matchingDurations = uks.FindSequencesByActivation(input, options, valueClass: durations, matchClass: tunes);
+        var matchingDurations = uks.FindSequencesByActivation(input, options, valueClassRef: durations, matchClassRef: tunes);
         Assert.Contains(matchingDurations, match => ReferenceEquals(match.seqNode, stored));
         Thought wildcard = uks.CreateWildcard("??.duration", new List<Thought> { durations });
         options.AddProperty("allowWildcards");
         var wildcardMatches = uks.FindSequencesByActivation(new List<Thought> { one, wildcard }, options,
-            valueClass: durations, matchClass: tunes);
+            valueClassRef: durations, matchClassRef: tunes);
         Assert.Contains(wildcardMatches, match => ReferenceEquals(match.seqNode, stored));
         SeqElement query = uks.CreateFirstElement("durationQuery", one);
         uks.AddElement(query, uks.Labeled("??"));
-        var wildcardSequenceMatches = uks.FindSequencesByActivation(query, options, valueClass: durations, matchClass: tunes);
+        var wildcardSequenceMatches = uks.FindSequencesByActivation(query, options, valueClassRef: durations, matchClassRef: tunes);
         Assert.Contains(wildcardSequenceMatches, match => ReferenceEquals(match.seqNode, stored));
     }
 
@@ -181,7 +181,7 @@ public class UKSSequenceTests
     {
         var uks = CreateUKS();
         var stored = uks.AddSequence("bounded", new List<Thought> { uks.Labeled("A"), uks.Labeled("B") }, allowCompression: false);
-        SeqElement input = new() { Label = "input*", VLU = uks.Labeled("A") };
+        SeqElement input = new(uks) { Label = "input*", VLU = uks.Labeled("A") };
         SeqElement last = uks.AddElement(input, uks.Labeled("B"));
         uks.AddElement(last, uks.Labeled("C"));
         var bounded = uks.FindSequencesByActivation(input, last: last);
@@ -194,7 +194,7 @@ public class UKSSequenceTests
     {
         var uks = CreateUKS();
         Thought a = uks.Labeled("A");
-        SeqElement first = new() { Label = "stream*", VLU = a };
+        SeqElement first = new(uks) { Label = "stream*", VLU = a };
         SeqElement second = uks.AddElement(first, a);
         Assert.Null(first.FRST);
         Assert.Null(second.FRST);
@@ -209,7 +209,7 @@ public class UKSSequenceTests
     {
         var uks = CreateUKS();
         SeqElement value = uks.CreateFirstElement("value", uks.Labeled("A"));
-        SeqElement first = new() { Label = "stream*", VLU = value };
+        SeqElement first = new(uks) { Label = "stream*", VLU = value };
         first.AddLink(uks.GetOrAddThought("usedBy", "LinkType"), value);
         SeqElement next = uks.AddElement(first, uks.Labeled("B"));
         Assert.Same(next, uks.RemoveFirstSequenceElement(first));
@@ -249,7 +249,7 @@ public class UKSSequenceTests
 
     private UKS CreateUKS()
     {
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         uks.GetOrAddThought("letter");
         for (char c = 'A'; c <= 'Z'; c++)
@@ -389,10 +389,10 @@ public class UKSSequenceTests
         SeqElement attention = uks.AddSequenceAndLink(
             uks.GetOrAddThought("ATTENTION"),
             uks.GetOrAddThought("spelled", "LinkType"),
-            new List<Thought> { "A", "T", "T", "E", "N", "T", "I", "O", "N" });
+            new List<Thought> { uks.Labeled("A"), uks.Labeled("T"), uks.Labeled("T"), uks.Labeled("E"), uks.Labeled("N"), uks.Labeled("T"), uks.Labeled("I"), uks.Labeled("O"), uks.Labeled("N") });
 
         var matches = uks.FindSequencesByActivation(
-            new List<Thought> { prefix, "T", "I", "O", "N" },
+            new List<Thought> { prefix, uks.Labeled("T"), uks.Labeled("I"), uks.Labeled("O"), uks.Labeled("N") },
             uks.Labeled("TemplateSequenceSearch"));
 
         Assert.Contains(matches, x => ReferenceEquals(x.seqNode, attention));
@@ -434,7 +434,7 @@ public class UKSSequenceTests
             "??noun", new List<Thought> { nounClass }, "isWildcard");
         Thought words = uks.GetOrAddThought("hasWords", "LinkType");
         SeqElement withoutArticle2 = uks.AddSequenceAndLink(
-            uks.GetOrAddThought("dog-runs"), words, new List<Thought> { "dog", "runs" });
+            uks.GetOrAddThought("dog-runs"), words, new List<Thought> { uks.Labeled("dog"), uks.Labeled("runs") });
         SeqElement withoutArticle = uks.AddSequenceAndLink(
             uks.GetOrAddThought("dog-runs"), words, new List<Thought> { dog, runs });
         SeqElement withArticle = uks.AddSequenceAndLink(
@@ -542,50 +542,50 @@ public class UKSSequenceTests
             uks.GetOrAddThought("4"),
         };
         SeqElement seq = uks.AddSequenceAndLink(source, linkType, digits);
-        SeqElement interference = uks.AddSequenceAndLink(source2, linkType, new List<Thought> {"3",".","1" });
+        SeqElement interference = uks.AddSequenceAndLink(source2, linkType, new List<Thought> {uks.Labeled("3"),uks.Labeled("."),uks.Labeled("1") });
 
         var matches = uks.FindSequencesByActivation(digits);
 
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, seq) && m.confidence >= 1.0f);
 
-        var set = uks.AddSequenceAndLink(uks.GetOrAddThought("SET"), "spelled", new List<Thought> { "S", "E", "T" });
-        matches = uks.FindSequencesByActivation(new List<Thought> { "S", "E", "T" });
+        var set = uks.AddSequenceAndLink(uks.GetOrAddThought("SET"), "spelled", new List<Thought> { uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T") });
+        matches = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T") });
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, set) && m.confidence >= 1.0f);
 
-        var reset = uks.AddSequenceAndLink(uks.GetOrAddThought("RESET"), "spelled", new List<Thought> { "R", "E", set });
-        matches = uks.FindSequencesByActivation(new List<Thought> { "R", "E", "S", "E", "T" });
+        var reset = uks.AddSequenceAndLink(uks.GetOrAddThought("RESET"), "spelled", new List<Thought> { uks.Labeled("R"), uks.Labeled("E"), set });
+        matches = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("R"), uks.Labeled("E"), uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T") });
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, reset) && m.confidence >= 1.0f);
 
-        var sets = uks.AddSequenceAndLink(uks.GetOrAddThought("SETS"), "spelled", new List<Thought> { set, "S" });
-        matches = uks.FindSequencesByActivation(new List<Thought> { "S", "E", "T", "S" });
+        var sets = uks.AddSequenceAndLink(uks.GetOrAddThought("SETS"), "spelled", new List<Thought> { set, uks.Labeled("S") });
+        matches = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T"), uks.Labeled("S") });
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, sets) && m.confidence >= 1.0f);
 
-        var upsets = uks.AddSequenceAndLink(uks.GetOrAddThought("UPSETS"), "spelled", new List<Thought> { "U", "P", set, "S" });
-        matches = uks.FindSequencesByActivation(new List<Thought> { "U", "P", "S", "E", "T", "S" });
+        var upsets = uks.AddSequenceAndLink(uks.GetOrAddThought("UPSETS"), "spelled", new List<Thought> { uks.Labeled("U"), uks.Labeled("P"), set, uks.Labeled("S") });
+        matches = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("U"), uks.Labeled("P"), uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T"), uks.Labeled("S") });
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, upsets) && m.confidence >= 1.0f);
 
-        var resets = uks.AddSequenceAndLink(uks.GetOrAddThought("RESETS"), "spelled", new List<Thought> { reset, "S" });
-        matches = uks.FindSequencesByActivation(new List<Thought> { "R", "E", "S", "E", "T", "S" });
+        var resets = uks.AddSequenceAndLink(uks.GetOrAddThought("RESETS"), "spelled", new List<Thought> { reset, uks.Labeled("S") });
+        matches = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("R"), uks.Labeled("E"), uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T"), uks.Labeled("S") });
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, resets) && m.confidence >= 1.0f);
 
-        var preset = uks.AddSequenceAndLink(uks.GetOrAddThought("PRESET"), "spelled", new List<Thought> { "P", reset });
-        matches = uks.FindSequencesByActivation(new List<Thought> { "P", "R", "E", "S", "E", "T" });
+        var preset = uks.AddSequenceAndLink(uks.GetOrAddThought("PRESET"), "spelled", new List<Thought> { uks.Labeled("P"), reset });
+        matches = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("P"), uks.Labeled("R"), uks.Labeled("E"), uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T") });
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, preset) && m.confidence >= 1.0f);
 
-        var presets = uks.AddSequenceAndLink(uks.GetOrAddThought("PRESETS"), "spelled", new List<Thought> { preset, "S" });
-        matches = uks.FindSequencesByActivation(new List<Thought> { "P", "R", "E", "S", "E", "T", "S" });
+        var presets = uks.AddSequenceAndLink(uks.GetOrAddThought("PRESETS"), "spelled", new List<Thought> { preset, uks.Labeled("S") });
+        matches = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("P"), uks.Labeled("R"), uks.Labeled("E"), uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T"), uks.Labeled("S") });
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, presets) && m.confidence >= 1.0f);
 
-        var presetting = uks.AddSequenceAndLink(uks.GetOrAddThought("PRESETTING"), "spelled", new List<Thought> { preset, "T", "I", "N", "G" });
-        matches = uks.FindSequencesByActivation(new List<Thought> { "P", "R", "E", "S", "E", "T", "T", "I", "N", "G" });
+        var presetting = uks.AddSequenceAndLink(uks.GetOrAddThought("PRESETTING"), "spelled", new List<Thought> { preset, uks.Labeled("T"), uks.Labeled("I"), uks.Labeled("N"), uks.Labeled("G") });
+        matches = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("P"), uks.Labeled("R"), uks.Labeled("E"), uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T"), uks.Labeled("T"), uks.Labeled("I"), uks.Labeled("N"), uks.Labeled("G") });
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, presetting) && m.confidence >= 1.0f);
 
-        var setsixx = uks.AddSequenceAndLink(uks.GetOrAddThought("SETSIXX"), "spelled", new List<Thought> { sets, "I", "X"});
-        matches = uks.FindSequencesByActivation(new List<Thought> { "S", "E", "T", "S", "I", "X"});
+        var setsixx = uks.AddSequenceAndLink(uks.GetOrAddThought("SETSIXX"), "spelled", new List<Thought> { sets, uks.Labeled("I"), uks.Labeled("X")});
+        matches = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T"), uks.Labeled("S"), uks.Labeled("I"), uks.Labeled("X")});
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, setsixx) && m.confidence >= 1.0f);
 
         var setreset = uks.AddSequenceAndLink(uks.GetOrAddThought("SETRESET"), "spelled", new List<Thought> { set, reset });
-        matches = uks.FindSequencesByActivation(new List<Thought> { "S", "E", "T", "R", "E", "S", "E", "T" });
+        matches = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T"), uks.Labeled("R"), uks.Labeled("E"), uks.Labeled("S"), uks.Labeled("E"), uks.Labeled("T") });
         Assert.Contains(matches, m => ReferenceEquals(m.seqNode, setreset) && m.confidence >= 1.0f);
     }
 
@@ -597,30 +597,30 @@ public class UKSSequenceTests
         var wildcard = uks.Labeled("??");
         wildcard.AddLink("hasProperty", "isWildcard");
 
-        var cat = uks.AddSequenceAndLink(uks.GetOrAddThought("CAT"), "spelled", new List<Thought> { "C", "A", "T" });
-        var cot = uks.AddSequenceAndLink(uks.GetOrAddThought("COT"), "spelled", new List<Thought> { "C", "O", "T" });
-        var dog = uks.AddSequenceAndLink(uks.GetOrAddThought("DOG"), "spelled", new List<Thought> { "D", "O", "G" });
-        var frog = uks.AddSequenceAndLink(uks.GetOrAddThought("FROG"), "spelled", new List<Thought> { "F", "R", "O", "G" });
+        var cat = uks.AddSequenceAndLink(uks.GetOrAddThought("CAT"), "spelled", new List<Thought> { uks.Labeled("C"), uks.Labeled("A"), uks.Labeled("T") });
+        var cot = uks.AddSequenceAndLink(uks.GetOrAddThought("COT"), "spelled", new List<Thought> { uks.Labeled("C"), uks.Labeled("O"), uks.Labeled("T") });
+        var dog = uks.AddSequenceAndLink(uks.GetOrAddThought("DOG"), "spelled", new List<Thought> { uks.Labeled("D"), uks.Labeled("O"), uks.Labeled("G") });
+        var frog = uks.AddSequenceAndLink(uks.GetOrAddThought("FROG"), "spelled", new List<Thought> { uks.Labeled("F"), uks.Labeled("R"), uks.Labeled("O"), uks.Labeled("G") });
 
-        var middleWildcard = uks.FindSequencesByActivation(new List<Thought> { "C", wildcard, "T" }, searchOptions);
+        var middleWildcard = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("C"), wildcard, uks.Labeled("T") }, searchOptions);
         Assert.Contains(middleWildcard, m => ReferenceEquals(m.seqNode, cat) && m.confidence >= 1.0f);
         Assert.Contains(middleWildcard, m => ReferenceEquals(m.seqNode, cot) && m.confidence >= 1.0f);
         Assert.DoesNotContain(middleWildcard, m => ReferenceEquals(m.seqNode, dog));
 
-        var firstWildcard = uks.FindSequencesByActivation(new List<Thought> { wildcard, "O", "G" }, searchOptions);
+        var firstWildcard = uks.FindSequencesByActivation(new List<Thought> { wildcard, uks.Labeled("O"), uks.Labeled("G") }, searchOptions);
         Assert.Contains(firstWildcard, m => ReferenceEquals(m.seqNode, dog) && m.confidence >= 1.0f);
         Assert.DoesNotContain(firstWildcard, m => ReferenceEquals(m.seqNode, cat));
         Assert.DoesNotContain(firstWildcard, m => ReferenceEquals(m.seqNode, frog));
 
-        var twoLeadingWildcards = uks.FindSequencesByActivation(new List<Thought> { wildcard, wildcard, "O", "G" }, searchOptions);
+        var twoLeadingWildcards = uks.FindSequencesByActivation(new List<Thought> { wildcard, wildcard, uks.Labeled("O"), uks.Labeled("G") }, searchOptions);
         Assert.Contains(twoLeadingWildcards, m => ReferenceEquals(m.seqNode, frog) && m.confidence >= 1.0f);
         Assert.DoesNotContain(twoLeadingWildcards, m => ReferenceEquals(m.seqNode, dog));
 
-        var lastWildcard = uks.FindSequencesByActivation(new List<Thought> { "D", "O", wildcard }, searchOptions);
+        var lastWildcard = uks.FindSequencesByActivation(new List<Thought> { uks.Labeled("D"), uks.Labeled("O"), wildcard }, searchOptions);
         Assert.Contains(lastWildcard, m => ReferenceEquals(m.seqNode, dog) && m.confidence >= 1.0f);
         Assert.DoesNotContain(lastWildcard, m => ReferenceEquals(m.seqNode, cat));
 
-        var multipleWildcards = uks.FindSequencesByActivation(new List<Thought> { wildcard, "O", wildcard }, searchOptions);
+        var multipleWildcards = uks.FindSequencesByActivation(new List<Thought> { wildcard, uks.Labeled("O"), wildcard }, searchOptions);
         Assert.Contains(multipleWildcards, m => ReferenceEquals(m.seqNode, cot) && m.confidence >= 1.0f);
         Assert.Contains(multipleWildcards, m => ReferenceEquals(m.seqNode, dog) && m.confidence >= 1.0f);
         Assert.DoesNotContain(multipleWildcards, m => ReferenceEquals(m.seqNode, cat));
@@ -643,9 +643,9 @@ public class UKSSequenceTests
             uks.FindSequencesByActivation(
                 new List<Thought>
                 {
-                    uks.GetOrAddThought("fido", "Word"),
+                    uks.GetOrAddThought("fido", uks.Labeled("Word")),
                     isWord,
-                    uks.GetOrAddThought("wet", "Word")
+                    uks.GetOrAddThought("wet", uks.Labeled("Word"))
                 },
                 uks.Labeled("TemplateSequenceSearch"));
 
@@ -1064,7 +1064,7 @@ public class UKSSequenceTests
             });
 
         // BES -> only BESET
-        var besPattern = new List<Thought> { "B", "E", "S" };
+        var besPattern = new List<Thought> { uks.Labeled("B"), uks.Labeled("E"), uks.Labeled("S") };
         var besMatches = uks.FindSequencesByActivation(besPattern, searchOptions);
         var besetMatch = Assert.Single(besMatches.Where(m => ReferenceEquals(m.seqNode, besetSeq)));
         Assert.Equal(3f / 5f, besetMatch.confidence, 3);

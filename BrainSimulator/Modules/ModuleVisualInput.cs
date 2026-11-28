@@ -1048,7 +1048,7 @@ public class ModuleVisualInput : ModuleBase
         if (objectRoot is null || observation.Attributes.Count == 0)
             return null;
 
-        Thought query = new();
+        Thought query = new(theUKS);
         foreach (ObservationAttribute attribute in observation.Attributes)
         {
             Thought linkType = GetOrCreateLinkType(attribute.LinkTypeLabel);

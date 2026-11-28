@@ -27,7 +27,6 @@ public partial class UKS
     /// <summary>Raised whenever a Thought in this UKS fires. Handlers run on the firing thread and should be brief.</summary>
     public event Action<Thought>? ThoughtFired;
     internal void RaiseThoughtFired(Thought thought) => ThoughtFired?.Invoke(thought);
-    private static readonly AsyncLocal<UKS?> currentUKS = new();
 
     // A flattened copy of the UKS used while saving and loading XML: circular references are
     // broken by storing indexes into this list (sThought) instead of Thought references.
@@ -61,33 +60,17 @@ public partial class UKS
     }
 
     /// <summary>
-    /// Current UKS for implicit string conversion and legacy static helpers.
-    /// Content belongs to instances; this selection follows the execution context.
-    /// Set it before request/background work and restore the previous value afterward.
+    /// Creates an empty, independent store. Call <see cref="CreateInitialStructure"/> for the core types.
     /// </summary>
-    public static UKS theUKS
-    {
-        get => currentUKS.Value ??= new UKS();
-        set => currentUKS.Value = value ?? throw new ArgumentNullException(nameof(value));
-    }
-
-    /// <summary>
-    /// Creates an independent UKS and selects it for this execution context.
-    /// </summary>
-    /// <param name="clear">Retained for source compatibility; every new instance starts with empty content.</param>
-    public UKS(bool clear = false)
-    {
-        theUKS = this;
-    }
+    public UKS() { }
 
     /// <summary>
     /// Empties the store: every Thought and label, the sequence cache, the undo history and
-    /// everything counting down, and the cycle starts again at 1. Selects this store.
+    /// everything counting down, and the cycle starts again at 1.
     /// Call <see cref="CreateInitialStructure"/> afterward for the core types.
     /// </summary>
     public void Reset()
     {
-        theUKS = this;
         lock (AtomicThoughts) AtomicThoughts.Clear();
         Labels.Clear();
         nextGeneratedLabel = 999;
@@ -104,13 +87,11 @@ public partial class UKS
     /// This is a primitive method needed only to create ROOT Thoughts which have no parents.
     /// </summary>
     /// <param name="label">Label of the thought to create.</param>
-    /// <param name="parent">Optional parent thought (may be null).</param>
+    /// <param name="parent">Optional parent, a Thought or a label; an empty or unknown one adds no parent.</param>
     /// <returns>The newly created thought.</returns>
-    public virtual Thought AddThought(string label, Thought? parent)
+    public virtual Thought AddThought(string label, ThoughtRef parentRef = default)
     {
-        if (parent is not null && !ReferenceEquals(parent.Store, this))
-            throw new ArgumentException("Parent belongs to another UKS.", nameof(parent));
-        theUKS = this;
+        Thought? parent = parentRef.Find(this);
         Thought newThought = new(this);
         newThought.Label = label;
         newThought.AddDefaultLabel();
@@ -137,6 +118,47 @@ public partial class UKS
         Labels.TryGetValue(label.ToLowerInvariant(), out Thought? thought);
         return thought;
     }
+
+    /// <summary>
+    /// Indexes <paramref name="thought"/> under <paramref name="newLabel"/>, replacing its current entry,
+    /// and returns the label actually used: a trailing * becomes the next free number, and a label
+    /// already in use gets a number appended. An empty label is not indexed.
+    /// </summary>
+    internal string IndexLabel(string newLabel, Thought thought)
+    {
+        if (newLabel == "") return newLabel;
+        if (Labels.TryGetValue(thought.Label.ToLowerInvariant(), out Thought? previous) && ReferenceEquals(previous, thought))
+            Labels.TryRemove(thought.Label.ToLowerInvariant(), out _);
+        int number = -1;
+        string baseLabel = newLabel;
+        if (newLabel.EndsWith('*'))
+        {
+            number = 0;
+            baseLabel = newLabel[..^1].TrimEnd("0123456789".ToCharArray());
+            newLabel = baseLabel + number;
+        }
+        while (!Labels.TryAdd(newLabel.ToLowerInvariant(), thought))
+        {
+            number++;
+            newLabel = baseLabel + number;
+        }
+        ReserveGeneratedLabel(newLabel);
+        return newLabel;
+    }
+
+    /// <summary>Removes a label from the index.</summary>
+    internal void UnindexLabel(string label)
+    {
+        if (!string.IsNullOrEmpty(label)) Labels.TryRemove(label.ToLowerInvariant(), out _);
+    }
+
+    /// <summary>
+    /// The Thoughts whose labels start with <paramref name="prefix"/> (ignoring case), in label order,
+    /// e.g. to complete a label as it is typed. Links and sequence elements are included.
+    /// </summary>
+    public List<Thought> LabeledStartingWith(string prefix) =>
+        Labels.Values.Where(thought => thought.Label.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(thought => thought.Label, StringComparer.OrdinalIgnoreCase).ToList();
 
     internal string NextGeneratedLabel()
     {
@@ -197,9 +219,10 @@ public partial class UKS
     /// <param name="linkType">Link type thought.</param>
     /// <param name="to">Target thought of the link.</param>
     /// <returns>The existing link Thought, or null if not found.</returns>
-    public Link? GetLink(Thought from, Thought linkType, Thought? to)
+    public Link? GetLink(ThoughtRef fromRef, ThoughtRef linkTypeRef, ThoughtRef toRef)
     {
-        if (from is null) return null;
+        Thought? from = fromRef.Find(this), linkType = linkTypeRef.Find(this), to = toRef.Find(this);
+        if (from is null || linkType is null || (to is null && !toRef.IsEmpty)) return null;
         //create a temporary link
         Link r = new(this) { From = from, LinkType = linkType, To = to };
         //see if it already exists
@@ -268,26 +291,17 @@ public partial class UKS
     /// Creates a new Thought in the UKS OR returns an existing Thought, based on the label.
     /// </summary>
     /// <param name="label">Label for the thought. Trailing '*' auto-increments to a unique label.</param>
-    /// <param name="parent">Optional parent thought or label; defaults to "Unknown" if null.</param>
+    /// <param name="parent">Optional parent, a Thought or a label; an empty or unknown one means Unknown.</param>
     /// <param name="source">Optional source thought used to probe existing numbered links.</param>
     /// <returns>The existing or newly created Thought.</returns>
-    public Thought? GetOrAddThought(string label, object? parent = null, Thought? source = null)
+    public Thought? GetOrAddThought(string label, ThoughtRef parent = default, Thought? source = null)
     {
-        if (parent is Thought parentThought && !ReferenceEquals(parentThought.Store, this))
-            throw new ArgumentException("Parent belongs to another UKS.", nameof(parent));
         if (source is not null && !ReferenceEquals(source.Store, this))
             throw new ArgumentException("Source belongs to another UKS.", nameof(source));
-        theUKS = this;
         if (string.IsNullOrEmpty(label)) return null;
 
         Thought? thoughtToReturn = Labeled(label);
-        Thought? correctParent = null;
-        if (parent is string s)
-            correctParent = Labeled(s);
-        if (parent is Thought t)
-            correctParent = t;
-        if (correctParent is null)
-            correctParent = Labeled("Unknown");
+        Thought? correctParent = parent.Find(this) ?? Labeled("Unknown");
 
         if (thoughtToReturn is not null)
         {

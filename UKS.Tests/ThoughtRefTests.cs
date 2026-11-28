@@ -27,10 +27,10 @@ public class ThoughtRefTests
     }
 
     [Fact]
-    public void ALabelIsResolvedInTheStoreBeingCalledNotTheAmbientOne()
+    public void ALabelIsResolvedInTheStoreBeingCalled()
     {
         UKS store = NewStore();
-        UKS other = NewStore();          // selects "other" as the ambient UKS.theUKS
+        UKS other = NewStore();
         other.GetOrAddThought("cat", "Object");
 
         Link? link = store.AddStatement("Tom", "is-a", "cat");

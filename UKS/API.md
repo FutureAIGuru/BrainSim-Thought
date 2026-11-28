@@ -37,7 +37,18 @@ only stores the label; the receiving method resolves it in its own store. A bare
 | GetOrAdd | creates it (under LinkType for a link type, else Unknown) | writes: `AddStatement`, `AddLink`, `AddParent`, ... |
 
 A value that is neither a Thought nor a string doesn't compile; a Thought from another store throws.
-Done so far: `AddStatement`; on Thought: `AddLink`, `RemoveLink`, `RemoveLinks`, `HasLink`, `AddParent`, `RemoveParent`, `RemoveChild`, `HasAncestor`, `HasProperty`, `AddProperty`, and the `Get...OfType` helpers. `AddParent` finds `is-a` but never creates it (creating a Thought adds its parent, which would recurse).
+Applied (Phase B):
+- Thought: `AddLink`, `RemoveLink`, `RemoveLinks`, `HasLink`, `AddParent`, `RemoveParent`, `RemoveChild`,
+  `HasAncestor`, `HasProperty`, `AddProperty`, the `Get...OfType` helpers.
+- UKS: `AddStatement`, `AddStatementRecordingHistory`, `GetOrAddThought` and `AddThought` (parent),
+  `GetLink`, `GetAttributes`, `SearchByAttributes` (root), `ExportTextFile` (root),
+  `FindSequencesByActivation` (options and classes), `AddSequenceAndLink` (link type),
+  `CreateFirstElement`/`AddElement`/`InsertElement` (value), `GetElementValue` (class),
+  `GetReferringThoughts` (link type).
+
+`AddParent` finds `is-a` but never creates it (creating a Thought adds its parent, which would recurse).
+Parameters that take a Thought built for the call (query prototypes, patterns, sequence elements,
+lists) stay `Thought`.
 
 ## Decisions
 
@@ -55,6 +66,9 @@ Settled:
   a caller needing links casts, e.g. `.OfType<Link>()`); a caller needing a writable list calls `.ToList()`.
 
 Open:
+- `ThoughtRef` parameter names currently end in `Ref` (`sourceRef`, `valueClassRef`), which shows in
+  IntelliSense, named arguments and the generated documentation. Rename them to the plain names
+  (`source`, `valueClass`) in Phase H?
 - Require policy: silent, or a debug warning for an unknown label?
 - Whether `AddStatementRecordingHistory` folds into `AddStatement`.
 - The user's review of the wrapper methods marked Review below.
@@ -71,10 +85,11 @@ Deferred (known issues, not API):
 Each phase ends with the solution, UKSWeb and iOS building, all tests green, and a review stop.
 
 - [x] **A. Reference list** (this file)
-- [ ] **B. ThoughtRef** on every public method; collapse the Thought/string overload pairs
-      (`AddStatement` and Thought's link methods done)
-- [ ] **C. Remove the ambient store:** mark the implicit operator and `ThoughtLabels` `[Obsolete]`,
-      fix every warning with `store.Labeled(...)`, then delete them and `UKS.theUKS`
+- [x] **B. ThoughtRef** on every public method; collapse the Thought/string overload pairs
+- [x] **C. Remove the ambient store:** the implicit operator, `Thought.IsA`, `ThoughtLabels` and
+      `UKS.theUKS` are deleted; label indexing is internal to the store (`IndexLabel`/`UnindexLabel`);
+      the Thought, Link and SeqElement constructors require their store; `new UKS()` no longer takes `clear`.
+      Hosts hold their own store (desktop `MainWindow.theUKS`, iOS `Exports.Store`, UKSWeb per session).
 - [ ] **D. Visibility:** Internal members become internal; Delete members are deleted; Move members move
 - [ ] **E. Identity equality:** remove the label-based `Equals`, `GetHashCode`, `==` and `!=`
 - [ ] **F. Agents layer:** extension methods in their own file and namespace, including the
@@ -170,6 +185,7 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 | `IsSequenceElement` | Core |  | |
 | `IsSequenceFirstElement` | Core |  | |
 | `Labeled` | Core |  | |
+| `LabeledStartingWith` | Core | new (Phase C): label completion and search, replacing `ThoughtLabels.LabelList` | done |
 | `LinkCount` | Core |  | |
 | `LinksAreExclusive` | Internal |  | |
 | `LoadUKSfromXMLFile` | Core | rename to LoadXml | |
@@ -202,7 +218,7 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 | `Why` | Core |  | |
 | `WhyNot` | Core |  | |
 | `WriteTheLink` | Internal |  | |
-| `theUKS` | Delete | ambient store (Phase C) | |
+| `theUKS` | Delete | ambient store (Phase C) | done |
 
 ### Thought
 
@@ -232,7 +248,7 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 | `HasGeneratedLabel` | Internal |  | |
 | `HasLink (2)` | Core |  | |
 | `HasProperty (2)` | Core |  | |
-| `IsA` | Delete | uses the ambient store; write store.Labeled("is-a") | |
+| `IsA` | Delete | uses the ambient store; write store.Labeled("is-a") | done |
 | `Label` | Core |  | |
 | `LastFiredCycle` | Core |  | |
 | `LinksAsType` | Core |  | |
@@ -253,7 +269,7 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 | `Weight` | Core |  | |
 | `isPlastic` | Core | rename to IsPlastic | |
 | `maxWeight` | Core | rename to MaxWeight | |
-| `operators (3)` | Delete | implicit string-to-Thought (Phase C) and label-based ==/!= (Phase E) | |
+| `operators (3)` | Delete | implicit string-to-Thought (Phase C, done) and label-based ==/!= (Phase E) | |
 
 ### Link
 
@@ -313,15 +329,15 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
-| `AddThoughtLabel` | Internal | then removed with the ambient store (Phase C) | |
-| `AllThoughtsInLabelList` | Delete | dead | |
-| `ClearLabelList` | Internal | then removed with the ambient store (Phase C) | |
-| `GetLabelCount` | Internal | then removed with the ambient store (Phase C) | |
-| `GetLinksCount` | Internal | then removed with the ambient store (Phase C) | |
-| `GetThought` | Internal | then removed with the ambient store (Phase C) | |
-| `LabelList` | Internal | then removed with the ambient store (Phase C) | |
-| `RemoveThoughtLabel` | Internal | then removed with the ambient store (Phase C) | |
-| `RemoveTrailingDigits` | Internal | then removed with the ambient store (Phase C) | |
+| `AddThoughtLabel` | Internal | then removed with the ambient store (Phase C) | done (class deleted) |
+| `AllThoughtsInLabelList` | Delete | dead | done (class deleted) |
+| `ClearLabelList` | Internal | then removed with the ambient store (Phase C) | done (class deleted) |
+| `GetLabelCount` | Internal | then removed with the ambient store (Phase C) | done (class deleted) |
+| `GetLinksCount` | Internal | then removed with the ambient store (Phase C) | done (class deleted) |
+| `GetThought` | Internal | then removed with the ambient store (Phase C) | done (class deleted) |
+| `LabelList` | Internal | then removed with the ambient store (Phase C) | done (class deleted) |
+| `RemoveThoughtLabel` | Internal | then removed with the ambient store (Phase C) | done (class deleted) |
+| `RemoveTrailingDigits` | Internal | then removed with the ambient store (Phase C) | done (class deleted) |
 
 ### UKSTransaction
 

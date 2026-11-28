@@ -1374,7 +1374,7 @@ public partial class ModuleSequenceSegmenterTests
 
     private static UKS.UKS CreateUKS()
     {
-        UKS.UKS uks = new(clear: true);
+        UKS.UKS uks = new();
         uks.CreateInitialStructure();
         return uks;
     }

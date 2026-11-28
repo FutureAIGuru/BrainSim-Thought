@@ -8,9 +8,8 @@ public class UKSDeletionTests
 {
     private static UKS.UKS CreateUKS()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateMinimumStructureForTests();
-        UKS.UKS.theUKS = uks;
         return uks;
     }
 
@@ -21,12 +20,12 @@ public class UKSDeletionTests
         Thought t = uks.GetOrAddThought("temp");
 
         Assert.Contains(t, uks.AtomicThoughts);
-        Assert.Same(t, ThoughtLabels.GetThought("temp"));
+        Assert.Same(t, uks.Labeled("temp"));
 
         t.Delete();
 
         Assert.DoesNotContain(t, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought("temp"));
+        Assert.Null(uks.Labeled("temp"));
     }
 
     [Fact]
@@ -42,7 +41,7 @@ public class UKSDeletionTests
 
         likes.Label = "TheLink";
 
-        Assert.NotNull(ThoughtLabels.GetThought("TheLink")); // label removed
+        Assert.NotNull(uks.Labeled("TheLink")); // label removed
         Assert.DoesNotContain(likes, uks.AtomicThoughts); //linkds do not show in allThoughts
         Assert.Contains(a, uks.AtomicThoughts);
         Assert.Contains(b, uks.AtomicThoughts);
@@ -51,10 +50,10 @@ public class UKSDeletionTests
         //uks.DeleteThought(a);
 
         Assert.DoesNotContain(a, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought("a")); // label removed
-        Assert.Null(ThoughtLabels.GetThought("TheLink")); // label removed
+        Assert.Null(uks.Labeled("a")); // label removed
+        Assert.Null(uks.Labeled("TheLink")); // label removed
         Assert.DoesNotContain(likes, uks.AtomicThoughts);
-        Assert.Same(b, ThoughtLabels.GetThought("b")); // b survives
+        Assert.Same(b, uks.Labeled("b")); // b survives
     }
 
     [Fact]
@@ -69,13 +68,13 @@ public class UKSDeletionTests
         var seqStart = uks.AddSequenceAndLink(word, spelled, new() { lA, lB });
 
         Assert.DoesNotContain(seqStart, uks.AtomicThoughts); //sequences are not in allThoughts
-        Assert.Same(seqStart, ThoughtLabels.GetThought($"{word.Label.ToLower()}-seq0"));
+        Assert.Same(seqStart, uks.Labeled($"{word.Label.ToLower()}-seq0"));
 
         word.Delete();
 
         Assert.DoesNotContain(word, uks.AtomicThoughts);
         Assert.DoesNotContain(seqStart, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought($"{word.Label.ToLower()}-seq0"));
+        Assert.Null(uks.Labeled($"{word.Label.ToLower()}-seq0"));
 
         // Letters remain
         Assert.Contains(lA, uks.AtomicThoughts);
@@ -104,7 +103,7 @@ public class UKSDeletionTests
         // A link between animals (label it so the cache can be checked)
         Link likes = dog.AddLink("likes", cat);
         likes.Label = "dog-likes-cat";
-        Assert.Same(likes, ThoughtLabels.GetThought("dog-likes-cat"));
+        Assert.Same(likes, uks.Labeled("dog-likes-cat"));
 
         // Two words with shared letters; sequences should be deleted with their owner
         Thought spelled = uks.GetOrAddThought("spelled", "LinkType");
@@ -115,7 +114,7 @@ public class UKSDeletionTests
 
         var catSeq = uks.AddSequenceAndLink(cat, spelled, new() { letterC, letterA, letterT });
         string catSeqLabel = $"{cat.Label.ToLower()}-seq0";
-        Assert.Same(catSeq, ThoughtLabels.GetThought(catSeqLabel));
+        Assert.Same(catSeq, uks.Labeled(catSeqLabel));
 
         var batSeq = uks.AddSequenceAndLink(uks.GetOrAddThought("bat"), spelled, new() { letterB, letterA, letterT });
 
@@ -123,35 +122,35 @@ public class UKSDeletionTests
         cat.Delete();
 
         Assert.DoesNotContain(cat, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought(cat.Label));
-        Assert.Null(ThoughtLabels.GetThought(catSeqLabel)); // sequence removed
+        Assert.Null(uks.Labeled(cat.Label));
+        Assert.Null(uks.Labeled(catSeqLabel)); // sequence removed
 
         Assert.Contains(letterA, uks.AtomicThoughts); // shared value survives
         Assert.Contains(letterT, uks.AtomicThoughts);
-        Assert.Same(batSeq, ThoughtLabels.GetThought("bat-seq0"));
+        Assert.Same(batSeq, uks.Labeled("bat-seq0"));
         Assert.Contains(attrSharedColor, uks.AtomicThoughts); // shared attr survives
         Assert.Contains(dog, uks.AtomicThoughts); // other peer survives
 
         // The "likes" link should be gone (cat target was deleted)
-        Assert.Null(ThoughtLabels.GetThought("dog-likes-cat"));
+        Assert.Null(uks.Labeled("dog-likes-cat"));
         Assert.Null(dog.LinksTo.FirstOrDefault(l => l.LinkType?.Label == "likes"));
 
         // Delete shared attribute that still has another ref (dog); after delete, dog remains
         attrSharedColor.Delete();
         Assert.DoesNotContain(attrSharedColor, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought("brown"));
+        Assert.Null(uks.Labeled("brown"));
         Assert.Contains(dog, uks.AtomicThoughts);
 
         // Delete animal parent; child remains but loses parent link
         animal.Delete();
         Assert.DoesNotContain(animal, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought("animal"));
-        Assert.Contains(((Thought)"Unknown"),dog.Parents);
+        Assert.Null(uks.Labeled("animal"));
+        Assert.Contains(uks.Labeled("Unknown"),dog.Parents);
 
         // Finally delete dog and ensure its links are gone
         dog.Delete();
         Assert.DoesNotContain(dog, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought("dog"));
+        Assert.Null(uks.Labeled("dog"));
         Assert.True(uks.AtomicThoughts.All(t => t is not Link l || (l.From != dog && l.To != dog)));
     }
 
@@ -166,8 +165,8 @@ public class UKSDeletionTests
         member.RemoveParent("Unknown");
 
         // Sanity: present in label cache
-        Assert.Same(temporaryClass, ThoughtLabels.GetThought("temporaryClass"));
-        Thought unknown = ThoughtLabels.GetThought("Unknown");
+        Assert.Same(temporaryClass, uks.Labeled("temporaryClass"));
+        Thought unknown = uks.Labeled("Unknown");
         Assert.NotNull(unknown);
 
         // A child whose only parent is deleted must remain reachable under Unknown.
@@ -175,7 +174,7 @@ public class UKSDeletionTests
 
         // Assert: removed from storage and label cache
         Assert.DoesNotContain(temporaryClass, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought("temporaryClass"));
+        Assert.Null(uks.Labeled("temporaryClass"));
 
         Assert.Contains(unknown, member.Parents);
         Assert.DoesNotContain(member.Parents, parent => parent?.Label == "temporaryClass");
@@ -248,7 +247,7 @@ public class UKSDeletionTests
 
         // Owner is gone from storage and labels
         Assert.DoesNotContain(a, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought("a"));
+        Assert.Null(uks.Labeled("a"));
     }
 
     [Fact]
@@ -267,7 +266,7 @@ public class UKSDeletionTests
         pigs.Delete();
 
         Assert.Contains(phrase, uks.AtomicThoughts);
-        Assert.Same(sequence, ThoughtLabels.GetThought(sequence.Label));
+        Assert.Same(sequence, uks.Labeled(sequence.Label));
         Assert.Contains(phrase.LinksTo, link => link.To == sequence);
         Assert.Equal(new[] { "--", "are", "animals" },
             uks.FlattenSequence(sequence).Select(value => value.Label));
@@ -327,7 +326,7 @@ public class UKSDeletionTests
         // Deleting one owner must not delete sequence data still owned elsewhere.
         firstPhrase.Delete();
 
-        Assert.Same(sharedSequence, ThoughtLabels.GetThought(sharedSequence.Label));
+        Assert.Same(sharedSequence, uks.Labeled(sharedSequence.Label));
         Assert.Contains(secondPhrase.LinksTo, link => link.To == sharedSequence);
     }
 
@@ -343,7 +342,7 @@ public class UKSDeletionTests
         temporary.Delete();
 
         Assert.DoesNotContain(temporary, uks.AtomicThoughts);
-        Assert.Null(ThoughtLabels.GetThought("temporary"));
+        Assert.Null(uks.Labeled("temporary"));
     }
 
     [Fact]

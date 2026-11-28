@@ -9,7 +9,7 @@ public class UKSSequenceLinkTests
 {
     private static UKS CreateUKS()
     {
-        var uks = new UKS(clear: true);
+        var uks = new UKS();
         uks.CreateInitialStructure();
         return uks;
     }

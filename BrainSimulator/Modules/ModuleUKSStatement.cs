@@ -76,7 +76,7 @@ public class ModuleUKSStatement : ModuleBase
         return s;
     }
 
-    public static List<Thought> ThoughtListFromString(string source)
+    public static List<Thought> ThoughtListFromString(UKS.UKS store, string source)
     {
         List<Thought> retVal = new();
         IPluralize pluralizer = new Pluralizer();
@@ -90,7 +90,7 @@ public class ModuleUKSStatement : ModuleBase
                 tempStringArray[i] = UKS.UKS.GetCharacterLabel(tempStringArray[i][0]);
             if (!char.IsUpper(tempStringArray[i][0]) && tempStringArray[i].Length > 2)
                 tempStringArray[i] = pluralizer.Singularize(tempStringArray[i]);
-            Thought t = ThoughtLabels.GetThought(tempStringArray[i]);
+            Thought t = store.Labeled(tempStringArray[i]);
             if (t is null) return retVal;
             retVal.Add(t);
         }

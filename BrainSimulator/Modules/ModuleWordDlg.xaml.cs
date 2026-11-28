@@ -88,7 +88,7 @@ public partial class ModuleWordDlg : ModuleBaseDlg
             //get the first suggestion
             string suggestion = module.GetWordSuggestion(txtWord.Text);
             //get the real label to get the capitalization right
-            if (suggestion is not null) suggestion = ThoughtLabels.GetThought("w:" + suggestion)?.Label;
+            if (suggestion is not null) suggestion = MainWindow.theUKS.Labeled("w:" + suggestion)?.Label;
 
             if (suggestion is not null && !suggestion.Equals(searchText, StringComparison.OrdinalIgnoreCase))
             {

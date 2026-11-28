@@ -511,7 +511,7 @@ public partial class ModuleVision : ModuleBase
         //Build the queryThought from the boundaryPoints Array
 
 
-        Thought queryThought = new Thought() { Label = "theQuery" };
+        Thought queryThought = new Thought(theUKS) { Label = "theQuery" };
         for (int x = 0; x < boundaryArray.GetLength(0); x++)
         {
             for (int y = 0; y < boundaryArray.GetLength(1); y++)

@@ -9,7 +9,7 @@ public class ModuleMentelModelTests
 {
     private static UKS.UKS CreateUKS()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks; // provide the static used by modules
         return uks;
@@ -30,7 +30,7 @@ public class ModuleMentelModelTests
         Thought attention = uks.Labeled("attention")!;
         Assert.Contains(uks.Labeled("activeThought")!, attention.Parents);
         Link activation = Assert.Single(attention.LinksTo.Where(link =>
-            link.LinkType == Thought.IsA && link.To == uks.Labeled("activeThought")));
+            link.LinkType == uks.Labeled("is-a") && link.To == uks.Labeled("activeThought")));
         Assert.Equal(Thought.Forever, activation.TimeToLive);
         Link location = Assert.Single(attention.LinksFrom.Where(link => link.LinkType?.Label == "_mm:contains"));
         Assert.Same(module.AttentionCell, location.From);

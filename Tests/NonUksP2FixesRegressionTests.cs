@@ -13,7 +13,7 @@ public class NonUksP2FixesRegressionTests
     [Fact]
     public void Thought_GetTargetOfFirstLinkOfType_string_overload()
     {
-        var uks = new global::UKS.UKS(clear: true);
+        var uks = new global::UKS.UKS();
         uks.CreateInitialStructure();
         Thought parent = uks.GetOrAddThought("phrase1", "Object");
         Thought linkType = uks.GetOrAddThought("soundAs", "LinkType");

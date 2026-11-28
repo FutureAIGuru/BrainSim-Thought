@@ -148,7 +148,7 @@ public sealed class SoundInState
 sealed class SoundInApi : ModuleApi
 {
     public override string State(ModuleBase m) =>
-        Json(new SoundInState { Phrases = ThoughtLabels.GetThought("musicalPhrase")?.Children.Select(c => c.Label).ToList() ?? new() },
+        Json(new SoundInState { Phrases = MainWindow.theUKS.Labeled("musicalPhrase")?.Children.Select(c => c.Label).ToList() ?? new() },
             ApiJson.Default.SoundInState);
 
     public override string Call(ModuleBase m, string op, ApiArgs args)
@@ -160,7 +160,7 @@ sealed class SoundInApi : ModuleApi
             case "noteUp": s.StopNote(args.Int("note")); return Done();
             case "playPhrase":
                 string phraseLabel = args.Str("phrase").Trim();
-                Thought phrase = ThoughtLabels.GetThought(phraseLabel) ?? throw new ArgumentException($"Phrase '{phraseLabel}' not found.");
+                Thought phrase = MainWindow.theUKS.Labeled(phraseLabel) ?? throw new ArgumentException($"Phrase '{phraseLabel}' not found.");
                 var soundOut = ModuleApis.Active<ModuleSoundOut>() ?? throw new InvalidOperationException("SoundOut module not found.");
                 soundOut.PlayThePhrase(phrase, true);
                 return Message($"Playing: {phraseLabel}");
@@ -335,7 +335,7 @@ sealed class AddToMentalModelApi : ModuleApi
 
     public override string Query(ModuleBase m, string op, ApiArgs args) => op switch
     {
-        "complete" => Json(Complete(args.Str("prefix"), ThoughtLabels.LabelList.Values.Select(t => t.Label).Where(l => l != "")), ApiJson.Default.ListString),
+        "complete" => Json(Complete(args.Str("prefix"), MainWindow.theUKS.LabeledStartingWith("").Select(t => t.Label).Where(l => l != "")), ApiJson.Default.ListString),
         _ => base.Query(m, op, args),
     };
 
@@ -487,7 +487,7 @@ sealed class WordApi : ModuleApi
         if (prefix != "")
         {
             string s = ((ModuleWord)m).GetWordSuggestion(prefix);
-            if (s is not null) s = ThoughtLabels.GetThought("w:" + s)?.Label;
+            if (s is not null) s = MainWindow.theUKS.Labeled("w:" + s)?.Label;
             if (s is not null && s.Length > 2 && !s[2..].Equals(prefix, StringComparison.OrdinalIgnoreCase)) result.Add(s[2..]);
         }
         return Json(result, ApiJson.Default.ListString);

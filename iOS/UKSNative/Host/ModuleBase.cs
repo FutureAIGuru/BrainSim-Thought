@@ -57,11 +57,10 @@ public abstract class ModuleBase
         }
     }
 
-    // As on the desktop: a module keeps the UKS it was given, and makes it the current one.
+    // As on the desktop: a module keeps the UKS it was given.
     public void GetUKS()
     {
         theUKS ??= MainWindow.theUKS;
-        UKS.UKS.theUKS = theUKS;
     }
 
     protected void Init(bool forceInit = false)

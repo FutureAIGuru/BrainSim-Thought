@@ -55,7 +55,6 @@ public partial class UKS
     /// <returns><see langword="true"/> if the save succeeded; otherwise <see langword="false"/>.</returns>
     public bool SaveUKStoXMLFile(string filenameIn = "")
     {
-        theUKS = this;
         //if you don't pass in a file name, it uses the previous name
         if (!String.IsNullOrEmpty(filenameIn)) { fileName = filenameIn; }
         return WriteSaveSnapshot(CaptureSaveSnapshot(), fileName);
@@ -200,7 +199,6 @@ public partial class UKS
     /// <returns><see langword="true"/> if the load succeeded; otherwise <see langword="false"/>.</returns>
     public bool LoadUKSfromXMLFile(string filenameIn = "")
     {
-        theUKS = this;
         //stash the current BrainSim configuration
         var contentToRestore = ExtractPortionOfUKS(Labeled("BrainSim"));
 
@@ -252,12 +250,8 @@ public partial class UKS
     /// </summary>
     public UKS Copy()
     {
-        UKS previous = theUKS;
-        theUKS = this;
-        List<sThought> snapshot = CaptureSaveSnapshot(); // before the copy is selected as theUKS
         UKS copy = new();
-        copy.RestoreFromUkTempSnapshot(snapshot);
-        theUKS = previous;
+        copy.RestoreFromUkTempSnapshot(CaptureSaveSnapshot());
         return copy;
     }
 
@@ -266,7 +260,6 @@ public partial class UKS
     /// </summary>
     internal void RestoreFromUkTempSnapshot(List<sThought> snapshot)
     {
-        theUKS = this;
         UKSTemp = snapshot;
         DeFormatContentAfterLoading();
         ApplyPostXmlLoadCompatibility();
@@ -373,7 +366,7 @@ public partial class UKS
 
     private void MergeStringListIntoUKS(List<string> contentToRestore)
     {
-        AddThought("BrainSim", null);
+        AddThought("BrainSim");
         foreach (string s in contentToRestore)
         {
             if (string.IsNullOrWhiteSpace(s)) continue;

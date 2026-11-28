@@ -10,7 +10,7 @@ public class ModuleAgentsTests
     [Fact]
     public void UnifiedModule_ListsAgentsAndRunsSelectedAgentOnce()
     {
-        var uks = new UKS.UKS(clear: true);
+        var uks = new UKS.UKS();
         uks.CreateInitialStructure();
         MainWindow.theUKS = uks;
         Thought objectRoot = uks.Labeled("Object")!;
