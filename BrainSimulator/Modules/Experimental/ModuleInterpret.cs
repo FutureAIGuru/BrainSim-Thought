@@ -129,8 +129,19 @@ public sealed partial class ModuleInterpret : ModuleBase
     /// </summary>
     private string Interpret(string sentence, bool rememberUnknownWords)
     {
-        UKSTransaction transaction = theUKS.BeginTransaction();
-        bool keep = false;
+        string report = "";
+        theUKS.TryChange(sentence, () =>
+        {
+            report = InterpretOnce(sentence, rememberUnknownWords, out bool keep);
+            return keep;
+        });
+        return report;
+    }
+
+    // Interprets the sentence; keep is true for a statement that stored something.
+    private string InterpretOnce(string sentence, bool rememberUnknownWords, out bool keep)
+    {
+        keep = false;
         try
         {
             // 1. Words: the sentence as a sequence of base words (inflections marked on its elements).
@@ -193,13 +204,6 @@ public sealed partial class ModuleInterpret : ModuleBase
         catch (FormatException error)
         {
             return Answer = error.Message;  // unknown words
-        }
-        finally
-        {
-            // Keep only a statement that stored something; everything else leaves the UKS unchanged.
-            theUKS.EndTransaction(transaction);
-            if (keep) theUKS.RememberForUndo(sentence, transaction);
-            else theUKS.Undo(transaction);
         }
     }
 

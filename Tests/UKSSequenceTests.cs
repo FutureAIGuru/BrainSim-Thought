@@ -205,24 +205,6 @@ public class UKSSequenceTests
     }
 
     [Fact]
-    public void StreamingQueue_PopDeletesOnlyTheHeadAndPreservesSequenceValues()
-    {
-        var uks = CreateUKS();
-        SeqElement value = uks.CreateFirstElement("value", uks.Labeled("A"));
-        SeqElement first = new(uks) { Label = "stream*", VLU = value };
-        first.AddLink(uks.GetOrAddThought("usedBy", "LinkType"), value);
-        SeqElement next = uks.AddElement(first, uks.Labeled("B"));
-        Assert.Same(next, uks.RemoveFirstSequenceElement(first));
-        Assert.Null(uks.Labeled(first.Label));
-        Assert.Same(next, uks.Labeled(next.Label));
-        Assert.Same(value, uks.Labeled(value.Label));
-        Assert.Same(uks.Labeled("A"), value.VLU);
-        Assert.Null(uks.RemoveFirstSequenceElement(next));
-        Assert.Null(uks.Labeled(next.Label));
-        Assert.Throws<System.ArgumentException>(() => uks.RemoveFirstSequenceElement(value));
-    }
-
-    [Fact]
     public void ActivationSearch_CanReturnRootsOrIndividualMatchPositions()
     {
         var uks = CreateUKS();

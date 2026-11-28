@@ -199,8 +199,8 @@ public class UKSForgettingTests
         uks.ChangeUndoably("add", () =>
         {
             created = uks.GetOrAddThought("Spot");
-            Assert.True(uks.CurrentTransaction.Created(created));
-            Assert.False(uks.CurrentTransaction.Created(existing));
+            Assert.True(uks.CreatedInCurrentChange(created));
+            Assert.False(uks.CreatedInCurrentChange(existing));
         });
         Assert.Null(uks.CurrentTransaction);
     }

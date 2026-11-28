@@ -12,7 +12,8 @@ internal, what moves out, and the order of the work. Each member's fate is check
 3. **Identity, not labels.** Two Thoughts are equal only if they are the same object; labels find
    Thoughts and are never compared.
 4. **One way to do each thing**, with consistent verbs (`Add`, `Remove`, `Has`, `Get`); always "link".
-5. **Test-only members are `internal`** (InternalsVisibleTo Tests and UKS.Tests).
+5. **Experiments don't shape the API:** a member only an experiment needs is Undocumented, not Core.
+6. **Test-only members are `internal`** (InternalsVisibleTo Tests and UKS.Tests).
 
 ## Layers
 
@@ -62,13 +63,15 @@ Settled:
 - Query annotations on Link (`InheritanceDepth`, `InheritedFromCategory`) become internal.
 - Naming: `isPlastic` to `IsPlastic`, `maxWeight` to `MaxWeight`, `V` to `Value`,
   `SaveUKStoXMLFile`/`LoadUKSfromXMLFile` to `SaveXml`/`LoadXml`.
+- `ThoughtRef` parameters take the plain names (`source`, `valueClass`, not `sourceRef`): Phase H.
 - `ThoughtList` is the read-only type for everything list-like, links included (plain, not generic:
   a caller needing links casts, e.g. `.OfType<Link>()`); a caller needing a writable list calls `.ToList()`.
 
 Open:
-- `ThoughtRef` parameter names currently end in `Ref` (`sourceRef`, `valueClassRef`), which shows in
-  IntelliSense, named arguments and the generated documentation. Rename them to the plain names
-  (`source`, `valueClass`) in Phase H?
+- When the spelling helpers leave (`CharacterPrefix`, `GetCharacterLabel`, `GetOrAddCharacter`,
+  `CreateSpellingSequence`): the UKS still uses characters itself, for the starter alphabet
+  (`CreateInitialStructure`) and single letters in `CreateThoughtFromMultipleAttributes` (Review).
+  They can move once the starter content is decided.
 - Require policy: silent, or a debug warning for an unknown label?
 - Whether `AddStatementRecordingHistory` folds into `AddStatement`.
 - The user's review of the wrapper methods marked Review below.
@@ -90,12 +93,21 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
       `UKS.theUKS` are deleted; label indexing is internal to the store (`IndexLabel`/`UnindexLabel`);
       the Thought, Link and SeqElement constructors require their store; `new UKS()` no longer takes `clear`.
       Hosts hold their own store (desktop `MainWindow.theUKS`, iOS `Exports.Store`, UKSWeb per session).
-- [ ] **D. Visibility:** Internal members become internal; Delete members are deleted; Move members move
+- [x] **D. Visibility:** Internal members become internal; Delete members are deleted; Move members move.
+      Kept public because modules or hosts use them (now Core): `FindSequenceSpansByActivation`,
+      `GetActionRelationshipType`, `GetReferringThoughts`, `IsConditionalLinkType`, `LinksAreExclusive`,
+      `HasGeneratedLabel`, and the query annotations `InheritanceDepth`/`InheritedFromCategory`.
+      The transaction API became internal; new public `TryChange` (keep the change only if it succeeds)
+      and `CreatedInCurrentChange` replace it. `sThought` stays public (XmlSerializer requires it).
+      Deferred: the spelling helpers (see Open) and the bubble result types (with the agents, Phase F).
+      Second step: `InheritanceDepth`/`InheritedFromCategory` left Link (the query keeps them privately);
+      new `GetEvidence(attribute)` explains a result with stored links; `IsConditionalLinkType` and
+      `HasGeneratedLabel` are internal.
 - [ ] **E. Identity equality:** remove the label-based `Equals`, `GetHashCode`, `==` and `!=`
 - [ ] **F. Agents layer:** extension methods in their own file and namespace, including the
       sequence/template machinery
 - [ ] **G. Conveniences:** no label comparisons; apply the wrapper review
-- [ ] **H. Naming** (the renames above) and `ThoughtList`
+- [ ] **H. Naming** (the renames above, including the plain `ThoughtRef` parameter names) and `ThoughtList`
 - [ ] **I. Documentation:** upgrade every public member's XML doc comment so Doxygen works again
       (`UKS/Doxyfile`, output to `UKS/Documentation`; about 140 of 226 public declarations have a
       comment today). The book's readers will read these, so: one-sentence summary, `<param>` and
@@ -107,10 +119,11 @@ Each phase ends with the solution, UKSWeb and iOS building, all tests green, and
 ## Members
 
 "Overloads" counts the declarations sharing a name. Fates:
-**Core**, **Convenience**, **Agent**, **Internal** (stays, not public), **Move** (out of the UKS
+**Core**, **Convenience**, **Agent**, **Internal** (stays, not public), **Undocumented** (public only
+because an experiment or the serializer needs it; left out of the documentation and the Phase J freeze), **Move** (out of the UKS
 to a module), **Delete**, **Review** (your wrapper review decides).
 
-Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Convenience 5 (196 names).
+Totals by name: Core 100, Internal 41, Undocumented 10, Agent 15, Review 12, Delete 11, Move 6, Convenience 5 (200 names).
 
 
 ### UKS
@@ -127,75 +140,77 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 | `AdvanceCycle` | Core |  | |
 | `ApplyTestOrSetAction` | Core |  | |
 | `BalanceTree` | Agent |  | |
-| `BeginTransaction` | Internal | ChangeUndoably/UndoLast are the public undo | |
+| `BeginTransaction` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
 | `BubbleAttributes` | Agent |  | |
 | `BubbleSharedSequences` | Agent | sequence/template machinery; its result types become internal | |
 | `CanUndo` | Core |  | |
 | `ChangeUndoably` | Core |  | |
-| `CharacterPrefix` | Move | letters are language content: word module | |
-| `ClearSequenceCache` | Internal |  | |
-| `CompareSequences` | Internal |  | |
+| `CharacterPrefix` | Move | letters are language content: word module; deferred (see Open) |  |
+| `ClearSequenceCache` | Internal |  | done |
+| `CompareSequences` | Internal | ModuleLearnMelody compares the flattened sequences | done |
 | `Copy` | Core |  | |
 | `CreateClasses` | Agent |  | |
 | `CreateFirstElement` | Core |  | |
 | `CreateInitialStructure` | Core |  | |
 | `CreateInstanceOf` | Review |  | |
-| `CreateMinimumStructureForTests` | Internal | test-only | |
+| `CreateMinimumStructureForTests` | Internal | test-only | done |
 | `CreateNewTemplate` | Agent | sequence/template machinery; its result types become internal | |
 | `CreateSearchOptions` | Core |  | |
-| `CreateSpellingSequence` | Move | letters are language content: word module | |
+| `CreateSpellingSequence` | Move | letters are language content: word module; deferred (see Open) |  |
 | `CreateThoughtFromMultipleAttributes` | Review |  | |
 | `CreateWildcard` | Core |  | |
-| `CurrentTransaction` | Internal | replaced by a store method for "created in this change" | |
+| `CreatedInCurrentChange` | Core | new (Phase D): replaces CurrentTransaction.Created | done |
+| `CurrentTransaction` | Internal | replaced by CreatedInCurrentChange | done |
 | `Cycle` | Core |  | |
 | `CyclesPerSecond` | Core |  | |
 | `DeleteAllChildrenAndLinks` | Review |  | |
 | `DeleteSequence` | Core |  | |
 | `DiscoverSequenceTemplates` | Agent | sequence/template machinery; its result types become internal | |
-| `EndTransaction` | Internal | ChangeUndoably/UndoLast are the public undo | |
+| `EndTransaction` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
 | `EnumerateSequenceElements` | Core |  | |
 | `ExportTextFile` | Core |  | |
 | `FileName` | Core |  | |
-| `FilterResults` | Delete | dead | |
+| `FilterResults` | Delete | dead | done |
 | `FindCommonSequence` | Agent | sequence/template machinery; its result types become internal | |
-| `FindSequenceSpansByActivation` | Internal | reached through FindSequencesByActivation options | |
+| `FindSequenceSpansByActivation` | Core | was Internal; the segmenter needs spans, which the options cannot return | done |
 | `FindSequencesByActivation (2)` | Core |  | |
-| `FindSequencesOutOfOrder` | Internal | reached through FindSequencesByActivation options | |
+| `FindSequencesOutOfOrder` | Internal | reached through FindSequencesByActivation options | done |
 | `FlattenSequence` | Core |  | |
-| `GetActionRelationshipType` | Internal |  | |
+| `GetActionRelationshipType` | Core | rename GetPlainLinkType (Phase H); merge the private GetAssertionLinkType (Query), which repeats it |  |
 | `GetAttributes` | Core |  | |
-| `GetCharacterLabel` | Move | letters are language content: word module | |
+| `GetCharacterLabel` | Move | letters are language content: word module; deferred (see Open) |  |
+| `GetEvidence` | Core | new (Phase D): the stored links behind a query result (is-a chain, then the stored link); replaces the Link query annotations | done |
 | `GetElementValue` | Core |  | |
-| `GetLastlement` | Internal | test-only | |
+| `GetLastlement` | Internal | test-only | done |
 | `GetLink (2)` | Review |  | |
 | `GetLinkWeight` | Review |  | |
 | `GetLinks` | Review |  | |
-| `GetOrAddCharacter` | Move | letters are language content: word module | |
+| `GetOrAddCharacter` | Move | letters are language content: word module; deferred (see Open) |  |
 | `GetOrAddThought` | Core |  | |
 | `GetOrCreateThoughtClass` | Agent | sequence/template machinery; its result types become internal | |
-| `GetPreviousSequenceElement` | Move | to ModuleSequenceSegmenter | |
-| `GetReferrer` | Delete | dead | |
-| `GetReferringThoughts` | Internal |  | |
+| `GetPreviousSequenceElement` | Move | ModuleSequenceSegmenter.PreviousElement (by identity, not the NXT label) | done |
+| `GetReferrer` | Delete | dead | done |
+| `GetReferringThoughts` | Core | later: probably duplicates a general "sources of links of a type" convenience (Phase G) | done |
 | `GetSequenceBindings` | Agent | sequence/template machinery; its result types become internal | |
-| `GetSequenceLength` | Internal |  | |
+| `GetSequenceLength` | Internal | callers use FlattenSequence(...).Count | done |
 | `GetSequenceLinks (2)` | Agent | sequence/template machinery; its result types become internal | |
 | `ImportTextFile` | Core |  | |
 | `InsertElement` | Core | merge into InsertAfter(first, value, atBeginning: true) | |
-| `IsConditionalLinkType` | Internal |  | |
+| `IsConditionalLinkType` | Internal | IF is evaluated only by queries; hosts check HasProperty("isConditional"); about 15 inline copies should call it (Phase G) | done |
 | `IsSequenceElement` | Core |  | |
 | `IsSequenceFirstElement` | Core |  | |
 | `Labeled` | Core |  | |
 | `LabeledStartingWith` | Core | new (Phase C): label completion and search, replacing `ThoughtLabels.LabelList` | done |
 | `LinkCount` | Core |  | |
-| `LinksAreExclusive` | Internal |  | |
+| `LinksAreExclusive` | Core | public (decided) | done |
 | `LoadUKSfromXMLFile` | Core | rename to LoadXml | |
 | `MaterializeCommonSequence` | Agent | sequence/template machinery; its result types become internal | |
 | `ProcessSingleLine` | Core |  | |
 | `ProcessSingleLineWithNesting` | Core |  | |
-| `PromoteToSeqElement` | Internal |  | |
-| `RememberForUndo` | Internal | ChangeUndoably/UndoLast are the public undo | |
-| `RemoveFirstSequenceElement` | Move | to ModuleSequenceSegmenter | |
-| `RemoveLastSequenceElement` | Delete | dead | |
+| `PromoteToSeqElement` | Internal |  | done |
+| `RememberForUndo` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
+| `RemoveFirstSequenceElement` | Move | ModuleSequenceSegmenter.RemoveQueueHead | done |
+| `RemoveLastSequenceElement` | Delete | dead | done |
 | `ReplaceThoughtReferences` | Agent | with class coalescing | |
 | `Reset` | Core |  | |
 | `Roots` | Core |  | |
@@ -212,19 +227,20 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 | `ThoughtCount` | Core |  | |
 | `ThoughtFired` | Core |  | |
 | `ThoughtsHaveSimilarLink` | Review |  | |
+| `TryChange` | Core | new (Phase D): a change kept only if it succeeds (the interpreter) | done |
 | `constructor` | Core |  | |
-| `Undo` | Internal | ChangeUndoably/UndoLast are the public undo | |
+| `Undo` | Internal | TryChange, ChangeUndoably and UndoLast are the public undo | done |
 | `UndoLast` | Core |  | |
 | `Why` | Core |  | |
 | `WhyNot` | Core |  | |
-| `WriteTheLink` | Internal |  | |
+| `WriteTheLink` | Internal |  | done |
 | `theUKS` | Delete | ambient store (Phase C) | done |
 
 ### Thought
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
-| `AddDefaultLabel` | Internal |  | |
+| `AddDefaultLabel` | Internal |  | done |
 | `AddLink (2)` | Core |  | |
 | `AddParent` | Core |  | |
 | `AddProperty` | Core |  | |
@@ -245,7 +261,7 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 | `GetTargetOfFirstLinkOfType (2)` | Convenience | resolve the label once, then compare identity (no label comparison) | |
 | `GetTargetOfHighestWeightLinkOfType` | Convenience | resolve the label once, then compare identity (no label comparison) | |
 | `HasAncestor (2)` | Core |  | |
-| `HasGeneratedLabel` | Internal |  | |
+| `HasGeneratedLabel` | Internal | internal; hosts show Links with ToString()/their own format. Still a prefix test: a real flag needs the XML and text files to stop writing generated labels (file-format change) | done |
 | `HasLink (2)` | Core |  | |
 | `HasProperty (2)` | Core |  | |
 | `IsA` | Delete | uses the ambient store; write store.Labeled("is-a") | done |
@@ -253,9 +269,9 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 | `LastFiredCycle` | Core |  | |
 | `LinksAsType` | Core |  | |
 | `LinksFrom` | Core |  | |
-| `LinksFromWriteable` | Internal |  | |
+| `LinksFromWriteable` | Internal |  | done |
 | `LinksTo` | Core |  | |
-| `LinksToWriteable` | Internal |  | |
+| `LinksToWriteable` | Internal |  | done |
 | `Parents` | Core |  | |
 | `RemoveChild` | Review |  | |
 | `RemoveLink (2)` | Core |  | |
@@ -276,8 +292,8 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 | Member | Fate | Note | Done |
 |---|---|---|---|
 | `From` | Core |  | |
-| `InheritanceDepth` | Internal | query annotations, kept for later use | |
-| `InheritedFromCategory` | Internal | query annotations, kept for later use | |
+| `InheritanceDepth` | Delete | the query keeps it privately (ThoughtWithQueryParams); explanations use GetEvidence | done |
+| `InheritedFromCategory` | Delete | as InheritanceDepth | done |
 | `constructor (3)` | Core |  | |
 | `LinkType` | Core |  | |
 | `To` | Core |  | |
@@ -305,25 +321,25 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
-| `GapCardinality` | Internal | type becomes internal | |
-| `IsGap` | Internal | type becomes internal | |
-| `Value` | Internal | type becomes internal | |
+| `GapCardinality` | Internal | type becomes internal with the agents (Phase F) |  |
+| `IsGap` | Internal | type becomes internal with the agents (Phase F) |  |
+| `Value` | Internal | type becomes internal with the agents (Phase F) |  |
 
 ### CommonSequencePattern
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
-| `Elements` | Internal | type becomes internal | |
-| `FixedElementCount` | Internal | type becomes internal | |
+| `Elements` | Internal | type becomes internal with the agents (Phase F) |  |
+| `FixedElementCount` | Internal | type becomes internal with the agents (Phase F) |  |
 
 ### IReadOnlyListExtensions
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
-| `Contains` | Internal | LINQ covers it | |
-| `FindAll` | Internal | LINQ covers it | |
-| `FindFirst` | Internal | LINQ covers it | |
-| `FindIndex` | Internal | LINQ covers it | |
+| `Contains` | Internal | LINQ covers it | done |
+| `FindAll` | Internal | LINQ covers it | done |
+| `FindFirst` | Internal | LINQ covers it | done |
+| `FindIndex` | Internal | LINQ covers it | done |
 
 ### ThoughtLabels
 
@@ -343,24 +359,24 @@ Totals by name: Core 92, Internal 57, Agent 15, Review 12, Delete 9, Move 6, Con
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
-| `Added` | Internal | type becomes internal; "created in this change" becomes a store method | |
-| `Created` | Internal | type becomes internal; "created in this change" becomes a store method | |
-| `IsEmpty` | Internal | type becomes internal; "created in this change" becomes a store method | |
+| `Added` | Internal | type is internal; CreatedInCurrentChange is the public question | done |
+| `Created` | Internal | type is internal; CreatedInCurrentChange is the public question | done |
+| `IsEmpty` | Internal | type is internal; CreatedInCurrentChange is the public question | done |
 
 ### sThought
 
 | Member | Fate | Note | Done |
 |---|---|---|---|
-| `CanWriteToFile` | Internal | serialization | |
-| `CaptureSaveSnapshot` | Internal | serialization | |
-| `ToString` | Internal | serialization | |
-| `V` | Internal | serialization | |
-| `WriteSaveSnapshot` | Internal | serialization | |
-| `index` | Internal | serialization | |
-| `isPlastic` | Internal | serialization | |
-| `label` | Internal | serialization | |
-| `linkType` | Internal | serialization | |
-| `maxWeight` | Internal | serialization | |
-| `source` | Internal | serialization | |
-| `target` | Internal | serialization | |
-| `weight` | Internal | serialization | |
+| `CanWriteToFile` | Internal | serialization | done |
+| `CaptureSaveSnapshot` | Internal | serialization; iOS compiles the UKS source, so it still sees it | done |
+| `ToString` | Undocumented | public only because XmlSerializer needs a public type and fields | done |
+| `V` | Undocumented | public only because XmlSerializer needs a public type and fields | done |
+| `WriteSaveSnapshot` | Internal | serialization | done |
+| `index` | Undocumented | public only because XmlSerializer needs a public type and fields | done |
+| `isPlastic` | Undocumented | public only because XmlSerializer needs a public type and fields | done |
+| `label` | Undocumented | public only because XmlSerializer needs a public type and fields | done |
+| `linkType` | Undocumented | public only because XmlSerializer needs a public type and fields | done |
+| `maxWeight` | Undocumented | public only because XmlSerializer needs a public type and fields | done |
+| `source` | Undocumented | public only because XmlSerializer needs a public type and fields | done |
+| `target` | Undocumented | public only because XmlSerializer needs a public type and fields | done |
+| `weight` | Undocumented | public only because XmlSerializer needs a public type and fields | done |

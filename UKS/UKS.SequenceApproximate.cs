@@ -24,7 +24,7 @@ public partial class UKS
     /// or last element lowers it more. An exact match has confidence 1.
     /// </summary>
     /// <returns>Sequence first elements with confidence, best first.</returns>
-    public List<(SeqElement seqNode, float confidence)> FindSequencesOutOfOrder(List<Thought> pattern, Thought searchOptions)
+    internal List<(SeqElement seqNode, float confidence)> FindSequencesOutOfOrder(List<Thought> pattern, Thought searchOptions)
     {
         var results = new List<(SeqElement seqNode, float confidence)>();
         if (pattern is null || pattern.Count == 0 || searchOptions is null) return results;

@@ -90,7 +90,7 @@ public class ModuleAttentionS : ModuleBase
                 var existing2 = theUKS.GetReferringThoughts(existing1[0].seqNode, "soundAs");
                 if (existing2.Count > 0)
                     existing = existing2[0];
-                int existingLength = theUKS.GetSequenceLength(existing1[0].seqNode);
+                int existingLength = theUKS.FlattenSequence(existing1[0].seqNode).Count;
                 if (existingLength == theFlattenedSequence.Count)
                     completeMatch = true;
             }

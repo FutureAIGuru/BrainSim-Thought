@@ -256,7 +256,7 @@ public class ModuleAttention : ModuleBase
     private void RemoveQueueItem(Thought item)
     {
         if (item is null) return;
-        foreach (var l in _queueRoot.LinksToWriteable.Where(x => x.To == item && x.LinkType == _ltQueued).ToList())
+        foreach (var l in _queueRoot.LinksTo.Where(x => x.To == item && x.LinkType == _ltQueued).ToList())
             _queueRoot.RemoveLink(l);
         item.Delete();
     }

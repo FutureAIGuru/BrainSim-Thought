@@ -236,10 +236,10 @@ public partial class ModuleUKSStatementDlg : ModuleBaseDlg
 
         bool isNewStatement = UKSStatement.theUKS.GetLink(tSource, tLink, tTarget) is null;
         // Thoughts this statement created share its time to live (AddLink runs as one transaction).
-        UKSTransaction change = UKSStatement.theUKS.CurrentTransaction;
-        bool sourceIsNew = change?.Created(tSource) == true;
-        bool linkTypeIsNew = change?.Created(tLink) == true;
-        bool targetIsNew = tTarget is not null && change?.Created(tTarget) == true;
+        UKS.UKS store = UKSStatement.theUKS;
+        bool sourceIsNew = store.CreatedInCurrentChange(tSource);
+        bool linkTypeIsNew = store.CreatedInCurrentChange(tLink);
+        bool targetIsNew = tTarget is not null && store.CreatedInCurrentChange(tTarget);
         var r1 = UKSStatement.theUKS.AddStatement(tSource, tLink, tTarget);
         //Link r1 = UKSStatement.AddTheLink(tSource, linkTypeString, toString);
 

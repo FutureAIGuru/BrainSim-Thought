@@ -161,10 +161,12 @@ public partial class ModuleAlgorithm
         Thought? preferredCategory = InferCategoryFromCase(best.Case, subject, resolveIndirection);
         if (preferredCategory is null) return links;
 
+        // Where each link was found: the source of its stored link (evidence ends with it).
         return links.Where(l =>
-            l.InheritanceDepth == 0 ||
-            l.InheritedFromCategory is null ||
-            ReferenceEquals(l.InheritedFromCategory, preferredCategory)).ToList();
+        {
+            List<Link> evidence = subject.Store.GetEvidence(l);
+            return evidence.Count <= 1 || ReferenceEquals(evidence[^1].From, preferredCategory);
+        }).ToList();
     }
 
     public Thought? InferCategoryFromCase(

@@ -121,7 +121,7 @@ public partial class UKS
     private static SeqElement? GetFirstElement(SeqElement s) => s.FRST;
 
     /// <summary>Follows NXT links to the last element of the sequence.</summary>
-    public SeqElement GetLastlement(SeqElement s)
+    internal SeqElement GetLastlement(SeqElement s)
     {
         while (s.NXT is SeqElement next) s = next;
         return s;
@@ -143,7 +143,7 @@ public partial class UKS
         return s.LinksTo.FirstOrDefault(link => link.LinkType == s.Store.Labeled("VLU") && link.To is not null &&
             (valueClass is null ? !link.To.HasProperty("isSequenceMetadata") : ReferenceEquals(link.To, valueClass) || link.To.HasAncestor(valueClass)))?.To;
     }
-    public int GetSequenceLength(SeqElement firstNode)
+    internal int GetSequenceLength(SeqElement firstNode)
     {
         return FlattenSequence(firstNode).Count;
     }
@@ -229,66 +229,6 @@ public partial class UKS
         firstNode.AddLink("VLU", value);
         firstNode.FRST = firstNode; //points to itself as the first element
         return firstNode;
-    }
-    /// <summary>Pops a streaming queue head (FRST is null), returning its successor.</summary>
-    public SeqElement? RemoveFirstSequenceElement(SeqElement first)
-    {
-        if (!ReferenceEquals(first.Store, this))
-            throw new ArgumentException("Sequence belongs to another UKS.", nameof(first));
-        if (first.FRST is not null) throw new ArgumentException("Expected a streaming queue element.", nameof(first));
-        SeqElement? next = first.NXT;
-        foreach (Link link in first.LinksTo) first.RemoveLink(link);
-        first.Delete();
-        return next;
-    }
-
-    /// <summary>Finds the preceding element whose NXT points to this element.</summary>
-    public SeqElement? GetPreviousSequenceElement(SeqElement? element)
-    {
-        SeqElement? result = null;
-        if (element is null) return result;
-        foreach (Link link in element.LinksFrom)
-        {
-            if (link.LinkType?.Label != "NXT" || link.From is not SeqElement predecessor) continue;
-            if (!ReferenceEquals(predecessor.FRST, element.FRST)) continue;
-            result = predecessor;
-            break;
-        }
-        return result;
-    }
-
-    /// <summary>
-    /// Detaches and deletes the oldest element, leaving the first element intact.
-    /// Deletes the sequence node only, never its VLU Thought.
-    /// </summary>
-    public SeqElement? RemoveLastSequenceElement(SeqElement? first)
-    {
-        if (first is not null && !ReferenceEquals(first.Store, this))
-            throw new ArgumentException("Sequence belongs to another UKS.", nameof(first));
-        SeqElement? result = null;
-        if (first is null) return result;
-        if (!IsSequenceFirstElement(first))
-            throw new ArgumentException("Expected the first sequence element.", nameof(first));
-        if (first.NXT is null) return result;
-        List<Thought> oldValues = FlattenSequence(first);
-        bool wasCached = SequenceCache.TryGetValue(oldValues, out Thought? cached) &&
-            ReferenceEquals(cached, first);
-        if (wasCached) SequenceCache.Remove(oldValues);
-        SeqElement predecessor = first;
-        while (predecessor.NXT!.NXT is not null) predecessor = predecessor.NXT;
-        result = predecessor.NXT!;
-        predecessor.NXT = null;
-        // Detach FRST before Delete: otherwise its root reference could delete
-        // the whole sequence through Thought.Delete's sequence-owner handling.
-        result.FRST = null;
-        result.RemoveLinks(Labeled("VLU")!);
-        result.Delete();
-        if (wasCached)
-        {
-            List<Thought> remainingValues = FlattenSequence(first);
-            SequenceCache[remainingValues] = first;
-        }
-        return result;
     }
 
     public void DeleteSequence(SeqElement? s)
@@ -385,7 +325,7 @@ public partial class UKS
 
     //the sequence cache
     private readonly Dictionary<IReadOnlyList<Thought>, Thought> SequenceCache = new(new ThoughtListComparer());
-    public void ClearSequenceCache()
+    internal void ClearSequenceCache()
     {
         SequenceCache.Clear();
     }
@@ -512,10 +452,6 @@ public partial class UKS
         return AddSequenceAndLink(owner, spelled, characters);
     }
 
-    /// <summary>The source of the first link of the given type to this sequence element, or null.</summary>
-    public Thought? GetReferrer(SeqElement seqNode, Thought linkType) =>
-        seqNode.LinksFrom.FirstOrDefault(x => x.LinkType == linkType)?.From;
-
     /// <summary>
     /// Flatten a sequence into a list of leaf Thoughts (letters). Handles nested sequences via VLU.
     /// </summary>
@@ -528,7 +464,7 @@ public partial class UKS
         return result;
     }
 
-    public float CompareSequences(SeqElement seq1, SeqElement seq2)
+    internal float CompareSequences(SeqElement seq1, SeqElement seq2)
     {
         //TODO make this non-digital
         var flat1 = FlattenSequence(seq1);
@@ -592,7 +528,7 @@ public partial class UKS
     /// <summary>
     /// Replace a plain Thought with a SeqElement while preserving label, value, weight, and links.
     /// </summary>
-    public SeqElement? PromoteToSeqElement(Thought? t)
+    internal SeqElement? PromoteToSeqElement(Thought? t)
     {
         if (t is null) return null;
         if (!ReferenceEquals(t.Store, this))

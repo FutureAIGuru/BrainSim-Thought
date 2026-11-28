@@ -128,7 +128,7 @@ public class InheritanceCh5RegressionTests
     }
 
     [Fact]
-    public void Inherited_attributes_have_positive_inheritance_depth()
+    public void Evidence_for_an_inherited_attribute_starts_with_the_isa_chain()
     {
         var uks = CreateUks();
         uks.AddStatement("dog", "is-a", "Object");
@@ -139,11 +139,11 @@ public class InheritanceCh5RegressionTests
         var links = uks.GetAttributes(uks.Labeled("Fido"));
         Link inherited = links.First(l => l.LinkType?.Label == "has" && l.To == uks.Labeled("fur"));
 
-        Assert.True(inherited.InheritanceDepth > 0);
+        Assert.True(uks.GetEvidence(inherited).Count > 1);
     }
 
     [Fact]
-    public void Local_exception_link_has_zero_inheritance_depth()
+    public void Evidence_for_a_local_exception_is_the_stored_link_alone()
     {
         var uks = CreateUks();
         uks.AddStatement("dog", "is-a", "Object");
@@ -155,6 +155,6 @@ public class InheritanceCh5RegressionTests
         var links = uks.GetAttributes(uks.Labeled("Tripper"));
         Link local = links.First(l => l.LinkType?.Label == "has.3");
 
-        Assert.Equal(0, local.InheritanceDepth);
+        Assert.Same(uks.GetLink("Tripper", "has.3", "legs"), Assert.Single(uks.GetEvidence(local)));
     }
 }

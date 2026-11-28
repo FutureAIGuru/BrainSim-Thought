@@ -17,7 +17,7 @@ namespace UKS;
 /// can be undone: Links added and removed (is-a parents are Links), Thoughts newly labeled
 /// (created), relabeled and deleted. Weights, firing and time-to-live are not recorded.
 /// </summary>
-public sealed class UKSTransaction
+internal sealed class UKSTransaction
 {
     internal enum Change { LinkAdded, LinkRemoved, ThoughtCreated, ThoughtRelabeled, ThoughtDeleted }
 
@@ -25,16 +25,16 @@ public sealed class UKSTransaction
     internal readonly List<(Change Kind, Thought Thought, string? OldLabel)> Changes = new();
 
     /// <summary>True if nothing was changed.</summary>
-    public bool IsEmpty => Changes.Count == 0;
+    internal bool IsEmpty => Changes.Count == 0;
 
     /// <summary>True if this transaction added the Link (rather than finding it already there).</summary>
-    public bool Added(Link link)
+    internal bool Added(Link link)
     {
         lock (Changes) return Changes.Any(change => change.Kind == Change.LinkAdded && ReferenceEquals(change.Thought, link));
     }
 
     /// <summary>True if this transaction created the Thought (rather than finding it already there).</summary>
-    public bool Created(Thought thought)
+    internal bool Created(Thought thought)
     {
         lock (Changes) return Changes.Any(change => change.Kind == Change.ThoughtCreated && ReferenceEquals(change.Thought, thought));
     }
@@ -46,13 +46,19 @@ public partial class UKS
     private bool undoing;
 
     /// <summary>The open transaction, or null if none is recording.</summary>
-    public UKSTransaction? CurrentTransaction => journal;
+    internal UKSTransaction? CurrentTransaction => journal;
+
+    /// <summary>
+    /// True if the change in progress (<see cref="ChangeUndoably"/> or <see cref="TryChange"/>) created
+    /// the Thought, rather than finding it already there.
+    /// </summary>
+    public bool CreatedInCurrentChange(Thought thought) => journal?.Created(thought) == true;
 
     /// <summary>
     /// Starts recording structural changes. Transactions do not nest: end (or undo) one before
     /// beginning another.
     /// </summary>
-    public UKSTransaction BeginTransaction()
+    internal UKSTransaction BeginTransaction()
     {
         if (journal is not null) throw new InvalidOperationException("A UKS transaction is already open.");
         journal = new UKSTransaction();
@@ -60,7 +66,7 @@ public partial class UKS
     }
 
     /// <summary>Stops recording. The transaction can still be undone later.</summary>
-    public void EndTransaction(UKSTransaction transaction)
+    internal void EndTransaction(UKSTransaction transaction)
     {
         if (ReferenceEquals(journal, transaction)) journal = null;
     }
@@ -91,8 +97,32 @@ public partial class UKS
         }
     }
 
+    /// <summary>
+    /// Makes a change as one transaction and keeps it only if it succeeds: if <paramref name="change"/>
+    /// returns true, the change is remembered for UndoLast; if it returns false or throws, it is undone.
+    /// Changes made this way do not nest.
+    /// </summary>
+    /// <returns>What <paramref name="change"/> returned.</returns>
+    public bool TryChange(string description, Func<bool> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        UKSTransaction transaction = BeginTransaction();
+        bool keep = false;
+        try
+        {
+            keep = change();
+            return keep;
+        }
+        finally
+        {
+            EndTransaction(transaction);
+            if (keep) RememberForUndo(description, transaction);
+            else Undo(transaction);
+        }
+    }
+
     /// <summary>Remembers a finished transaction for UndoLast, unless it changed nothing.</summary>
-    public void RememberForUndo(string description, UKSTransaction transaction)
+    internal void RememberForUndo(string description, UKSTransaction transaction)
     {
         if (transaction.IsEmpty) return;
         lock (undoHistory) undoHistory.Add((description, transaction));
@@ -130,7 +160,7 @@ public partial class UKS
     /// restored (with their labels), and created Thoughts are deleted. Ends the transaction if it is
     /// still open. Undo is exact only if later changes did not build on this transaction's results.
     /// </summary>
-    public void Undo(UKSTransaction transaction)
+    internal void Undo(UKSTransaction transaction)
     {
         ArgumentNullException.ThrowIfNull(transaction);
         EndTransaction(transaction);

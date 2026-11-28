@@ -119,8 +119,7 @@ public class ModuleLearnMelody : ModuleBase
         foreach (Thought t in theUKS.Labeled("possibleAction").Children)
         {
             SeqElement seq3 = t.GetTargetOfFirstLinkOfType("soundAs") as SeqElement;
-            var val = theUKS.CompareSequences(seq2, seq3);
-            if (val == 1)
+            if (theUKS.FlattenSequence(seq2).SequenceEqual(theUKS.FlattenSequence(seq3)))
             {
                 responseTarget = theUKS.GetReferringThoughts(seq3, "soundAs")[0];
                 Debug.WriteLine("Response Target Detected  Stimulous: " + thePhrase.Label + " Desired Respons: " + responseTarget.Label);

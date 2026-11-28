@@ -32,8 +32,23 @@ public sealed partial class ModuleInterpret
         // The same words again, only punctuated differently, are a correction of the input, not an
         // explanation of it ("the cat chased fido the cat chased rover", then with a period).
         if (WordsOnly(explanation) == WordsOnly(unexplained)) return false;
-        UKSTransaction transaction = theUKS.BeginTransaction();
-        bool keep = false;
+        bool taken = false;
+        string said = "";
+        theUKS.TryChange($"{unexplained} (explained as: {explanation})", () =>
+        {
+            taken = LearnFromExplanation(unexplained, explanation, rememberUnknownWords, asRelationships, out said, out bool keep);
+            return keep;
+        });
+        report = said;
+        return taken;
+    }
+
+    // The body of TryToLearnFromExplanation; keep is true if something was learned and stated.
+    private bool LearnFromExplanation(string unexplained, string explanation, bool rememberUnknownWords, bool asRelationships,
+        out string report, out bool keep)
+    {
+        report = "";
+        keep = false;
         try
         {
             // The explanation: one or more statements, each understood, or typed as relationships.
@@ -98,12 +113,6 @@ public sealed partial class ModuleInterpret
         catch (FormatException)
         {
             return false;
-        }
-        finally
-        {
-            theUKS.EndTransaction(transaction);
-            if (keep) theUKS.RememberForUndo($"{unexplained} (explained as: {explanation})", transaction);
-            else theUKS.Undo(transaction);
         }
     }
 

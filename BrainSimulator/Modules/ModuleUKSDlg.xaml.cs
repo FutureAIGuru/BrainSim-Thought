@@ -250,7 +250,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                 if (r.LinkType.Label == "VLU" || r.LinkType.Label == "timetonext")
                 {
                     header = $"[{r.From.Label}→{r.LinkType.Label}→{r.To.Label}]";
-                    if (r.To is Link && (r.To.Label == "" || r.To.HasGeneratedLabel))
+                    if (r.To is Link)
                         header = $"[{r.From.Label}→{r.LinkType.Label}→{r.To.ToString()}]";
                 }
             }
@@ -269,7 +269,7 @@ public partial class ModuleUKSDlg : ModuleBaseDlg
                     {
                         List<string> seqLabels = new();
                         foreach (var t1 in seqElements)
-                            if (t1 is Link && (string.IsNullOrEmpty(t1.Label) || t1.HasGeneratedLabel))
+                            if (t1 is Link)
                                 seqLabels.Add(t1.ToString());
                             else
                                 seqLabels.Add(t1.Label);

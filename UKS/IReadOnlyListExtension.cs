@@ -17,7 +17,7 @@ namespace UKS;
 /// Search helpers for read-only lists, so that link lists can be exposed read-only
 /// (preventing, e.g., a direct _links.Add() that would skip the reverse links).
 /// </summary>
-public static class IReadOnlyListExtensions
+internal static class IReadOnlyListExtensions
 {
     public static T? FindFirst<T>(this IReadOnlyList<T> source, Func<T, bool> condition)
     {

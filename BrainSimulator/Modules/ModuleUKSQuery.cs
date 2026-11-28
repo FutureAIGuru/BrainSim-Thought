@@ -35,16 +35,6 @@ public class ModuleUKSQuery : ModuleBase
     {
     }
 
-    public List<Thought> ExplainInheritance(Link link, Thought querySource)
-    {
-        List<Thought> trace = new() { querySource };
-        if (link.InheritedFromCategory is not null)
-            trace.Add(link.InheritedFromCategory);
-        if (link.To is not null)
-            trace.Add(link.To);
-        return trace;
-    }
-
     /*
     Conventions [hard-coded links]:
 

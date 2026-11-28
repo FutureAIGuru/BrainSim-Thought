@@ -65,7 +65,7 @@ public partial class UKS
     /// is written to the XML file. This is the only part that reads the UKS, so a caller that
     /// must keep other threads out of the UKS while saving only needs to do so for this call.
     /// </summary>
-    public List<sThought> CaptureSaveSnapshot()
+    internal List<sThought> CaptureSaveSnapshot()
     {
         UKSTemp.Clear();
         uksTempIndex.Clear();
@@ -88,7 +88,7 @@ public partial class UKS
     /// The second half of <see cref="SaveUKStoXMLFile"/>: writes a snapshot from
     /// <see cref="CaptureSaveSnapshot"/> to <paramref name="path"/>. It does not touch the UKS.
     /// </summary>
-    public static bool WriteSaveSnapshot(List<sThought> snapshot, string path)
+    internal static bool WriteSaveSnapshot(List<sThought> snapshot, string path)
     {
         if (!CanWriteToFile(path, out string message))
         {
@@ -171,7 +171,7 @@ public partial class UKS
     /// <param name="fileName">Path to test for write access.</param>
     /// <param name="message">Outputs the error message if access fails.</param>
     /// <returns><see langword="true"/> if the file is writable; otherwise <see langword="false"/>.</returns>
-    public static bool CanWriteToFile(string fileName, out string message)
+    internal static bool CanWriteToFile(string fileName, out string message)
     {
         FileStream file1;
         message = "";

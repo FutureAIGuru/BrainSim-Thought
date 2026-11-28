@@ -55,7 +55,7 @@ public class InheritanceCh5PhaseDRegressionTests
     }
 
     [Fact]
-    public void Inherited_link_records_dog_as_InheritedFromCategory()
+    public void Evidence_for_an_inherited_link_is_the_isa_chain_then_the_stored_link()
     {
         var uks = CreateUks();
         uks.AddStatement("dog", "is-a", "Object");
@@ -67,9 +67,11 @@ public class InheritanceCh5PhaseDRegressionTests
         var links = uks.GetAttributes(fido);
         Link inherited = links.First(l => l.To == uks.Labeled("fur"));
 
-        Assert.Equal("dog", inherited.InheritedFromCategory?.Label);
-        Assert.Equal(fido, inherited.From);
-
+        Assert.Same(fido, inherited.From);
+        List<Link> evidence = uks.GetEvidence(inherited);
+        Assert.Equal(2, evidence.Count);
+        Assert.Same(uks.GetLink(fido, "is-a", "dog"), evidence[0]);
+        Assert.Same(uks.GetLink("dog", "has", "fur"), evidence[1]);
     }
 
     [Fact]

@@ -52,7 +52,7 @@ public partial class UKS
             if (conflicts.Length > 0)
             {
                 var effective = GetAttributes(from);
-                var displaced = conflicts.Where(previous => effective.Any(result => result.InheritanceDepth == 0 &&
+                var displaced = conflicts.Where(previous => effective.Any(result =>
                     result.LinkType == previous.LinkType && result.To == previous.To)).ToArray();
                 if (displaced.Length > 0)
                 {

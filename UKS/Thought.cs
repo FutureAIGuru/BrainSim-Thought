@@ -83,12 +83,6 @@ public class Link : Thought
         }
     }
 
-    /// <summary>Query-time metadata: 0 = asserted on the query source; N = inherited via N is-a hops.</summary>
-    public int InheritanceDepth { get; set; }
-
-    /// <summary>Query-time metadata: the class where an inherited link was found (e.g. dog for Fido→fur).</summary>
-    public Thought? InheritedFromCategory { get; set; }
-
     /// <summary>
     /// Returns a formatted string for the link, showing sequence notation or From→Type→To.
     /// </summary>
@@ -117,9 +111,9 @@ public partial class Thought
     private readonly List<Link> _linksAsType = new(); // links which use this Thought as their LinkType
 
     /// <summary>Unsafe writeable list of outgoing links.</summary>
-    public List<Link> LinksToWriteable { get => _linksTo; }
+    internal List<Link> LinksToWriteable { get => _linksTo; }
     /// <summary>Unsafe writeable list of incoming links.</summary>
-    public List<Link> LinksFromWriteable { get => _linksFrom; }
+    internal List<Link> LinksFromWriteable { get => _linksFrom; }
     internal List<Link> LinksAsTypeWriteable { get => _linksAsType; }
     /// <summary>Safe snapshot of outgoing links.</summary>
     public IReadOnlyList<Link> LinksTo
@@ -162,7 +156,8 @@ public partial class Thought
         }
     }
 
-    public bool HasGeneratedLabel => Label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase);
+    // A label the store made up (NextGeneratedLabel), as opposed to a name.
+    internal bool HasGeneratedLabel => Label.StartsWith("unl_", StringComparison.OrdinalIgnoreCase);
 
     public void Delete()
     {
@@ -367,7 +362,7 @@ public partial class Thought
     /// <summary>
     /// Assigns a default label to a link thought when missing.
     /// </summary>
-    public Thought AddDefaultLabel()
+    internal Thought AddDefaultLabel()
     {
         if (string.IsNullOrWhiteSpace(Label))
             Label = Store.NextGeneratedLabel();

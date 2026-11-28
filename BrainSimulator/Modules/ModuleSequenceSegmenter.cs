@@ -71,10 +71,31 @@ public class ModuleSequenceSegmenter : ModuleBase
         {
             if (ReferenceEquals(_inputQueueHead, _currentPointer)) _currentPointer = _inputQueueHead.NXT;
             if (ReferenceEquals(_inputQueueHead, _learnerSpanStart)) _learnerSpanStart = null;
-            _inputQueueHead = theUKS.RemoveFirstSequenceElement(_inputQueueHead);
+            _inputQueueHead = RemoveQueueHead(_inputQueueHead);
         }
         if (_inputQueueHead is null) ResetInputQueueState();
         else if (!ReferenceEquals(oldHead, _inputQueueHead)) _inputQueueOwner.AddLink("hasInputQueue", _inputQueueHead);
+    }
+
+    /// <summary>
+    /// Deletes the head of a streaming queue (an element whose FRST is null, unlike a stored sequence)
+    /// and returns its successor. The head's value is kept.
+    /// </summary>
+    internal static SeqElement RemoveQueueHead(SeqElement head)
+    {
+        if (head.FRST is not null) throw new ArgumentException("Expected a streaming queue element.", nameof(head));
+        SeqElement next = head.NXT;
+        foreach (Link link in head.LinksTo) head.RemoveLink(link);
+        head.Delete();
+        return next;
+    }
+
+    // The element whose NXT is this one, in the same queue or sequence.
+    private static SeqElement PreviousElement(SeqElement element)
+    {
+        if (element is null) return null;
+        return element.LinksFrom.Select(link => link.From).OfType<SeqElement>().FirstOrDefault(predecessor =>
+            ReferenceEquals(predecessor.NXT, element) && ReferenceEquals(predecessor.FRST, element.FRST));
     }
 
     /// <summary>Finds occurrence positions in this queue for a chronological input span.</summary>
@@ -384,10 +405,10 @@ public class ModuleSequenceSegmenter : ModuleBase
             // Case 2: repeated input -> excite a proposal where agreeing queue occurrences diverge.
             // Keep different earlier occurrences separate; unrelated character hits must not join a span.
             List<SeqElement> supportingPositions = new();
-            SeqElement previous = theUKS.GetPreviousSequenceElement(element);
+            SeqElement previous = PreviousElement(element);
             foreach (Link tag in tags.Where(link => ((SeqElement)link.To).FRST is null))
             {
-                SeqElement earlier = theUKS.GetPreviousSequenceElement((SeqElement)tag.To);
+                SeqElement earlier = PreviousElement((SeqElement)tag.To);
                 if (previous is not null && previous.VLU != _inputPause && earlier is not null &&
                     previous.HasLink(_usedBy, earlier) is not null) continue; // Already part of a run starting earlier.
                 supportingPositions.Add((SeqElement)tag.To);
@@ -433,7 +454,7 @@ public class ModuleSequenceSegmenter : ModuleBase
             proposals.Clear();
             proposals.Add((unrecognized, 1, "sole unrecognized element"));
             List<Thought> expansion = null;
-            SeqElement before = theUKS.GetPreviousSequenceElement(orphan);
+            SeqElement before = PreviousElement(orphan);
             foreach (SeqElement neighbor in new[] { before, orphan.NXT })
             {
                 if (neighbor is null || neighbor.VLU == _inputPause) continue;

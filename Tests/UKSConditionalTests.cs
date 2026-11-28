@@ -151,6 +151,22 @@ public class UKSConditionalTests
     }
 
     [Fact]
+    public void Evidence_for_a_proven_result_is_the_stored_rule()
+    {
+        // "Fido is wet" comes back with the ordinary type; its evidence is the stored "Fido is.? wet",
+        // which carries the rule's IF link.
+        var (uks, fido, _, isType, wet, outside, _) = CreateWeatherFixture();
+        Thought conditionalIs = uks.GetOrAddThought("is.?")!;
+        Link storedResultClause = uks.AddStatement(fido, conditionalIs, wet)!;
+        uks.AddStatement(storedResultClause, "IF", new Link(fido, conditionalIs, outside));
+        uks.AddStatement(fido, isType, outside);
+
+        Link returnedResult = Assert.Single(uks.GetAttributes(fido), link => link.To == wet);
+
+        Assert.Same(storedResultClause, Assert.Single(uks.GetEvidence(returnedResult)));
+    }
+
+    [Fact]
     public void A_single_condition_does_not_require_an_and_relationship()
     {
         // English intent: "Fido is wet if Fido is outside."

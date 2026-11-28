@@ -15,7 +15,7 @@ namespace UKS;
 
 public partial class UKS
 {
-    public void CreateMinimumStructureForTests()
+    internal void CreateMinimumStructureForTests()
     {
         Reset();
         AddThought("Thought");

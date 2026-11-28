@@ -217,7 +217,7 @@ public partial class UKS
             lnk.TimeToLive = 30 * CyclesPerSecond;
     }
 
-    public static void WriteTheLink(Link lnk)
+    internal static void WriteTheLink(Link lnk)
     {
         if (lnk.From is null) return;
         if (lnk.LinkType is null) return;

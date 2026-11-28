@@ -93,7 +93,8 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
         if (match is null && !string.IsNullOrWhiteSpace(typeText.Text))
             match = links.FirstOrDefault(l =>
                 string.Equals(l.LinkType?.Label, typeText.Text, StringComparison.OrdinalIgnoreCase));
-        match ??= links.FirstOrDefault(l => l.InheritanceDepth > 0);
+        // An inherited attribute's evidence starts with the is-a chain, so it has more than one link.
+        match ??= links.FirstOrDefault(l => theUKS.GetEvidence(l).Count > 1);
 
         if (match is null)
         {
@@ -101,8 +102,9 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
             return;
         }
 
-        List<Thought> trace = UKSQuery.ExplainInheritance(match, source);
-        resultText.Text = "Why? " + string.Join(" → ", trace.Select(t => t.Label));
+        List<Link> evidence = theUKS.GetEvidence(match);
+        resultText.Text = "Why? " + (evidence.Count == 0 ? "the query computed it"
+            : string.Join(", ", evidence.Select(FormatLink)));
     }
 
     private static string FormatWhy(IEnumerable<Link> links) =>
@@ -154,7 +156,7 @@ public partial class ModuleUKSQueryDlg : ModuleBaseDlg
     private static string NaturalPredicate(Thought linkType)
     {
         string predicate = linkType?.Label ?? "?";
-        if (UKS.UKS.IsConditionalLinkType(linkType))
+        if (linkType?.HasProperty("isPossible") == true)
             predicate = string.Join(" ", predicate.Split('.').Where(part => part != "?"));
         string normalized = predicate.ToLowerInvariant();
         if (normalized == "is-a") return "is a";

@@ -45,12 +45,12 @@ public partial class UKS
             List<Thought> sources = new() { source };
             var querySources = sources.ToList();
             var result1 = BuildSearchList(sources);
-            result2 = GetAllLinksInternal(result1);
+            result2 = GetAllLinksInternal(result1, out var foundIn);
 
             // An unsupported local rule must not suppress an otherwise valid fact/default.
             RemoveFalseConditionals(result2);
             if (result2.Count < 200)  //the conflict-remover is really slow on large numbers
-                RemoveConflictingResults(result2, querySources);
+                RemoveConflictingResults(result2, querySources, foundIn);
             // Filter after resolving conditions and conflicts; excluded exceptions must
             // still be able to suppress inherited defaults, and proven types are ordinary.
             if (filter is not null)
@@ -88,10 +88,12 @@ public partial class UKS
             thought.Label + "  : " + hopCount + " : " + weight + "  Count: " + haveCount;
     }
 
+    // How far up inheritable links (is-a chains, etc.) a query and its evidence look.
+    private const int MaxInheritanceHops = 8;
+
     // BFS along inheritable links (is-a chains, etc.) with a hop cap for transitive inheritance.
     private List<ThoughtWithQueryParams> BuildSearchList(List<Thought> q)
     {
-        const int maxHops = 8;
         List<ThoughtWithQueryParams> thoughtsToExamine = new();
         HashSet<Thought> seen = new();
 
@@ -115,7 +117,7 @@ public partial class UKS
             if (t is null) continue;
 
             int nextHop = entry.hopCount + 1;
-            if (nextHop > maxHops) continue;
+            if (nextHop > MaxInheritanceHops) continue;
 
             foreach (Link r in t.LinksTo)
             {
@@ -145,15 +147,18 @@ public partial class UKS
         return thoughtsToExamine;
     }
 
-    private List<Link> GetAllLinksInternal(List<ThoughtWithQueryParams> thoughtsToExamine)
+    // Every link reachable from the query sources, as new result Links. foundIn records where
+    // each result was found, which decides conflicts (the nearer wins).
+    private List<Link> GetAllLinksInternal(List<ThoughtWithQueryParams> thoughtsToExamine,
+        out Dictionary<Link, ThoughtWithQueryParams> foundIn)
     {
         List<Link> result = new();
+        foundIn = new(ReferenceEqualityComparer.Instance);
         for (int i = 0; i < thoughtsToExamine.Count; i++)
         {
             Thought t = thoughtsToExamine[i].thought;
             if (t is null) continue; //safety
             int haveCount = thoughtsToExamine[i].haveCount;
-            int inheritanceDepth = thoughtsToExamine[i].hopCount;
             Thought? querySource = thoughtsToExamine[i].querySource ?? t;
             foreach (Link r in t.LinksTo)
             {
@@ -178,8 +183,6 @@ public partial class UKS
                     Link r1 = new Link(querySource, r.LinkType, r.To)
                     {
                         Weight = r.Weight * thoughtsToExamine[i].weight,
-                        InheritanceDepth = inheritanceDepth,
-                        InheritedFromCategory = inheritanceDepth > 0 ? t : null
                     };
                     Thought? newCountType = GetOrAddThought((GetCount(r.LinkType) * haveCount).ToString(), "number");
 
@@ -199,6 +202,7 @@ public partial class UKS
                     if (newLinkType is null) continue;
                     r1.LinkType = newLinkType;
                     result.Add(r1);
+                    foundIn[r1] = thoughtsToExamine[i];
                 }
                 else
                 {
@@ -206,8 +210,6 @@ public partial class UKS
                     Link r1 = new Link(querySource, r.LinkType, r.To)
                     {
                         Weight = r.Weight * thoughtsToExamine[i].weight,
-                        InheritanceDepth = inheritanceDepth,
-                        InheritedFromCategory = inheritanceDepth > 0 ? t : null
                     };
                     foreach (Link r3 in r.LinksTo.Where(x => x.LinkType?.Label != "is-a"))
                     {
@@ -215,6 +217,7 @@ public partial class UKS
                             r1.LinksToWriteable.Add(new Link(this) { From = r1, LinkType = r3.LinkType, To = r3.To });
                     }
                     result.Add(r1);
+                    foundIn[r1] = thoughtsToExamine[i];
                 }
             }
         }
@@ -223,7 +226,8 @@ public partial class UKS
 
     // Exception rule: the more specific (lower inheritance depth) wins over inherited defaults.
     // Tie-break: link From on a query source, then higher Weight.
-    private void RemoveConflictingResults(List<Link> result, List<Thought> querySources)
+    private void RemoveConflictingResults(List<Link> result, List<Thought> querySources,
+        Dictionary<Link, ThoughtWithQueryParams> foundIn)
     {
         for (int i = 0; i < result.Count; i++)
         {
@@ -243,7 +247,7 @@ public partial class UKS
                 bool exclusive = LinksAreExclusive(r1, r2);
                 if (!duplicate && !exclusive) continue;
 
-                Link keep = PreferMoreSpecificLink(r1, r2, querySources);
+                Link keep = PreferMoreSpecificLink(r1, r2, querySources, foundIn);
                 Link drop = keep == r1 ? r2 : r1;
                 int dropIndex = drop == r1 ? i : j;
                 result.RemoveAt(dropIndex);
@@ -257,10 +261,13 @@ public partial class UKS
         }
     }
 
-    private static Link PreferMoreSpecificLink(Link r1, Link r2, List<Thought> querySources)
+    private static Link PreferMoreSpecificLink(Link r1, Link r2, List<Thought> querySources,
+        Dictionary<Link, ThoughtWithQueryParams> foundIn)
     {
-        if (r1.InheritanceDepth != r2.InheritanceDepth)
-            return r1.InheritanceDepth < r2.InheritanceDepth ? r1 : r2;
+        int depth1 = foundIn.TryGetValue(r1, out var entry1) ? entry1.hopCount : 0;
+        int depth2 = foundIn.TryGetValue(r2, out var entry2) ? entry2.hopCount : 0;
+        if (depth1 != depth2)
+            return depth1 < depth2 ? r1 : r2;
 
         bool r1OnSource = r1.From is Thought from1 && querySources.Contains(from1);
         bool r2OnSource = r2.From is Thought from2 && querySources.Contains(from2);
@@ -320,28 +327,12 @@ public partial class UKS
     /// </summary>
     /// <param name="linkType">Link type to inspect.</param>
     /// <returns>True when the link type inherits the isConditional property.</returns>
-    public static bool IsConditionalLinkType(Thought? linkType)
+    internal static bool IsConditionalLinkType(Thought? linkType)
     {
         return linkType?.HasProperty("isConditional") == true;
     }
 
     /// <summary>
-    /// Filters a list of Links returning only those with at least one component which has an ancestor in the list of ancestors.
-    /// </summary>
-    /// <param name="result">List of links from a previous query.</param>
-    /// <param name="ancestors">Ancestor filter list.</param>
-    /// <returns>Filtered list containing only links that match the ancestor filter.</returns>
-    public IReadOnlyList<Link> FilterResults(List<Link> result, List<Thought> ancestors)
-    {
-        List<Link> retVal = new();
-        if (ancestors is null || ancestors.Count == 0)
-            return result;
-        foreach (Link r in result)
-            if (LinkHasAncestor(r, ancestors))
-                retVal.Add(r);
-        return retVal;
-    }
-
     private bool LinkHasAncestor(Link r, List<Thought> ancestors)
     {
         foreach (Thought ancestor in ancestors)
@@ -428,6 +419,60 @@ public partial class UKS
     public List<Link> Why()
     {
         return succeededConditions;
+    }
+
+    /// <summary>
+    /// The stored links that produce an attribute returned by <see cref="GetAttributes"/>: the
+    /// inheritable links (is-a, ...) from the attribute's source up to the Thought that stores it,
+    /// nearest first, then the stored link itself. For Fido's inherited fur:
+    /// [Fido→is-a→dog], [dog→is-a→animal], [animal→has→fur]. A stored link alone means the attribute
+    /// is stated on the source itself. A rule's conditions are the IF links on the stored link.
+    /// </summary>
+    /// <returns>The evidence, or an empty list if no stored link produces the attribute (a count the
+    /// query computed, for example).</returns>
+    public List<Link> GetEvidence(Link attribute)
+    {
+        ArgumentNullException.ThrowIfNull(attribute);
+        List<Link> evidence = new();
+        if (attribute.From is not Thought source) return evidence;
+        Thought? inheritable = Labeled("inheritable");
+        // Nearest first, as the query looks: the first Thought storing the attribute is where it came from.
+        var reachedBy = new Dictionary<Thought, Link?>(ReferenceEqualityComparer.Instance) { [source] = null };
+        var pending = new Queue<(Thought Thought, int Hops)>();
+        pending.Enqueue((source, 0));
+        while (pending.TryDequeue(out var entry))
+        {
+            if (entry.Thought.LinksTo.FirstOrDefault(link => Produces(link, attribute)) is Link stored)
+            {
+                for (Thought t = entry.Thought; reachedBy[t] is Link step; t = step.From!)
+                    evidence.Insert(0, step);
+                evidence.Add(stored);
+                return evidence;
+            }
+            if (inheritable is null || entry.Hops >= MaxInheritanceHops) continue;
+            foreach (Link link in entry.Thought.LinksTo)
+            {
+                if (link.LinkType?.HasProperty(inheritable) != true || link.To is not Thought next ||
+                    reachedBy.ContainsKey(next)) continue;
+                reachedBy[next] = link;
+                pending.Enqueue((next, entry.Hops + 1));
+            }
+        }
+        return evidence;
+    }
+
+    // True if a stored link produces the query result: the same type and target, or a rule's
+    // possibility (is.?) that the query returned with the ordinary type; a rule's conditions must match.
+    private bool Produces(Link stored, Link result)
+    {
+        if (ReferenceEquals(stored, result)) return true;
+        if (!ReferenceEquals(stored.To, result.To) || stored.LinkType is not Thought storedType) return false;
+        if (!ReferenceEquals(storedType, result.LinkType) &&
+            !ReferenceEquals(GetAssertionLinkType(storedType), result.LinkType)) return false;
+        List<Link> conditions = stored.LinksTo.Where(link => IsConditionalLinkType(link.LinkType)).ToList();
+        List<Link> copied = result.LinksTo.Where(link => IsConditionalLinkType(link.LinkType)).ToList();
+        return conditions.Count == copied.Count && copied.All(copy => conditions.Any(condition =>
+            ReferenceEquals(condition.LinkType, copy.LinkType) && ReferenceEquals(condition.To, copy.To)));
     }
 
     /// <summary>
@@ -666,8 +711,6 @@ public partial class UKS
                         LinkType = link.LinkType,
                         To = link.To,
                         Weight = link.Weight,
-                        InheritanceDepth = link.InheritanceDepth,
-                        InheritedFromCategory = link.InheritedFromCategory
                     });
                 }
             }

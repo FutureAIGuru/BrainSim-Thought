@@ -74,10 +74,10 @@ Func<IReadOnlyList<UKS.Thought>, bool, bool, object> graphSnapshot = (starts, ex
         }
     }
 
-    Func<UKS.Thought, string> labelOf = thought => thought is UKS.Link && (thought.HasGeneratedLabel || isArchivedEvent(thought))
+    // A link is shown by what it says; its label is the store's bookkeeping.
+    Func<UKS.Thought, string> labelOf = thought => thought is UKS.Link
         ? UKSWeb.StatementInputParser.Format(thought)
-        : !string.IsNullOrEmpty(thought.Label) ? thought.Label
-        : thought is UKS.Link link ? $"[{link.From?.Label} → {link.LinkType?.Label} → {link.To?.Label}]" : "(unnamed Thought)";
+        : !string.IsNullOrEmpty(thought.Label) ? thought.Label : "(unnamed Thought)";
     Func<UKS.Thought, UKS.Link?> valueLink = thought => thought.LinksTo.FirstOrDefault(link =>
         link.LinkType is not null && link.To is not null && ReferenceEquals(link.LinkType, thought.Store.Labeled("VLU")) && !link.To.HasProperty("isSequenceMetadata"));
     var sequenceLinks = new HashSet<UKS.Link>(ReferenceEqualityComparer.Instance);
@@ -707,48 +707,23 @@ app.MapDelete("/api/thoughts", (string? label, HttpContext context) =>
     }
 });
 
-// UKS returns the winning category/depth, not a full path. Reconstruct one
-// stored supporting route; never claim this is the search engine's execution trace.
+static bool isConditionalType(UKS.Thought? type) => type?.HasProperty("isConditional") == true;
+
+// The UKS's evidence for an attribute: the inheritable links from the source up to the Thought
+// that stores it, then the stored link (for a proven rule, the rule itself).
 object attributeSnapshot(UKS.Thought source, UKS.Link result,
     HashSet<UKS.Link>? displayed = null, bool conditionalRule = false)
 {
-    var origin = result.InheritedFromCategory ?? source;
-    var paths = new Dictionary<UKS.Thought, List<UKS.Link>>(ReferenceEqualityComparer.Instance) { [source] = new() };
-    var pending = new Queue<UKS.Thought>(); pending.Enqueue(source);
-    while (pending.TryDequeue(out var current) && !paths.ContainsKey(origin))
-    {
-        if (paths[current].Count >= result.InheritanceDepth) continue;
-        foreach (var edge in current.LinksTo)
-        {
-            if (edge.To is null || edge.LinkType?.HasProperty("inheritable") != true || paths.ContainsKey(edge.To)) continue;
-            paths[edge.To] = new List<UKS.Link>(paths[current]) { edge };
-            pending.Enqueue(edge.To);
-        }
-    }
-    var stored = conditionalRule ? result :
-        origin.LinksTo.FirstOrDefault(edge => edge.LinkType == result.LinkType && edge.To == result.To);
-    string? conditionalStatus = conditionalRule ? "Indeterminate" : null;
-    if (displayed is not null)
-    {
-        // The UKS returns a proven possibility with its ordinary type. Use the
-        // copied clauses to find the stored rule even if an assertion also exists.
-        var clauses = result.LinksTo.Where(clause => UKS.UKS.IsConditionalLinkType(clause.LinkType)).ToArray();
-        if (!conditionalRule && clauses.Length > 0 && result.LinkType is { } type)
-        {
-            conditionalStatus = "True";
-            stored = origin.LinksTo.FirstOrDefault(edge => edge.To == result.To &&
-                edge.LinkType?.HasAncestor(type) == true &&
-                clauses.All(clause => edge.LinksTo.Any(original => original.LinkType == clause.LinkType &&
-                    ReferenceEquals(original.To, clause.To))));
-        }
-        if (stored is not null) displayed.Add(stored);
-    }
-    var evidence = stored is not null && paths.TryGetValue(origin, out var route)
-        ? route.Append(stored).ToArray() : Array.Empty<UKS.Link>();
+    var evidence = conditionalRule ? new List<UKS.Link> { result } : source.Store.GetEvidence(result);
+    var stored = evidence.LastOrDefault();
+    var inheritedFrom = evidence.Count > 1 ? stored!.From : null;
+    string? conditionalStatus = conditionalRule ? "Indeterminate"
+        : displayed is not null && result.LinksTo.Any(clause => isConditionalType(clause.LinkType)) ? "True" : null;
+    if (displayed is not null && stored is not null) displayed.Add(stored);
     return new
     {
         source = source.Label, relationshipType = result.LinkType?.Label, target = result.To?.Label,
-        inheritedFrom = result.InheritedFromCategory?.Label, depth = result.InheritanceDepth, weight = result.Weight,
+        inheritedFrom = inheritedFrom?.Label, depth = evidence.Count > 0 ? evidence.Count - 1 : 0, weight = result.Weight,
         conditionalRule, conditionalStatus,
         details = displayed is not null && stored is not null
             ? attributeDetails(stored, new HashSet<UKS.Link>(ReferenceEqualityComparer.Instance))
@@ -796,7 +771,7 @@ app.MapGet("/api/attributes", (string? label, string? explainTarget, string? exp
             var clauses = thought.LinksTo.Where(link => target is not null && type is not null &&
                     link.To == target && link.LinkType?.HasAncestor(type) == true)
                 .SelectMany(link => link.LinksTo)
-                .Where(link => UKS.UKS.IsConditionalLinkType(link.LinkType)).ToArray();
+                .Where(link => isConditionalType(link.LinkType)).ToArray();
             var leaves = new HashSet<UKS.Link>(ReferenceEqualityComparer.Instance);
             var visited = new HashSet<UKS.Link>(ReferenceEqualityComparer.Instance);
             var pending = new Queue<UKS.Link>(clauses.Select(link => link.To).OfType<UKS.Link>());
@@ -814,7 +789,7 @@ app.MapGet("/api/attributes", (string? label, string? explainTarget, string? exp
             {
                 holds = target is not null && type is not null && evaluated.Any(link => link.To == target && link.LinkType == type),
                 asserted = target is not null && type is not null && thought.LinksTo.Any(link =>
-                    link.To == target && link.LinkType == type && !link.LinksTo.Any(clause => UKS.UKS.IsConditionalLinkType(clause.LinkType))),
+                    link.To == target && link.LinkType == type && !link.LinksTo.Any(clause => isConditionalType(clause.LinkType))),
                 hasRule = clauses.Length > 0,
                 conditions = leaves.Select(premise => new
                 {
@@ -835,14 +810,14 @@ app.MapGet("/api/attributes", (string? label, string? explainTarget, string? exp
             var winners = evaluated.Where(link => link.To?.HasAncestor(group) == true).ToArray();
             suppressed = thought.LinksTo.Where(link =>
                     link.To?.HasAncestor(group) == true && link.LinkType is not null &&
-                    !link.LinksTo.Any(clause => UKS.UKS.IsConditionalLinkType(clause.LinkType)) &&
+                    !link.LinksTo.Any(clause => isConditionalType(clause.LinkType)) &&
                     winners.Any(winner => winner.LinkType == link.LinkType) &&
                     !winners.Any(winner => winner.LinkType == link.LinkType && winner.To == link.To))
                 .Select(link => attributeSnapshot(thought, link, displayed)).ToArray();
         }
         // Keep the rule and its premises visible even when it yields no current attribute.
         var rules = thought.LinksTo.Where(link => !displayed.Contains(link) && link.LinkType is not null &&
-                link.To is not null && link.LinksTo.Any(clause => UKS.UKS.IsConditionalLinkType(clause.LinkType)))
+                link.To is not null && link.LinksTo.Any(clause => isConditionalType(clause.LinkType)))
             .Select(link => attributeSnapshot(thought, link, displayed, conditionalRule: true)).ToArray();
         return Results.Ok(new { label = thought.Label, id = graphId(thought), explanation, suppressed, attributes, rules });
     }

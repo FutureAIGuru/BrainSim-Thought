@@ -193,22 +193,27 @@ public static partial class Exports
 
     static string NavLabel(Thought t) => t is null || t is Link || string.IsNullOrEmpty(t.Label) ? null : t.Label;
 
-    static LinkDto ToDto(Link l) => new()
+    static LinkDto ToDto(Link l)
     {
-        Label = l.Label ?? "",
-        From = Format(l.From),
-        LinkType = Format(l.LinkType),
-        To = l.To == null ? "" : Format(l.To),
-        FromLabel = NavLabel(l.From),
-        LinkTypeLabel = NavLabel(l.LinkType),
-        ToLabel = NavLabel(l.To),
-        Weight = l.Weight,
-        InheritanceDepth = l.InheritanceDepth,
-        InheritedFrom = l.InheritedFromCategory?.Label,
-        IsConditional = UKS.UKS.IsConditionalLinkType(l.LinkType),
-        Text = Format(l),
-        TimeToLive = l.TimeToLive == Thought.Forever ? null : (double)l.TimeToLive / UKS.UKS.CyclesPerSecond,
-    };
+        // Where an attribute was found: its evidence is the is-a chain, then the stored link.
+        List<Link> evidence = l.Store.GetEvidence(l);
+        return new()
+        {
+            Label = l.Label ?? "",
+            From = Format(l.From),
+            LinkType = Format(l.LinkType),
+            To = l.To == null ? "" : Format(l.To),
+            FromLabel = NavLabel(l.From),
+            LinkTypeLabel = NavLabel(l.LinkType),
+            ToLabel = NavLabel(l.To),
+            Weight = l.Weight,
+            InheritanceDepth = evidence.Count > 0 ? evidence.Count - 1 : 0,
+            InheritedFrom = evidence.Count > 1 ? evidence[^1].From?.Label : null,
+            IsConditional = l.LinkType?.HasProperty("isConditional") == true,
+            Text = Format(l),
+            TimeToLive = l.TimeToLive == Thought.Forever ? null : (double)l.TimeToLive / UKS.UKS.CyclesPerSecond,
+        };
+    }
 
     // Same rules as the desktop ModuleUKSStatement
     static string[] Singular(string[] s)
@@ -604,13 +609,12 @@ public static partial class Exports
         if (target != "") match = links.FirstOrDefault(l => l.To?.Label == target);
         if (match == null && linkType != "")
             match = links.FirstOrDefault(l => string.Equals(l.LinkType?.Label, linkType, StringComparison.OrdinalIgnoreCase));
-        match ??= links.FirstOrDefault(l => l.InheritanceDepth > 0);
+        // An inherited attribute's evidence starts with the is-a chain, so it has more than one link.
+        match ??= links.FirstOrDefault(l => uks.GetEvidence(l).Count > 1);
         if (match == null) return Ok("Why? — no explainable inherited link");
 
-        List<Thought> trace = new() { source };
-        if (match.InheritedFromCategory != null) trace.Add(match.InheritedFromCategory);
-        if (match.To != null) trace.Add(match.To);
-        return Ok("Why? " + string.Join(" → ", trace.Select(Format)));
+        List<Link> evidence = uks.GetEvidence(match);
+        return Ok("Why? " + (evidence.Count == 0 ? "the query computed it" : string.Join(", ", evidence.Select(Format))));
     });
 
     static string Explain(List<Link> links, bool verified)
@@ -629,7 +633,7 @@ public static partial class Exports
         if (string.Equals(l.LinkType?.Label, "AND", StringComparison.OrdinalIgnoreCase) && l.From is Link a && l.To is Link b)
             return $"{Clause(a)} and {Clause(b)}";
         string predicate = l.LinkType?.Label ?? "?";
-        if (UKS.UKS.IsConditionalLinkType(l.LinkType))
+        if (l.LinkType?.HasProperty("isPossible") == true)
             predicate = string.Join(" ", predicate.Split('.').Where(p => p != "?"));
         if (predicate.Equals("is-a", StringComparison.OrdinalIgnoreCase)) predicate = "is a";
         return $"{Format(l.From)} {predicate} {Format(l.To)}";
