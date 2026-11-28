@@ -56,6 +56,28 @@ public class UKSSequenceTests
         Assert.Contains(wildcardSequenceMatches, match => ReferenceEquals(match.seqNode, stored));
     }
 
+    [Fact]
+    public void DeletingOneOfAnElementsValuesKeepsTheOthers()
+    {
+        var uks = CreateUKS();
+        Thought word = uks.GetOrAddThought("dog", "Abstract");
+        Thought other = uks.GetOrAddThought("barks", "Abstract");
+        Thought patterns = uks.GetOrAddThought("pattern", "Abstract");
+        Thought template = uks.GetOrAddThought("someTemplate", patterns);
+        SeqElement first = uks.CreateFirstElement("sentence", word);
+        uks.InsertAfter(first, other);
+        first.AddLink("VLU", template);   // a second value, not marked as metadata
+
+        template.Delete();
+
+        Assert.Same(word, uks.GetElementValue(first));
+        Assert.Equal(new[] { word, other }, uks.FlattenSequence(first));
+
+        word.Delete();
+
+        Assert.Equal(new[] { "--", "barks" }, uks.FlattenSequence(first).Select(value => value.Label));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

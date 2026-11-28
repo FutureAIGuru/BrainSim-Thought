@@ -81,7 +81,10 @@ Settled:
   never an error, never silently reduced to one. Writing: `SetElementValue(element, value,
   valueClass)` replaces the value of that class; `AddElementValue` adds another. Search matches an
   element if any of its values of the class matches. Deleting a value removes only that value
-  (an element left with none gets `--`). Two elements are the same if they hold the same set of values.
+  (an element left with none gets `--`; done 2026-11-28). Two elements are the same if they hold the
+  same set of values. `FlattenSequence` stays a single-valued programming convenience (a list at once
+  instead of walking NXT); the general way is to walk the elements and read each one's values, as a
+  neural sequence must.
 
 Open:
 - When the spelling helpers leave (`CharacterPrefix`, `GetCharacterLabel`, `GetOrAddCharacter`,

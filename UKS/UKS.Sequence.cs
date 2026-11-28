@@ -329,9 +329,13 @@ public partial class UKS
         foreach (SeqElement sequence in affectedSequences)
             oldCacheKeys[sequence] = FlattenSequence(sequence);
 
+        // Only the deleted value's own link goes; the element's other values stay. An element left
+        // without a value gets "--", so the sequence keeps its length.
         foreach (SeqElement element in affectedElements)
-            if (value.HasProperty("isSequenceMetadata")) element.RemoveLink(Labeled("VLU")!, value);
-            else element.VLU = unknownSequenceValue;
+        {
+            element.RemoveLink(Labeled("VLU")!, value);
+            if (GetElementValue(element) is null) element.AddLink("VLU", unknownSequenceValue);
+        }
 
         foreach ((SeqElement sequence, IReadOnlyList<Thought> oldCacheKey) in oldCacheKeys)
         {
